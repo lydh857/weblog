@@ -28,7 +28,7 @@ public final class CommonConstant {
     public static final long MAX_PAGE_SIZE = 100;
 
     // ========== 批量操作 ==========
-    public static final int MAX_BATCH_SIZE = 200;
+    public static final int MAX_BATCH_SIZE = 50;
 
     // ========== 文件上传 ==========
     public static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB

@@ -16,7 +16,7 @@ public class FileTypeUtil {
 
     // 允许的图片类型
     public static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
-            "jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"
+            "jpg", "jpeg", "png", "gif", "webp", "bmp"
     );
 
     // 允许的文档类型
@@ -122,7 +122,6 @@ public class FileTypeUtil {
             case "png" -> "image/png";
             case "gif" -> "image/gif";
             case "webp" -> "image/webp";
-            case "svg" -> "image/svg+xml";
             case "bmp" -> "image/bmp";
             case "pdf" -> "application/pdf";
             case "doc" -> "application/msword";

@@ -46,6 +46,9 @@ public class GitHubOAuthService {
     @Value("${github.oauth.client-secret:}")
     private String clientSecret;
 
+    @Value("${github.oauth.allowed-callbacks:}")
+    private String allowedCallbacks;
+
     private static final String GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
     private static final String GITHUB_USER_URL = "https://api.github.com/user";
     private static final String GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
@@ -248,6 +251,24 @@ public class GitHubOAuthService {
             if (uri.getHost() == null || uri.getHost().isBlank()) {
                 throw new IllegalArgumentException("invalid host");
             }
+
+            // 域名白名单验证
+            if (allowedCallbacks != null && !allowedCallbacks.isBlank()) {
+                String host = uri.getHost().toLowerCase();
+                boolean allowed = false;
+                for (String domain : allowedCallbacks.split(",")) {
+                    String d = domain.trim().toLowerCase();
+                    if (d.equals(host) || host.endsWith("." + d)) {
+                        allowed = true;
+                        break;
+                    }
+                }
+                if (!allowed) {
+                    throw new IllegalArgumentException("callback domain not allowed");
+                }
+            }
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的 OAuth 回调地址");
         } catch (Exception ex) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的 OAuth 回调地址");
         }

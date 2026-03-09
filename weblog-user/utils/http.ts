@@ -128,11 +128,25 @@ const AVATAR_COOKIE = 'weblog_avatar'
 const NICKNAME_COOKIE = 'weblog_nickname'
 
 function setCookie(name: string, value: string, maxAge = 60 * 60 * 24 * 30) {
-  document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${maxAge};SameSite=Lax`
+  const isProd = process.env.NODE_ENV === 'production'
+  const options = [
+    `path=/`,
+    `max-age=${maxAge}`,
+    isProd ? 'SameSite=Strict' : 'SameSite=Lax',
+    isProd ? 'Secure' : ''
+  ].filter(Boolean).join('; ')
+  document.cookie = `${name}=${encodeURIComponent(value)}; ${options}`
 }
 
 function removeCookie(name: string) {
-  document.cookie = `${name}=;path=/;max-age=0`
+  const isProd = process.env.NODE_ENV === 'production'
+  const options = [
+    `path=/`,
+    `max-age=0`,
+    isProd ? 'SameSite=Strict' : 'SameSite=Lax',
+    isProd ? 'Secure' : ''
+  ].filter(Boolean).join('; ')
+  document.cookie = `${name}=; ${options}`
 }
 
 export function setToken(_token: string) {

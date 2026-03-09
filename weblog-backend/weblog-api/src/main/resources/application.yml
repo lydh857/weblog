@@ -130,7 +130,7 @@ blog:
     # 最大请求大小（MB）
     max-request-size: 10
     # 允许的图片类型
-    allowed-image-types: jpg,jpeg,png,gif,webp,svg,bmp
+    allowed-image-types: jpg,jpeg,png,gif,webp,bmp
 
 # 滑块验证码配置
 captcha:

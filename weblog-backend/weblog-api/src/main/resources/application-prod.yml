@@ -76,7 +76,14 @@ management:
     health:
       show-details: when-authorized
 
-# 生产环境 CORS
+# GitHub OAuth 配置
+github:
+  oauth:
+    client-id: ${GITHUB_CLIENT_ID}
+    client-secret: ${GITHUB_CLIENT_SECRET}
+    allowed-callbacks: ${OAUTH_ALLOWED_CALLBACKS:}
+
+# 生产环境业务配置
 blog:
   async:
     core-pool-size: 2
@@ -85,3 +92,6 @@ blog:
     keep-alive-seconds: 60
   cors:
     allowed-origins: ${CORS_ORIGINS:https://yourdomain.com}
+  security:
+    hsts-enabled: true
+    referer-enabled: true
