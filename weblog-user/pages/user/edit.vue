@@ -499,6 +499,7 @@ async function confirmCrop() {
       saving.value = true
       const res = await userApi.uploadAvatar(cropFile)
       form.avatar = res.data
+      userStore.updateUserInfo({ avatar: res.data })
       avatarPreview.value = null
       message.success('头像上传成功')
     } catch (e: any) {
@@ -511,6 +512,7 @@ async function handleSave() {
   saving.value = true
   try {
     await userApi.updateProfile({ nickname: form.nickname || undefined, bio: form.bio || undefined })
+    userStore.updateUserInfo({ nickname: form.nickname || '' })
     message.success('保存成功')
   } catch (e: any) {
     message.error(e.message || '保存失败')
