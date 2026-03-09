@@ -1,0 +1,475 @@
+<script setup lang="ts">
+import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/captcha'
+
+const props = withDefaults(defineProps<{
+  visible: boolean
+  imgWidth?: number
+  imgHeight?: number
+}>(), {
+  imgWidth: 320,
+  imgHeight: 200,
+})
+
+const emit = defineEmits<{
+  'update:visible': [value: boolean]
+  'success': [verifyToken: string]
+}>()
+
+// 状态
+const loading = ref(false)
+const verifying = ref(false)
+const captchaData = ref<CaptchaGenerateResult | null>(null)
+const sliderLeft = ref(0)
+const isDragging = ref(false)
+const status = ref<'idle' | 'success' | 'fail'>('idle')
+const resultMessage = ref('')
+const isRefreshing = ref(false)
+
+// 叠化效果：双缓冲图片
+const bgImages = reactive<Array<{ src: string; active: boolean }>>([
+  { src: '', active: true },
+  { src: '', active: false },
+])
+const puzzleImages = reactive<Array<{ src: string; y: number; left: number; active: boolean }>>([
+  { src: '', y: 0, left: 0, active: true },
+  { src: '', y: 0, left: 0, active: false },
+])
+let currentBgIndex = 0
+let currentPuzzleIndex = 0
+
+function updateBgImage(src: string) {
+  const next = (currentBgIndex + 1) % 2
+  bgImages[next]!.src = src
+  bgImages[currentBgIndex]!.active = false
+  bgImages[next]!.active = true
+  currentBgIndex = next
+}
+
+function updatePuzzleImage(src: string, y: number) {
+  const next = (currentPuzzleIndex + 1) % 2
+  // 冻结旧拼图块的当前位置（用于淡出时保持原位）
+  puzzleImages[currentPuzzleIndex]!.left = sliderLeft.value
+  // 新拼图块从位置 0 开始
+  puzzleImages[next]!.src = src
+  puzzleImages[next]!.y = y
+  puzzleImages[next]!.left = 0
+  puzzleImages[currentPuzzleIndex]!.active = false
+  puzzleImages[next]!.active = true
+  currentPuzzleIndex = next
+}
+
+// 轨迹记录
+const trackPoints: TrackPoint[] = []
+let startX = 0
+let thumbRectTop = 0
+const MAX_TRACK_POINTS = 200
+
+// 计算最大滑动距离
+const maxSlide = computed(() => props.imgWidth - (captchaData.value?.puzzleWidth ?? 60))
+
+// 加载验证码（初次打开，无过渡）
+async function loadCaptcha() {
+  loading.value = true
+  status.value = 'idle'
+  resultMessage.value = ''
+  sliderLeft.value = 0
+  trackPoints.length = 0
+  // 重置双缓冲，清除旧图片，避免重新打开时看到切换过程
+  bgImages[0]!.src = ''
+  bgImages[0]!.active = true
+  bgImages[1]!.src = ''
+  bgImages[1]!.active = false
+  puzzleImages[0]!.src = ''
+  puzzleImages[0]!.y = 0
+  puzzleImages[0]!.left = 0
+  puzzleImages[0]!.active = true
+  puzzleImages[1]!.src = ''
+  puzzleImages[1]!.y = 0
+  puzzleImages[1]!.left = 0
+  puzzleImages[1]!.active = false
+  currentBgIndex = 0
+  currentPuzzleIndex = 0
+  try {
+    const res = await captchaApi.generate()
+    captchaData.value = res.data
+    // 直接设置，无叠化
+    bgImages[0]!.src = res.data.backgroundImage
+    puzzleImages[0]!.src = res.data.puzzleImage
+    puzzleImages[0]!.y = res.data.puzzleY
+  } catch {
+    captchaData.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+// 刷新（叠化过渡）
+async function refresh() {
+  if (loading.value || isRefreshing.value) return
+  isRefreshing.value = true
+  // 重置状态（但不重置 sliderLeft，updatePuzzleImage 会先冻结旧位置）
+  status.value = 'idle'
+  resultMessage.value = ''
+  trackPoints.length = 0
+  try {
+    const oldToken = captchaData.value?.captchaToken
+    const res = oldToken
+      ? await captchaApi.refresh(oldToken)
+      : await captchaApi.generate()
+    captchaData.value = res.data
+    updateBgImage(res.data.backgroundImage)
+    updatePuzzleImage(res.data.puzzleImage, res.data.puzzleY)
+    // 新拼图已设置 left=0，现在重置滑块
+    sliderLeft.value = 0
+  } catch {
+    captchaData.value = null
+    sliderLeft.value = 0
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+// 拖动逻辑
+function onPointerDown(e: PointerEvent) {
+  if (loading.value || verifying.value || status.value !== 'idle') return
+  isDragging.value = true
+  startX = e.clientX
+  thumbRectTop = (e.target as HTMLElement).getBoundingClientRect().top
+  trackPoints.length = 0
+  trackPoints.push({ x: 0, y: 0, timestamp: Date.now() })
+  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!isDragging.value) return
+  const dx = e.clientX - startX
+  const clamped = Math.max(0, Math.min(dx, maxSlide.value))
+  sliderLeft.value = clamped
+  // 采样：跳过与上一个点时间间隔 < 8ms 的点，减少数据量
+  const now = Date.now()
+  const last = trackPoints[trackPoints.length - 1]
+  if (!last || now - last.timestamp >= 8) {
+    if (trackPoints.length < MAX_TRACK_POINTS) {
+      trackPoints.push({ x: clamped, y: e.clientY - thumbRectTop, timestamp: now })
+    }
+  }
+}
+
+async function onPointerUp() {
+  if (!isDragging.value) return
+  isDragging.value = false
+  if (!captchaData.value || sliderLeft.value < 5) return
+
+  verifying.value = true
+  try {
+    const res = await captchaApi.verify({
+      captchaToken: captchaData.value.captchaToken,
+      sliderPosition: Math.round(sliderLeft.value),
+      slideTrack: trackPoints,
+    })
+    if (res.data.success && res.data.verifyToken) {
+      status.value = 'success'
+      resultMessage.value = '验证通过'
+      setTimeout(() => {
+        emit('success', res.data.verifyToken!)
+      }, 800)
+    } else {
+      status.value = 'fail'
+      resultMessage.value = res.data.message || '验证失败，请重试'
+      // 显示失败状态 1s 后，用叠化过渡刷新图片（和手动刷新相同效果）
+      setTimeout(() => refresh(), 1000)
+    }
+  } catch {
+    status.value = 'fail'
+    resultMessage.value = '验证失败，请重试'
+    setTimeout(() => refresh(), 1000)
+  } finally {
+    verifying.value = false
+  }
+}
+
+function close() {
+  emit('update:visible', false)
+  // 重置状态，下次打开时干净
+  status.value = 'idle'
+  resultMessage.value = ''
+  sliderLeft.value = 0
+}
+
+// 显示时自动加载
+watch(() => props.visible, (val) => {
+  if (val) loadCaptcha()
+})
+</script>
+
+<template>
+  <Teleport to="body">
+    <Transition name="captcha-fade">
+      <div v-if="visible" class="captcha-overlay" @click.self="close">
+        <div class="captcha-modal">
+          <!-- 标题栏 -->
+          <div class="captcha-header">
+            <span>安全验证</span>
+            <button class="captcha-close-btn" title="关闭" @click="close">
+              <Icon name="heroicons:x-mark-20-solid" size="18" />
+            </button>
+          </div>
+
+          <!-- 图片区域 -->
+          <div class="captcha-image-area" :style="{ width: imgWidth + 'px', height: imgHeight + 'px' }">
+            <!-- 叠化背景图 -->
+            <div class="crossfade-container">
+              <div
+                v-for="(img, index) in bgImages"
+                :key="index"
+                class="captcha-bg-layer"
+                :class="{ active: img.active }"
+                :style="{ backgroundImage: img.src ? `url(${img.src})` : 'none' }"
+              />
+            </div>
+
+            <!-- 叠化拼图块 -->
+            <div class="crossfade-container puzzle-layer">
+              <div
+                v-for="(img, index) in puzzleImages"
+                :key="index"
+                class="captcha-puzzle-piece"
+                :class="{ active: img.active, success: status === 'success' && img.active, fail: status === 'fail' && img.active }"
+                :style="{
+                  backgroundImage: img.src ? `url(${img.src})` : 'none',
+                  left: (img.active ? sliderLeft : img.left) + 'px',
+                  top: img.y + 'px',
+                  width: (captchaData?.puzzleWidth ?? 60) + 'px',
+                  height: (captchaData?.puzzleHeight ?? 60) + 'px',
+                }"
+              />
+            </div>
+
+            <!-- 加载状态 -->
+            <div v-if="loading" class="captcha-loading">
+              <div class="captcha-spinner" />
+            </div>
+
+            <!-- 刷新按钮 -->
+            <button
+              v-if="!loading && !isRefreshing && status === 'idle'"
+              class="captcha-refresh-btn"
+              title="刷新"
+              @click="refresh"
+            >
+              <Icon name="heroicons:arrow-path-20-solid" size="16" />
+            </button>
+            <div v-if="isRefreshing" class="captcha-refresh-btn refreshing">
+              <Icon name="heroicons:arrow-path-20-solid" size="16" />
+            </div>
+
+            <!-- 成功图标 -->
+            <Transition name="captcha-result-fade">
+              <div v-if="status === 'success'" class="captcha-success-icon">
+                <Icon name="heroicons:check-circle-20-solid" size="40" />
+              </div>
+            </Transition>
+
+            <!-- 底部结果提示条 -->
+            <Transition name="captcha-result-slide">
+              <div v-if="status === 'success' || status === 'fail'" class="captcha-result-bar" :class="status">
+                {{ resultMessage }}
+              </div>
+            </Transition>
+          </div>
+
+          <!-- 滑动轨道 -->
+          <div class="captcha-slider-track" :style="{ width: imgWidth + 'px' }">
+            <div class="captcha-slider-progress" :style="{ width: sliderLeft + 'px' }" :class="status" />
+            <div
+              class="captcha-slider-thumb"
+              :style="{ left: sliderLeft + 'px' }"
+              :class="{ dragging: isDragging, success: status === 'success', fail: status === 'fail' }"
+              @pointerdown.prevent="onPointerDown"
+              @pointermove="onPointerMove"
+              @pointerup="onPointerUp"
+              @pointercancel="onPointerUp"
+            >
+              <Icon v-if="status === 'success'" name="heroicons:check-20-solid" size="18" />
+              <Icon v-else-if="status === 'fail'" name="heroicons:x-mark-20-solid" size="18" />
+              <Icon v-else name="heroicons:arrows-right-left-20-solid" size="18" />
+            </div>
+            <span v-if="sliderLeft === 0 && status === 'idle'" class="captcha-slider-hint">向右拖动滑块完成拼图</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
+
+<style scoped lang="scss">
+.captcha-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.captcha-modal {
+  background: #fff; border-radius: 8px; overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  user-select: none; touch-action: none;
+  :global(html.dark) & { background: #1e293b; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); }
+}
+
+.captcha-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 15px;
+  background: linear-gradient(135deg, #4e80ee 0%, #6a9bff 100%);
+  color: #fff; font-size: 0.95rem; font-weight: 500;
+}
+
+.captcha-close-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
+  background: none; border: none; color: #fff; cursor: pointer;
+  opacity: 0.8; transition: all 0.2s;
+  &:hover { opacity: 1; background: rgba(255, 255, 255, 0.15); }
+}
+
+.captcha-image-area {
+  position: relative; overflow: hidden; margin: 15px;
+  border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: #f1f5f9;
+  :global(html.dark) & { background: #0f172a; }
+}
+
+// 叠化容器
+.crossfade-container {
+  position: absolute; inset: 0;
+  &.puzzle-layer { z-index: 3; pointer-events: none; }
+}
+
+.captcha-bg-layer {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  opacity: 0; transition: opacity 0.4s ease;
+  &.active { opacity: 1; }
+}
+
+.captcha-puzzle-piece {
+  position: absolute;
+  background-size: contain; background-position: 0 0; background-repeat: no-repeat;
+  opacity: 0; transition: opacity 0.4s ease, filter 0.3s;
+  &.active { opacity: 1; }
+  &.success {
+    filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.9)) drop-shadow(0 0 12px rgba(34, 197, 94, 0.6));
+  }
+  &.fail {
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9)) drop-shadow(0 0 12px rgba(239, 68, 68, 0.6));
+    animation: captcha-shake-piece 0.5s ease-in-out;
+  }
+}
+
+// 加载
+.captcha-loading {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.7); z-index: 20;
+  :global(html.dark) & { background: rgba(15, 23, 42, 0.7); }
+}
+
+.captcha-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(0, 0, 0, 0.1); border-left-color: #4e80ee;
+  border-radius: 50%; animation: captcha-spin 1s linear infinite;
+  :global(html.dark) & { border-color: rgba(255, 255, 255, 0.1); border-left-color: #6a9bff; }
+}
+
+// 刷新按钮
+.captcha-refresh-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 10;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2); border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; cursor: pointer; transition: background-color 0.3s;
+  &:hover { background: rgba(0, 0, 0, 0.5); transform: rotate(30deg); transition: background-color 0.3s, transform 0.3s; }
+  &.refreshing { cursor: default; animation: captcha-spin 1s linear infinite; }
+}
+
+// 成功图标（中央放大动画）
+.captcha-success-icon {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: #22c55e; z-index: 11; animation: captcha-success-pop 0.5s ease;
+}
+
+// 底部结果提示条
+.captcha-result-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  padding: 5px 0; text-align: center;
+  font-size: 12px; font-weight: 600; color: #fff;
+  &.success { background: rgba(34, 197, 94, 0.9); }
+  &.fail { background: rgba(239, 68, 68, 0.9); }
+}
+
+// 滑动轨道
+.captcha-slider-track {
+  position: relative; height: 40px; margin: 0 15px 15px;
+  background: #f0f2f5; border-radius: 5px; overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  :global(html.dark) & { background: #0f172a; }
+}
+
+.captcha-slider-progress {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: rgba(78, 128, 238, 0.1); transition: background-color 0.3s;
+  &.success { background: rgba(34, 197, 94, 0.1); }
+  &.fail { background: rgba(239, 68, 68, 0.1); }
+}
+
+.captcha-slider-thumb {
+  position: absolute; top: 0;
+  width: 40px; height: 40px; border-radius: 5px;
+  background: #4e80ee; color: #fff; cursor: grab;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s;
+  z-index: 2;
+  &:hover { background: #40a9ff; }
+  &.dragging { cursor: grabbing; }
+  &.success { background: #22c55e; }
+  &.fail { background: #ef4444; }
+}
+
+.captcha-slider-hint {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; color: #999; pointer-events: none; z-index: 1;
+}
+
+// ===== 动画 =====
+@keyframes captcha-spin { to { transform: rotate(360deg); } }
+
+@keyframes captcha-shake-piece {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+@keyframes captcha-success-pop {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  70% { transform: translate(-50%, -50%) scale(1.2); }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+// 结果条从底部滑入
+.captcha-result-slide-enter-active { animation: captcha-slide-up 0.3s ease-out; }
+.captcha-result-slide-leave-active { transition: opacity 0.3s; }
+.captcha-result-slide-leave-to { opacity: 0; }
+
+@keyframes captcha-slide-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+// 成功图标淡入
+.captcha-result-fade-enter-active { transition: opacity 0.3s; }
+.captcha-result-fade-leave-active { transition: opacity 0.5s; }
+.captcha-result-fade-enter-from, .captcha-result-fade-leave-to { opacity: 0; }
+
+// 整体淡入淡出
+.captcha-fade-enter-active, .captcha-fade-leave-active { transition: opacity 0.25s ease; }
+.captcha-fade-enter-from, .captcha-fade-leave-to { opacity: 0; }
+</style>

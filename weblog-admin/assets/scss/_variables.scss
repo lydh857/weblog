@@ -1,0 +1,36 @@
+// ===== 主色（柔和蓝） =====
+$color-primary: #5b8def;
+$color-primary-hover: #4a7de0;
+
+// ===== 亮色模式（柔和暖调） =====
+$color-text-light: #2c3e50;
+$color-text-muted-light: #8492a6;
+$color-bg-light: #f5f7fa;
+$color-bg-secondary-light: #ffffff;
+$color-border-light: #e4e7ed;
+$color-aside-bg-light: #ffffff;
+$color-aside-text-light: #5a6d82;
+$color-header-bg-light: #ffffff;
+
+// ===== 暗色模式（柔和深色） =====
+$color-text-dark: #d3dce6;
+$color-text-muted-dark: #8492a6;
+$color-bg-dark: #161b22;
+$color-bg-secondary-dark: #1c2128;
+$color-border-dark: #30363d;
+$color-aside-bg-dark: #1c2128;
+$color-aside-text-dark: #8b949e;
+$color-header-bg-dark: #1c2128;
+
+// ===== 语义色（柔和） =====
+$color-success: #67c23a;
+$color-warning: #e6a23c;
+$color-danger: #f56c6c;
+$color-info: #909399;
+
+// ===== 字体 =====
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+// ===== 过渡 =====
+$transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fast: 0.15s ease;

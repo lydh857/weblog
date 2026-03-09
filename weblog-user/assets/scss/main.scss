@@ -1,0 +1,107 @@
+@use 'variables' as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: $font-family-base;
+  font-size: 16px;
+  line-height: 1.6;
+  color: $color-text;
+  background-color: $color-bg;
+  -webkit-font-smoothing: antialiased;
+  overflow-y: scroll;
+
+  @media (min-width: $breakpoint-md) {
+    font-size: 17px;
+  }
+  @media (min-width: $breakpoint-lg) {
+    font-size: 18px;
+  }
+
+  &.dark {
+    color: $color-dark-text;
+    background-color: $color-dark-bg;
+  }
+}
+
+a {
+  color: $color-primary;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 触摸优化：所有按钮和可点击元素最小 44×44px */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  .chip,
+  .page-btn,
+  .icon-btn,
+  .nav-link,
+  .mobile-link,
+  .filter-chip,
+  .category-card,
+  .tag-chip {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ===== 全局滚动条样式 ===== */
+
+/* Webkit 内核（Chrome / Safari / Edge） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* 暗黑模式滚动条 */
+.dark {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  }
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* 隐藏滚动条的工具类 */
+.scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}

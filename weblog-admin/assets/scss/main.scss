@@ -1,0 +1,94 @@
+@use 'variables' as *;
+@use 'common';
+
+// ===== Element Plus 主题色覆盖（柔和蓝） =====
+:root {
+  --el-color-primary: #{$color-primary};
+  --el-color-primary-light-3: #7ba4f2;
+  --el-color-primary-light-5: #9dbcf5;
+  --el-color-primary-light-7: #bdd3f8;
+  --el-color-primary-light-8: #d4e3fa;
+  --el-color-primary-light-9: #eaf1fd;
+  --el-color-primary-dark-2: #4a7de0;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+}
+
+html.dark {
+  --el-color-primary: #7ba4f2;
+  --el-color-primary-light-3: #5b8def;
+  --el-color-primary-light-5: #4a7de0;
+  --el-color-primary-light-7: #2d5ab8;
+  --el-color-primary-light-8: #1e3f7a;
+  --el-color-primary-light-9: #152a52;
+  --el-color-primary-dark-2: #9dbcf5;
+}
+
+// ===== 全局重置 =====
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+// ===== 暗黑模式切换过渡 =====
+html {
+  font-family: $font-family-base;
+  color: $color-text-light;
+  background-color: $color-bg-light;
+  // 暗黑模式切换时平滑过渡颜色
+  transition: color 0.3s ease, background-color 0.3s ease;
+
+  &.dark {
+    color: $color-text-dark;
+    background-color: $color-bg-dark;
+  }
+}
+
+// ===== 全局滚动条样式 =====
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+html.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+  &:hover { background: rgba(0, 0, 0, 0.2); }
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  &:hover { background: rgba(255, 255, 255, 0.2); }
+}
+
+// ===== 页面路由过渡动画 =====
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
