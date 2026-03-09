@@ -70,11 +70,8 @@ public class AccessControlController {
     }
 
     private String getFingerprint(HttpServletRequest request) {
-        // 优先使用客户端传来的指纹，否则服务端计算
-        String clientFp = request.getHeader("X-Device-Fingerprint");
-        if (clientFp != null && !clientFp.isEmpty()) {
-            return clientFp;
-        }
+        // 服务端计算设备指纹，不信任客户端提供的值
+        // 防止伪造指纹绕过阅读限制
         String ua = request.getHeader("User-Agent");
         String ip = IpUtil.getClientIp(request);
         return AccessControlService.generateFingerprint(ua, ip);
