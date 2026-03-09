@@ -49,6 +49,14 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = { userId: null, email: '', nickname: '', avatar: '', role: '' }
   }
 
+  function updateUserInfo(partial: Partial<UserInfo>) {
+    userInfo.value = {
+      ...userInfo.value,
+      ...partial,
+    }
+    syncUserCookie(userInfo.value.avatar || '', userInfo.value.nickname || '')
+  }
+
   /** 页面刷新后根据 token 恢复用户信息 */
   async function fetchUser() {
     if (!token.value) return
@@ -69,5 +77,5 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  return { userInfo, isLoggedIn, setUser, clearUser, fetchUser }
+  return { userInfo, isLoggedIn, setUser, clearUser, fetchUser, updateUserInfo }
 })

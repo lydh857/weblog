@@ -52,7 +52,7 @@
               <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="20" />
             </button>
             <button v-if="showLoggedIn" class="avatar-btn" @mouseenter="showUserMenu = true">
-              <img v-if="displayAvatar" :src="displayAvatar" alt="头像" class="user-avatar" />
+              <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
               <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
             </button>
             <button v-else class="login-btn" @click="openLogin">登录</button>
@@ -196,14 +196,26 @@ const showLoggedIn = computed(() => {
   return !!loggedInCookie.value
 })
 
+const avatarLoadFailed = ref(false)
+
 const displayAvatar = computed(() => {
-  if (authReady.value) return userStore.userInfo?.avatar || ''
-  return avatarCookie.value || ''
+  const raw = authReady.value ? (userStore.userInfo?.avatar || '') : ''
+  const value = typeof raw === 'string' ? raw.trim() : ''
+  if (!value || value === 'null' || value === 'undefined') return ''
+  return value
 })
 const displayNickname = computed(() => {
   if (authReady.value) return userStore.userInfo?.nickname || 'U'
   return nicknameCookie.value || 'U'
 })
+
+watch(displayAvatar, () => {
+  avatarLoadFailed.value = false
+})
+
+function onAvatarError() {
+  avatarLoadFailed.value = true
+}
 
 function goSearch() {
   searchModal.open()
@@ -216,11 +228,16 @@ function openLogin() {
 async function handleLogout() {
   const ok = await confirm({ title: '退出登录', message: '确定要退出登录吗？', type: 'warning', confirmText: '退出' })
   if (!ok) return
-  
+
+  try {
+    await authApi.logout()
+  } catch {}
+
   // 清除记住我相关数据，防止自动重新登录
+  localStorage.removeItem('weblog_user_remember')
   localStorage.removeItem('remember_credentials')
   localStorage.removeItem('remember_token')
-  
+
   userStore.clearUser()
   message.success('已退出登录')
   router.push('/')
