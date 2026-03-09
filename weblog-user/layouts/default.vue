@@ -51,13 +51,13 @@
             <button class="icon-btn" aria-label="切换主题" @click="toggleDark()">
               <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="20" />
             </button>
-            <button v-if="showLoggedIn" class="avatar-btn" @click="showUserMenu = !showUserMenu">
+            <button v-if="showLoggedIn" class="avatar-btn" @mouseenter="showUserMenu = true">
               <img v-if="displayAvatar" :src="displayAvatar" alt="头像" class="user-avatar" />
               <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
             </button>
             <button v-else class="login-btn" @click="openLogin">登录</button>
             <!-- 用户菜单 -->
-            <div v-if="showUserMenu" class="user-menu" @click="showUserMenu = false">
+            <div v-if="showUserMenu" class="user-menu" @mouseleave="showUserMenu = false" @click="showUserMenu = false">
               <NuxtLink to="/user" class="menu-item">
                 <Icon name="heroicons:user-circle-16-solid" size="16" /> 个人中心
               </NuxtLink>
