@@ -6,13 +6,14 @@
 .kiro/
 .claude/
 .history/
-
+.codebuddy/
 # Docker 数据卷（包含数据库数据，不提交）
 docker-data/
 database/
 # 文档文件夹（如果是临时文档）
 docs/
 *.txt
+*.md
 AGENTS.md
 CLAUDE.md
 # Docker Compose 配置（可能包含敏感信息）

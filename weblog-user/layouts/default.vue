@@ -216,6 +216,11 @@ function openLogin() {
 async function handleLogout() {
   const ok = await confirm({ title: '退出登录', message: '确定要退出登录吗？', type: 'warning', confirmText: '退出' })
   if (!ok) return
+  
+  // 清除记住我相关数据，防止自动重新登录
+  localStorage.removeItem('remember_credentials')
+  localStorage.removeItem('remember_token')
+  
   userStore.clearUser()
   message.success('已退出登录')
   router.push('/')
