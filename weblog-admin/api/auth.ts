@@ -1,5 +1,4 @@
 import { http } from '~/utils/http'
-import { encryptPassword } from '~/utils/crypto'
 
 export interface LoginParams {
   email: string

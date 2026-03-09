@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
-import com.blog.common.util.CryptoUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.common.util.ValidateUtil;
 import com.blog.system.dto.LoginRequest;
@@ -31,7 +30,6 @@ public class AuthService {
     private final UserMapper userMapper;
     private final EmailCodeService emailCodeService;
     private final EmailService emailService;
-    private final CryptoUtil cryptoUtil;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
 

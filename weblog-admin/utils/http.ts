@@ -4,6 +4,7 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
 // ============================================================
 // 安全说明：
 // CSRF 采用 HttpOnly + SameSite Cookie，前端不读取 token
+// Cookie 会随请求自动发送，后端从 Cookie 中验证
 // ============================================================
 
 // 防止刷新死循环
@@ -28,18 +29,6 @@ function getBaseURL(): string {
   }
 }
 
-function getCsrfToken(): string | null {
-  if (typeof document === 'undefined') return null
-  return localStorage.getItem('X-CSRF-TOKEN')
-}
-
-function updateCsrfToken(response: AxiosResponse) {
-  const newToken = response.headers['x-csrf-token']
-  if (newToken) {
-    localStorage.setItem('X-CSRF-TOKEN', newToken)
-  }
-}
-
 function createHttp(): AxiosInstance {
   const instance = axios.create({
     timeout: 10000,
@@ -53,15 +42,6 @@ function createHttp(): AxiosInstance {
       reqConfig.baseURL = getBaseURL()
     }
 
-    // 状态变更请求携带 CSRF Header（Double Submit Cookie）
-    const method = reqConfig.method?.toUpperCase()
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'PATCH') {
-      const csrfToken = getCsrfToken()
-      if (csrfToken) {
-        reqConfig.headers['X-CSRF-TOKEN'] = csrfToken
-      }
-    }
-
     // X-Requested-With 标识 AJAX 请求
     if (import.meta.client) {
       reqConfig.headers['X-Requested-With'] = 'XMLHttpRequest'
@@ -73,7 +53,6 @@ function createHttp(): AxiosInstance {
   // 响应拦截器
   instance.interceptors.response.use(
     (response) => {
-      updateCsrfToken(response)
       const data = response.data
       if (data.code !== 200) {
         if (data.code === 401 && import.meta.client) {

@@ -59,11 +59,6 @@ public class BlogApiApplication {
                             String value = line.substring(equalsIndex + 1).trim();
                             System.setProperty(key, value);
                             count++;
-                            
-                            // 特别输出 RSA 私钥加载信息
-                            if ("RSA_PRIVATE_KEY".equals(key)) {
-                                System.out.println("[.env] RSA_PRIVATE_KEY loaded, length: " + value.length());
-                            }
                         }
                     }
                     System.out.println("[.env] Successfully loaded " + count + " variables from: " + envFile.getAbsolutePath());

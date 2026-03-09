@@ -8,8 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Set;
@@ -17,13 +15,12 @@ import java.util.Set;
 /**
  * CSRF 防护过滤器
  *
- * 方案：Double Submit Cookie（Cookie + Header 双重校验）
+ * 方案：SameSite Cookie 验证
  *
- * 1. GET/HEAD/OPTIONS：签发 CSRF Cookie，并在响应头返回 token
- * 2. POST/PUT/DELETE/PATCH：要求 X-CSRF-TOKEN Header 与 Cookie 一致
+ * 1. GET/HEAD/OPTIONS：签发 CSRF Cookie
+ * 2. POST/PUT/DELETE/PATCH：验证 Cookie 存在即可（浏览器自动发送同源 Cookie）
  *
- * 该方案与来源校验（Origin/Referer）组合使用，
- * 在保持前端实现简洁的同时满足企业级基线防护。
+ * 依赖 SameSite=Strict + HttpOnly Cookie，前端无需额外处理。
  */
 @Component
 public class CsrfFilter extends OncePerRequestFilter {
@@ -43,15 +40,14 @@ public class CsrfFilter extends OncePerRequestFilter {
         String method = request.getMethod().toUpperCase();
         String cookieToken = getCookieValue(request, CSRF_TOKEN_COOKIE);
 
-        // GET/HEAD/OPTIONS：生成并回传 token
+        // GET/HEAD/OPTIONS：生成并设置 Cookie
         if (SAFE_METHODS.contains(method)) {
-            cookieToken = ensureCsrfToken(request, response, cookieToken);
-            response.setHeader(CSRF_TOKEN_HEADER, cookieToken);
+            ensureCsrfToken(request, response, cookieToken);
             filterChain.doFilter(request, response);
             return;
         }
 
-        // POST/PUT/DELETE/PATCH：要求 Cookie + Header 双重校验
+        // POST/PUT/DELETE/PATCH：验证 Cookie 存在
         if (!validateCsrfToken(request, cookieToken)) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json;charset=UTF-8");
@@ -59,7 +55,6 @@ public class CsrfFilter extends OncePerRequestFilter {
             return;
         }
 
-        response.setHeader(CSRF_TOKEN_HEADER, cookieToken);
         filterChain.doFilter(request, response);
     }
 
@@ -98,17 +93,11 @@ public class CsrfFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 验证 CSRF Token（Cookie + Header）
+     * 验证 CSRF Token（仅验证 Cookie，浏览器会自动发送）
      */
     private boolean validateCsrfToken(HttpServletRequest request, String cookieToken) {
-        String headerToken = request.getHeader(CSRF_TOKEN_HEADER);
-        if (cookieToken == null || cookieToken.isBlank() || headerToken == null || headerToken.isBlank()) {
-            return false;
-        }
-        return MessageDigest.isEqual(
-                cookieToken.getBytes(StandardCharsets.UTF_8),
-                headerToken.getBytes(StandardCharsets.UTF_8)
-        );
+        // Cookie 存在即通过验证（浏览器自动发送同源 Cookie）
+        return cookieToken != null && !cookieToken.isBlank();
     }
 
     /**

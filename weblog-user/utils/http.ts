@@ -4,9 +4,8 @@ import { useLoginModal } from '~/composables/useLoginModal'
 
 // ============================================================
 // 安全说明：
-// 1. CSRF Cookie：SameSite=Strict，浏览器自动在同站请求中发送
-// 2. 双重验证：前端从 Cookie 读取 token，添加到 Header
-// 3. 即使 XSS 攻击，攻击者也无法跨站利用 SameSite=Strict Cookie
+// CSRF 采用 HttpOnly + SameSite Cookie，前端不读取 token
+// Cookie 会随请求自动发送，后端从 Cookie 中验证
 // ============================================================
 
 // 防止刷新死循环
@@ -31,28 +30,6 @@ function getBaseURL(): string {
   }
 }
 
-/**
- * 获取 CSRF Token
- * 从 localStorage 中读取（更可靠，不受 Cookie 策略影响）
- */
-function getCsrfToken(): string | null {
-  if (typeof document === 'undefined') return null
-
-  const token = localStorage.getItem('X-CSRF-TOKEN')
-  return token
-}
-
-/**
- * 更新 CSRF Token
- * 从响应 Header 中获取新 token 并存储到 localStorage
- */
-function updateCsrfToken(response: AxiosResponse) {
-  const newToken = response.headers['x-csrf-token']
-  if (newToken) {
-    localStorage.setItem('X-CSRF-TOKEN', newToken)
-  }
-}
-
 function createHttp(): AxiosInstance {
   const instance = axios.create({
     timeout: 15000,
@@ -66,23 +43,13 @@ function createHttp(): AxiosInstance {
       reqConfig.baseURL = getBaseURL()
     }
 
-    // 双重验证：状态变更请求需要同时发送 Cookie 和 Header token
-    const method = reqConfig.method?.toUpperCase()
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'PATCH') {
-      const csrfToken = getCsrfToken()
-      if (csrfToken) {
-        reqConfig.headers['X-CSRF-TOKEN'] = csrfToken
-      }
-    }
-
     return reqConfig
   })
 
   // 响应拦截器
   instance.interceptors.response.use(
-    // 成功响应：更新 CSRF Token
+    // 成功响应
     (response: AxiosResponse) => {
-      updateCsrfToken(response)
 
       const data = response.data
       if (data.code !== 200) {

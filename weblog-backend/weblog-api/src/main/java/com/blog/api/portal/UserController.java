@@ -4,7 +4,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
-import com.blog.common.util.CryptoUtil;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.OssService;
 import com.blog.infra.security.audit.AuditLog;
@@ -33,7 +32,6 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final CryptoUtil cryptoUtil;
 
     @Autowired(required = false)
     private OssService ossService;

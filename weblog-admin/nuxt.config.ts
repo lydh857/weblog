@@ -50,8 +50,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: 'http://localhost:9091/api',
-      // RSA 公钥用于前端密码加密
-      rsaPublicKey: process.env.NUXT_PUBLIC_RSA_PUBLIC_KEY || '',
     },
   },
 

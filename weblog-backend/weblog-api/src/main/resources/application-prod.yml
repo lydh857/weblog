@@ -85,7 +85,3 @@ blog:
     keep-alive-seconds: 60
   cors:
     allowed-origins: ${CORS_ORIGINS:https://yourdomain.com}
-  # 密码加密配置 (RSA-PKCS1 + AES-GCM) - 生产环境必须配置
-  crypto:
-    rsa-private-key: ${RSA_PRIVATE_KEY:}
-    secret: ${CRYPTO_SECRET:}

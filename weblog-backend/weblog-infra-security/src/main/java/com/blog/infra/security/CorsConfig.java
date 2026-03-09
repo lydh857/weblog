@@ -37,10 +37,9 @@ public class CorsConfig {
                 "Authorization",
                 "Content-Type",
                 "X-Requested-With",
-                "X-Captcha-Token",
-                "X-CSRF-TOKEN"
+                "X-Captcha-Token"
         ));
-        config.setExposedHeaders(List.of("Authorization", "X-CSRF-TOKEN"));
+        config.setExposedHeaders(List.of("Authorization"));
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

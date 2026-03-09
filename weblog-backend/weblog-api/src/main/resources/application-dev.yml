@@ -50,7 +50,3 @@ blog:
     allowed-origins: http://localhost:3000,http://localhost:3001
   ai:
     enabled: false
-  # 密码加密配置 (RSA-PKCS1 + AES-GCM)
-  crypto:
-    rsa-private-key: ${RSA_PRIVATE_KEY:}
-    secret: ${CRYPTO_SECRET:}
