@@ -398,16 +398,20 @@ watch(() => loginModal.visible.value, async (v) => {
     }
     
     // 锁定 body 滚动，防止页面抖动
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
     document.body.style.overflow = 'hidden'
+    document.body.style.paddingRight = scrollbarWidth > 0 ? `${scrollbarWidth}px` : ''
   } else {
     // 恢复 body 滚动
     document.body.style.overflow = ''
+    document.body.style.paddingRight = ''
   }
 })
 
 // 组件卸载时恢复 body 滚动
 onUnmounted(() => {
   document.body.style.overflow = ''
+  document.body.style.paddingRight = ''
 })
 
 // ===== 倒计时管理 =====
