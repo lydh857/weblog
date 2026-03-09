@@ -147,6 +147,7 @@
 <script setup lang="ts">
 import { searchApi, type SearchHit } from '~/api/search'
 import { sanitizeHtml } from '~/utils/xss'
+import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
 
 // ===== Props / Emits =====
 interface Props {
@@ -312,26 +313,35 @@ function close() {
 }
 
 // ===== 监听显示状态 =====
+let locked = false
+
 watch(() => props.visible, (val) => {
   if (val) {
-    // 打开时加载历史、聚焦输入框、锁定 body 滚动
     loadHistory()
     nextTick(() => {
       searchInputRef.value?.focus()
     })
-    document.body.style.overflow = 'hidden'
+    if (!locked) {
+      lockScroll()
+      locked = true
+    }
   } else {
-    // 关闭时重置状态、恢复 body 滚动
     keyword.value = ''
     results.value = []
     activeIndex.value = -1
-    document.body.style.overflow = ''
+    if (locked) {
+      unlockScroll()
+      locked = false
+    }
   }
-})
+}, { immediate: true })
 
 // 组件卸载时确保恢复滚动
 onUnmounted(() => {
-  document.body.style.overflow = ''
+  if (locked) {
+    unlockScroll()
+    locked = false
+  }
 })
 </script>
 

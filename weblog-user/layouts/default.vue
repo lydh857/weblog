@@ -248,6 +248,8 @@ async function handleLogout() {
   top: 0;
   left: 0;
   right: 0;
+  box-sizing: border-box;
+  padding-right: var(--scrollbar-width, 0px);
   z-index: 100;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);

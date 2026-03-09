@@ -135,6 +135,8 @@ onUnmounted(() => stopAutoPlay())
   top: 60px; /* 导航栏高度 */
   left: 0;
   right: 0;
+  box-sizing: border-box;
+  padding-right: var(--scrollbar-width, 0px);
   z-index: 99; /* 低于导航栏(100)，高于页面内容 */
   background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
   border-bottom: 1px solid rgba(59, 130, 246, 0.15);
