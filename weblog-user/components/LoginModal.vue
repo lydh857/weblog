@@ -396,7 +396,18 @@ watch(() => loginModal.visible.value, async (v) => {
         loginModal.onLoginSuccess()
       }
     }
+    
+    // 锁定 body 滚动，防止页面抖动
+    document.body.style.overflow = 'hidden'
+  } else {
+    // 恢复 body 滚动
+    document.body.style.overflow = ''
   }
+})
+
+// 组件卸载时恢复 body 滚动
+onUnmounted(() => {
+  document.body.style.overflow = ''
 })
 
 // ===== 倒计时管理 =====
