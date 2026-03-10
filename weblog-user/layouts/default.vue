@@ -193,8 +193,6 @@ const showLoggedIn = computed(() => userStore.isLoggedIn)
 
 const avatarLoadFailed = ref(false)
 
-const avatarLoadFailed = ref(false)
-
 const displayAvatar = computed(() => {
   const raw = authReady.value ? (userStore.userInfo?.avatar || '') : ''
   const value = typeof raw === 'string' ? raw.trim() : ''
