@@ -193,19 +193,19 @@ onUnmounted(() => {
   border-radius: 50%;
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.18) 0%,
-    rgba(148, 163, 184, 0.34) 50%,
-    rgba(148, 163, 184, 0.18) 100%
+    rgba(148, 163, 184, 0.16) 0%,
+    rgba(148, 163, 184, 0.3) 50%,
+    rgba(148, 163, 184, 0.16) 100%
   );
   background-size: 200% 100%;
-  animation: sk-shimmer 1.3s linear infinite;
+  animation: sk-shimmer 1.4s linear infinite;
 
   .dark & {
     background: linear-gradient(
       90deg,
-      rgba(71, 85, 105, 0.35) 0%,
-      rgba(100, 116, 139, 0.52) 50%,
-      rgba(71, 85, 105, 0.35) 100%
+      rgba(71, 85, 105, 0.24) 0%,
+      rgba(100, 116, 139, 0.4) 50%,
+      rgba(71, 85, 105, 0.24) 100%
     );
     background-size: 200% 100%;
   }
@@ -298,33 +298,26 @@ onUnmounted(() => {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.2) 0%,
-    rgba(148, 163, 184, 0.35) 50%,
-    rgba(148, 163, 184, 0.2) 100%
+    rgba(148, 163, 184, 0.16) 0%,
+    rgba(148, 163, 184, 0.3) 50%,
+    rgba(148, 163, 184, 0.16) 100%
   );
   background-size: 200% 100%;
-  animation: sk-shimmer 1.3s linear infinite;
+  animation: sk-shimmer 1.4s linear infinite;
 
   .dark & {
     background: linear-gradient(
       90deg,
-      rgba(71, 85, 105, 0.35) 0%,
-      rgba(100, 116, 139, 0.52) 50%,
-      rgba(71, 85, 105, 0.35) 100%
+      rgba(71, 85, 105, 0.24) 0%,
+      rgba(100, 116, 139, 0.4) 50%,
+      rgba(71, 85, 105, 0.24) 100%
     );
     background-size: 200% 100%;
   }
 }
 
 .grid-card-skeleton__overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.52) 0%,
-    rgba(0, 0, 0, 0.08) 70%,
-    transparent 100%
-  );
+  display: none;
 }
 
 .grid-card-skeleton__info {
@@ -341,7 +334,11 @@ onUnmounted(() => {
   height: 14px;
   border-radius: 999px;
   margin-bottom: $spacing-xs;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(148, 163, 184, 0.2);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.3);
+  }
 }
 
 .grid-card-skeleton__meta {
@@ -353,7 +350,11 @@ onUnmounted(() => {
   width: 76px;
   height: 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(148, 163, 184, 0.18);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.28);
+  }
 
   &.short {
     width: 56px;

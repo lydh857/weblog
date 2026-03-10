@@ -637,7 +637,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+  background: transparent;
 }
 
 .sk-hero-title {
@@ -694,27 +694,23 @@ onMounted(() => {
 }
 
 .sk-shimmer {
-  background-color: #cbd5e1;
   background: linear-gradient(
     90deg,
-    rgba(203, 213, 225, 0.72) 0%,
-    rgba(241, 245, 249, 0.96) 50%,
-    rgba(203, 213, 225, 0.72) 100%
+    rgba(148, 163, 184, 0.16) 0%,
+    rgba(148, 163, 184, 0.3) 50%,
+    rgba(148, 163, 184, 0.16) 100%
   );
   background-size: 200% 100%;
-  animation: sk-shimmer 1.35s linear infinite;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
+  animation: sk-shimmer 1.4s linear infinite;
 
   .dark & {
-    background-color: #475569;
     background: linear-gradient(
       90deg,
-      rgba(71, 85, 105, 0.72) 0%,
-      rgba(100, 116, 139, 0.95) 50%,
-      rgba(71, 85, 105, 0.72) 100%
+      rgba(71, 85, 105, 0.24) 0%,
+      rgba(100, 116, 139, 0.4) 50%,
+      rgba(71, 85, 105, 0.24) 100%
     );
     background-size: 200% 100%;
-    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
   }
 }
 

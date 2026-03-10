@@ -2,6 +2,7 @@
   <!-- 空数据时隐藏整个区块 -->
   <section
     v-if="!loaded || slides.length > 0"
+    ref="heroCarouselRef"
     class="hero-carousel"
     @mouseenter="pauseAutoPlay"
     @mouseleave="resumeAutoPlay"
@@ -18,14 +19,18 @@
           v-for="(slide, index) in slides"
           :key="slide.id"
           class="carousel-slide"
-          :class="{ active: index === currentIndex, leaving: index === prevIndex }"
+          :class="{
+            active: hasHeroEntered && index === currentIndex,
+            leaving: hasHeroEntered && index === prevIndex
+          }"
         >
           <img
             :src="slide.imageUrl"
             :alt="slide.title"
             class="slide-bg"
             :class="{ 'slide-bg--loaded': loadedImages.has(index) }"
-            @load="loadedImages.add(index)"
+            @load="handleImageLoad(index)"
+            @error="handleImageError(index)"
           />
           <!-- 渐变遮罩 -->
           <div class="slide-overlay" />
@@ -88,6 +93,7 @@ import { carouselApi, type CarouselVO } from '~/api/carousel'
 // ===== 状态 =====
 const slides = ref<CarouselVO[]>([])
 const loaded = ref(false)
+const heroCarouselRef = ref<HTMLElement | null>(null)
 const currentIndex = ref(0)
 const prevIndex = ref(-1)
 const autoPlayTimer = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -97,7 +103,9 @@ const progressKey = ref(0) // 用于重置进度条动画
 const slideStartTime = ref(0) // 当前幻灯片开始时间
 const elapsed = ref(0) // 暂停时已经过的毫秒数
 const loadedImages = reactive(new Set<number>())
+const hasHeroEntered = ref(false)
 const SLIDE_DURATION = 5000
+const SLIDE_TRANSITION_MS = 850
 
 // ===== 计算属性 =====
 const currentSlide = computed(() => slides.value[currentIndex.value] ?? null)
@@ -121,7 +129,7 @@ function goTo(index: number) {
   currentIndex.value = index
   progressKey.value++ // 重置进度条动画
   // 清除上一次离场动画标记
-  setTimeout(() => { prevIndex.value = -1 }, 500)
+  setTimeout(() => { prevIndex.value = -1 }, SLIDE_TRANSITION_MS)
   // 手动切换后重启自动轮播计时
   if (!isPaused.value) startAutoPlay()
 }
@@ -209,9 +217,46 @@ function handleSlideClick(slide: CarouselVO) {
   }
 }
 
+function triggerHeroEnter() {
+  if (hasHeroEntered.value || !import.meta.client) return
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      hasHeroEntered.value = true
+    })
+  })
+}
+
+function isCurrentSlideImageReady() {
+  const imageNodes = heroCarouselRef.value?.querySelectorAll<HTMLImageElement>('.slide-bg')
+  const currentImage = imageNodes?.[currentIndex.value]
+  return Boolean(currentImage?.complete && currentImage.naturalWidth > 0)
+}
+
+function handleImageLoad(index: number) {
+  loadedImages.add(index)
+
+  if (index === currentIndex.value) {
+    triggerHeroEnter()
+  }
+}
+
+function handleImageError(index: number) {
+  if (index === currentIndex.value) {
+    triggerHeroEnter()
+  }
+}
+
 // ===== 生命周期 =====
 onMounted(() => {
   loadCarousel().then(() => {
+    nextTick(() => {
+      if (isCurrentSlideImageReady()) {
+        loadedImages.add(currentIndex.value)
+        triggerHeroEnter()
+      }
+    })
+
     if (slides.value.length > 1) {
       startAutoPlay()
     }
@@ -254,21 +299,20 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transform: scale(1.05);
-  transition: opacity 500ms ease, transform 500ms ease;
+  transition: opacity 850ms cubic-bezier(0.33, 1, 0.68, 1);
   pointer-events: none;
+  will-change: opacity;
 
   &.active {
     opacity: 1;
-    transform: scale(1);
     pointer-events: auto;
     z-index: 1;
   }
 
   &.leaving {
     opacity: 0;
-    transform: scale(1.05);
     z-index: 0;
+    transition: opacity 520ms ease-out;
   }
 }
 
@@ -277,11 +321,25 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity 0.6s ease;
+  transform: scale(1.08);
+  transform-origin: center;
+  transition:
+    opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 1.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
 
   &--loaded {
     opacity: 1;
   }
+}
+
+.carousel-slide.active .slide-bg {
+  transform: scale(1.01);
+}
+
+.carousel-slide.leaving .slide-bg {
+  transform: scale(1.03);
 }
 
 /* 渐变遮罩 */
@@ -587,10 +645,10 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .carousel-slide {
     transition: opacity 200ms ease;
-    transform: none !important;
   }
 
-  .carousel-slide.active {
+  .slide-bg {
+    transition: opacity 200ms ease;
     transform: none !important;
   }
 
