@@ -7,6 +7,7 @@
 .claude/
 .history/
 .codebuddy/
+.trae/
 # Docker 数据卷（包含数据库数据，不提交）
 docker-data/
 database/

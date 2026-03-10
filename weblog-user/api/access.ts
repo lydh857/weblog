@@ -8,8 +8,4 @@ export const accessApi = {
   /** 记录阅读 */
   recordRead: (postId: number) =>
     http.post(`/portal/access/read/${postId}`),
-
-  /** 滑块验证解锁 */
-  unlock: () =>
-    http.post('/portal/access/unlock'),
 }

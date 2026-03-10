@@ -155,7 +155,7 @@ function copyLink() {
 
 <style scoped lang="scss">
 .poster-overlay {
-  position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.6);
+  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center; padding: 1rem;
 }
 .poster-modal {

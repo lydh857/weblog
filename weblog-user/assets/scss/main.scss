@@ -30,6 +30,15 @@ html {
   }
 }
 
+:root {
+  --z-navbar: 100;
+  --z-toast: 50000;
+  --z-read-limit: 55000;
+  --z-modal: 60000;
+  --z-captcha: 65000;
+  --z-confirm: 70000;
+}
+
 a {
   color: $color-primary;
   text-decoration: none;

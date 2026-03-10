@@ -49,12 +49,12 @@ mvn spring-boot:run -pl weblog-api
 
 或者在 IDE 中运行 `BlogApiApplication.java`
 
-应用将在 `http://localhost:8080` 启动
+应用将在 `http://localhost:9091` 启动
 
 ### 6. API 文档
 
 启动后访问：
-- Knife4j 文档：http://localhost:8080/doc.html
+- Knife4j 文档：http://localhost:9091/doc.html
 
 ## 项目结构
 
@@ -190,7 +190,7 @@ journalctl -u weblog-api -f
 
 ```bash
 # 检查应用健康状态
-curl http://localhost:8080/actuator/health
+curl http://localhost:9091/actuator/health
 ```
 
 ## 环境对比

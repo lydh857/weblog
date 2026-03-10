@@ -22,9 +22,28 @@
           </NuxtLink>
           <span class="card-subtitle">今日热度飙升</span>
         </div>
-        <div v-if="dailyBoard.loading" class="card-skeleton">
-          <div class="sk-hero" />
-          <div v-for="i in 6" :key="i" class="sk-row"><div class="sk-num" /><div class="sk-text" /></div>
+        <div v-if="dailyBoard.loading">
+          <div class="hero-card hero-card--skeleton" aria-hidden="true">
+            <div class="hero-cover sk-hero sk-shimmer">
+              <span class="sk-hero-badge sk-shimmer" />
+              <div class="sk-hero-bottom">
+                <div class="sk-hero-title sk-shimmer" />
+                <div class="sk-hero-meta">
+                  <span class="sk-hero-meta-item sk-shimmer" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in 9" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-cover sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
+          </div>
         </div>
         <template v-else-if="dailyBoard.items.length">
           <!-- 第1名封面 -->
@@ -52,9 +71,12 @@
           </NuxtLink>
           <!-- 2~N名 -->
           <div class="card-list">
-            <NuxtLink v-for="(item, idx) in dailyBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <NuxtLink v-for="(item, idx) in dailyBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
-              <div v-if="item.cover_image" class="rank-cover"><img :src="item.cover_image" :alt="item.title" loading="lazy" /></div>
+              <div class="rank-cover">
+                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" />
+                <div v-else class="rank-cover-placeholder"></div>
+              </div>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
             </NuxtLink>
@@ -74,8 +96,12 @@
             </NuxtLink>
             <span class="card-subtitle">本周热度排行</span>
           </div>
-          <div v-if="weekBoard.loading" class="card-skeleton">
-            <div v-for="i in 5" :key="i" class="sk-row"><div class="sk-num" /><div class="sk-text" /></div>
+          <div v-if="weekBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
           </div>
           <div v-else-if="weekBoard.items.length" class="card-list">
             <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
@@ -95,8 +121,12 @@
             </NuxtLink>
             <span class="card-subtitle">本月口碑佳作</span>
           </div>
-          <div v-if="monthBoard.loading" class="card-skeleton">
-            <div v-for="i in 5" :key="i" class="sk-row"><div class="sk-num" /><div class="sk-text" /></div>
+          <div v-if="monthBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
           </div>
           <div v-else-if="monthBoard.items.length" class="card-list">
             <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
@@ -118,9 +148,28 @@
           </NuxtLink>
           <span class="card-subtitle">综合热度排行</span>
         </div>
-        <div v-if="totalBoard.loading" class="card-skeleton">
-          <div class="sk-hero" />
-          <div v-for="i in 6" :key="i" class="sk-row"><div class="sk-num" /><div class="sk-text" /></div>
+        <div v-if="totalBoard.loading">
+          <div class="hero-card hero-card--skeleton" aria-hidden="true">
+            <div class="hero-cover sk-hero sk-shimmer">
+              <span class="sk-hero-badge sk-shimmer" />
+              <div class="sk-hero-bottom">
+                <div class="sk-hero-title sk-shimmer" />
+                <div class="sk-hero-meta">
+                  <span class="sk-hero-meta-item sk-shimmer" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in 9" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-cover sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
+          </div>
         </div>
         <template v-else-if="totalBoard.items.length">
           <!-- 第1名封面 -->
@@ -148,9 +197,12 @@
           </NuxtLink>
           <!-- 2~N名 -->
           <div class="card-list">
-            <NuxtLink v-for="(item, idx) in totalBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <NuxtLink v-for="(item, idx) in totalBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
-              <div v-if="item.cover_image" class="rank-cover"><img :src="item.cover_image" :alt="item.title" loading="lazy" /></div>
+              <div class="rank-cover">
+                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" />
+                <div v-else class="rank-cover-placeholder"></div>
+              </div>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
             </NuxtLink>
@@ -468,6 +520,8 @@ onMounted(() => {
   align-items: center;
   gap: 0.4rem;
   padding: 0.3rem $spacing-xs;
+  box-sizing: border-box;
+  height: 30px;
   border-radius: $radius-sm;
   text-decoration: none;
   color: inherit;
@@ -506,6 +560,20 @@ onMounted(() => {
   img { width: 100%; height: 100%; object-fit: cover; }
 }
 
+.rank-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(148, 163, 184, 0.2);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.3);
+  }
+}
+
+.rank-row--with-cover {
+  height: 40px;
+}
+
 .rank-title {
   font-size: 0.8rem; font-weight: 500;
   color: $color-text;
@@ -522,39 +590,137 @@ onMounted(() => {
 }
 
 /* 骨架屏 */
-.card-skeleton {
-  padding: $spacing-xs $spacing-sm $spacing-sm;
-  display: flex; flex-direction: column; gap: $spacing-xs;
-  flex: 1;
+.hero-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.card-list--skeleton {
+  pointer-events: none;
+}
+
+.rank-row--skeleton {
+  cursor: default;
+  height: 30px;
+
+  &:hover {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.rank-row--skeleton.rank-row--with-cover {
+  height: 40px;
 }
 
 .sk-hero {
-  width: 100%; aspect-ratio: 16 / 9;
-  border-radius: $radius-md;
-  background: $color-bg-secondary;
-  animation: sk-pulse 1.5s ease-in-out infinite;
-  .dark & { background: #1a2332; }
+  position: relative;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.22);
 }
 
-.sk-row { display: flex; align-items: center; gap: $spacing-sm; }
+.sk-hero-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.sk-hero-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+}
+
+.sk-hero-title {
+  width: 78%;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.sk-hero-meta {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.sk-hero-meta-item {
+  width: 62px;
+  height: 9px;
+  border-radius: 999px;
+
+  &.short {
+    width: 46px;
+  }
+}
 
 .sk-num {
-  width: 20px; height: 20px; border-radius: 5px;
-  background: $color-bg-secondary;
-  animation: sk-pulse 1.5s ease-in-out infinite;
-  .dark & { background: #1a2332; }
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.sk-cover {
+  display: block;
+  width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .sk-text {
-  flex: 1; height: 12px; border-radius: $radius-sm;
-  background: $color-bg-secondary;
-  animation: sk-pulse 1.5s ease-in-out infinite;
-  .dark & { background: #1a2332; }
+  display: block;
+  flex: 1;
+  height: 14px;
+  border-radius: $radius-sm;
+  min-width: 0;
 }
 
-@keyframes sk-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.sk-heat {
+  display: block;
+  width: 46px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.sk-shimmer {
+  background-color: #cbd5e1;
+  background: linear-gradient(
+    90deg,
+    rgba(203, 213, 225, 0.72) 0%,
+    rgba(241, 245, 249, 0.96) 50%,
+    rgba(203, 213, 225, 0.72) 100%
+  );
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.35s linear infinite;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
+
+  .dark & {
+    background-color: #475569;
+    background: linear-gradient(
+      90deg,
+      rgba(71, 85, 105, 0.72) 0%,
+      rgba(100, 116, 139, 0.95) 50%,
+      rgba(71, 85, 105, 0.72) 100%
+    );
+    background-size: 200% 100%;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+  }
+}
+
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .card-empty {

@@ -371,7 +371,7 @@ onUnmounted(() => {
 .search-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;

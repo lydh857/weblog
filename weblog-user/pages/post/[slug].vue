@@ -175,6 +175,15 @@
       <p>文章不存在</p>
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
+    
+    <!-- 阅读限制弹窗 -->
+    <ReadLimitOverlay
+      :show="readLimitState.show"
+      :read-count="readLimitState.readCount"
+      :limit="readLimitState.limit"
+      @login="handleReadLimitLogin"
+      @close="readLimitState.show = false"
+    />
   </div>
   </div>
 </template>
@@ -185,6 +194,10 @@ import 'md-editor-v3/lib/preview.css'
 import { postApi, type PostVO } from '~/api/post'
 import { getTagColor } from '~/utils/tagColor'
 import { useDarkMode } from '~/composables/useDarkMode'
+import { accessApi } from '~/api/access'
+import ReadLimitOverlay from '~/components/ReadLimitOverlay.vue'
+import { useUserStore } from '~/stores/user'
+import { useLoginModal } from '~/composables/useLoginModal'
 
 const route = useRoute()
 const slug = route.params.slug as string
@@ -202,9 +215,73 @@ const tocVisible = ref(false)
 const hasToc = ref(false)
 const commentSectionRef = ref<HTMLElement | null>(null)
 
+const userStore = useUserStore()
+const loginModal = useLoginModal()
+const loginFromReadLimit = ref(false)
+const restoreScrollY = ref<number | null>(null)
+
+// 阅读限制状态
+const readLimitState = ref({
+  show: false,
+  readCount: 0,
+  limit: 3,
+  loggedIn: false,
+})
+
 function scrollToComments() {
   commentSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
+
+function restoreScrollPosition() {
+  if (!import.meta.client) return
+  const y = restoreScrollY.value
+  if (typeof y !== 'number') return
+  // BaseModal 会锁滚动/解锁滚动，部分浏览器可能导致轻微跳动，做一次 rAF 兜底
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: y })
+    requestAnimationFrame(() => window.scrollTo({ top: y }))
+  })
+}
+
+function handleReadLimitLogin() {
+  loginFromReadLimit.value = true
+  readLimitState.value.show = false
+  restoreScrollY.value = import.meta.client ? window.scrollY : null
+  loginModal.open('code', () => {
+    // 登录成功：保持当前位置，解除限制
+    readLimitState.value.show = false
+    readLimitState.value.loggedIn = true
+    restoreScrollPosition()
+  })
+}
+
+watch(() => loginModal.visible.value, (v, oldV) => {
+  if (oldV === true && v === false && loginFromReadLimit.value) {
+    loginFromReadLimit.value = false
+    if (!userStore.userInfo?.userId) {
+      // 用户未登录就关闭了登录弹窗：继续限制
+      readLimitState.value.show = true
+      restoreScrollPosition()
+    } else {
+      readLimitState.value.show = false
+      readLimitState.value.loggedIn = true
+      restoreScrollPosition()
+    }
+  }
+})
+
+// 登录态发生变化时（尤其是退出登录），必须重新执行阅读限制校验，避免“登出后无限阅读”
+watch(() => userStore.userInfo?.userId, async (uid, oldUid) => {
+  if (uid === oldUid) return
+  // 登出：重新校验限制（可能需要弹窗）
+  if (!uid) {
+    readLimitState.value.loggedIn = false
+    // 仅在文章已加载时校验
+    if (post.value?.id) {
+      await checkAccess()
+    }
+  }
+})
 
 // 预览主题
 const previewTheme = computed(() => post.value?.previewTheme || 'default')
@@ -240,7 +317,72 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(months / 12)} 年前`
 }
 
+// 记录阅读
+async function recordRead() {
+  if (!post.value) return
+  
+  console.log('[阅读限制] 检查用户登录状态:', userStore.userInfo)
+  console.log('[阅读限制] userId:', userStore.userInfo?.userId)
+  
+  // 已登录用户跳过
+  if (userStore.userInfo?.userId) {
+    console.log('[阅读限制] 已登录用户，跳过记录')
+    return
+  }
+  
+  try {
+    console.log('[阅读限制] 记录阅读文章 ID:', post.value.id)
+    await accessApi.recordRead(post.value.id)
+    console.log('[阅读限制] 记录成功')
+  } catch (error) {
+    console.error('[阅读限制] 记录失败:', error)
+  }
+}
+
+// 检查是否可以阅读
+async function checkAccess(): Promise<boolean | null> {
+  if (!post.value) return
+  
+  console.log('[阅读限制] 检查访问权限，用户 ID:', userStore.userInfo?.userId)
+  
+  // 已登录用户跳过检查
+  if (userStore.userInfo?.userId) {
+    console.log('[阅读限制] 已登录用户，跳过检查')
+    readLimitState.value.loggedIn = true
+    return true
+  }
+  
+  try {
+    console.log('[阅读限制] 调用 API 检查权限，文章 ID:', post.value.id)
+    const res = await accessApi.check(post.value.id)
+    const { allowed, readCount, limit } = res.data
+    
+    console.log('[阅读限制] API 返回结果:', { allowed, readCount, limit })
+    console.log('[阅读限制] 判断：readCount=', readCount, 'limit=', limit, 'allowed=', allowed)
+    
+    readLimitState.value = {
+      show: !allowed,
+      readCount,
+      limit,
+      loggedIn: false,
+    }
+    
+    if (!allowed) {
+      console.log('[阅读限制] 触发限制弹窗')
+    } else {
+      console.log('[阅读限制] 允许访问，未达限制')
+    }
+    
+    return allowed
+  } catch (error) {
+    console.error('[阅读限制] 检查失败:', error)
+    return null
+  }
+}
+
 onMounted(async () => {
+  console.log('[阅读限制] 页面加载完成，开始处理')
+  
   try {
     const res = await postApi.detail(slug)
     post.value = res.data.post
@@ -262,7 +404,22 @@ onMounted(async () => {
         hasToc.value = contentEl.querySelectorAll('h1, h2, h3, h4').length > 0
       }
     }, 500)
-  } catch { /* 静默 */ }
+
+    // 先检查限制，只有允许时才记录阅读
+    console.log('[阅读限制] 开始调用 checkAccess')
+    const allowed = await checkAccess()
+    if (allowed === true) {
+      console.log('[阅读限制] 允许访问，开始调用 recordRead')
+      await recordRead()
+    } else if (allowed === false) {
+      console.log('[阅读限制] 已达限制，本次不记录阅读')
+    } else {
+      console.log('[阅读限制] 检查失败，本次不记录阅读')
+    }
+    console.log('[阅读限制] 处理完成')
+  } catch (err) {
+    console.error('[阅读限制] 加载文章失败:', err)
+  }
   finally { loading.value = false }
 })
 

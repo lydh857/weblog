@@ -47,7 +47,7 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .confirm-overlay {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 60000;
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: var(--z-confirm);
   background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center; padding: 16px;
 }

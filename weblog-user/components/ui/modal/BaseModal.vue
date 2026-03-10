@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{
   width: '480px',
   showClose: true,
   maskClosable: true,
-  zIndex: 5000,
+  zIndex: 60000,
 })
 
 const emit = defineEmits<{

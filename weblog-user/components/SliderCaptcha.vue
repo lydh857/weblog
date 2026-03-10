@@ -304,7 +304,7 @@ watch(() => props.visible, (val) => {
 
 <style scoped lang="scss">
 .captcha-overlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: var(--z-captcha);
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.5);
 }

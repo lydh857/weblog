@@ -121,9 +121,11 @@ onMounted(async () => {
   try {
     const res = await announcementApi.getByType(props.type)
     announcements.value = res.data || []
+  } catch { /* ignore */ }
+  finally {
     bannerVisible.value = visibleAnnouncements.value.length > 0
     if (visibleAnnouncements.value.length > 1) startAutoPlay()
-  } catch { /* ignore */ }
+  }
 })
 
 onUnmounted(() => stopAutoPlay())

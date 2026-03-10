@@ -1,6 +1,6 @@
 <template>
-  <!-- 空数据时隐藏区块 -->
-  <section v-if="posts.length > 0" class="post-scroll-section">
+  <!-- 加载中显示骨架；加载完成且无数据则隐藏 -->
+  <section v-if="!loaded || posts.length > 0" class="post-scroll-section">
     <!-- 区块标题 -->
     <div class="section-header">
       <div class="section-title-group">
@@ -8,30 +8,52 @@
         <p class="section-desc">近期最受欢迎的内容</p>
       </div>
       <div class="header-right">
-        <div v-if="canScroll" class="scroll-arrows">
-          <button class="scroll-arrow" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
-            <Icon name="heroicons:chevron-left-20-solid" size="18" />
-          </button>
-          <!-- 滚动到底延迟后变为"查看更多"，带过渡动画 -->
-          <Transition name="arrow-morph" mode="out-in">
-            <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow" aria-label="查看更多">
-              查看更多
-              <Icon name="heroicons:arrow-right-16-solid" size="14" />
-            </NuxtLink>
-            <button v-else key="scroll-right" class="scroll-arrow" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
-              <Icon name="heroicons:chevron-right-20-solid" size="18" />
-            </button>
-          </Transition>
+        <div v-if="!loaded" class="header-right-skeleton" aria-hidden="true">
+          <span class="sk-circle" />
+          <span class="sk-circle" />
+          <span class="sk-pill" />
         </div>
-        <NuxtLink v-if="!canScroll" to="/ranking" class="view-more">
-          查看更多
-          <Icon name="heroicons:arrow-right-16-solid" size="14" />
-        </NuxtLink>
+        <template v-else>
+          <div v-if="canScroll" class="scroll-arrows">
+            <button class="scroll-arrow" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
+              <Icon name="heroicons:chevron-left-20-solid" size="18" />
+            </button>
+            <!-- 滚动到底延迟后变为"查看更多"，带过渡动画 -->
+            <Transition name="arrow-morph" mode="out-in">
+              <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow" aria-label="查看更多">
+                查看更多
+                <Icon name="heroicons:arrow-right-16-solid" size="14" />
+              </NuxtLink>
+              <button v-else key="scroll-right" class="scroll-arrow" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
+                <Icon name="heroicons:chevron-right-20-solid" size="18" />
+              </button>
+            </Transition>
+          </div>
+          <NuxtLink v-if="!canScroll" to="/ranking" class="view-more">
+            查看更多
+            <Icon name="heroicons:arrow-right-16-solid" size="14" />
+          </NuxtLink>
+        </template>
+      </div>
+    </div>
+
+    <div v-if="!loaded" class="post-scroll post-scroll--skeleton" aria-hidden="true">
+      <div v-for="i in 5" :key="i" class="grid-card-skeleton">
+        <div class="grid-card-skeleton__cover" />
+        <div class="grid-card-skeleton__overlay" />
+        <div class="grid-card-skeleton__info">
+          <div class="grid-card-skeleton__title" />
+          <div class="grid-card-skeleton__meta">
+            <span class="grid-card-skeleton__meta-item" />
+            <span class="grid-card-skeleton__meta-item" />
+            <span class="grid-card-skeleton__meta-item short" />
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- 横向滚动卡片 -->
-    <div ref="scrollRef" class="post-scroll" @scroll="updateScrollState">
+    <div v-else ref="scrollRef" class="post-scroll" @scroll="updateScrollState">
       <NuxtLink
         v-for="post in posts"
         :key="post.post_id"
@@ -86,6 +108,7 @@ const scrollRef = ref<HTMLElement>()
 const canScrollLeft = ref(false)
 const canScrollRight = ref(false)
 const canScroll = ref(false)
+const loaded = ref(false)
 // 直接根据滚动状态切换"查看更多"
 const showViewMore = computed(() => !canScrollRight.value && canScroll.value)
 
@@ -125,6 +148,8 @@ async function loadHotPosts() {
     posts.value = res.data
   } catch {
     posts.value = []
+  } finally {
+    loaded.value = true
   }
 }
 
@@ -183,6 +208,61 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: $spacing-md;
+}
+
+.header-right-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.sk-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(148, 163, 184, 0.34) 50%,
+    rgba(148, 163, 184, 0.18) 100%
+  );
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.3s linear infinite;
+  flex-shrink: 0;
+
+  .dark & {
+    background: linear-gradient(
+      90deg,
+      rgba(71, 85, 105, 0.35) 0%,
+      rgba(100, 116, 139, 0.52) 50%,
+      rgba(71, 85, 105, 0.35) 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+.sk-pill {
+  width: 74px;
+  height: 32px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(148, 163, 184, 0.34) 50%,
+    rgba(148, 163, 184, 0.18) 100%
+  );
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.3s linear infinite;
+
+  .dark & {
+    background: linear-gradient(
+      90deg,
+      rgba(71, 85, 105, 0.35) 0%,
+      rgba(100, 116, 139, 0.52) 50%,
+      rgba(71, 85, 105, 0.35) 100%
+    );
+    background-size: 200% 100%;
+  }
 }
 
 /* ===== 滚动箭头 ===== */
@@ -292,6 +372,10 @@ onUnmounted(() => {
   &::-webkit-scrollbar { display: none; }
 }
 
+.post-scroll--skeleton {
+  pointer-events: none;
+}
+
 /* ===== 单张卡片 ===== */
 .grid-card {
   position: relative;
@@ -309,6 +393,82 @@ onUnmounted(() => {
     .card-bg img {
       transform: scale(1.05);
     }
+  }
+}
+
+.grid-card-skeleton {
+  position: relative;
+  flex-shrink: 0;
+  width: 280px;
+  height: 180px;
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+.grid-card-skeleton__cover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.2) 0%,
+    rgba(148, 163, 184, 0.35) 50%,
+    rgba(148, 163, 184, 0.2) 100%
+  );
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.3s linear infinite;
+
+  .dark & {
+    background: linear-gradient(
+      90deg,
+      rgba(71, 85, 105, 0.35) 0%,
+      rgba(100, 116, 139, 0.52) 50%,
+      rgba(71, 85, 105, 0.35) 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+.grid-card-skeleton__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.52) 0%,
+    rgba(0, 0, 0, 0.08) 70%,
+    transparent 100%
+  );
+}
+
+.grid-card-skeleton__info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: $spacing-md;
+}
+
+.grid-card-skeleton__title {
+  width: 80%;
+  height: 14px;
+  border-radius: 999px;
+  margin-bottom: $spacing-xs;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.grid-card-skeleton__meta {
+  display: flex;
+  gap: $spacing-xs;
+}
+
+.grid-card-skeleton__meta-item {
+  width: 52px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+
+  &.short {
+    width: 36px;
   }
 }
 
@@ -404,6 +564,11 @@ onUnmounted(() => {
     height: 160px;
   }
 
+  .grid-card-skeleton {
+    width: 240px;
+    height: 160px;
+  }
+
   .section-desc {
     display: none;
   }
@@ -438,5 +603,10 @@ onUnmounted(() => {
   .card-bg img {
     transition: none;
   }
+}
+
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 </style>

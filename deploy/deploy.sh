@@ -46,7 +46,7 @@ backup() {
 pull_code() {
     log "拉取最新代码..."
     cd "$DEPLOY_DIR"
-    git pull origin main
+    git pull gitee master
     log "代码更新完成"
 }
 

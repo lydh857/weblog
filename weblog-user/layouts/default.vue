@@ -51,11 +51,14 @@
             <button class="icon-btn" aria-label="切换主题" @click="toggleDark()">
               <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="20" />
             </button>
-            <button v-if="showLoggedIn" class="avatar-btn" @mouseenter="showUserMenu = true">
-              <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
-              <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
-            </button>
-            <button v-else class="login-btn" @click="openLogin">登录</button>
+            <div class="nav-auth-slot">
+              <button v-if="authReady && showLoggedIn" key="nav-avatar" type="button" class="avatar-btn" @mouseenter="showUserMenu = true">
+                <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
+                <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
+              </button>
+              <button v-else-if="authReady" key="nav-login" type="button" class="login-btn" @click="openLogin">登录</button>
+              <span v-else class="nav-auth-placeholder" aria-hidden="true" />
+            </div>
             <!-- 用户菜单 -->
             <div v-if="showUserMenu" class="user-menu" @mouseleave="showUserMenu = false" @click="showUserMenu = false">
               <NuxtLink to="/user" class="menu-item">
@@ -180,21 +183,13 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
 
-// 通过 cookie 让 SSR 知道登录状态
-const loggedInCookie = useCookie('weblog_logged_in')
-const avatarCookie = useCookie('weblog_avatar')
-const nicknameCookie = useCookie('weblog_nickname')
-
 const authReady = ref(false)
 onMounted(async () => {
   await userStore.fetchUser()
   authReady.value = true
 })
 
-const showLoggedIn = computed(() => {
-  if (authReady.value) return userStore.isLoggedIn
-  return !!loggedInCookie.value
-})
+const showLoggedIn = computed(() => userStore.isLoggedIn)
 
 const avatarLoadFailed = ref(false)
 
@@ -206,7 +201,7 @@ const displayAvatar = computed(() => {
 })
 const displayNickname = computed(() => {
   if (authReady.value) return userStore.userInfo?.nickname || 'U'
-  return nicknameCookie.value || 'U'
+  return 'U'
 })
 
 watch(displayAvatar, () => {
@@ -240,7 +235,7 @@ async function handleLogout() {
 
   userStore.clearUser()
   message.success('已退出登录')
-  router.push('/')
+  // 保持在当前页面，不强制跳转
 }
 </script>
 
@@ -363,6 +358,20 @@ async function handleLogout() {
   position: relative;
 }
 
+.nav-auth-slot {
+  min-width: 52px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-auth-placeholder {
+  width: 52px;
+  height: 44px;
+  display: inline-block;
+}
+
 .icon-btn {
   width: 44px;
   height: 44px;
@@ -398,7 +407,7 @@ async function handleLogout() {
 
 .avatar-btn {
   border: none;
-  background: none;
+  background: transparent !important;
   cursor: pointer;
   padding: 0;
   min-width: 32px;
@@ -406,6 +415,11 @@ async function handleLogout() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  outline: none;
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    border-radius: 999px;
+  }
 }
 
 .user-avatar {

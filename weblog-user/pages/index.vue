@@ -22,7 +22,28 @@
           </div>
         </div>
 
-        <div v-if="posts.length" ref="postGridRef" class="post-grid">
+        <div v-if="loading && !posts.length" class="post-grid post-grid--skeleton" aria-hidden="true">
+          <article v-for="i in 6" :key="`post-skeleton-${i}`" class="article-card-skeleton">
+            <div class="article-card-skeleton__cover" />
+            <div class="article-card-skeleton__content">
+              <div class="article-card-skeleton__tags">
+                <span class="article-card-skeleton__tag" />
+                <span class="article-card-skeleton__tag secondary" />
+              </div>
+              <div class="article-card-skeleton__title" />
+              <div class="article-card-skeleton__title short" />
+              <div class="article-card-skeleton__summary" />
+              <div class="article-card-skeleton__summary short" />
+              <div class="article-card-skeleton__meta">
+                <span class="article-card-skeleton__meta-item" />
+                <span class="article-card-skeleton__meta-item short" />
+                <span class="article-card-skeleton__meta-item short" />
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
           <ArticleCard v-for="post in posts" :key="post.id" :post="post" />
         </div>
 
@@ -39,11 +60,6 @@
             </svg>
             加载更多
           </button>
-        </div>
-
-        <div v-if="loading && !posts.length" class="loading-state">
-          <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-          <span>加载中...</span>
         </div>
 
         <div v-if="!loading && !posts.length" class="empty-state">
@@ -166,6 +182,126 @@ onMounted(() => {
   }
 }
 
+.post-grid--skeleton {
+  pointer-events: none;
+}
+
+.article-card-skeleton {
+  display: flex;
+  height: calc(240px * 9 / 16);
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  background: $color-bg;
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+  }
+}
+
+.article-card-skeleton__cover {
+  width: 240px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.2) 0%,
+    rgba(148, 163, 184, 0.35) 50%,
+    rgba(148, 163, 184, 0.2) 100%
+  );
+  background-size: 200% 100%;
+  animation: postSkShimmer 1.4s linear infinite;
+
+  .dark & {
+    background: linear-gradient(
+      90deg,
+      rgba(71, 85, 105, 0.35) 0%,
+      rgba(100, 116, 139, 0.52) 50%,
+      rgba(71, 85, 105, 0.35) 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+.article-card-skeleton__content {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.article-card-skeleton__tags {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.article-card-skeleton__tag {
+  width: 52px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+
+  &.secondary {
+    width: 42px;
+    background: rgba(16, 185, 129, 0.14);
+  }
+}
+
+.article-card-skeleton__title {
+  width: 92%;
+  height: 13px;
+  border-radius: 999px;
+  margin-bottom: 0.25rem;
+  background: rgba(148, 163, 184, 0.26);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.36);
+  }
+
+  &.short {
+    width: 74%;
+  }
+}
+
+.article-card-skeleton__summary {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 0.25rem;
+  background: rgba(148, 163, 184, 0.2);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.32);
+  }
+
+  &.short {
+    width: 88%;
+  }
+}
+
+.article-card-skeleton__meta {
+  margin-top: auto;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.article-card-skeleton__meta-item {
+  width: 64px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.34);
+  }
+
+  &.short {
+    width: 48px;
+  }
+}
+
 /* ===== 加载更多 ===== */
 .load-more-container {
   display: flex;
@@ -278,8 +414,38 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .article-card-skeleton {
+    height: calc(180px * 9 / 16);
+  }
+
+  .article-card-skeleton__cover {
+    width: 180px;
+  }
+
   .section-desc {
     display: none;
   }
+}
+
+@media (max-width: 480px) {
+  .article-card-skeleton {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .article-card-skeleton__cover {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  .article-card-skeleton__content {
+    padding: $spacing-md;
+    min-height: 120px;
+  }
+}
+
+@keyframes postSkShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 </style>

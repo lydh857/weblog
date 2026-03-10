@@ -8,16 +8,9 @@
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
-    <!-- 骨架屏加载状态 -->
-    <div v-if="!loaded" class="carousel-skeleton">
-      <div class="skeleton-bg" />
-      <div class="skeleton-content">
-        <div class="skeleton-line skeleton-title" />
-        <div class="skeleton-line skeleton-desc" />
-      </div>
-    </div>
+    <!-- 加载占位：仅用于锁定高度，避免刷新时页面跳动 -->
+    <div v-if="!loaded" class="carousel-placeholder" aria-hidden="true"></div>
 
-    <!-- 轮播主体 -->
     <template v-else>
       <!-- 轮播幻灯片 -->
       <div class="carousel-slides">
@@ -85,7 +78,6 @@
           />
         </button>
       </div>
-
     </template>
   </section>
 </template>
@@ -232,8 +224,6 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@use "sass:color";
-
 /* ===== 轮播容器 ===== */
 .hero-carousel {
   position: relative;
@@ -244,71 +234,14 @@ onUnmounted(() => {
   margin-top: -60px; // 覆盖到 fixed 导航栏下方
 }
 
-/* ===== 骨架屏 ===== */
-.carousel-skeleton {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.skeleton-bg {
+.carousel-placeholder {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    $color-bg-secondary 25%,
-    color.adjust($color-bg-secondary, $lightness: -2%) 50%,
-    $color-bg-secondary 75%
+    180deg,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(15, 23, 42, 0.98) 100%
   );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
-
-  .dark & {
-    background: linear-gradient(
-      90deg,
-      $color-dark-bg-secondary 25%,
-      color.adjust($color-dark-bg-secondary, $lightness: 3%) 50%,
-      $color-dark-bg-secondary 75%
-    );
-    background-size: 200% 100%;
-  }
-}
-
-.skeleton-content {
-  position: absolute;
-  bottom: 25%;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $spacing-md;
-  width: 60%;
-  max-width: 600px;
-}
-
-.skeleton-line {
-  border-radius: $radius-md;
-  background: rgba(148, 163, 184, 0.15);
-
-  .dark & {
-    background: rgba(148, 163, 184, 0.1);
-  }
-}
-
-.skeleton-title {
-  width: 70%;
-  height: 32px;
-}
-
-.skeleton-desc {
-  width: 50%;
-  height: 20px;
-}
-
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 /* ===== 幻灯片 ===== */
@@ -628,10 +561,6 @@ onUnmounted(() => {
 
   .carousel-indicators {
     bottom: 50px;
-  }
-
-  .skeleton-content {
-    width: 80%;
   }
 }
 

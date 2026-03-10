@@ -652,7 +652,7 @@ onMounted(() => {
 .filter-drawer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
 }

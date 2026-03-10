@@ -42,7 +42,7 @@ function handleCancel() {
 
 <style scoped lang="scss">
 .confirm-overlay {
-  position: fixed; inset: 0; z-index: 6000;
+  position: fixed; inset: 0; z-index: var(--z-confirm);
   background: rgba(0, 0, 0, 0.45);
   display: flex; align-items: center; justify-content: center;
 }

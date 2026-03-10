@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="oauth-overlay">
     <div class="oauth-card">
       <template v-if="error">
@@ -22,6 +22,7 @@
 import { authApi } from '~/api/auth'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { consumeNavContext } from '~/utils/navContext'
 
 useHead({ title: 'GitHub 登录中...' })
 
@@ -33,7 +34,8 @@ const message = useMessage()
 
 function goLogin() {
   useLoginModal().open()
-  router.push('/')
+  const ctx = consumeNavContext()
+  router.replace(ctx?.fullPath || '/')
 }
 
 onMounted(async () => {
@@ -49,7 +51,14 @@ onMounted(async () => {
     const res = await authApi.githubCallback(code, state)
     userStore.setUser(res.data)
     message.success('GitHub 登录成功')
-    router.push('/')
+    const ctx = consumeNavContext()
+    await router.replace(ctx?.fullPath || '/')
+    if (import.meta.client && typeof ctx?.scrollY === 'number') {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: ctx.scrollY })
+        requestAnimationFrame(() => window.scrollTo({ top: ctx.scrollY }))
+      })
+    }
   } catch (e: any) {
     error.value = e.message || 'GitHub 登录失败'
   }
@@ -57,7 +66,7 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.oauth-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(255,255,255,.92); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; }
+.oauth-overlay { position: fixed; inset: 0; z-index: var(--z-confirm); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; }
 :global(html.dark) .oauth-overlay { background: rgba(15,23,42,.92); }
 .oauth-card { text-align: center; padding: 2.5rem 2rem; max-width: 360px; width: 100%; }
 .oauth-spinner { display: flex; justify-content: center; margin-bottom: 1.5rem; }

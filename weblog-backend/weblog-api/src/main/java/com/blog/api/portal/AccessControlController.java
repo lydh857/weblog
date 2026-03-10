@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -15,7 +16,8 @@ import java.util.Map;
 /**
  * 用户端 - 访问控制接口
  */
-@Tag(name = "用户端-访问控制", description = "阅读限制、滑块验证解锁")
+@Slf4j
+@Tag(name = "用户端 - 访问控制", description = "阅读限制、滑块验证解锁")
 @RestController
 @RequestMapping("/api/portal/access")
 @RequiredArgsConstructor
@@ -37,10 +39,15 @@ public class AccessControlController {
         }
 
         String fingerprint = getFingerprint(request);
+        log.info("检查访问权限：postId={}, fingerprint={}", postId, fingerprint);
+        
         boolean allowed = accessControlService.canRead(fingerprint, postId);
         long readCount = accessControlService.getReadCount(fingerprint);
         long limit = accessControlService.getLimit(fingerprint);
         boolean unlocked = accessControlService.isUnlocked(fingerprint);
+
+        log.info("访问控制结果：allowed={}, readCount={}, limit={}, unlocked={}", 
+                 allowed, readCount, limit, unlocked);
 
         return Result.success(Map.of(
                 "allowed", allowed,
@@ -56,7 +63,11 @@ public class AccessControlController {
                                     HttpServletRequest request) {
         if (!StpUtil.isLogin()) {
             String fingerprint = getFingerprint(request);
+            log.info("记录阅读：postId={}, fingerprint={}", postId, fingerprint);
             accessControlService.recordRead(fingerprint, postId);
+            
+            long readCount = accessControlService.getReadCount(fingerprint);
+            log.info("记录后已读数量：{}", readCount);
         }
         return Result.success();
     }

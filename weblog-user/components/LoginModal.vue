@@ -305,6 +305,7 @@ import { useLoginModal } from '~/composables/useLoginModal'
 import type { LoginModalMode } from '~/composables/useLoginModal'
 import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
 import BaseModal from '~/components/ui/modal/BaseModal.vue'
+import { saveNavContext } from '~/utils/navContext'
 
 const loginModal = useLoginModal()
 const message = useMessage()
@@ -901,6 +902,13 @@ const submitSuccess = ref(false)
 async function handleGithubLogin() {
   githubLoading.value = true
   try {
+    // 记录返回页面与滚动位置，OAuth 回调后恢复
+    const r = useRoute()
+    saveNavContext({
+      path: r.path,
+      fullPath: r.fullPath,
+      scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+    })
     const redirectUri = window.location.origin + '/oauth/github/callback'
     const res = await authApi.getGithubAuthUrl(redirectUri)
     window.location.href = res.data

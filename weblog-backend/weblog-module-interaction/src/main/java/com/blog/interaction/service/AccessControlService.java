@@ -44,15 +44,28 @@ public class AccessControlService {
      */
     public boolean canRead(String fingerprint, Long postId) {
         String key = dailyKey(fingerprint);
+        log.info("canRead 检查：key={}, postId={}, fingerprint={}", key, postId, fingerprint);
+        
         // 如果该文章已经在今日阅读列表中，允许重复访问
         Boolean isMember = redisTemplate.opsForSet().isMember(key, postId.toString());
+        log.info("isMember 检查结果：{}", isMember);
+        
         if (Boolean.TRUE.equals(isMember)) {
+            log.info("文章已在阅读列表中，允许访问");
             return true;
         }
+        
         // 检查阅读数量
         Long readCount = redisTemplate.opsForSet().size(key);
         long limit = getLimit(fingerprint);
-        return readCount == null || readCount < limit;
+        
+        log.info("阅读数量检查：readCount={}, limit={}", readCount, limit);
+        
+        boolean result = readCount == null || readCount < limit;
+        log.info("canRead 最终结果：{} (readCount={}, limit={}, result={})", 
+                 result, readCount, limit, result);
+        
+        return result;
     }
 
     /**

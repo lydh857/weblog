@@ -32,7 +32,7 @@ const { messages, remove } = useMessageStore()
 .msg-container {
   position: fixed; top: 24px; left: 0; width: 100vw;
   display: flex; justify-content: center;
-  z-index: 99999; pointer-events: none;
+  z-index: var(--z-toast); pointer-events: none;
   padding: 0 16px; box-sizing: border-box;
 }
 .msg-list {
