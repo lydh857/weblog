@@ -1,6 +1,13 @@
 <template>
   <div class="layout" :class="{ dark: isDark }">
-    <header class="navbar" :class="{ 'navbar--transparent': isHomePage && !isScrolled, 'navbar--hidden': isNavHidden }">
+    <header
+      class="navbar"
+      :class="{
+        'navbar--transparent': isHomePage && !isScrolled,
+        'navbar--hidden': isNavHidden,
+        'navbar--pre-enter': shouldHideNavbarBeforeEnter
+      }"
+    >
       <div class="nav-inner">
         <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
           <span class="logo-text">zhhhkl</span>
@@ -56,8 +63,15 @@
                 <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
                 <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
               </button>
-              <button v-else-if="authReady" key="nav-login" type="button" class="login-btn" @click="openLogin">登录</button>
-              <span v-else class="nav-auth-placeholder" aria-hidden="true" />
+              <button
+                v-else
+                key="nav-login"
+                type="button"
+                class="login-btn"
+                :class="{ 'login-btn--placeholder': !authReady }"
+                :disabled="!authReady"
+                @click="openLogin"
+              >登录</button>
             </div>
             <!-- 用户菜单 -->
             <div v-if="showUserMenu" class="user-menu" @mouseleave="showUserMenu = false" @click="showUserMenu = false">
@@ -139,18 +153,29 @@ const isHomePage = computed(() => route.path === '/')
 
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)
+const shouldHideNavbarBeforeEnter = ref(false)
+
+function triggerHomeNavEnterAnimation() {
+  shouldAnimate.value = false
+  shouldHideNavbarBeforeEnter.value = true
+
+  if (!import.meta.client) return
+
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      shouldHideNavbarBeforeEnter.value = false
+      shouldAnimate.value = true
+    })
+  })
+}
 
 // 进入首页时，等 DOM 渲染完成后再触发动画，确保用户能看到
 watch(isHomePage, (val) => {
   if (val) {
-    shouldAnimate.value = false
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        shouldAnimate.value = true
-      })
-    })
+    triggerHomeNavEnterAnimation()
   } else {
     shouldAnimate.value = false
+    shouldHideNavbarBeforeEnter.value = false
   }
 }, { immediate: true })
 
@@ -271,7 +296,7 @@ async function handleLogout() {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid $color-border;
-  transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s ease, border-color 0.3s ease;
   .dark & {
     background: rgba(15, 23, 42, 0.85);
     border-bottom-color: $color-dark-border;
@@ -292,6 +317,12 @@ async function handleLogout() {
   }
   &--hidden {
     transform: translateY(-100%);
+  }
+
+  &--pre-enter {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
   }
 }
 
@@ -359,17 +390,11 @@ async function handleLogout() {
 }
 
 .nav-auth-slot {
-  min-width: 52px;
+  width: 68px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.nav-auth-placeholder {
-  width: 52px;
-  height: 44px;
-  display: inline-block;
 }
 
 .icon-btn {
@@ -398,11 +423,19 @@ async function handleLogout() {
   text-decoration: none;
   transition: background 0.2s;
   min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   border: none;
   cursor: pointer;
   &:hover { background: $color-primary-dark; }
+}
+
+.login-btn--placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .avatar-btn {
