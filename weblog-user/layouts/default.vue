@@ -552,7 +552,6 @@ async function handleLogout() {
 .main-content {
   min-height: calc(100vh - 60px - 60px);
   padding-top: 60px;
-  transition: padding-top 0.3s ease;
 
   &.has-announcement {
     padding-top: 96px; /* 60px 导航栏 + 36px 公告栏 */

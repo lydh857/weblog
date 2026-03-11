@@ -25,13 +25,18 @@
           }"
         >
           <img
+            v-if="shouldRenderSlideImage(index)"
             :src="slide.imageUrl"
             :alt="slide.title"
             class="slide-bg"
             :class="{ 'slide-bg--loaded': loadedImages.has(index) }"
+            :loading="index === 0 ? 'eager' : 'lazy'"
+            :fetchpriority="index === 0 ? 'high' : 'auto'"
+            decoding="async"
             @load="handleImageLoad(index)"
             @error="handleImageError(index)"
           />
+          <div v-else class="slide-bg slide-bg--placeholder" />
           <!-- 渐变遮罩 -->
           <div class="slide-overlay" />
         </div>
@@ -103,6 +108,7 @@ const progressKey = ref(0) // 用于重置进度条动画
 const slideStartTime = ref(0) // 当前幻灯片开始时间
 const elapsed = ref(0) // 暂停时已经过的毫秒数
 const loadedImages = reactive(new Set<number>())
+const preloadedSlideIndices = reactive(new Set<number>())
 const hasHeroEntered = ref(false)
 const SLIDE_DURATION = 5000
 const SLIDE_TRANSITION_MS = 850
@@ -115,16 +121,39 @@ async function loadCarousel() {
   try {
     const res = await carouselApi.listPortal()
     slides.value = res.data
+    preloadedSlideIndices.clear()
+    if (slides.value.length > 0) {
+      preloadSlideNeighbors(0)
+    }
   } catch {
     slides.value = []
+    preloadedSlideIndices.clear()
   } finally {
     loaded.value = true
   }
 }
 
+function normalizeSlideIndex(index: number) {
+  if (slides.value.length === 0) return 0
+  return (index + slides.value.length) % slides.value.length
+}
+
+function preloadSlideNeighbors(index: number) {
+  if (slides.value.length === 0) return
+  const current = normalizeSlideIndex(index)
+  const next = normalizeSlideIndex(index + 1)
+  preloadedSlideIndices.add(current)
+  preloadedSlideIndices.add(next)
+}
+
+function shouldRenderSlideImage(index: number) {
+  return preloadedSlideIndices.has(index)
+}
+
 // ===== 轮播控制 =====
 function goTo(index: number) {
   if (index === currentIndex.value) return
+  preloadSlideNeighbors(index)
   prevIndex.value = currentIndex.value
   currentIndex.value = index
   progressKey.value++ // 重置进度条动画
@@ -331,6 +360,17 @@ onUnmounted(() => {
 
   &--loaded {
     opacity: 1;
+  }
+
+  &--placeholder {
+    opacity: 1;
+    transform: none;
+    background: linear-gradient(
+      160deg,
+      rgba(30, 41, 59, 0.88) 0%,
+      rgba(15, 23, 42, 0.92) 60%,
+      rgba(15, 23, 42, 0.98) 100%
+    );
   }
 }
 

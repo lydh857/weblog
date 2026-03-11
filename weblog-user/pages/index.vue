@@ -21,7 +21,8 @@
         style="--reveal-delay: 70ms"
         :class="{ 'is-visible': sectionVisible.hot }"
       >
-        <HotPostGrid />
+        <LazyHotPostGrid v-if="sectionMounted.hot" />
+        <div v-else class="section-defer-placeholder" aria-hidden="true" />
       </div>
 
       <!-- 文章排行榜 -->
@@ -31,7 +32,8 @@
         style="--reveal-delay: 120ms"
         :class="{ 'is-visible': sectionVisible.ranking }"
       >
-        <HomeRankingSection />
+        <LazyHomeRankingSection v-if="sectionMounted.ranking" />
+        <div v-else class="section-defer-placeholder section-defer-placeholder--ranking" aria-hidden="true" />
       </div>
 
       <!-- 文章列表 -->
@@ -48,7 +50,9 @@
           </div>
         </div>
 
-        <div v-if="loading && !posts.length" class="loading-state">
+        <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
+
+        <div v-else-if="loading && !posts.length" class="loading-state">
           <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
           <span>加载中...</span>
         </div>
@@ -77,7 +81,7 @@
         </div>
 
         <!-- 加载更多 -->
-        <div v-if="posts.length" class="load-more-container">
+        <div v-if="sectionMounted.post && posts.length" class="load-more-container">
           <div v-if="loadingMore" class="loading-state">
             <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
             <span>加载中...</span>
@@ -91,7 +95,7 @@
           </button>
         </div>
 
-        <div v-if="!loading && !posts.length" class="empty-state">
+        <div v-if="sectionMounted.post && !loading && !posts.length" class="empty-state">
           <Icon name="heroicons:document-text-20-solid" size="48" />
           <p>暂无文章</p>
         </div>
@@ -106,11 +110,12 @@ import { postApi, type PostVO } from '~/api/post'
 useHead({ title: 'Weblog - 首页' })
 
 const posts = ref<PostVO[]>([])
-const loading = ref(true)
+const loading = ref(false)
 const loadingMore = ref(false)
 const noMore = ref(false)
 const currentPage = ref(1)
 const pageSize = 20
+const hasLoadedInitialPosts = ref(false)
 const postGridRef = ref<HTMLElement | null>(null)
 const loadingMoreIds = reactive(new Set<number>())
 const LOAD_MORE_SCROLL_TOP_OFFSET = 84
@@ -129,12 +134,28 @@ const sectionVisible = reactive<Record<HomeSectionKey, boolean>>({
   post: false
 })
 
+const sectionMounted = reactive<Record<HomeSectionKey, boolean>>({
+  today: true,
+  hot: false,
+  ranking: false,
+  post: false
+})
+
 let sectionObserver: IntersectionObserver | null = null
 const sectionTargetMap = new Map<Element, HomeSectionKey>()
 
 function markSectionVisible(key: HomeSectionKey) {
   if (sectionVisible[key]) return
   sectionVisible[key] = true
+}
+
+function ensureSectionMounted(key: HomeSectionKey) {
+  if (sectionMounted[key]) return
+  sectionMounted[key] = true
+
+  if (key === 'post') {
+    loadPosts()
+  }
 }
 
 function initSectionObserver() {
@@ -149,11 +170,12 @@ function initSectionObserver() {
       const key = sectionTargetMap.get(entry.target)
       if (!key) return
       markSectionVisible(key)
+      ensureSectionMounted(key)
       sectionObserver?.unobserve(entry.target)
     })
   }, {
     threshold: 0.16,
-    rootMargin: '0px 0px -10% 0px'
+    rootMargin: '0px 0px 20% 0px'
   })
 
   const sections: Array<[HomeSectionKey, HTMLElement | null]> = [
@@ -171,6 +193,7 @@ function initSectionObserver() {
 
   requestAnimationFrame(() => {
     markSectionVisible('today')
+    ensureSectionMounted('today')
   })
 }
 
@@ -213,6 +236,8 @@ function maybeScrollToFirstLoadedCard(previousCount: number) {
 }
 
 async function loadPosts() {
+  if (loading.value || hasLoadedInitialPosts.value) return
+
   loading.value = true
   try {
     const res = await postApi.list({ pageNum: 1, pageSize })
@@ -220,7 +245,10 @@ async function loadPosts() {
     noMore.value = res.data.records.length < pageSize || res.data.pages <= 1
     currentPage.value = 1
   } catch { /* ignore */ }
-  finally { loading.value = false }
+  finally {
+    loading.value = false
+    hasLoadedInitialPosts.value = true
+  }
 }
 
 async function loadMore() {
@@ -244,7 +272,6 @@ async function loadMore() {
 }
 
 onMounted(() => {
-  loadPosts()
   nextTick(() => {
     initSectionObserver()
   })
@@ -284,6 +311,42 @@ onUnmounted(() => {
     transform: translate3d(0, 0, 0) scale(1);
     filter: blur(0);
   }
+}
+
+.section-defer-placeholder,
+.post-defer-placeholder {
+  border-radius: $radius-lg;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(
+    120deg,
+    rgba(241, 245, 249, 0.72) 0%,
+    rgba(226, 232, 240, 0.9) 50%,
+    rgba(241, 245, 249, 0.72) 100%
+  );
+
+  .dark & {
+    border-color: rgba(100, 116, 139, 0.24);
+    background: linear-gradient(
+      120deg,
+      rgba(30, 41, 59, 0.78) 0%,
+      rgba(51, 65, 85, 0.92) 50%,
+      rgba(30, 41, 59, 0.78) 100%
+    );
+  }
+}
+
+.section-defer-placeholder {
+  min-height: 236px;
+  margin-bottom: $spacing-xl;
+}
+
+.section-defer-placeholder--ranking {
+  min-height: 520px;
+  margin-top: $spacing-xl;
+}
+
+.post-defer-placeholder {
+  min-height: 280px;
 }
 
 /* ===== 文章列表 ===== */
@@ -576,6 +639,18 @@ onUnmounted(() => {
 @media (max-width: $breakpoint-md) {
   .home-content { padding: 1.25rem 1rem; }
 
+  .section-defer-placeholder {
+    min-height: 200px;
+  }
+
+  .section-defer-placeholder--ranking {
+    min-height: 460px;
+  }
+
+  .post-defer-placeholder {
+    min-height: 240px;
+  }
+
   .post-grid {
     grid-template-columns: 1fr;
   }
@@ -594,6 +669,18 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
+  .section-defer-placeholder {
+    min-height: 180px;
+  }
+
+  .section-defer-placeholder--ranking {
+    min-height: 360px;
+  }
+
+  .post-defer-placeholder {
+    min-height: 220px;
+  }
+
   .post-card-loading-placeholder {
     flex-direction: column;
     height: auto;
