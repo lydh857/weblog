@@ -12,67 +12,57 @@
         <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
           <span class="logo-text">zhhhkl</span>
         </NuxtLink>
-        <div class="nav-right">
-          <nav class="nav-links">
-            <NuxtLink
-              to="/"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.15s' : ''"
-            >首页</NuxtLink>
-            <NuxtLink
-              to="/category"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.25s' : ''"
-            >分类</NuxtLink>
-            <NuxtLink
-              to="/topic"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.35s' : ''"
-            >专题</NuxtLink>
-            <NuxtLink
-              to="/tags"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.45s' : ''"
-            >标签</NuxtLink>
-            <NuxtLink
-              to="/ranking"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.55s' : ''"
-            >排行</NuxtLink>
-            <NuxtLink
-              to="/friend-links"
-              class="nav-link"
-              :class="{ 'animate-nav-item': shouldAnimate }"
-              :style="shouldAnimate ? '--delay: 0.65s' : ''"
-            >友链</NuxtLink>
-          </nav>
-          <div class="nav-actions" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.75s' : ''">
-            <button class="icon-btn" aria-label="搜索" @click="goSearch">
-              <Icon name="heroicons:magnifying-glass-20-solid" size="20" />
+
+        <div class="nav-main">
+          <NuxtLink
+            v-for="(item, index) in mainNavLinks"
+            :key="item.to"
+            :to="item.to"
+            class="nav-link desktop-nav-item"
+            :class="{ 'animate-nav-item': shouldAnimate }"
+            :style="shouldAnimate ? `--delay: ${0.15 + index * 0.1}s` : ''"
+          >
+            <Icon :name="item.icon" size="16" class="nav-link__icon" />
+            <span>{{ item.label }}</span>
+          </NuxtLink>
+
+          <button
+            class="icon-btn desktop-nav-item"
+            :class="{ 'animate-nav-item': shouldAnimate }"
+            :style="shouldAnimate ? '--delay: 0.75s' : ''"
+            aria-label="搜索"
+            @click="goSearch"
+          >
+            <Icon name="heroicons:magnifying-glass-20-solid" size="16" />
+          </button>
+
+          <button
+            class="icon-btn desktop-nav-item"
+            :class="{ 'animate-nav-item': shouldAnimate }"
+            :style="shouldAnimate ? '--delay: 0.8s' : ''"
+            aria-label="切换主题"
+            @click="toggleDark()"
+          >
+            <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="16" />
+          </button>
+
+          <div class="nav-auth-slot desktop-nav-item" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.85s' : ''">
+            <button v-if="showLoggedIn" key="nav-avatar" type="button" class="avatar-btn" @mouseenter="showUserMenu = true">
+              <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
+              <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
             </button>
-            <button class="icon-btn" aria-label="切换主题" @click="toggleDark()">
-              <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="20" />
+
+            <button
+              v-else
+              key="nav-login"
+              type="button"
+              class="login-btn"
+              @click="openLogin"
+            >
+              <Icon name="heroicons:user-16-solid" size="16" class="login-btn__icon" />
+              <span>登录</span>
             </button>
-            <div class="nav-auth-slot">
-              <button v-if="authReady && showLoggedIn" key="nav-avatar" type="button" class="avatar-btn" @mouseenter="showUserMenu = true">
-                <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
-                <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
-              </button>
-              <button
-                v-else
-                key="nav-login"
-                type="button"
-                class="login-btn"
-                :class="{ 'login-btn--placeholder': !authReady }"
-                :disabled="!authReady"
-                @click="openLogin"
-              >登录</button>
-            </div>
+
             <!-- 用户菜单 -->
             <div v-if="showUserMenu" class="user-menu" @mouseleave="showUserMenu = false" @click="showUserMenu = false">
               <NuxtLink to="/user" class="menu-item">
@@ -97,18 +87,28 @@
       </div>
       <!-- 移动端菜单 -->
       <div v-if="mobileMenuOpen" class="mobile-menu" @click="mobileMenuOpen = false">
-        <NuxtLink to="/" class="mobile-link">首页</NuxtLink>
-        <NuxtLink to="/category" class="mobile-link">分类</NuxtLink>
-        <NuxtLink to="/topic" class="mobile-link">专题</NuxtLink>
-        <NuxtLink to="/tags" class="mobile-link">标签</NuxtLink>
-        <NuxtLink to="/ranking" class="mobile-link">排行</NuxtLink>
-        <NuxtLink to="/friend-links" class="mobile-link">友链</NuxtLink>
-        <button class="mobile-link" @click="searchModal.open()">搜索</button>
+        <NuxtLink v-for="item in mainNavLinks" :key="`mobile-${item.to}`" :to="item.to" class="mobile-link">
+          <Icon :name="item.icon" size="16" class="mobile-link__icon" />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+        <button class="mobile-link" @click="searchModal.open()">
+          <Icon name="heroicons:magnifying-glass-20-solid" size="16" class="mobile-link__icon" />
+          <span>搜索</span>
+        </button>
         <template v-if="showLoggedIn">
-          <NuxtLink to="/user" class="mobile-link">个人中心</NuxtLink>
-          <button class="mobile-link logout-link" @click="handleLogout">退出登录</button>
+          <NuxtLink to="/user" class="mobile-link">
+            <Icon name="heroicons:user-circle-16-solid" size="16" class="mobile-link__icon" />
+            <span>个人中心</span>
+          </NuxtLink>
+          <button class="mobile-link logout-link" @click="handleLogout">
+            <Icon name="heroicons:arrow-right-start-on-rectangle-16-solid" size="16" class="mobile-link__icon" />
+            <span>退出登录</span>
+          </button>
         </template>
-        <button v-else class="mobile-link" @click="openLogin">登录</button>
+        <button v-else class="mobile-link" @click="openLogin">
+          <Icon name="heroicons:user-16-solid" size="16" class="mobile-link__icon" />
+          <span>登录</span>
+        </button>
       </div>
     </header>
     <!-- 搜索模态框 -->
@@ -150,6 +150,21 @@ const isScrolled = ref(false)
 const isNavHidden = ref(false)
 const lastScrollY = ref(0)
 const isHomePage = computed(() => route.path === '/')
+
+interface NavLinkItem {
+  to: string
+  label: string
+  icon: string
+}
+
+const mainNavLinks: NavLinkItem[] = [
+  { to: '/', label: '首页', icon: 'heroicons:home-20-solid' },
+  { to: '/category', label: '分类', icon: 'heroicons:squares-2x2-20-solid' },
+  { to: '/topic', label: '专题', icon: 'heroicons:book-open-20-solid' },
+  { to: '/tags', label: '标签', icon: 'heroicons:tag-20-solid' },
+  { to: '/ranking', label: '排行', icon: 'heroicons:trophy-20-solid' },
+  { to: '/friend-links', label: '友链', icon: 'heroicons:link-20-solid' }
+]
 
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)
@@ -208,10 +223,8 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
 
-const authReady = ref(false)
 onMounted(async () => {
   await userStore.fetchUser()
-  authReady.value = true
 })
 
 const showLoggedIn = computed(() => userStore.isLoggedIn)
@@ -219,14 +232,13 @@ const showLoggedIn = computed(() => userStore.isLoggedIn)
 const avatarLoadFailed = ref(false)
 
 const displayAvatar = computed(() => {
-  const raw = authReady.value ? (userStore.userInfo?.avatar || '') : ''
+  const raw = userStore.userInfo?.avatar || ''
   const value = typeof raw === 'string' ? raw.trim() : ''
   if (!value || value === 'null' || value === 'undefined') return ''
   return value
 })
 const displayNickname = computed(() => {
-  if (authReady.value) return userStore.userInfo?.nickname || 'U'
-  return 'U'
+  return userStore.userInfo?.nickname || 'U'
 })
 
 watch(displayAvatar, () => {
@@ -310,9 +322,25 @@ async function handleLogout() {
       border-bottom-color: transparent;
     }
     .nav-logo .logo-text { color: #fff; }
-    .nav-link { color: rgba(255, 255, 255, 0.85); &:hover, &.router-link-active { color: #fff; background: rgba(255, 255, 255, 0.12); } }
-    .icon-btn { color: rgba(255, 255, 255, 0.85); &:hover { color: #fff; background: rgba(255, 255, 255, 0.12); } }
-    .login-btn { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(4px); &:hover { background: rgba(255, 255, 255, 0.25); } }
+    .nav-link,
+    .login-btn {
+      color: rgba(255, 255, 255, 0.88);
+      &.router-link-active {
+        color: rgba(255, 255, 255, 0.88);
+        background: transparent;
+      }
+      &:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.26);
+      }
+    }
+    .icon-btn {
+      color: rgba(255, 255, 255, 0.88);
+      &:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.26);
+      }
+    }
     .mobile-menu-btn { color: #fff; }
   }
   &--hidden {
@@ -333,7 +361,19 @@ async function handleLogout() {
   height: 60px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.2rem;
+}
+
+.nav-main {
+  display: flex;
+  align-items: center;
+  gap: 0.16rem;
+  min-width: 0;
+  margin-left: auto;
+
+  @media (max-width: $breakpoint-md) {
+    margin-left: 0;
+  }
 }
 
 /* ===== Logo 艺术字体（通过 nuxt.config.ts head 预加载） ===== */
@@ -351,26 +391,28 @@ async function handleLogout() {
   transition: color 0.2s;
 }
 
-/* ===== 右侧导航区域 ===== */
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+
+.desktop-nav-item {
   @media (max-width: $breakpoint-md) { display: none; }
 }
 
-.nav-links {
-  display: flex;
-  gap: 0.25rem;
+.nav-link,
+.icon-btn,
+.login-btn {
+  height: 34px;
+  padding: 0 0.52rem;
+  border-radius: $radius-md;
+  transition: color 0.2s, background 0.2s;
 }
 
 .nav-link {
-  padding: 0.375rem 0.75rem;
-  border-radius: $radius-md;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: $color-text-muted;
   text-decoration: none;
-  transition: color 0.2s, background 0.2s;
   &:hover, &.router-link-active {
     color: $color-primary;
     background: rgba(59, 130, 246, 0.08);
@@ -381,61 +423,62 @@ async function handleLogout() {
   }
 }
 
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-left: 0.5rem;
-  position: relative;
-}
-
 .nav-auth-slot {
-  width: 68px;
-  min-height: 44px;
+  width: 56px;
+  min-width: 56px;
+  min-height: 34px;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .icon-btn {
-  width: 44px;
-  height: 44px;
+  min-width: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: $radius-md;
   background: transparent;
   color: $color-text-muted;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
   &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.08); }
   .dark & { color: #94a3b8; &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.15); } }
 }
 
 .login-btn {
-  padding: 0.5rem 1rem;
-  border-radius: $radius-md;
-  background: $color-primary;
-  color: #fff;
-  font-size: 0.85rem;
+  padding: 0 0.25rem;
+  background: transparent;
+  color: $color-text-muted;
+  font-size: 0.8rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background 0.2s;
-  min-height: 44px;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.18rem;
+  white-space: nowrap;
   border: none;
   cursor: pointer;
-  &:hover { background: $color-primary-dark; }
+  &:hover {
+    color: $color-primary;
+    background: rgba(59, 130, 246, 0.08);
+  }
+  .dark & {
+    color: #94a3b8;
+    &:hover {
+      color: $color-primary;
+      background: rgba(59, 130, 246, 0.15);
+    }
+  }
 }
 
-.login-btn--placeholder {
-  visibility: hidden;
-  pointer-events: none;
+.login-btn__icon {
+  opacity: 0.9;
+  flex-shrink: 0;
 }
 
 .avatar-btn {
@@ -443,8 +486,9 @@ async function handleLogout() {
   background: transparent !important;
   cursor: pointer;
   padding: 0;
-  min-width: 32px;
-  min-height: 44px;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -517,9 +561,10 @@ async function handleLogout() {
   cursor: pointer;
   padding: 0.5rem;
   min-width: 44px;
-  min-height: 44px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
   .dark & { color: $color-dark-text; }
   @media (max-width: $breakpoint-md) { display: flex; }
 }
@@ -534,8 +579,12 @@ async function handleLogout() {
 }
 
 .mobile-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.75rem 0;
   font-size: 0.95rem;
+  font-weight: 500;
   color: $color-text;
   text-decoration: none;
   border: none;
@@ -549,9 +598,15 @@ async function handleLogout() {
   &.logout-link { color: #ef4444; }
 }
 
+.mobile-link__icon {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
 .main-content {
   min-height: calc(100vh - 60px - 60px);
   padding-top: 60px;
+  background: #f5f5f5;
 
   &.has-announcement {
     padding-top: 96px; /* 60px 导航栏 + 36px 公告栏 */

@@ -259,8 +259,8 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .tags-page-bg {
   min-height: calc(100vh - 120px);
-  background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #f0fdf4 100%);
-  .dark & { background: linear-gradient(135deg, #0f172a 0%, #1a1033 50%, #0a1628 100%); }
+  background: #f5f5f5;
+  .dark & { background: #f5f5f5; }
 }
 
 .tags-page {

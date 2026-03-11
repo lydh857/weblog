@@ -111,9 +111,9 @@ onMounted(() => fetchTopics())
 
 <style scoped lang="scss">
 .topic-list-bg {
-  background: $color-bg-page;
+  background: #f5f5f5;
   min-height: 100vh;
-  .dark & { background: $color-dark-bg; }
+  .dark & { background: #f5f5f5; }
 }
 
 .topic-list-page {

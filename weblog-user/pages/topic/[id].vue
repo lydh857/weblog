@@ -243,9 +243,9 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .topic-detail-bg {
-  background: $color-bg-page;
+  background: #f5f5f5;
   min-height: 100vh;
-  .dark & { background: $color-dark-bg; }
+  .dark & { background: #f5f5f5; }
 }
 
 .topic-detail-page {

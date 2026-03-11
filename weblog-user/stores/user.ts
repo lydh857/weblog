@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { setToken, removeToken, getToken, syncUserCookie } from '~/utils/http'
+import { setToken, removeToken, syncUserCookie } from '~/utils/http'
 import { userApi } from '~/api/user'
 
 interface UserInfo {
@@ -11,6 +11,9 @@ interface UserInfo {
 }
 
 export const useUserStore = defineStore('user', () => {
+  const LOGGED_IN_COOKIE = 'weblog_logged_in'
+  const loggedInCookie = useCookie<string | number | null>(LOGGED_IN_COOKIE)
+
   const userInfo = ref<UserInfo>({
     userId: null,
     email: '',
@@ -21,7 +24,7 @@ export const useUserStore = defineStore('user', () => {
 
   // 用响应式 ref 追踪登录状态
   // 注意：不再存储 token，因为 token 现在通过 HttpOnly Cookie 管理
-  const token = ref<string | null>(getToken())
+  const token = ref<string | null>(String(loggedInCookie.value ?? '') === '1' ? 'logged_in' : null)
 
   const isLoggedIn = computed(() => !!token.value)
 
