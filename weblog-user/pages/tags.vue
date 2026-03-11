@@ -4,7 +4,7 @@
       <div class="page-header">
         <div>
           <h1 class="page-title">
-            <Icon name="heroicons:tag-20-solid" size="24" />
+            <Icon name="heroicons:tag-20-solid" size="22" />
             标签云
           </h1>
           <p class="page-desc">共 {{ tags.length }} 个标签</p>
@@ -51,7 +51,7 @@
             <NuxtLink
               v-for="tag in renderedTags"
               :key="tag.id"
-              :to="`/tag/${tag.slug}`"
+              :to="{ path: '/category', query: { tagId: String(tag.id) } }"
               class="cloud-tag"
               :style="tag.style"
             >
@@ -65,7 +65,7 @@
           <NuxtLink
             v-for="(tag, i) in sortedTags"
             :key="tag.id"
-            :to="`/tag/${tag.slug}`"
+            :to="{ path: '/category', query: { tagId: String(tag.id) } }"
             class="flat-tag"
             :style="{
               '--tag-color': tag.color || getTagColor(i),
@@ -102,7 +102,7 @@ const tags = ref<TagCloudVO[]>([])
 const cloudRef = ref<HTMLElement | null>(null)
 const viewMode = ref<'3d' | 'flat'>('3d')
 
-const RADIUS = 180
+const RADIUS = 210
 const sphereScale = ref(1)
 const rotateX = ref(0)
 const rotateY = ref(0)
@@ -113,6 +113,9 @@ let dragStartX = 0
 let dragStartY = 0
 let dragStartRX = 0
 let dragStartRY = 0
+let dragLatestX = 0
+let dragLatestY = 0
+let dragRafId = 0
 
 let rafId = 0
 let autoAngle = 0
@@ -124,7 +127,11 @@ function animateLoop(time: number) {
     if (!isInsideCloud.value && !isDragging.value) {
       autoAngle += dt * 0.015
       rotateY.value = autoAngle % 360
-      rotateX.value = Math.sin(autoAngle * 0.003) * 12
+      if (Math.abs(rotateX.value) > 0.01) {
+        rotateX.value *= 0.985
+      } else {
+        rotateX.value = 0
+      }
     }
   }
   lastTime = time
@@ -150,7 +157,7 @@ const sphereTags = computed<TagSphere[]>(() => {
   const maxPost = Math.max(...tags.value.map(t => t.postCount), 1)
 
   return tags.value.map((tag, i) => {
-    const y = 1 - (i / (count - 1 || 1)) * 2
+    const y = 1 - ((i + 0.5) / count) * 2
     const rAtY = Math.sqrt(1 - y * y)
     const theta = golden * i
     const fontSize = 13 + (tag.postCount / maxPost) * 11
@@ -201,7 +208,9 @@ const renderedTags = computed(() => {
         fontSize: tag.fontSize + 'px',
         color: tag.colorStr,
         zIndex: Math.round(z2 + 500),
-        filter: norm < 0.3 ? `blur(${(1 - norm * 3.3).toFixed(1)}px)` : 'none',
+        filter: isDragging.value
+          ? 'none'
+          : (norm < 0.3 ? `blur(${(1 - norm * 3.3).toFixed(1)}px)` : 'none'),
       } as Record<string, string | number>,
     }
   })
@@ -213,6 +222,8 @@ function onDragStart(e: MouseEvent) {
   isDragging.value = true
   dragStartX = e.clientX
   dragStartY = e.clientY
+  dragLatestX = e.clientX
+  dragLatestY = e.clientY
   dragStartRX = rotateX.value
   dragStartRY = rotateY.value
   window.addEventListener('mousemove', onDragMove)
@@ -221,13 +232,25 @@ function onDragStart(e: MouseEvent) {
 
 function onDragMove(e: MouseEvent) {
   if (!isDragging.value) return
-  rotateY.value = dragStartRY + (e.clientX - dragStartX) * 0.4
-  rotateX.value = dragStartRX - (e.clientY - dragStartY) * 0.4
-  autoAngle = rotateY.value
+  dragLatestX = e.clientX
+  dragLatestY = e.clientY
+
+  if (dragRafId) return
+  dragRafId = requestAnimationFrame(() => {
+    dragRafId = 0
+    rotateY.value = dragStartRY + (dragLatestX - dragStartX) * 0.28
+    rotateX.value = dragStartRX - (dragLatestY - dragStartY) * 0.28
+    autoAngle = rotateY.value
+  })
 }
 
 function onDragEnd() {
+  if (dragRafId) {
+    cancelAnimationFrame(dragRafId)
+    dragRafId = 0
+  }
   isDragging.value = false
+  autoAngle = rotateY.value
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
 }
@@ -251,6 +274,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cancelAnimationFrame(rafId)
+  if (dragRafId) {
+    cancelAnimationFrame(dragRafId)
+    dragRafId = 0
+  }
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
 })
@@ -264,16 +291,16 @@ onUnmounted(() => {
 }
 
 .tags-page {
-  max-width: 960px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
 }
 
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--layout-page-header-margin-bottom);
   @media (max-width: $breakpoint-md) {
     flex-direction: column;
     gap: 1rem;
@@ -283,16 +310,21 @@ onUnmounted(() => {
 .page-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1.75rem;
+  gap: var(--layout-page-title-gap);
+  font-size: var(--layout-page-title-size);
   font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+  margin: 0;
   color: $color-text;
   .dark & { color: $color-dark-text; }
 }
 
 .page-desc {
+  margin-top: var(--layout-page-desc-margin-top);
+  font-size: 0.92rem;
+  line-height: 1.4;
   color: $color-text-muted;
-  margin-top: 0.25rem;
   .dark & { color: #94a3b8; }
 }
 
@@ -350,8 +382,8 @@ onUnmounted(() => {
 
 .cloud-wrapper {
   position: relative;
-  max-width: 480px;
-  height: 440px;
+  max-width: 560px;
+  height: 520px;
   margin: 0 auto 2rem;
   perspective: 900px;
   cursor: grab;
@@ -361,15 +393,15 @@ onUnmounted(() => {
   justify-content: center;
   &:active { cursor: grabbing; }
   @media (max-width: $breakpoint-md) {
-    max-width: 340px;
-    height: 340px;
+    max-width: 380px;
+    height: 380px;
   }
 }
 
 .cloud-glow {
   position: absolute;
-  width: 260px;
-  height: 260px;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
   pointer-events: none;
@@ -386,12 +418,12 @@ onUnmounted(() => {
 
 .cloud-scene {
   position: relative;
-  width: 360px;
-  height: 360px;
+  width: 420px;
+  height: 420px;
   transform-style: preserve-3d;
   @media (max-width: $breakpoint-md) {
-    width: 280px;
-    height: 280px;
+    width: 320px;
+    height: 320px;
   }
 }
 

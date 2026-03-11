@@ -1,10 +1,13 @@
 <template>
   <div class="topic-list-bg">
     <div class="topic-list-page">
-      <h1 class="page-title">
-        <Icon name="heroicons:book-open-20-solid" size="24" />
-        专题
-      </h1>
+      <header class="page-header">
+        <h1 class="page-title">
+          <Icon name="heroicons:book-open-20-solid" size="22" />
+          专题
+        </h1>
+        <p class="page-desc">聚合系列主题内容，按专题高效阅读</p>
+      </header>
 
       <!-- 加载态 -->
       <div v-if="loading" class="loading-state">
@@ -117,20 +120,34 @@ onMounted(() => fetchTopics())
 }
 
 .topic-list-page {
-  max-width: 1100px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x) 3rem;
+}
+
+.page-header {
+  margin-bottom: var(--layout-page-header-margin-bottom);
 }
 
 .page-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1.5rem;
+  gap: var(--layout-page-title-gap);
+  font-size: var(--layout-page-title-size);
   font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
   color: $color-text;
-  margin-bottom: 1.5rem;
+  margin: 0;
   .dark & { color: $color-dark-text; }
+}
+
+.page-desc {
+  margin-top: var(--layout-page-desc-margin-top);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: $color-text-muted;
+  .dark & { color: #94a3b8; }
 }
 
 .topic-grid {

@@ -289,9 +289,9 @@ onUnmounted(() => {
 }
 
 .home-content {
-  max-width: 1400px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
 }
 
 .home-reveal {

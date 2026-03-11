@@ -96,8 +96,14 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.search-page { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+.search-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.page-title {
+  margin: 0 0 var(--layout-page-header-margin-bottom);
+  font-size: var(--layout-page-title-size);
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+}
 
 .search-box {
   position: relative;
@@ -206,6 +212,6 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: $breakpoint-md) {
-  .search-page { padding: 1.5rem 1rem; }
+  .search-page { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 }
 </style>

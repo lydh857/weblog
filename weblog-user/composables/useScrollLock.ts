@@ -1,17 +1,38 @@
 let lockCount = 0
+let lockScrollTop = 0
+let lockBodyWidth = ''
 
-function getScrollbarWidth(): number {
-  return window.innerWidth - document.documentElement.clientWidth
+const bodyStyleSnapshot = {
+  position: '',
+  top: '',
+  left: '',
+  right: '',
+  width: '',
+  overflowY: '',
 }
 
 export function lockScroll() {
   if (typeof window === 'undefined') return
   lockCount++
   if (lockCount === 1) {
-    const sw = getScrollbarWidth()
-    document.documentElement.style.setProperty('--scrollbar-width', `${sw}px`)
-    document.documentElement.style.overflowY = 'hidden'
-    document.documentElement.style.paddingRight = `${sw}px`
+    const body = document.body
+    lockBodyWidth = `${document.documentElement.clientWidth}px`
+
+    bodyStyleSnapshot.position = body.style.position
+    bodyStyleSnapshot.top = body.style.top
+    bodyStyleSnapshot.left = body.style.left
+    bodyStyleSnapshot.right = body.style.right
+    bodyStyleSnapshot.width = body.style.width
+    bodyStyleSnapshot.overflowY = body.style.overflowY
+
+    lockScrollTop = window.scrollY || window.pageYOffset || 0
+
+    body.style.position = 'fixed'
+    body.style.top = `-${lockScrollTop}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = lockBodyWidth
+    body.style.overflowY = 'hidden'
   }
 }
 
@@ -19,8 +40,15 @@ export function unlockScroll() {
   if (typeof window === 'undefined') return
   lockCount = Math.max(0, lockCount - 1)
   if (lockCount === 0) {
-    document.documentElement.style.overflowY = ''
-    document.documentElement.style.paddingRight = ''
-    document.documentElement.style.setProperty('--scrollbar-width', '0px')
+    const body = document.body
+
+    body.style.position = bodyStyleSnapshot.position
+    body.style.top = bodyStyleSnapshot.top
+    body.style.left = bodyStyleSnapshot.left
+    body.style.right = bodyStyleSnapshot.right
+    body.style.width = bodyStyleSnapshot.width
+    body.style.overflowY = bodyStyleSnapshot.overflowY
+
+    window.scrollTo(0, lockScrollTop)
   }
 }

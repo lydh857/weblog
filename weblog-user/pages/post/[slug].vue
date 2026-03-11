@@ -436,7 +436,7 @@ onMounted(async () => {
 
 /* 三栏布局 */
 .post-detail-page {
-  max-width: 1200px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 1rem 1rem 2rem;
 }

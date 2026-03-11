@@ -170,7 +170,7 @@ onUnmounted(() => stopAutoPlay())
 }
 
 .announcement-bar-inner {
-  max-width: 1400px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 0 1.5rem;
   height: 36px;

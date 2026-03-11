@@ -96,9 +96,9 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.category-posts-page { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
+.category-posts-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 
-.page-header { margin-bottom: 1.5rem; }
+.page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -109,8 +109,20 @@ onMounted(async () => {
   margin-bottom: 0.75rem;
   &:hover { text-decoration: underline; }
 }
-.page-title { font-size: 1.5rem; font-weight: 700; color: $color-text; .dark & { color: $color-dark-text; } }
-.page-desc { font-size: 0.9rem; color: $color-text-muted; margin-top: 0.375rem; }
+.page-title {
+  font-size: var(--layout-page-title-size);
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+  color: $color-text;
+  .dark & { color: $color-dark-text; }
+}
+.page-desc {
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: $color-text-muted;
+  margin-top: var(--layout-page-desc-margin-top);
+}
 
 .post-item {
   padding: 1rem 0;

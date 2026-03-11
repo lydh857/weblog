@@ -534,7 +534,7 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.edit-page { max-width: 600px; margin: 0 auto; padding: 2rem 1.5rem; }
+.edit-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 .edit-header { margin-bottom: 1.2rem; }
 .back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; }
 .edit-title { margin: 0; font-size: 1.35rem; }
@@ -589,5 +589,5 @@ onMounted(async () => {
 .strength-bars { display: flex; gap: 4px; }
 .bar { width: 2rem; height: 4px; border-radius: 2px; background: #e2e8f0; }
 .strength-text { font-size: .75rem; }
-@media (max-width: $breakpoint-md) { .edit-page { padding: 1.5rem 1rem; } }
+@media (max-width: $breakpoint-md) { .edit-page { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); } }
 </style>

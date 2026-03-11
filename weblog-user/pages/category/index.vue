@@ -203,9 +203,9 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .category-page {
-  max-width: 1400px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: $spacing-xl $spacing-lg;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
 }
 
 /* 双列文章列表 */
@@ -280,7 +280,7 @@ onMounted(async () => {
 /* 响应式 */
 @media (max-width: $breakpoint-md) {
   .category-page {
-    padding: $spacing-lg $spacing-md;
+    padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
   }
 
   .post-grid,

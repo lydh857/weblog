@@ -106,9 +106,9 @@ async function handleSubmit() {
 
 <style scoped lang="scss">
 .ad-apply-page {
-  max-width: 640px;
-  margin: 40px auto;
-  padding: 0 20px;
+  max-width: var(--layout-max-width);
+  margin: var(--layout-page-padding-y) auto;
+  padding: 0 var(--layout-page-padding-x);
 
   h1 { font-size: 1.5rem; margin-bottom: 8px; }
   .subtitle { color: var(--text-secondary, #666); margin-bottom: 32px; }

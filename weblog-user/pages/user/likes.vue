@@ -137,12 +137,18 @@ async function loadData(page = 1) {
 onMounted(() => loadData())
 </script>
 <style scoped lang="scss">
-.likes-page { max-width: 700px; margin: 0 auto; padding: 2rem 1.5rem; }
-.page-header { margin-bottom: 1.2rem; }
+.likes-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .45rem; }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .header-left { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-.page-title { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+}
 
 .toolbar-btn, .manage-btn {
   display: inline-flex; align-items: center; gap: .25rem;
@@ -172,7 +178,7 @@ onMounted(() => loadData())
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (max-width: $breakpoint-md) {
-  .likes-page { padding: 1.5rem 1rem; }
+  .likes-page { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
   .card-cover { width: 96px; height: 64px; }
 }
 </style>

@@ -139,12 +139,18 @@ onMounted(() => loadData())
 </script>
 
 <style scoped lang="scss">
-.comments-page { max-width: 700px; margin: 0 auto; padding: 2rem 1.5rem; }
-.page-header { margin-bottom: 1rem; }
+.comments-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .back-link { display: inline-flex; align-items: center; gap: .375rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .header-left { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-.page-title { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+}
 .toolbar-btn, .manage-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .625rem; border: 1px solid $color-border; border-radius: $radius-md; background: transparent; color: $color-text-muted; cursor: pointer; }
 .danger-btn { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
 .comment-card { position: relative; padding: .65rem .85rem; margin-bottom: .4rem; border: 2px solid $color-border; border-radius: $radius-lg; }

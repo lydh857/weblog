@@ -80,7 +80,7 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.user-center { max-width: 700px; margin: 0 auto; padding: 2rem 1.5rem; }
+.user-center { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 .profile-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2rem; border: 1px solid $color-border; border-radius: $radius-lg; background: $color-bg; position: relative; }
 .profile-avatar { margin-bottom: 1rem; }
 .avatar-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid $color-primary; }
@@ -103,5 +103,5 @@ onMounted(async () => {
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: $breakpoint-sm) { .quick-links { grid-template-columns: 1fr; } }
-@media (max-width: $breakpoint-md) { .user-center { padding: 1.5rem 1rem; } }
+@media (max-width: $breakpoint-md) { .user-center { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); } }
 </style>

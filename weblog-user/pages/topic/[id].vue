@@ -249,6 +249,7 @@ onMounted(async () => {
 }
 
 .topic-detail-page {
+  max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 1rem 1.5rem 2rem;
 }

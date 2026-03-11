@@ -77,7 +77,7 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .announcement-detail {
-  max-width: 800px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: $spacing-xl $spacing-lg;
 }

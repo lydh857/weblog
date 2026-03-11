@@ -22,5 +22,4 @@ export const tagApi = {
     const url = qs ? `/portal/tag/cloud?${qs}` : '/portal/tag/cloud'
     return http.get<TagCloudVO[], { data: TagCloudVO[] }>(url)
   },
-  getBySlug: (slug: string) => http.get<TagCloudVO, { data: TagCloudVO }>(`/portal/tag/slug/${slug}`),
 }

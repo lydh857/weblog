@@ -8,6 +8,9 @@
         @keydown="handleKeydown"
       >
         <div class="search-modal" role="dialog" aria-modal="true" aria-label="搜索">
+          <button class="modal-close-btn" aria-label="关闭搜索" @click="close">
+            <Icon name="heroicons:x-mark-20-solid" size="18" />
+          </button>
           <!-- 顶部搜索输入框 -->
           <div class="search-header">
             <div class="search-input-wrapper">
@@ -25,9 +28,6 @@
                 <Icon name="heroicons:x-circle-20-solid" size="18" />
               </button>
             </div>
-            <button class="close-btn" aria-label="关闭搜索" @click="close">
-              <kbd>Esc</kbd>
-            </button>
           </div>
 
           <!-- 搜索内容区域 -->
@@ -386,19 +386,57 @@ onUnmounted(() => {
 
 /* ===== 模态框主体 ===== */
 .search-modal {
+  position: relative;
   width: 90%;
   max-width: 640px;
   max-height: 70vh;
   display: flex;
   flex-direction: column;
   background: $color-bg;
-  border-radius: $radius-lg;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
   overflow: hidden;
 
   .dark & {
     background: $color-dark-bg-secondary;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+    border-color: rgba(71, 85, 105, 0.55);
+    box-shadow: 0 28px 70px rgba(2, 6, 23, 0.62);
+  }
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 0.72rem;
+  right: 0.72rem;
+  width: 30px;
+  height: 30px;
+  border: 1px solid $color-border;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.95);
+  color: $color-text-muted;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.18s, background 0.18s, border-color 0.18s;
+
+  &:hover {
+    color: $color-text;
+    border-color: $color-primary;
+    background: #fff;
+  }
+
+  .dark & {
+    background: rgba(15, 23, 42, 0.92);
+    border-color: $color-dark-border;
+    color: #94a3b8;
+
+    &:hover {
+      color: $color-dark-text;
+      border-color: $color-primary;
+      background: rgba(15, 23, 42, 1);
+    }
   }
 }
 
@@ -406,12 +444,13 @@ onUnmounted(() => {
 .search-header {
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-md;
+  padding: 0.8rem 3rem 0.8rem 0.8rem;
   border-bottom: 1px solid $color-border;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(248, 250, 252, 0.58));
 
   .dark & {
     border-bottom-color: $color-dark-border;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7));
   }
 }
 
@@ -420,6 +459,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+  border: 1px solid $color-border;
+  border-radius: 10px;
+  padding: 0.42rem 0.6rem;
+  background: rgba(255, 255, 255, 0.9);
+  .dark & {
+    border-color: $color-dark-border;
+    background: rgba(15, 23, 42, 0.78);
+  }
 }
 
 .search-icon {
@@ -436,7 +483,7 @@ onUnmounted(() => {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: $color-text;
   line-height: 1.5;
 
@@ -475,31 +522,6 @@ onUnmounted(() => {
 
     &:hover {
       color: $color-dark-text;
-    }
-  }
-}
-
-.close-btn {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-
-  kbd {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.75rem;
-    font-family: inherit;
-    color: $color-text-muted;
-    background: $color-bg-secondary;
-    border: 1px solid $color-border;
-    border-radius: $radius-sm;
-
-    .dark & {
-      color: #64748b;
-      background: $color-dark-bg;
-      border-color: $color-dark-border;
     }
   }
 }

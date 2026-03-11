@@ -16,6 +16,7 @@ html {
   background-color: $color-bg;
   -webkit-font-smoothing: antialiased;
   overflow-y: scroll;
+  scrollbar-gutter: stable;
 
   @media (min-width: $breakpoint-md) {
     font-size: 17px;
@@ -31,12 +32,26 @@ html {
 }
 
 :root {
+  --layout-max-width: 1400px;
+  --layout-page-padding-y: 2rem;
+  --layout-page-padding-x: 1.5rem;
+  --layout-page-header-margin-bottom: 1.5rem;
+  --layout-page-title-size: 1.6rem;
+  --layout-page-title-gap: 0.45rem;
+  --layout-page-desc-margin-top: 0.4rem;
   --z-navbar: 100;
   --z-toast: 50000;
   --z-read-limit: 55000;
   --z-modal: 60000;
   --z-captcha: 65000;
   --z-confirm: 70000;
+}
+
+@media (max-width: $breakpoint-md) {
+  :root {
+    --layout-page-padding-y: 1.5rem;
+    --layout-page-padding-x: 1rem;
+  }
 }
 
 a {

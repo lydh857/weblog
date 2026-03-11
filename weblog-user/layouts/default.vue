@@ -46,8 +46,22 @@
             <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="16" />
           </button>
 
-          <div class="nav-auth-slot desktop-nav-item" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.85s' : ''">
-            <button v-if="showLoggedIn" key="nav-avatar" type="button" class="avatar-btn" @mouseenter="showUserMenu = true">
+          <div
+            ref="navAuthRef"
+            class="nav-auth-slot desktop-nav-item"
+            :class="{ 'animate-nav-item': shouldAnimate }"
+            :style="shouldAnimate ? '--delay: 0.85s' : ''"
+            @mouseenter="openUserMenu"
+            @mouseleave="scheduleHideUserMenu()"
+          >
+            <button
+              v-if="showLoggedIn"
+              key="nav-avatar"
+              type="button"
+              class="avatar-btn"
+              :aria-expanded="showUserMenu"
+              @click="toggleUserMenu"
+            >
               <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
               <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
             </button>
@@ -64,7 +78,13 @@
             </button>
 
             <!-- 用户菜单 -->
-            <div v-if="showUserMenu" class="user-menu" @mouseleave="showUserMenu = false" @click="showUserMenu = false">
+            <div
+              v-if="showUserMenu"
+              class="user-menu"
+              @mouseenter="openUserMenu"
+              @mouseleave="scheduleHideUserMenu()"
+              @click="closeUserMenu"
+            >
               <NuxtLink to="/user" class="menu-item">
                 <Icon name="heroicons:user-circle-16-solid" size="16" /> 个人中心
               </NuxtLink>
@@ -140,10 +160,12 @@ const router = useRouter()
 const route = useRoute()
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
+const navAuthRef = ref<HTMLElement | null>(null)
 const message = useMessage()
 const { confirm } = useConfirm()
 const loginModal = useLoginModal()
 const { locked: navScrollLocked } = useNavScrollLock()
+let hideUserMenuTimer: ReturnType<typeof setTimeout> | null = null
 
 // ===== 导航栏滚动状态 =====
 const isScrolled = ref(false)
@@ -227,6 +249,56 @@ onMounted(async () => {
   await userStore.fetchUser()
 })
 
+function clearHideUserMenuTimer() {
+  if (hideUserMenuTimer !== null) {
+    clearTimeout(hideUserMenuTimer)
+    hideUserMenuTimer = null
+  }
+}
+
+function openUserMenu() {
+  if (!showLoggedIn.value) return
+  clearHideUserMenuTimer()
+  showUserMenu.value = true
+}
+
+function scheduleHideUserMenu(delay = 120) {
+  clearHideUserMenuTimer()
+  hideUserMenuTimer = setTimeout(() => {
+    showUserMenu.value = false
+    hideUserMenuTimer = null
+  }, delay)
+}
+
+function closeUserMenu() {
+  clearHideUserMenuTimer()
+  showUserMenu.value = false
+}
+
+function toggleUserMenu() {
+  if (showUserMenu.value) {
+    closeUserMenu()
+    return
+  }
+  openUserMenu()
+}
+
+function handleGlobalPointerDown(event: PointerEvent) {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (navAuthRef.value?.contains(target)) return
+  closeUserMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleGlobalPointerDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', handleGlobalPointerDown)
+  clearHideUserMenuTimer()
+})
+
 const showLoggedIn = computed(() => userStore.isLoggedIn)
 
 const avatarLoadFailed = ref(false)
@@ -239,6 +311,14 @@ const displayAvatar = computed(() => {
 })
 const displayNickname = computed(() => {
   return userStore.userInfo?.nickname || 'U'
+})
+
+watch(() => route.fullPath, () => {
+  closeUserMenu()
+})
+
+watch(showLoggedIn, (val) => {
+  if (!val) closeUserMenu()
 })
 
 watch(displayAvatar, () => {
@@ -355,7 +435,7 @@ async function handleLogout() {
 }
 
 .nav-inner {
-  max-width: 1400px;
+  max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 0 1.5rem;
   height: 60px;
@@ -483,7 +563,7 @@ async function handleLogout() {
 
 .avatar-btn {
   border: none;
-  background: transparent !important;
+  background: transparent;
   cursor: pointer;
   padding: 0;
   width: 100%;
@@ -493,6 +573,7 @@ async function handleLogout() {
   align-items: center;
   justify-content: center;
   outline: none;
+  border-radius: 999px;
   &:focus-visible {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
     border-radius: 999px;
@@ -523,15 +604,20 @@ async function handleLogout() {
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 0.5rem;
-  min-width: 160px;
+  margin-top: 0.42rem;
+  min-width: 176px;
   background: $color-bg;
   border: 1px solid $color-border;
-  border-radius: $radius-md;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
   z-index: 200;
-  padding: 0.375rem 0;
-  .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); }
+  padding: 0.4rem;
+  backdrop-filter: blur(10px);
+  .dark & {
+    background: rgba(15, 23, 42, 0.92);
+    border-color: $color-dark-border;
+    box-shadow: 0 14px 32px rgba(2, 6, 23, 0.55);
+  }
 }
 
 .menu-item {
@@ -539,17 +625,40 @@ async function handleLogout() {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.5rem 1rem;
+  padding: 0.56rem 0.66rem;
   font-size: 0.85rem;
   color: $color-text;
   text-decoration: none;
   border: none;
+  border-radius: 8px;
   background: none;
   cursor: pointer;
-  transition: background 0.15s;
-  &:hover { background: rgba(59, 130, 246, 0.06); }
-  &.logout { color: #ef4444; &:hover { background: rgba(239, 68, 68, 0.06); } }
-  .dark & { color: $color-dark-text; &.logout { color: #f87171; } }
+  transition: background 0.16s, color 0.16s;
+  &:hover {
+    color: $color-primary;
+    background: rgba(59, 130, 246, 0.1);
+  }
+  &.logout {
+    margin-top: 0.2rem;
+    color: #ef4444;
+    border-top: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0 0 8px 8px;
+    padding-top: 0.66rem;
+    &:hover {
+      color: #dc2626;
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
+  .dark & {
+    color: $color-dark-text;
+    &.logout {
+      color: #f87171;
+      border-top-color: rgba(71, 85, 105, 0.5);
+      &:hover {
+        color: #ef4444;
+      }
+    }
+  }
 }
 
 /* ===== 移动端 ===== */

@@ -51,8 +51,6 @@ export default defineNuxtConfig({
     '/post/**': { swr: 1800 },
     // 分类页缓存 15 分钟
     '/category/**': { swr: 900 },
-    // 标签页缓存 15 分钟
-    '/tag/**': { swr: 900 },
     // 归档页缓存 30 分钟
     '/archive/**': { swr: 1800 },
     // 公告页缓存 10 分钟
