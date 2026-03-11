@@ -66,6 +66,9 @@ build/
 target/
 out/
 
+# Lucene 运行时索引（本地生成，不提交）
+weblog-backend/lucene-index/
+
 # 备份文件
 *.bak
 *.backup
