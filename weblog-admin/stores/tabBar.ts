@@ -13,6 +13,8 @@ const TAB_TITLE_MAP: Record<string, string> = {
   '/category': '分类管理',
   '/tag': '标签管理',
   '/media': '媒体管理',
+  '/profile-review': '个人信息审核',
+  '/avatar-review': '个人信息审核',
   '/friend-link': '友链管理',
   '/carousel': '轮播管理',
   '/comment': '评论管理',

@@ -5,38 +5,46 @@
         <Icon name="heroicons:arrow-left-20-solid" size="18" />
         返回个人中心
       </NuxtLink>
-      <h1 class="edit-title">编辑资料</h1>
+      <h1 class="edit-title">
+        <Icon name="heroicons:user-circle-20-solid" size="22" />
+        编辑资料
+      </h1>
+      <p class="edit-subtitle">完善你的公开资料和账号安全设置</p>
     </div>
 
     <div v-if="loading" class="loading-state">
       <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
     </div>
 
-    <form v-else class="edit-form" @submit.prevent="handleSave">
+    <section
+      v-if="!loading && profileData?.profileReviewStatus"
+      class="review-status-banner"
+      :class="`is-${profileData.profileReviewStatus}`"
+    >
+      <p class="review-title">{{ reviewStatusTitle }}</p>
+      <p class="review-desc">{{ reviewStatusDesc }}</p>
+      <p v-if="profileData.profileReviewStatus === 'rejected' && profileData.profileReviewRejectReason" class="review-reason">
+        拒绝原因：{{ profileData.profileReviewRejectReason }}
+      </p>
+    </section>
+
+    <form v-if="!loading" class="edit-form" @submit.prevent="handleSave">
       <div class="form-section">
         <label class="form-label">头像</label>
         <div class="avatar-edit">
           <div class="avatar-preview">
-            <img v-if="avatarPreview || form.avatar" :src="avatarPreview || form.avatar!" alt="头像" class="avatar-img" />
+            <img v-if="showAvatarImage" :src="currentAvatarSrc!" alt="头像" class="avatar-img" @error="handleAvatarImageError" />
             <span v-else class="avatar-placeholder">{{ (form.nickname || 'U').charAt(0) }}</span>
           </div>
           <div class="avatar-actions">
             <label class="upload-btn" for="avatar-input">
               <Icon name="heroicons:camera-16-solid" size="16" />
-              选择图片
+              选择并裁剪
             </label>
             <input id="avatar-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="handleFileSelect" />
             <p class="avatar-hint">支持 JPG、PNG、WebP，最大 5MB</p>
-          </div>
-        </div>
-
-        <div v-if="cropperVisible" class="cropper-area">
-          <div class="cropper-container">
-            <canvas ref="cropCanvas" class="crop-canvas" @mousedown="startCrop" @mousemove="doCrop" @mouseup="endCrop" @touchstart.prevent="startCropTouch" @touchmove.prevent="doCropTouch" @touchend="endCrop" />
-          </div>
-          <div class="cropper-actions">
-            <button type="button" class="btn btn-secondary" @click="cancelCrop">取消</button>
-            <button type="button" class="btn btn-primary" @click="confirmCrop">确认裁剪</button>
+            <p class="avatar-review-hint">头像将在提交后进入审核，审核通过后生效</p>
+            <p v-if="pendingAvatarFile" class="avatar-pending-tip">已选择新头像，点击“提交审核”后生效</p>
           </div>
         </div>
       </div>
@@ -56,7 +64,7 @@
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" :disabled="saving">
           <Icon v-if="saving" name="heroicons:arrow-path-16-solid" size="16" class="spin" />
-          {{ saving ? '保存中...' : '保存修改' }}
+          {{ saving ? '提交中...' : '提交审核' }}
         </button>
       </div>
     </form>
@@ -178,6 +186,14 @@
     </div>
 
     <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
+
+    <AvatarCropper
+      v-model="cropperVisible"
+      :image-src="cropperImageSrc"
+      :output-size="320"
+      output-type="image/webp"
+      @crop="handleAvatarCropped"
+    />
   </div>
 </template>
 
@@ -194,9 +210,15 @@ const message = useMessage()
 const loading = ref(true)
 const saving = ref(false)
 const avatarPreview = ref<string | null>(null)
+const avatarImageLoadFailed = ref(false)
+const pendingAvatarFile = ref<File | null>(null)
+const pendingAvatarUrl = ref<string | null>(null)
 const cropperVisible = ref(false)
-const cropCanvas = ref<HTMLCanvasElement | null>(null)
+const cropperImageSrc = ref('')
 const form = reactive({ nickname: '', bio: '', avatar: null as string | null })
+
+const currentAvatarSrc = computed(() => avatarPreview.value || form.avatar)
+const showAvatarImage = computed(() => !!currentAvatarSrc.value && !avatarImageLoadFailed.value)
 
 const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
 
@@ -279,6 +301,42 @@ const dlgPwdLevel = computed(() => {
 const dlgPwdColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][dlgPwdLevel.value])
 const dlgPwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][dlgPwdLevel.value])
 
+const reviewStatusTitle = computed(() => {
+  const status = profileData.value?.profileReviewStatus
+  if (status === 'pending') return '当前有一条个人信息审核中'
+  if (status === 'rejected') return '上一条个人信息审核未通过'
+  if (status === 'approved') return '最近一次个人信息审核已通过'
+  return ''
+})
+
+const reviewStatusDesc = computed(() => {
+  const status = profileData.value?.profileReviewStatus
+  if (status === 'pending') return '再次提交会覆盖当前待审核内容'
+  if (status === 'rejected') return '请根据拒绝原因修改后重新提交审核'
+  if (status === 'approved') return '你可以继续编辑并再次提交审核'
+  return ''
+})
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+  return fallback
+}
+
+function getAvatarFileExtension(type: string) {
+  if (type === 'image/png') return 'png'
+  if (type === 'image/jpeg') return 'jpg'
+  return 'webp'
+}
+
+function handleAvatarImageError() {
+  avatarImageLoadFailed.value = true
+}
+
 function openEmailDialog() {
   emailForm.email = ''
   emailForm.code = ''
@@ -332,8 +390,8 @@ async function sendEmailCode() {
   emailSending.value = true
   try {
     await authApi.checkEmail(emailForm.email)
-  } catch (e: any) {
-    dlgEmailErrors.email = e.message || '邮箱地址不可用'
+  } catch (e: unknown) {
+    dlgEmailErrors.email = getErrorMessage(e, '邮箱地址不可用')
     emailSending.value = false
     return
   }
@@ -346,8 +404,8 @@ async function sendEmailCode() {
       await authApi.sendCode({ email: emailForm.email, scene }, verifyToken)
       startEmailCooldown(60)
       message.success('验证码已发送')
-    } catch (e: any) {
-      message.error(e.message || '发送失败')
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e, '发送失败'))
     } finally { emailSending.value = false }
   })
 }
@@ -368,8 +426,8 @@ async function submitEmail() {
     const res = await userApi.getProfile()
     profileData.value = res.data
     message.success('邮箱更新成功')
-  } catch (e: any) {
-    message.error(e.message || '操作失败')
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e, '操作失败'))
   } finally { emailSubmitting.value = false }
 }
 
@@ -382,8 +440,8 @@ async function sendPwdCode() {
       await authApi.sendCode({ email: profileData.value!.email!, scene: 'reset-pwd' }, verifyToken)
       startPwdCooldown(60)
       message.success('验证码已发送')
-    } catch (e: any) {
-      message.error(e.message || '发送失败')
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e, '发送失败'))
     } finally { pwdSending.value = false }
   })
 }
@@ -412,111 +470,105 @@ async function submitPassword() {
     const res = await userApi.getProfile()
     profileData.value = res.data
     message.success('密码更新成功')
-  } catch (e: any) {
-    message.error(e.message || '操作失败')
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e, '操作失败'))
   } finally { pwdSubmitting.value = false }
 }
 
-let originalImage: HTMLImageElement | null = null
-let cropFile: File | null = null
-let cropping = false
-let cropStartX = 0
-let cropStartY = 0
-let cropRect = { x: 0, y: 0, size: 0 }
-let canvasScale = 1
+function revokeAvatarPreview() {
+  if (avatarPreview.value && avatarPreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(avatarPreview.value)
+  }
+  avatarPreview.value = null
+}
+
+watch(currentAvatarSrc, () => {
+  avatarImageLoadFailed.value = false
+})
 
 function handleFileSelect(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  if (file.size > 5 * 1024 * 1024) { message.error('图片大小不能超过 5MB'); return }
+  if (file.size > 5 * 1024 * 1024) {
+    message.error('图片大小不能超过 5MB')
+    input.value = ''
+    return
+  }
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+    message.error('仅支持 JPG、PNG、WebP 格式')
+    input.value = ''
+    return
+  }
 
   const reader = new FileReader()
   reader.onload = () => {
-    const img = new Image()
-    img.onload = () => { originalImage = img; cropperVisible.value = true; nextTick(() => drawCropper()) }
-    img.src = reader.result as string
+    cropperImageSrc.value = reader.result as string
+    cropperVisible.value = true
+  }
+  reader.onerror = () => {
+    message.error('读取图片失败，请重试')
   }
   reader.readAsDataURL(file)
   input.value = ''
 }
-function drawCropper() {
-  if (!cropCanvas.value || !originalImage) return
-  const canvas = cropCanvas.value
-  const maxW = Math.min(400, window.innerWidth - 48)
-  canvasScale = maxW / originalImage.width
-  canvas.width = maxW
-  canvas.height = originalImage.height * canvasScale
-  const minDim = Math.min(canvas.width, canvas.height)
-  cropRect = { x: (canvas.width - minDim * 0.8) / 2, y: (canvas.height - minDim * 0.8) / 2, size: minDim * 0.8 }
-  renderCropper()
-}
 
-function renderCropper() {
-  const canvas = cropCanvas.value!
-  const ctx = canvas.getContext('2d')!
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(originalImage!, 0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.save(); ctx.beginPath(); ctx.arc(cropRect.x + cropRect.size / 2, cropRect.y + cropRect.size / 2, cropRect.size / 2, 0, Math.PI * 2); ctx.clip()
-  ctx.drawImage(originalImage!, 0, 0, canvas.width, canvas.height)
-  ctx.restore(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2
-  ctx.beginPath(); ctx.arc(cropRect.x + cropRect.size / 2, cropRect.y + cropRect.size / 2, cropRect.size / 2, 0, Math.PI * 2); ctx.stroke()
-}
+function handleAvatarCropped(payload: { blob: Blob; url: string }) {
+  if (!payload.blob) return
+  revokeAvatarPreview()
+  avatarPreview.value = payload.url
+  pendingAvatarUrl.value = null
 
-function getPos(e: MouseEvent | Touch) {
-  const r = cropCanvas.value!.getBoundingClientRect()
-  return { x: e.clientX - r.left, y: e.clientY - r.top }
-}
-function startCrop(e: MouseEvent) { const p = getPos(e); cropStartX = p.x - cropRect.x; cropStartY = p.y - cropRect.y; cropping = true }
-function startCropTouch(e: TouchEvent) { const p = getPos(e.touches[0]!); cropStartX = p.x - cropRect.x; cropStartY = p.y - cropRect.y; cropping = true }
-function doCrop(e: MouseEvent) { if (!cropping) return; moveCrop(getPos(e)) }
-function doCropTouch(e: TouchEvent) { if (!cropping) return; moveCrop(getPos(e.touches[0]!)) }
-function moveCrop(pos: { x: number; y: number }) {
-  const c = cropCanvas.value!
-  cropRect.x = Math.max(0, Math.min(c.width - cropRect.size, pos.x - cropStartX))
-  cropRect.y = Math.max(0, Math.min(c.height - cropRect.size, pos.y - cropStartY))
-  renderCropper()
-}
-function endCrop() { cropping = false }
-function cancelCrop() { cropperVisible.value = false; originalImage = null }
-
-async function confirmCrop() {
-  if (!originalImage) return
-  const out = document.createElement('canvas')
-  out.width = 200; out.height = 200
-  const ctx = out.getContext('2d')!
-  const sx = cropRect.x / canvasScale; const sy = cropRect.y / canvasScale; const sSize = cropRect.size / canvasScale
-  ctx.beginPath(); ctx.arc(100, 100, 100, 0, Math.PI * 2); ctx.clip()
-  ctx.drawImage(originalImage, sx, sy, sSize, sSize, 0, 0, 200, 200)
-  out.toBlob(async (blob) => {
-    if (!blob) return
-    cropFile = new File([blob], 'avatar.webp', { type: 'image/webp' })
-    avatarPreview.value = URL.createObjectURL(blob)
-    cropperVisible.value = false
-    try {
-      saving.value = true
-      const res = await userApi.uploadAvatar(cropFile)
-      form.avatar = res.data
-      userStore.updateUserInfo({ avatar: res.data })
-      avatarPreview.value = null
-      message.success('头像上传成功')
-    } catch (e: any) {
-      message.error(e.message || '头像上传失败')
-    } finally { saving.value = false }
-  }, 'image/webp')
+  const ext = getAvatarFileExtension(payload.blob.type)
+  pendingAvatarFile.value = new File([payload.blob], `avatar-${Date.now()}.${ext}`, { type: payload.blob.type || 'image/webp' })
+  cropperImageSrc.value = ''
 }
 
 async function handleSave() {
   saving.value = true
   try {
-    await userApi.updateProfile({ nickname: form.nickname || undefined, bio: form.bio || undefined })
-    userStore.updateUserInfo({ nickname: form.nickname || '' })
-    message.success('保存成功')
-  } catch (e: any) {
-    message.error(e.message || '保存失败')
+    let avatarUrlForSubmit = pendingAvatarUrl.value || undefined
+
+    if (pendingAvatarFile.value) {
+      try {
+        const uploadRes = await userApi.uploadAvatar(pendingAvatarFile.value)
+        avatarUrlForSubmit = uploadRes.data
+        pendingAvatarUrl.value = uploadRes.data
+        pendingAvatarFile.value = null
+        cropperImageSrc.value = ''
+        revokeAvatarPreview()
+      } catch (e: unknown) {
+        message.warning(getErrorMessage(e, '头像上传失败，未提交审核，请重试'))
+        return
+      }
+    }
+
+    await userApi.updateProfile({
+      nickname: form.nickname || undefined,
+      bio: form.bio || undefined,
+      avatar: avatarUrlForSubmit,
+    })
+
+    message.success('已提交审核，请等待管理员处理')
+
+    const profileRes = await userApi.getProfile()
+    profileData.value = profileRes.data
+    syncFormByProfile(profileRes.data)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e, '提交失败'))
   } finally { saving.value = false }
+}
+
+function syncFormByProfile(profile: UserProfileVO) {
+  const usePendingDraft = profile.profileReviewStatus === 'pending' || profile.profileReviewStatus === 'rejected'
+  const draftNickname = usePendingDraft ? (profile.pendingNickname ?? profile.nickname) : profile.nickname
+  const draftBio = usePendingDraft ? (profile.pendingBio ?? profile.bio) : profile.bio
+  const draftAvatar = usePendingDraft ? (profile.pendingAvatar ?? profile.avatar) : profile.avatar
+
+  form.nickname = draftNickname || ''
+  form.bio = draftBio || ''
+  form.avatar = draftAvatar || profile.avatar || null
+  pendingAvatarUrl.value = usePendingDraft ? (profile.pendingAvatar || null) : null
 }
 
 onMounted(async () => {
@@ -524,70 +576,448 @@ onMounted(async () => {
   try {
     const res = await userApi.getProfile()
     profileData.value = res.data
-    form.nickname = res.data.nickname || ''
-    form.bio = res.data.bio || ''
-    form.avatar = res.data.avatar
+    syncFormByProfile(res.data)
   } catch {
     useLoginModal().open(); navigateTo('/')
   } finally { loading.value = false }
 })
+
+onUnmounted(() => {
+  pendingAvatarFile.value = null
+  pendingAvatarUrl.value = null
+  revokeAvatarPreview()
+})
 </script>
 
 <style scoped lang="scss">
-.edit-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
-.edit-header { margin-bottom: 1.2rem; }
-.back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; }
-.edit-title { margin: 0; font-size: 1.35rem; }
-.form-section { margin-bottom: 1.2rem; position: relative; }
-.form-label { display: block; margin-bottom: .45rem; font-weight: 600; }
-.form-input, .form-textarea { width: 100%; padding: .6rem .85rem; border: 1px solid $color-border; border-radius: $radius-md; background: $color-bg-secondary; }
-.form-textarea { min-height: 80px; resize: vertical; }
-.char-count { position: absolute; right: 0; bottom: -1.1rem; font-size: .75rem; color: $color-text-muted; }
-.avatar-edit { display: flex; align-items: center; gap: 1rem; }
-.avatar-img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
-.avatar-placeholder { display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: 50%; background: $color-primary; color: #fff; font-size: 1.6rem; }
-.upload-btn { display: inline-flex; align-items: center; gap: .35rem; padding: .45rem .8rem; border: 1px solid $color-border; border-radius: $radius-md; cursor: pointer; }
-.hidden-input { display: none; }
-.avatar-hint { margin-top: .3rem; font-size: .75rem; color: $color-text-muted; }
-.cropper-container { display: flex; justify-content: center; }
-.crop-canvas { max-width: 100%; border-radius: $radius-md; cursor: move; }
-.cropper-actions, .dialog-actions { display: flex; gap: .6rem; margin-top: .6rem; justify-content: flex-end; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; padding: .5rem 1rem; min-height: 40px; border-radius: $radius-md; border: none; cursor: pointer; }
-.btn-primary { background: $color-primary; color: #fff; }
-.btn-secondary { background: transparent; border: 1px solid $color-border; color: $color-text; }
-.btn-sm { min-height: 36px; padding: .35rem .7rem; }
-.loading-state { display: flex; justify-content: center; padding: 3rem; }
+.edit-page {
+  max-width: var(--layout-max-width);
+  margin: 0 auto;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
+}
+
+.edit-header {
+  margin-bottom: 1rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: $color-text-muted;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.edit-title {
+  margin: 0;
+  font-size: var(--layout-page-title-size);
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.edit-subtitle {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  color: $color-text-muted;
+}
+
+.edit-form {
+  border: 1px solid $color-border;
+  border-radius: 14px;
+  background: $color-bg;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.review-status-banner {
+  border-radius: 12px;
+  padding: 0.8rem 0.95rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid transparent;
+  background: #f8fafc;
+
+  &.is-pending {
+    border-color: #facc15;
+    background: #fefce8;
+  }
+
+  &.is-rejected {
+    border-color: #fca5a5;
+    background: #fef2f2;
+  }
+
+  &.is-approved {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+}
+
+.review-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.review-desc {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: $color-text-muted;
+}
+
+.review-reason {
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.form-section {
+  margin-bottom: 1.3rem;
+  position: relative;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 0.62rem 0.85rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  background: $color-bg-secondary;
+}
+
+.form-textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.char-count {
+  position: absolute;
+  right: 0;
+  bottom: -1.1rem;
+  font-size: 0.75rem;
+  color: $color-text-muted;
+}
+
+.avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.avatar-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2ff;
+}
+
+.avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: $color-primary;
+  color: #fff;
+  font-size: 1.6rem;
+}
+
+.avatar-actions {
+  flex: 1;
+}
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  cursor: pointer;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.avatar-hint {
+  margin-top: 0.32rem;
+  font-size: 0.76rem;
+  color: $color-text-muted;
+}
+
+.avatar-review-hint {
+  margin-top: 0.25rem;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.avatar-pending-tip {
+  margin-top: 0.32rem;
+  font-size: 0.78rem;
+  color: #0f766e;
+}
+
+.dialog-actions,
+.form-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.5rem 1rem;
+  min-height: 40px;
+  border-radius: $radius-md;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: $color-primary;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid $color-border;
+  color: $color-text;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.security-section { margin-top: 1.8rem; }
-.section-title { margin: 0 0 .8rem; }
-.security-card { border: 1px solid $color-border; border-radius: $radius-md; padding: .9rem 1rem; margin-bottom: .7rem; }
-.security-header { display: flex; align-items: center; gap: .7rem; }
-.security-header > div { flex: 1; }
-.security-label { margin: 0; font-weight: 600; }
-.security-value { margin: .15rem 0 0; font-size: .8rem; color: $color-text-muted; }
-.dialog-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.dialog-card { width: 100%; max-width: 420px; background: $color-bg; border-radius: $radius-lg; padding: 1.1rem; }
-.dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .7rem; }
-.dialog-title { margin: 0; }
-.dialog-close { border: none; background: none; cursor: pointer; }
-.dialog-field { margin-bottom: .4rem; }
-.dialog-field label { display: block; margin-bottom: .25rem; font-size: .85rem; }
-.code-row { display: flex; gap: .5rem; }
-.code-input-flex { flex: 1; }
-.input-wrapper { position: relative; display: flex; align-items: center; }
-.input-wrapper .form-input { padding-right: 2.25rem; }
-.input-wrapper .form-input.input-with-actions { padding-right: 3.8rem; }
-.field-clear, .field-toggle { position: absolute; right: .45rem; border: none; background: none; cursor: pointer; display: flex; }
-.field-clear.with-toggle { right: 2rem; }
-.email-field-wrap { position: relative; }
-.dlg-email-suggestions { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% - .9rem); list-style: none; margin: 0; padding: .2rem 0; border: 1px solid $color-border; border-radius: $radius-md; background: $color-bg; max-height: 180px; overflow-y: auto; }
-.dlg-email-suggestions li { padding: .45rem .7rem; cursor: pointer; }
-.field-error { display: block; min-height: 1rem; font-size: .75rem; color: #ef4444; visibility: hidden; }
-.field-error.visible { visibility: visible; }
-.password-strength { display: flex; align-items: center; gap: .4rem; margin-top: .25rem; }
-.strength-bars { display: flex; gap: 4px; }
-.bar { width: 2rem; height: 4px; border-radius: 2px; background: #e2e8f0; }
-.strength-text { font-size: .75rem; }
-@media (max-width: $breakpoint-md) { .edit-page { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); } }
+
+.security-section {
+  margin-top: 1.2rem;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.security-card {
+  border: 1px solid $color-border;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.7rem;
+  background: $color-bg;
+}
+
+.security-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.security-header > div {
+  flex: 1;
+}
+
+.security-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.security-value {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: $color-text-muted;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dialog-card {
+  width: 100%;
+  max-width: 420px;
+  background: $color-bg;
+  border-radius: $radius-lg;
+  padding: 1.1rem;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+
+.dialog-title {
+  margin: 0;
+}
+
+.dialog-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.dialog-field {
+  margin-bottom: 0.4rem;
+}
+
+.dialog-field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.code-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.code-input-flex {
+  flex: 1;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper .form-input {
+  padding-right: 2.25rem;
+}
+
+.input-wrapper .form-input.input-with-actions {
+  padding-right: 3.8rem;
+}
+
+.field-clear,
+.field-toggle {
+  position: absolute;
+  right: 0.45rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+}
+
+.field-clear.with-toggle {
+  right: 2rem;
+}
+
+.email-field-wrap {
+  position: relative;
+}
+
+.dlg-email-suggestions {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  right: 0;
+  top: calc(100% - 0.9rem);
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem 0;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  background: $color-bg;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dlg-email-suggestions li {
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.field-error {
+  display: block;
+  min-height: 1rem;
+  font-size: 0.75rem;
+  color: #ef4444;
+  visibility: hidden;
+}
+
+.field-error.visible {
+  visibility: visible;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.strength-bars {
+  display: flex;
+  gap: 4px;
+}
+
+.bar {
+  width: 2rem;
+  height: 4px;
+  border-radius: 2px;
+  background: #e2e8f0;
+}
+
+.strength-text {
+  font-size: 0.75rem;
+}
+
+@media (max-width: $breakpoint-md) {
+  .avatar-edit {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .security-header {
+    flex-wrap: wrap;
+  }
+}
 </style>

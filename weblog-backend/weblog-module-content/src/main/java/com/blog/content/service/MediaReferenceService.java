@@ -90,16 +90,16 @@ public class MediaReferenceService {
     return getReferencedUrls().contains(url);
   }
 
-  /**
-   * 统计未引用且非 avatar 类型的资源数量
-   */
+    /**
+     * 统计未引用且非 avatar 相关类型的资源数量
+     */
   public long countUnreferenced() {
     Set<String> referencedUrls = getReferencedUrls();
 
-    // 查询所有非 avatar 类型的资源
+    // 查询所有非 avatar 相关类型的资源
     List<OssResource> resources = ossResourceMapper.selectList(
         new LambdaQueryWrapper<OssResource>()
-            .ne(OssResource::getUsageType, "avatar")
+            .notLike(OssResource::getUsageType, "avatar")
             .select(OssResource::getUrl));
 
     return resources.stream()
@@ -122,7 +122,7 @@ public class MediaReferenceService {
 
   /**
    * 批量清理未引用资源，返回删除数量
-   * 排除 avatar 类型资源，清理完成后自动失效缓存
+   * 排除 avatar 相关类型资源，清理完成后自动失效缓存
    *
    * @param operatorId 操作者 ID
    * @return 删除的资源数量
@@ -131,10 +131,10 @@ public class MediaReferenceService {
     // 1. 获取引用 URL 集合
     Set<String> referencedUrls = getReferencedUrls();
 
-    // 2. 查询所有非 avatar 类型的资源
+    // 2. 查询所有非 avatar 相关类型的资源
     List<OssResource> resources = ossResourceMapper.selectList(
         new LambdaQueryWrapper<OssResource>()
-            .ne(OssResource::getUsageType, "avatar")
+            .notLike(OssResource::getUsageType, "avatar")
             .select(OssResource::getId, OssResource::getUrl));
 
     // 3. 筛选出未引用的资源 ID 列表

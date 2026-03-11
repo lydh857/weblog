@@ -69,6 +69,9 @@ out/
 # Lucene 运行时索引（本地生成，不提交）
 weblog-backend/lucene-index/
 
+# 本地上传目录（运行时生成，不提交）
+weblog-backend/uploads/
+
 # 备份文件
 *.bak
 *.backup

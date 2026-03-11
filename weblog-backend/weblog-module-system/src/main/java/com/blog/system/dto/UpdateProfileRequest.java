@@ -18,4 +18,8 @@ public class UpdateProfileRequest {
     @Schema(description = "个人简介", example = "一个热爱编程的开发者")
     @Size(max = 500, message = "简介最多500个字符")
     private String bio;
+
+    @Schema(description = "待审核头像URL", example = "http://localhost:9091/uploads/images/2026/03/avatar.webp")
+    @Size(max = 500, message = "头像URL长度不能超过500个字符")
+    private String avatar;
 }

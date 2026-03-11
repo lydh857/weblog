@@ -6,7 +6,11 @@
       </NuxtLink>
       <div class="header-row">
         <div class="header-left">
-          <h1 class="page-title">我的评论</h1>
+          <h1 class="page-title">
+            <Icon name="heroicons:chat-bubble-left-ellipsis-20-solid" size="20" />
+            我的评论
+          </h1>
+          <span class="page-total">共 {{ total }} 条</span>
           <template v-if="managing">
             <button class="toolbar-btn" @click="toggleSelectAll">{{ isAllSelected ? '取消全选' : '全选当前页' }}</button>
             <Transition name="fade">
@@ -149,13 +153,18 @@ onMounted(() => loadData())
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
   min-height: 2rem;
 }
-.toolbar-btn, .manage-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .625rem; border: 1px solid $color-border; border-radius: $radius-md; background: transparent; color: $color-text-muted; cursor: pointer; }
+.page-total { font-size: .82rem; color: $color-text-muted; }
+.toolbar-btn, .manage-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .3rem .68rem; border: 1px solid $color-border; border-radius: 9px; background: transparent; color: $color-text-muted; cursor: pointer; }
 .danger-btn { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
-.comment-card { position: relative; padding: .65rem .85rem; margin-bottom: .4rem; border: 2px solid $color-border; border-radius: $radius-lg; }
+.comment-card { position: relative; padding: .75rem .9rem; margin-bottom: .5rem; border: 1px solid $color-border; border-radius: 12px; background: $color-bg; transition: border-color .2s, box-shadow .2s; }
 .comment-card.managing { cursor: pointer; }
 .comment-card.selected { border-color: $color-primary; background: rgba($color-primary,.03); }
+.comment-card:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 8px 18px rgba(59,130,246,.08); }
 .row-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .25rem; min-height: 20px; padding-right: 1.5rem; }
 .post-link { font-size: .8rem; color: $color-primary; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .post-link.disabled { color: $color-text-muted; }
@@ -166,8 +175,19 @@ onMounted(() => loadData())
 .reply-prefix { color: #94a3b8; font-size: .8rem; }
 .delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; }
 .comment-card:hover .delete-btn { opacity: 1; }
-.empty-state { text-align: center; padding: 4rem 1rem; color: #94a3b8; }
-.loading-state { display: flex; justify-content: center; padding: 3rem; color: $color-text-muted; }
+.empty-state,
+.loading-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: #94a3b8;
+  border: 1px dashed rgba(148,163,184,.45);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+}
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }

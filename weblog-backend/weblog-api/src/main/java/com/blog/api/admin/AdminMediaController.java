@@ -162,7 +162,7 @@ public class AdminMediaController {
       vo.setThumbnailUrl(resource.getUrl());
     }
 
-    if ("avatar".equals(resource.getUsageType())) {
+    if (resource.getUsageType() != null && resource.getUsageType().startsWith("avatar")) {
       vo.setReferenced(null);
       vo.setReferenceDetails(List.of());
     } else {

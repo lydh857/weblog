@@ -341,6 +341,8 @@ async function handleLogout() {
   const ok = await confirm({ title: '退出登录', message: '确定要退出登录吗？', type: 'warning', confirmText: '退出' })
   if (!ok) return
 
+  const shouldRedirectHome = route.path.startsWith('/user')
+
   try {
     await authApi.logout()
   } catch {}
@@ -352,7 +354,10 @@ async function handleLogout() {
 
   userStore.clearUser()
   message.success('已退出登录')
-  // 保持在当前页面，不强制跳转
+
+  if (shouldRedirectHome) {
+    await navigateTo('/')
+  }
 }
 </script>
 

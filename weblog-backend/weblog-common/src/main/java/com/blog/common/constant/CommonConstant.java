@@ -22,6 +22,11 @@ public final class CommonConstant {
     public static final String COMMENT_REJECTED = "rejected";
     public static final String COMMENT_SPAM = "spam";
 
+    // ========== 个人信息审核状态 ==========
+    public static final String PROFILE_REVIEW_PENDING = "pending";
+    public static final String PROFILE_REVIEW_APPROVED = "approved";
+    public static final String PROFILE_REVIEW_REJECTED = "rejected";
+
     // ========== 分页默认值 ==========
     public static final long DEFAULT_PAGE = 1;
     public static final long DEFAULT_PAGE_SIZE = 10;

@@ -6,7 +6,11 @@
       </NuxtLink>
       <div class="header-row">
         <div class="header-left">
-          <h1 class="page-title">我的收藏</h1>
+          <h1 class="page-title">
+            <Icon name="heroicons:bookmark-20-solid" size="20" />
+            我的收藏
+          </h1>
+          <span class="page-total">共 {{ total }} 篇</span>
           <template v-if="managing">
             <button class="toolbar-btn" @click="toggleSelectAll">{{ isAllSelected ? '取消全选' : '全选当前页' }}</button>
             <Transition name="fade">
@@ -43,7 +47,7 @@
           </div>
         </NuxtLink>
         <button v-if="!managing" class="unfav-btn" title="取消收藏" @click.prevent.stop="pendingUnfavId = post.id; showUnfavConfirm = true">
-          <Icon name="heroicons:bookmark-slash-16-solid" size="16" />
+          <Icon name="heroicons:trash-16-solid" size="14" />
         </button>
       </article>
 
@@ -147,31 +151,57 @@ onMounted(() => loadData())
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
   min-height: 2rem;
 }
 
+.page-total { font-size: .82rem; color: $color-text-muted; }
+
 .toolbar-btn, .manage-btn {
   display: inline-flex; align-items: center; gap: .25rem;
-  padding: .3rem .65rem; border: 1px solid $color-border; border-radius: $radius-md;
+  padding: .34rem .7rem; border: 1px solid $color-border; border-radius: 9px;
   background: transparent; color: $color-text-muted; cursor: pointer;
 }
 .danger-btn { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
 
-.post-card { position: relative; display: flex; align-items: flex-start; margin-bottom: .75rem; border: 2px solid $color-border; border-radius: $radius-lg; overflow: hidden; padding: .75rem; }
+.post-card { position: relative; display: flex; align-items: flex-start; margin-bottom: .75rem; border: 1px solid $color-border; border-radius: 12px; overflow: hidden; padding: .85rem; background: $color-bg; transition: border-color .2s, box-shadow .2s; }
 .post-card.managing { cursor: pointer; }
 .post-card.selected { border-color: $color-primary; background: rgba($color-primary, .04); }
+.post-card:hover { border-color: rgba(59, 130, 246, .45); box-shadow: 0 8px 20px rgba(59,130,246,.08); }
 .card-link { display: flex; flex: 1; gap: .75rem; text-decoration: none; color: inherit; min-width: 0; }
 .card-link.disabled { pointer-events: none; }
-.card-cover { width: 120px; height: 80px; border-radius: $radius-md; overflow: hidden; flex-shrink: 0; background: #e2e8f0; }
+.card-cover { width: 120px; height: 80px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #e2e8f0; }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; }
 .card-body { flex: 1; min-width: 0; }
 .card-title { margin: 0 0 .35rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-summary { margin: 0; font-size: .86rem; color: $color-text-muted; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-meta { display: flex; align-items: center; gap: .55rem; margin-top: .45rem; font-size: .78rem; color: $color-text-muted; flex-wrap: wrap; }
 .meta-item { display: inline-flex; align-items: center; gap: .2rem; }
-.unfav-btn { position: absolute; right: .6rem; top: .6rem; width: 30px; height: 30px; border-radius: 9999px; border: 1px solid $color-border; background: rgba(255,255,255,.9); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.unfav-btn {
+  position: absolute;
+  top: .375rem;
+  right: .375rem;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: $radius-sm;
+  background: rgba(0,0,0,.04);
+  color: $color-text-muted;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s;
+}
 
-.empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; color: $color-text-muted; gap: .5rem; }
+.post-card:hover .unfav-btn {
+  opacity: 1;
+}
+
+.empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; color: $color-text-muted; gap: .5rem; border: 1px dashed rgba(148,163,184,.45); border-radius: 12px; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }

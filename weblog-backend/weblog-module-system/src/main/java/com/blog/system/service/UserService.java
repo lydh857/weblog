@@ -9,10 +9,14 @@ import com.blog.common.util.ValidateUtil;
 import com.blog.system.dto.UpdateProfileRequest;
 import com.blog.system.dto.UserProfileVO;
 import com.blog.system.entity.User;
+import com.blog.system.entity.UserProfileReview;
 import com.blog.system.mapper.UserMapper;
+import com.blog.system.mapper.UserProfileReviewMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import static com.blog.common.constant.CommonConstant.PROFILE_REVIEW_APPROVED;
 
 /**
  * 用户服务
@@ -23,6 +27,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserMapper userMapper;
+    private final UserProfileReviewMapper userProfileReviewMapper;
 
     /**
      * 查询个人资料
@@ -32,7 +37,12 @@ public class UserService {
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        return UserProfileVO.builder()
+        UserProfileReview review = userProfileReviewMapper.selectOne(new LambdaQueryWrapper<UserProfileReview>()
+                .eq(UserProfileReview::getUserId, userId)
+                .orderByDesc(UserProfileReview::getUpdateTime)
+                .last("LIMIT 1"));
+
+        UserProfileVO.UserProfileVOBuilder builder = UserProfileVO.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
                 .nickname(user.getNickname())
@@ -41,8 +51,21 @@ public class UserService {
                 .role(user.getRole())
                 .hasPassword(user.getPassword() != null && !user.getPassword().isBlank())
                 .needBindEmail(user.getEmail() == null || user.getEmail().isBlank())
-                .createTime(user.getCreateTime())
-                .build();
+                .createTime(user.getCreateTime());
+
+        if (review != null) {
+            builder.profileReviewStatus(review.getStatus())
+                    .profileReviewRejectReason(review.getRejectReason())
+                    .profileReviewSubmitTime(review.getUpdateTime());
+
+            if (!PROFILE_REVIEW_APPROVED.equals(review.getStatus())) {
+                builder.pendingNickname(review.getPendingNickname())
+                        .pendingBio(review.getPendingBio())
+                        .pendingAvatar(review.getPendingAvatar());
+            }
+        }
+
+        return builder.build();
     }
 
     /**
@@ -85,6 +108,25 @@ public class UserService {
                 .eq(User::getId, userId)
                 .set(User::getAvatar, avatarUrl));
         log.info("用户头像更新: userId={}", userId);
+    }
+
+    /**
+     * 应用已审核通过的个人信息
+     */
+    public void applyApprovedProfile(Long userId, String nickname, String bio, String avatar) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        LambdaUpdateWrapper<User> wrapper = new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId)
+                .set(User::getNickname, nickname)
+                .set(User::getBio, bio)
+                .set(User::getAvatar, avatar);
+
+        userMapper.update(null, wrapper);
+        log.info("审核通过并更新个人资料: userId={}", userId);
     }
 
     /**

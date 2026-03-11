@@ -10,11 +10,18 @@ export interface UserProfileVO {
   hasPassword: boolean
   needBindEmail: boolean
   createTime: string
+  profileReviewStatus?: 'pending' | 'approved' | 'rejected'
+  profileReviewRejectReason?: string | null
+  profileReviewSubmitTime?: string | null
+  pendingNickname?: string | null
+  pendingBio?: string | null
+  pendingAvatar?: string | null
 }
 
 export interface UpdateProfileRequest {
   nickname?: string
   bio?: string
+  avatar?: string
 }
 
 export const userApi = {

@@ -50,6 +50,10 @@
           <el-icon><Picture /></el-icon>
           <template #title>媒体管理</template>
         </el-menu-item>
+        <el-menu-item index="/profile-review">
+          <el-icon><Picture /></el-icon>
+          <template #title>个人信息审核</template>
+        </el-menu-item>
         <el-menu-item index="/friend-link">
           <el-icon><Link /></el-icon>
           <template #title>友链管理</template>

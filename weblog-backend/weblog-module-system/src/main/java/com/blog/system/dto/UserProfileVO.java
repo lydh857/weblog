@@ -40,4 +40,22 @@ public class UserProfileVO {
 
     @Schema(description = "注册时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "个人信息审核状态（pending/approved/rejected）")
+    private String profileReviewStatus;
+
+    @Schema(description = "审核拒绝原因")
+    private String profileReviewRejectReason;
+
+    @Schema(description = "审核提交时间")
+    private LocalDateTime profileReviewSubmitTime;
+
+    @Schema(description = "待审核昵称")
+    private String pendingNickname;
+
+    @Schema(description = "待审核简介")
+    private String pendingBio;
+
+    @Schema(description = "待审核头像URL")
+    private String pendingAvatar;
 }

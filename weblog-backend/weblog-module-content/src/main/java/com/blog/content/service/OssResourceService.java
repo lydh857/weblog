@@ -139,8 +139,8 @@ public class OssResourceService {
             }
             wrapper.in(OssResource::getUrl, referencedUrls);
         } else if ("unreferenced".equals(referenceStatus)) {
-            // 排除 avatar 类型（avatar 不参与引用检测）
-            wrapper.ne(OssResource::getUsageType, "avatar");
+            // 排除 avatar 相关类型（avatar 不参与引用检测）
+            wrapper.notLike(OssResource::getUsageType, "avatar");
             if (!referencedUrls.isEmpty()) {
                 wrapper.notIn(OssResource::getUrl, referencedUrls);
             }

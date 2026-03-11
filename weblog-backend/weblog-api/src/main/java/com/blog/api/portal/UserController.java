@@ -5,16 +5,17 @@ import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.content.service.OssResourceService;
+import com.blog.infra.oss.LocalFileService;
 import com.blog.infra.oss.OssService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.system.dto.UpdateProfileRequest;
 import com.blog.system.dto.UserProfileVO;
 import com.blog.system.service.EmailCodeService;
+import com.blog.system.service.UserProfileReviewService;
 import com.blog.system.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,13 +29,25 @@ import java.util.Map;
 @Tag(name = "用户端-个人中心", description = "个人资料查询、更新、头像上传")
 @RestController
 @RequestMapping("/api/portal/user")
-@RequiredArgsConstructor
 public class UserController {
 
+    private static final String AVATAR_USAGE = "avatar";
+    private static final String AVATAR_PENDING_FILE_PREFIX = "avatar_pending__";
+
     private final UserService userService;
+    private final UserProfileReviewService userProfileReviewService;
+
+    public UserController(UserService userService,
+                          UserProfileReviewService userProfileReviewService) {
+        this.userService = userService;
+        this.userProfileReviewService = userProfileReviewService;
+    }
 
     @Autowired(required = false)
     private OssService ossService;
+
+    @Autowired(required = false)
+    private LocalFileService localFileService;
 
     @Autowired(required = false)
     private OssResourceService ossResourceService;
@@ -50,47 +63,85 @@ public class UserController {
         return Result.success(userService.getProfile(userId));
     }
 
-    @Operation(summary = "更新个人资料")
+    @Operation(summary = "提交个人信息审核")
     @PutMapping("/profile")
-    @AuditLog(module = "个人中心", operation = "UPDATE", description = "更新个人资料")
+    @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交个人信息审核")
     public Result<Void> updateProfile(@Valid @RequestBody UpdateProfileRequest req) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        userService.updateProfile(userId, req);
+        userProfileReviewService.submitReview(userId, req);
         return Result.success();
     }
 
-    @Operation(summary = "上传头像")
+    @Operation(summary = "上传头像（提交审核）")
     @PostMapping("/avatar")
-    @AuditLog(module = "个人中心", operation = "UPDATE", description = "上传头像")
+    @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交头像审核")
     public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) throws IOException {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
 
-        if (ossService == null) {
-            throw new BusinessException(ResultCode.FAIL, "OSS 未启用，暂不支持头像上传");
+        if (ossService == null && localFileService == null) {
+            throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
         }
 
-        // 上传到 OSS（OssService 内部做魔数验证、大小限制等）
-        String url = ossService.upload(file.getInputStream(),
-                file.getOriginalFilename(), file.getSize());
+        String url;
+        String objectKey;
 
-        // 记录 OSS 资源
-        if (ossResourceService != null) {
-            String objectKey = url.contains("/images/")
-                    ? url.substring(url.indexOf("/images/") + 1) : url;
-            String ext = file.getOriginalFilename() != null
-                    ? file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf('.') + 1)
-                    : "";
+        if (ossService != null) {
+            // OSS 模式
+            url = ossService.upload(file.getInputStream(),
+                    file.getOriginalFilename(), file.getSize());
+            objectKey = url.contains("/images/")
+                    ? url.substring(url.indexOf("/images/") + 1)
+                    : ossService.extractObjectKey(url);
+        } else {
+            // 本地存储模式
+            url = localFileService.upload(file.getInputStream(),
+                    file.getOriginalFilename(), file.getSize());
+            objectKey = localFileService.extractObjectKey(url);
+        }
+
+        // 资源服务未启用时，降级为直接更新头像
+        if (ossResourceService == null) {
+            userService.updateAvatar(userId, url);
+            return Result.success(url);
+        }
+
+        // 清理该用户此前未审核的头像（只保留最新提交）
+        var avatarPage = ossResourceService.page(1, 50, userId, AVATAR_USAGE);
+        for (var old : avatarPage.getRecords()) {
+            if (!isPendingAvatarRecord(old.getFileName())) {
+                continue;
+            }
+            try {
+                ossResourceService.delete(old.getId(), userId, false);
+            } catch (Exception ignored) {}
+        }
+
+        // 记录待审核头像资源
+        {
+            String ext = "";
+            if (file.getOriginalFilename() != null && file.getOriginalFilename().contains(".")) {
+                ext = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf('.') + 1);
+            }
             ossResourceService.record(
-                    file.getOriginalFilename(), objectKey, file.getSize(),
-                    ext, file.getContentType(), url, userId, "avatar");
+                    buildPendingFileName(file.getOriginalFilename()), objectKey, file.getSize(),
+                    ext, file.getContentType(), url, userId, AVATAR_USAGE);
         }
-
-        // 更新用户头像字段
-        userService.updateAvatar(userId, url);
 
         return Result.success(url);
+    }
+
+    private boolean isPendingAvatarRecord(String fileName) {
+        return fileName != null && fileName.startsWith(AVATAR_PENDING_FILE_PREFIX);
+    }
+
+    private String buildPendingFileName(String originalFileName) {
+        String fileName = originalFileName == null ? "avatar.webp" : originalFileName;
+        if (isPendingAvatarRecord(fileName)) {
+            return fileName;
+        }
+        return AVATAR_PENDING_FILE_PREFIX + fileName;
     }
 
     @Operation(summary = "绑定邮箱（无邮箱用户）")
