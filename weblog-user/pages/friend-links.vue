@@ -21,7 +21,15 @@
 
     <template v-else-if="links.length">
       <div class="links-grid">
-        <a v-for="link in pagedLinks" :key="link.id" :href="link.url" target="_blank" rel="noopener noreferrer" class="link-card">
+        <a
+          v-for="link in pagedLinks"
+          :key="link.id"
+          :href="getSafeHref(link.url) || '#'"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="link-card"
+          @click="handleLinkClick($event, link.url)"
+        >
           <img v-if="link.logo && !logoErrors[link.id]" :src="link.logo" :alt="link.name" class="link-logo" loading="lazy" @error="onLogoError(link.id)" />
           <div v-else class="link-logo-placeholder">{{ link.name.charAt(0) }}</div>
           <div class="link-info">
@@ -48,6 +56,7 @@
 import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { normalizeSafeHref } from '~/utils/urlSafety'
 
 useHead({
   title: '友情链接',
@@ -74,6 +83,16 @@ const pagedLinks = computed(() => {
 
 const logoErrors = reactive<Record<number, boolean>>({})
 function onLogoError(id: number) { logoErrors[id] = true }
+
+function getSafeHref(rawUrl: string | null | undefined) {
+  return normalizeSafeHref(rawUrl)
+}
+
+function handleLinkClick(event: MouseEvent, rawUrl: string | null | undefined) {
+  if (!getSafeHref(rawUrl)) {
+    event.preventDefault()
+  }
+}
 
 const applyBtnText = computed(() => {
   if (statusLoading.value) return '检查中...'

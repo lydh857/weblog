@@ -3,6 +3,8 @@ package com.blog.api.portal;
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.result.Result;
 import com.blog.common.util.IpUtil;
+import com.blog.infra.captcha.service.CaptchaService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.interaction.service.AccessControlService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +26,7 @@ import java.util.Map;
 public class AccessControlController {
 
     private final AccessControlService accessControlService;
+    private final CaptchaService captchaService;
 
     @Operation(summary = "检查是否可以阅读文章")
     @GetMapping("/check/{postId}")
@@ -74,7 +77,12 @@ public class AccessControlController {
 
     @Operation(summary = "滑块验证通过后解锁额外阅读")
     @PostMapping("/unlock")
-    public Result<Void> unlock(HttpServletRequest request) {
+    @RateLimit(key = "access-unlock", capacity = 5, seconds = 60)
+    public Result<Void> unlock(@RequestHeader(value = "X-Captcha-Token") String verifyToken,
+                               HttpServletRequest request) {
+        String clientIp = IpUtil.getClientIp(request);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+
         String fingerprint = getFingerprint(request);
         accessControlService.unlock(fingerprint);
         return Result.success();

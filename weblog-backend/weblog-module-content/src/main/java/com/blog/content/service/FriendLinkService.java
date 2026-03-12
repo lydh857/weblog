@@ -11,8 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.IDN;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.URI;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.Locale;
 
 /**
  * 友链服务
@@ -23,10 +27,6 @@ import java.util.regex.Pattern;
 public class FriendLinkService {
 
     private final FriendLinkMapper friendLinkMapper;
-
-    /** 安全URL正则：只允许 http/https 协议 */
-    private static final Pattern SAFE_URL_PATTERN =
-            Pattern.compile("^https?://[\\w\\-]+(\\.[\\w\\-]+)+([\\w.,@?^=%&:/~+#\\-]*[\\w@?^=%&/~+#\\-])?$", Pattern.CASE_INSENSITIVE);
 
     /**
      * 查询所有友链（管理端）
@@ -141,7 +141,7 @@ public class FriendLinkService {
     public int checkAllLinks() {
         List<FriendLink> links = friendLinkMapper.selectList(
             new LambdaQueryWrapper<FriendLink>()
-                .ne(FriendLink::getStatus, "inactive"));
+                .in(FriendLink::getStatus, List.of("active", "broken")));
         int changed = 0;
         for (FriendLink link : links) {
             boolean reachable = isUrlReachable(link.getUrl());
@@ -164,12 +164,16 @@ public class FriendLinkService {
      */
     private boolean isUrlReachable(String url) {
         try {
+            if (!isSafeExternalUrl(url)) {
+                log.warn("友链URL安全校验失败，跳过可达性检测: url={}", url);
+                return false;
+            }
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
                 java.net.URI.create(url).toURL().openConnection();
             conn.setRequestMethod("HEAD");
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
-            conn.setInstanceFollowRedirects(true);
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; WeblogBot/1.0)");
             int code = conn.getResponseCode();
             conn.disconnect();
@@ -280,20 +284,96 @@ public class FriendLinkService {
         if (url == null || url.isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "URL不能为空");
         }
-        url = url.trim();
+        URI uri = parseAndValidateUrl(url.trim());
+        return XssUtil.cleanText(uri.toString());
+    }
 
-        // 禁止 javascript:、data:、vbscript: 等危险协议
-        String lower = url.toLowerCase().replaceAll("\\s+", "");
-        if (lower.startsWith("javascript:") || lower.startsWith("data:")
-                || lower.startsWith("vbscript:") || lower.startsWith("file:")) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许的URL协议");
-        }
-
-        // 验证URL格式
-        if (!SAFE_URL_PATTERN.matcher(url).matches()) {
+    private URI parseAndValidateUrl(String url) {
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (Exception e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "URL格式不正确，仅支持http/https协议");
         }
 
-        return XssUtil.cleanText(url);
+        String scheme = uri.getScheme();
+        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许的URL协议");
+        }
+
+        if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "URL不允许包含用户信息");
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "URL缺少有效主机名");
+        }
+
+        String normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+        if (isLocalHostName(normalizedHost)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网地址");
+        }
+
+        if (!isPublicHost(normalizedHost)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网地址");
+        }
+
+        int port = uri.getPort();
+        if (port != -1 && (port < 1 || port > 65535)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "URL端口无效");
+        }
+
+        return uri;
+    }
+
+    private boolean isSafeExternalUrl(String url) {
+        try {
+            parseAndValidateUrl(url);
+            return true;
+        } catch (BusinessException e) {
+            return false;
+        }
+    }
+
+    private boolean isPublicHost(String host) {
+        try {
+            InetAddress[] addresses = InetAddress.getAllByName(host);
+            if (addresses.length == 0) {
+                return false;
+            }
+            for (InetAddress address : addresses) {
+                if (isPrivateOrLocalAddress(address)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isPrivateOrLocalAddress(InetAddress address) {
+        if (address.isAnyLocalAddress()
+                || address.isLoopbackAddress()
+                || address.isLinkLocalAddress()
+                || address.isSiteLocalAddress()
+                || address.isMulticastAddress()) {
+            return true;
+        }
+
+        if (address instanceof Inet6Address inet6Address) {
+            byte first = inet6Address.getAddress()[0];
+            // fc00::/7 Unique Local Address
+            return (first & (byte) 0xFE) == (byte) 0xFC;
+        }
+
+        return false;
+    }
+
+    private boolean isLocalHostName(String host) {
+        return "localhost".equals(host)
+                || host.endsWith(".localhost")
+                || host.endsWith(".local");
     }
 }

@@ -13,10 +13,16 @@ import com.blog.system.service.LoginLogService;
 import com.blog.system.service.RememberTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.Duration;
 
 /**
  * 用户端认证接口
@@ -32,6 +38,8 @@ public class AuthController {
     private final CaptchaService captchaService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
+    private static final String PORTAL_REMEMBER_COOKIE = "Portal-Remember-Token";
+    private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
 
     @Operation(summary = "用户注册", description = "通过邮箱和密码注册新用户，需要邮箱验证码")
     @PostMapping("/register")
@@ -53,12 +61,16 @@ public class AuthController {
     @AuditLog(module = "认证", operation = "LOGIN", description = "用户登录")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
                                        @RequestHeader(value = "X-Captcha-Token") String verifyToken,
-                                       HttpServletRequest request) {
+                                       HttpServletRequest request,
+                                       HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
-        LoginResponse response = authService.login(req, clientIp, userAgent);
-        return Result.success(response);
+        LoginResponse loginResponse = authService.login(req, clientIp, userAgent);
+
+        syncRememberCookie(response, request, loginResponse.getRememberToken(), req.isRememberMe());
+        loginResponse.setRememberToken(null);
+        return Result.success(loginResponse);
     }
 
     @Operation(summary = "验证码登录", description = "通过邮箱验证码登录，首次登录自动创建账号")
@@ -66,11 +78,15 @@ public class AuthController {
     @RateLimit(key = "loginByCode", capacity = 5, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGIN", description = "验证码登录")
     public Result<LoginResponse> loginByCode(@Valid @RequestBody CodeLoginRequest req,
-                                             HttpServletRequest request) {
+                                             HttpServletRequest request,
+                                             HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
-        LoginResponse response = authService.loginByCode(req.getEmail(), req.getCode(), clientIp, userAgent);
-        return Result.success(response);
+        LoginResponse loginResponse = authService.loginByCode(req.getEmail(), req.getCode(), clientIp, userAgent);
+
+        clearRememberCookie(response, request);
+        loginResponse.setRememberToken(null);
+        return Result.success(loginResponse);
     }
 
     @Operation(summary = "发送验证码", description = "发送邮箱验证码，60秒冷却")
@@ -105,16 +121,17 @@ public class AuthController {
     @Operation(summary = "用户登出", description = "注销当前登录状态，Token 失效")
     @PostMapping("/logout")
     @AuditLog(module = "认证", operation = "LOGOUT", description = "用户登出")
-    public Result<Void> logout() {
+    public Result<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         authService.logout();
+        clearRememberCookie(response, request);
         return Result.success();
     }
 
     @Operation(summary = "Remember Token 自动登录", description = "使用 Remember Token 实现自动登录")
     @PostMapping("/remember-login")
-    public Result<LoginResponse> rememberLogin(@RequestBody java.util.Map<String, String> body,
-                                               HttpServletRequest request) {
-        String token = body.get("token");
+    public Result<LoginResponse> rememberLogin(HttpServletRequest request,
+                                               HttpServletResponse response) {
+        String token = readCookie(request, PORTAL_REMEMBER_COOKIE);
         if (token == null || token.isBlank()) {
             throw new com.blog.common.exception.BusinessException(
                     com.blog.common.result.ResultCode.PARAM_MISSING, "token 不能为空");
@@ -129,6 +146,9 @@ public class AuthController {
         
         // 记录成功登录
         loginLogService.recordLogin(vo.getUserId(), vo.getEmail(), "user", "success", "Remember Token 自动登录", clientIp, userAgent);
+
+        // 轮换后的 Remember Token 仅通过 HttpOnly Cookie 返回
+        writeRememberCookie(response, request, vo.getRememberToken(), REMEMBER_COOKIE_TTL);
         
         return Result.success(LoginResponse.builder()
                 .success(true)
@@ -139,7 +159,7 @@ public class AuthController {
                 .role(vo.getRole())
                 .needBindEmail(false)
                 .hasPassword(true)
-                .rememberToken(vo.getRememberToken())
+                .rememberToken(null)
                 .build());
     }
 
@@ -199,5 +219,62 @@ public class AuthController {
         }
         authService.forgotPassword(email, code, password);
         return Result.success();
+    }
+
+    private void syncRememberCookie(HttpServletResponse response,
+                                    HttpServletRequest request,
+                                    String token,
+                                    boolean rememberMe) {
+        if (rememberMe && token != null && !token.isBlank()) {
+            writeRememberCookie(response, request, token, REMEMBER_COOKIE_TTL);
+            return;
+        }
+        clearRememberCookie(response, request);
+    }
+
+    private void writeRememberCookie(HttpServletResponse response,
+                                     HttpServletRequest request,
+                                     String token,
+                                     Duration ttl) {
+        ResponseCookie cookie = ResponseCookie.from(PORTAL_REMEMBER_COOKIE, token)
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(ttl)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearRememberCookie(HttpServletResponse response, HttpServletRequest request) {
+        ResponseCookie cookie = ResponseCookie.from(PORTAL_REMEMBER_COOKIE, "")
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String readCookie(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null || cookies.length == 0) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request.isSecure()) {
+            return true;
+        }
+        String proto = request.getHeader("X-Forwarded-Proto");
+        return proto != null && "https".equalsIgnoreCase(proto);
     }
 }

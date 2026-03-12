@@ -29,7 +29,6 @@ export interface LoginResult {
   nickname: string
   avatar: string
   role: string
-  rememberToken?: string
 }
 
 export const authApi = {
@@ -55,8 +54,8 @@ export const authApi = {
     return http.post('/portal/auth/forgot-password', data)
   },
   logout: () => http.post('/portal/auth/logout'),
-  rememberLogin: async (token: string) => {
-    return http.post<any, { data: LoginResult }>('/portal/auth/remember-login', { token })
+  rememberLogin: async () => {
+    return http.post<any, { data: LoginResult }>('/portal/auth/remember-login', {})
   },
   getGithubAuthUrl: (redirectUri: string) =>
     http.get<any, { data: string }>('/portal/oauth/github/authorize', { params: { redirectUri } }),

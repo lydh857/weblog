@@ -38,6 +38,7 @@
           :class="[index < 3 ? 'ranking-item--top' : 'ranking-item--normal']"
           :style="{ animationDelay: `${index * 0.05}s` }"
           target="_blank"
+          rel="noopener noreferrer"
         >
         <!-- 前三名 -->
         <template v-if="index < 3">

@@ -13,7 +13,6 @@ export interface LoginResult {
   nickname: string
   avatar: string
   role: string
-  rememberToken?: string
 }
 
 export const authApi = {
@@ -21,8 +20,8 @@ export const authApi = {
     return http.post<unknown, { data: LoginResult }>('/admin/auth/login', data)
   },
   logout: () => http.post('/admin/auth/logout'),
-  rememberLogin: async (token: string) => {
-    return http.post<unknown, { data: LoginResult }>('/admin/auth/remember-login', { token })
+  rememberLogin: async () => {
+    return http.post<unknown, { data: LoginResult }>('/admin/auth/remember-login', {})
   },
   revokeToken: async (token: string) => {
     return http.post(`/admin/auth/revoke-token?token=${token}`)

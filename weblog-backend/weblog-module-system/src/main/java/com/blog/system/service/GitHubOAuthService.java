@@ -24,8 +24,11 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -252,26 +255,49 @@ public class GitHubOAuthService {
                 throw new IllegalArgumentException("invalid host");
             }
 
-            // 域名白名单验证
-            if (allowedCallbacks != null && !allowedCallbacks.isBlank()) {
-                String host = uri.getHost().toLowerCase();
-                boolean allowed = false;
-                for (String domain : allowedCallbacks.split(",")) {
-                    String d = domain.trim().toLowerCase();
-                    if (d.equals(host) || host.endsWith("." + d)) {
-                        allowed = true;
-                        break;
-                    }
+            String host = uri.getHost().toLowerCase();
+
+            // 域名白名单验证：未配置时仅允许本地开发回调
+            Set<String> allowList = parseAllowedCallbacks();
+            if (allowList.isEmpty()) {
+                if (!isLocalCallbackHost(host)) {
+                    throw new IllegalArgumentException("callback whitelist not configured");
                 }
-                if (!allowed) {
-                    throw new IllegalArgumentException("callback domain not allowed");
+                return;
+            }
+
+            boolean allowed = false;
+            for (String domain : allowList) {
+                if (domain.equals(host) || host.endsWith("." + domain)) {
+                    allowed = true;
+                    break;
                 }
+            }
+            if (!allowed) {
+                throw new IllegalArgumentException("callback domain not allowed");
             }
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的 OAuth 回调地址");
         } catch (Exception ex) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的 OAuth 回调地址");
         }
+    }
+
+    private Set<String> parseAllowedCallbacks() {
+        if (allowedCallbacks == null || allowedCallbacks.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(allowedCallbacks.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(String::toLowerCase)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+    }
+
+    private boolean isLocalCallbackHost(String host) {
+        return "localhost".equals(host)
+                || "127.0.0.1".equals(host)
+                || "::1".equals(host);
     }
 
     private String urlEncode(String value) {

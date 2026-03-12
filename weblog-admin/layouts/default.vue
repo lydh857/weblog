@@ -158,7 +158,7 @@ const activeMenu = computed(() => {
 
 async function handleCommand(command: string) {
   if (command === 'portal') {
-    window.open('/', '_blank')
+    window.open('/', '_blank', 'noopener,noreferrer')
   } else if (command === 'logout') {
     await ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' })
     try {

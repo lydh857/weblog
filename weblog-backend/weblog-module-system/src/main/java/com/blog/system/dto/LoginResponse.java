@@ -29,6 +29,6 @@ public class LoginResponse {
     private boolean needBindEmail;
     @Schema(description = "是否已设置密码")
     private boolean hasPassword;
-    @Schema(description = "Remember Token（仅当 rememberMe=true 时返回）")
+    @Schema(description = "Remember Token（已迁移为 HttpOnly Cookie，此字段恒为空）")
     private String rememberToken;
 }

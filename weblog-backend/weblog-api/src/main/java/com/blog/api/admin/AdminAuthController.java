@@ -1,6 +1,5 @@
 package com.blog.api.admin;
 
-import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.result.Result;
 import com.blog.infra.security.audit.AuditLog;
@@ -14,10 +13,16 @@ import com.blog.system.service.LoginLogService;
 import com.blog.system.service.RememberTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.Duration;
 
 /**
  * 管理端认证接口
@@ -31,17 +36,23 @@ public class AdminAuthController {
     private final AuthService authService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
+    private static final String ADMIN_REMEMBER_COOKIE = "Admin-Remember-Token";
+    private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
 
     @Operation(summary = "管理员登录", description = "管理员通过邮箱和密码登录，非 admin 角色将被拒绝")
     @PostMapping("/login")
     @RateLimit(key = "admin-login", capacity = 5, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "LOGIN", description = "管理员登录")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
-                                       HttpServletRequest request) {
+                                       HttpServletRequest request,
+                                       HttpServletResponse response) {
         String clientIp = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
-        LoginResponse response = authService.adminLogin(req, clientIp, userAgent);
-        return Result.success(response);
+        LoginResponse loginResponse = authService.adminLogin(req, clientIp, userAgent);
+
+        syncRememberCookie(response, request, loginResponse.getRememberToken(), req.isRememberMe());
+        loginResponse.setRememberToken(null);
+        return Result.success(loginResponse);
     }
 
     @Operation(summary = "刷新 Access Token", description = "使用 Refresh Token 刷新 Access Token")
@@ -59,16 +70,17 @@ public class AdminAuthController {
     @Operation(summary = "管理员登出")
     @PostMapping("/logout")
     @AuditLog(module = "管理端认证", operation = "LOGOUT", description = "管理员登出")
-    public Result<Void> logout() {
+    public Result<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         authService.logout();
+        clearRememberCookie(response, request);
         return Result.success();
     }
 
     @Operation(summary = "Remember Token 自动登录", description = "使用 Remember Token 实现自动登录")
     @PostMapping("/remember-login")
-    public Result<LoginResponse> rememberLogin(@RequestBody java.util.Map<String, String> body,
-                                               HttpServletRequest request) {
-        String token = body.get("token");
+    public Result<LoginResponse> rememberLogin(HttpServletRequest request,
+                                               HttpServletResponse response) {
+        String token = readCookie(request, ADMIN_REMEMBER_COOKIE);
         if (token == null || token.isBlank()) {
             throw new com.blog.common.exception.BusinessException(
                     com.blog.common.result.ResultCode.PARAM_MISSING, "token 不能为空");
@@ -80,9 +92,17 @@ public class AdminAuthController {
         if (vo == null) {
             return Result.fail("Remember Token 无效或已过期");
         }
+
+        if (!"admin".equals(vo.getRole())) {
+            rememberTokenService.invalidateToken(token);
+            return Result.fail("无管理员权限");
+        }
         
         // 记录成功登录
         loginLogService.recordLogin(vo.getUserId(), vo.getEmail(), "admin", "success", "Remember Token 自动登录", clientIp, userAgent);
+
+        // 轮换后的 Remember Token 仅通过 HttpOnly Cookie 返回
+        writeRememberCookie(response, request, vo.getRememberToken(), REMEMBER_COOKIE_TTL);
         
         return Result.success(LoginResponse.builder()
                 .success(true)
@@ -93,7 +113,7 @@ public class AdminAuthController {
                 .role(vo.getRole())
                 .needBindEmail(false)
                 .hasPassword(true)
-                .rememberToken(vo.getRememberToken())
+                .rememberToken(null)
                 .build());
     }
 
@@ -137,5 +157,62 @@ public class AdminAuthController {
             ip = ip.split(",")[0].trim();
         }
         return ip;
+    }
+
+    private void syncRememberCookie(HttpServletResponse response,
+                                    HttpServletRequest request,
+                                    String token,
+                                    boolean rememberMe) {
+        if (rememberMe && token != null && !token.isBlank()) {
+            writeRememberCookie(response, request, token, REMEMBER_COOKIE_TTL);
+            return;
+        }
+        clearRememberCookie(response, request);
+    }
+
+    private void writeRememberCookie(HttpServletResponse response,
+                                     HttpServletRequest request,
+                                     String token,
+                                     Duration ttl) {
+        ResponseCookie cookie = ResponseCookie.from(ADMIN_REMEMBER_COOKIE, token)
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(ttl)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearRememberCookie(HttpServletResponse response, HttpServletRequest request) {
+        ResponseCookie cookie = ResponseCookie.from(ADMIN_REMEMBER_COOKIE, "")
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String readCookie(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null || cookies.length == 0) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request.isSecure()) {
+            return true;
+        }
+        String proto = request.getHeader("X-Forwarded-Proto");
+        return proto != null && "https".equalsIgnoreCase(proto);
     }
 }

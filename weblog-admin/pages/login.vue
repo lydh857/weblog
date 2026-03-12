@@ -218,12 +218,10 @@ function onEmailSelect() {
 }
 
 // ===== 记住我（使用 Remember Token）=====
-function saveCredentials(rememberToken?: string) {
-  if (rememberMe.value && rememberToken) {
-    // 存储 Remember Token（更安全，符合 OWASP 标准）
+function saveCredentials() {
+  if (rememberMe.value) {
     localStorage.setItem(REMEMBER_KEY, JSON.stringify({
       email: form.email,
-      rememberToken: rememberToken,
       remember: true,
       expireAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 天
     }))
@@ -257,23 +255,15 @@ async function autoLogin() {
     if (!raw) return false
     
     const saved = JSON.parse(raw)
-    if (!saved.rememberToken || !saved.remember) return false
+    if (!saved.remember) return false
     if (saved.expireAt && Date.now() > saved.expireAt) {
       localStorage.removeItem(REMEMBER_KEY)
       return false
     }
     
-    // 调用 Remember Token 自动登录接口
-    const res = await authApi.rememberLogin(saved.rememberToken)
+    // 调用 Cookie 版 Remember Token 自动登录接口
+    const res = await authApi.rememberLogin()
     if (res.data) {
-      if (res.data.rememberToken) {
-        localStorage.setItem(REMEMBER_KEY, JSON.stringify({
-          email: saved.email,
-          rememberToken: res.data.rememberToken,
-          remember: true,
-          expireAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-        }))
-      }
       userStore.setUser(res.data)
       ElMessage.success('自动登录成功')
       return true
@@ -315,8 +305,8 @@ async function handleSubmit() {
     })
     userStore.setUser(res.data)
     
-    // 保存 Remember Token（如果有）
-    saveCredentials(res.data.rememberToken)
+    // 持久化记住我开关（Remember Token 由 HttpOnly Cookie 管理）
+    saveCredentials()
     
     accountLocked.value = false
     

@@ -44,14 +44,14 @@
 
 <script setup lang="ts">
 import { announcementApi, type AnnouncementVO } from '~/api/ad'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '~/utils/xss'
 
 const route = useRoute()
 const announcement = ref<AnnouncementVO | null>(null)
 const loading = ref(true)
 
 function sanitize(html: string) {
-  return DOMPurify.sanitize(html)
+  return sanitizeHtml(html)
 }
 
 useHead({

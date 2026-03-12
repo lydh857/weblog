@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { carouselApi, type CarouselVO } from '~/api/carousel'
+import { normalizeSafeHref } from '~/utils/urlSafety'
 
 // ===== 状态 =====
 const slides = ref<CarouselVO[]>([])
@@ -235,14 +236,16 @@ function handleTouchEnd(e: TouchEvent) {
 
 // ===== 点击跳转 =====
 function handleSlideClick(slide: CarouselVO) {
+  const safeLink = normalizeSafeHref(slide.linkUrl)
+
   if (slide.type === 'article') {
     if (slide.slug) {
       navigateTo(`/post/${slide.slug}`)
-    } else if (slide.linkUrl) {
-      navigateTo(slide.linkUrl)
+    } else if (safeLink) {
+      navigateTo(safeLink, { external: true })
     }
-  } else if (slide.type === 'image' && slide.linkUrl) {
-    window.open(slide.linkUrl, '_blank')
+  } else if (slide.type === 'image' && safeLink) {
+    window.open(safeLink, '_blank', 'noopener,noreferrer')
   }
 }
 

@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { announcementApi, type AnnouncementVO } from '~/api/ad'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '~/utils/xss'
 
 const visible = ref(false)
 const popupAnnouncements = ref<AnnouncementVO[]>([])
@@ -32,7 +32,7 @@ const currentIndex = ref(0)
 const currentAnn = computed(() => popupAnnouncements.value[currentIndex.value] || null)
 
 function sanitize(html: string) {
-  return DOMPurify.sanitize(html)
+  return sanitizeHtml(html)
 }
 
 function tryClose() {

@@ -306,6 +306,7 @@ import type { LoginModalMode } from '~/composables/useLoginModal'
 import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
 import BaseModal from '~/components/ui/modal/BaseModal.vue'
 import { saveNavContext } from '~/utils/navContext'
+import { normalizeSafeHref } from '~/utils/urlSafety'
 
 const loginModal = useLoginModal()
 const message = useMessage()
@@ -318,6 +319,7 @@ const COOLDOWN_KEY_PREFIX = 'weblog_code_cooldown_'
 const EMAIL_KEY = 'weblog_login_email'
 const RECENT_EMAILS_KEY = 'weblog_recent_emails'
 const ACCOUNT_LOCKED_CODE = 40103
+const GITHUB_OAUTH_HOSTS = new Set(['github.com', 'www.github.com'])
 
 const userStore = useUserStore()
 
@@ -767,12 +769,10 @@ async function handleSendCode() {
 }
 
 // ===== 记住我（使用 Remember Token）=====
-async function saveCredentials(rememberToken?: string) {
-  if (rememberMe.value && rememberToken) {
-    // 存储 Remember Token（更安全，符合 OWASP 标准）
+async function saveCredentials() {
+  if (rememberMe.value) {
     localStorage.setItem(REMEMBER_KEY, JSON.stringify({
       email: form.email,
-      rememberToken: rememberToken,
       remember: true,
       expireAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 天
     }))
@@ -798,14 +798,14 @@ async function autoLogin() {
     if (!raw) return false
     
     const saved = JSON.parse(raw)
-    if (!saved.rememberToken || !saved.remember) return false
+    if (!saved.remember) return false
     if (saved.expireAt && Date.now() > saved.expireAt) {
       localStorage.removeItem(REMEMBER_KEY)
       return false
     }
     
-    // 调用 Remember Token 自动登录接口
-    const res = await authApi.rememberLogin(saved.rememberToken)
+    // 调用 Cookie 版 Remember Token 自动登录接口
+    const res = await authApi.rememberLogin()
     if (res.data) {
       userStore.setUser(res.data)
       message.success('自动登录成功')
@@ -858,7 +858,7 @@ async function handleSubmit() {
         try {
           const res = await authApi.login({ email: form.email, password: form.password, rememberMe: rememberMe.value }, verifyToken)
           addRecentEmail(form.email); submitSuccess.value = true; message.success('登录成功')
-          userStore.setUser(res.data); await saveCredentials(res.data.rememberToken); try { localStorage.removeItem(EMAIL_KEY) } catch {}
+          userStore.setUser(res.data); await saveCredentials(); try { localStorage.removeItem(EMAIL_KEY) } catch {}
           await new Promise(r => setTimeout(r, 400))
           loginModal.onLoginSuccess()
         } catch (e: any) {
@@ -911,7 +911,17 @@ async function handleGithubLogin() {
     })
     const redirectUri = window.location.origin + '/oauth/github/callback'
     const res = await authApi.getGithubAuthUrl(redirectUri)
-    window.location.href = res.data
+    const authUrl = normalizeSafeHref(res.data)
+    if (!authUrl) {
+      throw new Error('无效的 OAuth 地址')
+    }
+
+    const authHost = new URL(authUrl).host.toLowerCase()
+    if (!GITHUB_OAUTH_HOSTS.has(authHost)) {
+      throw new Error('无效的 OAuth 域名')
+    }
+
+    window.location.href = authUrl
   } catch {
     message.error('GitHub 登录暂不可用'); githubLoading.value = false
   }

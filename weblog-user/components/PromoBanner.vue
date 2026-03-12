@@ -3,10 +3,10 @@
     <div v-for="item in promos" :key="item.id" class="promo-item">
       <template v-if="item.type === 'image'">
         <a
-          v-if="item.linkUrl"
-          :href="item.linkUrl"
+          v-if="item.safeLinkUrl"
+          :href="item.safeLinkUrl"
           target="_blank"
-          rel="noopener nofollow"
+          rel="noopener noreferrer nofollow"
           class="promo-link"
           @click="recordClick(item.id)"
         >
@@ -23,14 +23,21 @@
 <script setup lang="ts">
 import { adApi, type AdvertisementVO } from '~/api/ad'
 import DOMPurify from 'dompurify'
+import { normalizeSafeHref } from '~/utils/urlSafety'
 
 const props = defineProps<{ position: string }>()
-const promos = ref<AdvertisementVO[]>([])
+
+interface PromoItem extends AdvertisementVO {
+  safeLinkUrl: string | null
+}
+
+const promos = ref<PromoItem[]>([])
 
 function sanitize(html: string) {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['a', 'img', 'span', 'div', 'p'],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'target', 'rel', 'class']
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'target', 'rel', 'class'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|\/(?!\/)|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   })
 }
 
@@ -41,7 +48,10 @@ function recordClick(id: number) {
 onMounted(async () => {
   try {
     const res = await adApi.getByPosition(props.position)
-    promos.value = res.data || []
+    promos.value = (res.data || []).map((item) => ({
+      ...item,
+      safeLinkUrl: normalizeSafeHref(item.linkUrl),
+    }))
   } catch { /* ignore */ }
 })
 </script>

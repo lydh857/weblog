@@ -95,6 +95,7 @@
                   :key="item.id"
                   :href="`/post/${item.slug}`"
                   target="_blank"
+                  rel="noopener noreferrer"
                   class="result-item"
                   :class="{ active: activeIndex === index }"
                   @mouseenter="activeIndex = index"
@@ -304,7 +305,7 @@ function scrollActiveIntoView() {
 // ===== 结果点击 =====
 function handleResultClick(item: SearchHit) {
   addToHistory(keyword.value.trim())
-  window.open(`/post/${item.slug}`, '_blank')
+  window.open(`/post/${item.slug}`, '_blank', 'noopener,noreferrer')
 }
 
 // ===== 关闭模态框 =====

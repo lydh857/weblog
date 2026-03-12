@@ -12,12 +12,18 @@ import com.blog.content.entity.Carousel;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.CarouselMapper;
 import com.blog.content.mapper.PostMapper;
+import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.net.IDN;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -94,9 +100,11 @@ public class CarouselService {
    * 创建轮播配置
    */
   public Carousel create(CarouselCreateRequest request) {
+    String safeLinkUrl = sanitizeLinkUrl(request.getLinkUrl());
+
     // image 类型校验
     if ("image".equals(request.getType())) {
-      if (request.getLinkUrl() == null || request.getLinkUrl().isBlank()) {
+      if (safeLinkUrl == null || safeLinkUrl.isBlank()) {
         throw new BusinessException(ResultCode.BAD_REQUEST, "图片类型必须填写跳转链接");
       }
       if (request.getTitle() == null || request.getTitle().isBlank()) {
@@ -122,7 +130,7 @@ public class CarouselService {
     carousel.setTitle(request.getTitle());
     carousel.setDescription(request.getDescription());
     carousel.setImageUrl(request.getImageUrl());
-    carousel.setLinkUrl(request.getLinkUrl());
+    carousel.setLinkUrl(safeLinkUrl);
     carousel.setArticleId(request.getArticleId());
     carousel.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
     carousel.setIsEnabled(request.getIsEnabled() != null ? request.getIsEnabled() : true);
@@ -141,12 +149,15 @@ public class CarouselService {
       throw new BusinessException(ResultCode.NOT_FOUND, "轮播配置不存在");
     }
 
+    String effectiveLinkUrl = request.getLinkUrl() != null
+      ? sanitizeLinkUrl(request.getLinkUrl())
+      : existing.getLinkUrl();
+
     // 确定更新后的 type（如果请求中未指定则使用现有值）
     String effectiveType = request.getType() != null ? request.getType() : existing.getType();
 
     // image 类型校验 linkUrl
     if ("image".equals(effectiveType)) {
-      String effectiveLinkUrl = request.getLinkUrl() != null ? request.getLinkUrl() : existing.getLinkUrl();
       if (effectiveLinkUrl == null || effectiveLinkUrl.isBlank()) {
         throw new BusinessException(ResultCode.BAD_REQUEST, "图片类型必须填写跳转链接");
       }
@@ -170,7 +181,7 @@ public class CarouselService {
     if (request.getTitle() != null) existing.setTitle(request.getTitle());
     if (request.getDescription() != null) existing.setDescription(request.getDescription());
     if (request.getImageUrl() != null) existing.setImageUrl(request.getImageUrl());
-    if (request.getLinkUrl() != null) existing.setLinkUrl(request.getLinkUrl());
+    if (request.getLinkUrl() != null) existing.setLinkUrl(effectiveLinkUrl);
     if (request.getArticleId() != null) existing.setArticleId(request.getArticleId());
     if (request.getSortOrder() != null) existing.setSortOrder(request.getSortOrder());
     if (request.getIsEnabled() != null) existing.setIsEnabled(request.getIsEnabled());
@@ -225,5 +236,71 @@ public class CarouselService {
     }
 
     return vo;
+  }
+
+  private String sanitizeLinkUrl(String linkUrl) {
+    if (linkUrl == null || linkUrl.isBlank()) {
+      return null;
+    }
+
+    String trimmed = linkUrl.trim();
+    if (trimmed.startsWith("/")) {
+      return XssUtil.cleanText(trimmed);
+    }
+
+    URI uri;
+    try {
+      uri = URI.create(trimmed);
+    } catch (Exception e) {
+      throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接格式不正确");
+    }
+
+    String scheme = uri.getScheme();
+    if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+      throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接仅支持 http/https 协议");
+    }
+
+    String host = uri.getHost();
+    if (host == null || host.isBlank()) {
+      throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接缺少有效主机名");
+    }
+
+    String normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+    if (!isPublicHost(normalizedHost)) {
+      throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网跳转链接");
+    }
+
+    return XssUtil.cleanText(uri.toString());
+  }
+
+  private boolean isPublicHost(String host) {
+    if ("localhost".equals(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
+      return false;
+    }
+
+    try {
+      InetAddress[] addresses = InetAddress.getAllByName(host);
+      if (addresses.length == 0) {
+        return false;
+      }
+      for (InetAddress address : addresses) {
+        if (address.isAnyLocalAddress()
+          || address.isLoopbackAddress()
+          || address.isLinkLocalAddress()
+          || address.isSiteLocalAddress()
+          || address.isMulticastAddress()) {
+          return false;
+        }
+        if (address instanceof Inet6Address inet6Address) {
+          byte first = inet6Address.getAddress()[0];
+          if ((first & (byte) 0xFE) == (byte) 0xFC) {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 }

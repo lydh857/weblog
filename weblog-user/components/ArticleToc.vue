@@ -29,6 +29,8 @@
 </template>
 
 <script setup lang="ts">
+import { sanitizeHtml, sanitizeText } from '~/utils/xss'
+
 interface TocItem {
   id: string
   text: string
@@ -130,9 +132,18 @@ function scrollToHeading(id: string) {
 function printArticle() {
   const content = document.querySelector(props.contentSelector)
   if (!content) return
-  const title = document.querySelector('.post-title')?.textContent || '文章打印'
-  const printWin = window.open('', '_blank')
+  const title = sanitizeText(document.querySelector('.post-title')?.textContent || '文章打印')
+  const safeContent = sanitizeHtml(content.innerHTML)
+
+  const printWin = window.open('', '_blank', 'noopener,noreferrer')
   if (!printWin) return
+
+  try {
+    printWin.opener = null
+  } catch {
+    // 忽略即可
+  }
+
   printWin.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
     <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:2rem;line-height:1.8;color:#333}
     h1,h2,h3,h4{margin-top:1.5em;margin-bottom:0.5em;font-weight:600}
@@ -141,7 +152,7 @@ function printArticle() {
     img{max-width:100%;height:auto}
     table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:0.5rem}
     blockquote{border-left:4px solid #3498db;padding:0.5rem 1rem;margin:1rem 0;color:#555;background:#f8f9fa}</style>
-    </head><body><h1>${title}</h1>${content.innerHTML}</body></html>`)
+    </head><body><h1>${title}</h1>${safeContent}</body></html>`)
   printWin.document.close()
   printWin.print()
 }

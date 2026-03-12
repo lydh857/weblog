@@ -122,7 +122,12 @@
                   </div>
                   <div class="preview-row">
                     <span class="preview-label">网站链接：</span>
-                    <a :href="myLink.url" target="_blank" rel="noopener noreferrer">{{ myLink.url }}</a>
+                    <a
+                      :href="getSafeHref(myLink.url) || '#'"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      @click="handlePreviewLinkClick($event, myLink.url)"
+                    >{{ myLink.url }}</a>
                   </div>
                   <div class="preview-row">
                     <span class="preview-label">Logo：</span>
@@ -157,6 +162,7 @@
 import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { normalizeSafeHref } from '~/utils/urlSafety'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{
@@ -181,6 +187,16 @@ const form = reactive({
   logo: '',
   description: '',
 })
+
+function getSafeHref(rawUrl: string | null | undefined) {
+  return normalizeSafeHref(rawUrl)
+}
+
+function handlePreviewLinkClick(event: MouseEvent, rawUrl: string | null | undefined) {
+  if (!getSafeHref(rawUrl)) {
+    event.preventDefault()
+  }
+}
 
 // 弹窗打开时获取我的申请状态
 watch(() => props.visible, async (val) => {
