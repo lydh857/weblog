@@ -16,6 +16,8 @@ export interface AnnouncementVO {
   type: string
   priority: number
   isClosable: boolean
+  createTime: string
+  updateTime: string
 }
 
 export const adApi = {

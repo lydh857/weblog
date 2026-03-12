@@ -11,7 +11,6 @@
         <el-select v-model="filterType" placeholder="类型" clearable style="width: 120px" @change="handleFilterChange">
           <el-option label="弹窗" value="popup" />
           <el-option label="横幅" value="banner" />
-          <el-option label="侧边栏" value="sidebar" />
         </el-select>
       </div>
       <div class="header-actions">
@@ -87,7 +86,7 @@
         <el-form-item label="标题"><el-input v-model="form.title" maxlength="100" clearable /></el-form-item>
         <el-form-item label="类型">
           <el-select v-model="form.type" style="width:100%" clearable>
-            <el-option label="弹窗" value="popup" /><el-option label="横幅" value="banner" /><el-option label="侧边栏" value="sidebar" />
+            <el-option label="弹窗" value="popup" /><el-option label="横幅" value="banner" />
           </el-select>
         </el-form-item>
         <el-form-item label="内容"><el-input v-model="form.content" type="textarea" :rows="4" clearable /></el-form-item>
@@ -147,7 +146,7 @@ const presets = [
   { label: '1年', days: 365 },
 ]
 
-function typeLabel(t: string) { return { popup: '弹窗', banner: '横幅', sidebar: '侧边栏' }[t] || t }
+function typeLabel(t: string) { return { popup: '弹窗', banner: '横幅' }[t] || t }
 function fmt(t: string | null) { return t ? t.replace('T', ' ').slice(0, 16) : '' }
 
 /** 计算剩余时间文本 */

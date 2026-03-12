@@ -40,6 +40,17 @@
             class="icon-btn desktop-nav-item"
             :class="{ 'animate-nav-item': shouldAnimate }"
             :style="shouldAnimate ? '--delay: 0.8s' : ''"
+            aria-label="公告通知"
+            @click="openAnnouncementCenter"
+          >
+            <Icon name="heroicons:bell-20-solid" size="16" />
+            <span v-if="unreadAnnouncementCount > 0" class="notice-badge-dot" aria-hidden="true" />
+          </button>
+
+          <button
+            class="icon-btn desktop-nav-item"
+            :class="{ 'animate-nav-item': shouldAnimate }"
+            :style="shouldAnimate ? '--delay: 0.85s' : ''"
             aria-label="切换主题"
             @click="toggleDark()"
           >
@@ -50,7 +61,7 @@
             ref="navAuthRef"
             class="nav-auth-slot desktop-nav-item"
             :class="{ 'animate-nav-item': shouldAnimate }"
-            :style="shouldAnimate ? '--delay: 0.85s' : ''"
+            :style="shouldAnimate ? '--delay: 0.9s' : ''"
             @mouseenter="openUserMenu"
             @mouseleave="scheduleHideUserMenu()"
           >
@@ -115,6 +126,11 @@
           <Icon name="heroicons:magnifying-glass-20-solid" size="16" class="mobile-link__icon" />
           <span>搜索</span>
         </button>
+        <button class="mobile-link" @click="openAnnouncementCenter">
+          <Icon name="heroicons:bell-20-solid" size="16" class="mobile-link__icon" />
+          <span>公告</span>
+          <span v-if="unreadAnnouncementCount > 0" class="mobile-notice-dot" aria-hidden="true" />
+        </button>
         <template v-if="showLoggedIn">
           <NuxtLink to="/user" class="mobile-link">
             <Icon name="heroicons:user-circle-16-solid" size="16" class="mobile-link__icon" />
@@ -133,6 +149,10 @@
     </header>
     <!-- 搜索模态框 -->
     <SearchModal v-model:visible="searchModal.isVisible.value" />
+    <AnnouncementCenter
+      v-model:visible="announcementCenterVisible"
+      @unread-change="handleAnnouncementUnreadChange"
+    />
     <AnnouncementBanner type="banner" :nav-hidden="isNavHidden" :transparent="isHomePage && !isScrolled" />
     <main class="main-content" :class="{ 'has-announcement': announcementBarVisible && !isHomePage }">
       <slot />
@@ -160,6 +180,8 @@ const router = useRouter()
 const route = useRoute()
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
+const announcementCenterVisible = ref(false)
+const unreadAnnouncementCount = ref(0)
 const navAuthRef = ref<HTMLElement | null>(null)
 const message = useMessage()
 const { confirm } = useConfirm()
@@ -331,6 +353,15 @@ function onAvatarError() {
 
 function goSearch() {
   searchModal.open()
+}
+
+function openAnnouncementCenter() {
+  mobileMenuOpen.value = false
+  announcementCenterVisible.value = true
+}
+
+function handleAnnouncementUnreadChange(count: number) {
+  unreadAnnouncementCount.value = Math.max(0, count)
 }
 
 function openLogin() {
@@ -519,6 +550,7 @@ async function handleLogout() {
 }
 
 .icon-btn {
+  position: relative;
   min-width: 34px;
   display: flex;
   align-items: center;
@@ -529,6 +561,21 @@ async function handleLogout() {
   cursor: pointer;
   &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.08); }
   .dark & { color: #94a3b8; &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.15); } }
+}
+
+.notice-badge-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+
+  .dark & {
+    box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.95);
+  }
 }
 
 .login-btn {
@@ -715,6 +762,14 @@ async function handleLogout() {
 .mobile-link__icon {
   flex-shrink: 0;
   opacity: 0.92;
+}
+
+.mobile-notice-dot {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
 }
 
 .main-content {

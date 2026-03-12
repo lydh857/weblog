@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 公告服务
@@ -24,15 +25,19 @@ import java.util.List;
 public class AnnouncementService {
 
     private final AnnouncementMapper announcementMapper;
+    private static final Set<String> VALID_ANNOUNCEMENT_TYPES = Set.of("popup", "banner");
 
     /**
      * 按类型获取有效公告（用户端）
      */
     public List<Announcement> getActiveByType(String type) {
+        String normalizedType = normalizeType(type);
+        validateType(normalizedType);
+
         LocalDateTime now = LocalDateTime.now();
         return announcementMapper.selectList(
                 new LambdaQueryWrapper<Announcement>()
-                        .eq(Announcement::getType, type)
+                        .eq(Announcement::getType, normalizedType)
                         .eq(Announcement::getStatus, "published")
                         .and(w -> w
                                 .isNull(Announcement::getStartTime)
@@ -86,7 +91,9 @@ public class AnnouncementService {
             wrapper.eq(Announcement::getStatus, status);
         }
         if (type != null && !type.isEmpty()) {
-            wrapper.eq(Announcement::getType, type);
+            String normalizedType = normalizeType(type);
+            validateType(normalizedType);
+            wrapper.eq(Announcement::getType, normalizedType);
         }
         wrapper.orderByDesc(Announcement::getCreateTime);
         return announcementMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
@@ -96,6 +103,14 @@ public class AnnouncementService {
      * 创建公告
      */
     public Announcement create(Announcement ann) {
+        if (ann.getType() == null || ann.getType().isBlank()) {
+            ann.setType("banner");
+        } else {
+            String normalizedType = normalizeType(ann.getType());
+            validateType(normalizedType);
+            ann.setType(normalizedType);
+        }
+
         if (ann.getStatus() == null) ann.setStatus("draft");
         if (ann.getPriority() == null) ann.setPriority(0);
         if (ann.getIsClosable() == null) ann.setIsClosable(true);
@@ -115,6 +130,16 @@ public class AnnouncementService {
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "公告不存在");
         }
+
+        if (ann.getType() != null) {
+            if (ann.getType().isBlank()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "公告类型不能为空，仅支持: popup, banner");
+            }
+            String normalizedType = normalizeType(ann.getType());
+            validateType(normalizedType);
+            ann.setType(normalizedType);
+        }
+
         ann.setId(id);
         announcementMapper.updateById(ann);
         // 如果更新后是已发布的 popup，归档其他已发布的 popup
@@ -176,5 +201,15 @@ public class AnnouncementService {
                 .eq(Announcement::getStatus, "published")
                 .ne(Announcement::getId, excludeId)
                 .set(Announcement::getStatus, "archived"));
+    }
+
+    private void validateType(String type) {
+        if (!VALID_ANNOUNCEMENT_TYPES.contains(type)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的公告类型，仅支持: popup, banner");
+        }
+    }
+
+    private String normalizeType(String type) {
+        return type == null ? null : type.trim().toLowerCase();
     }
 }

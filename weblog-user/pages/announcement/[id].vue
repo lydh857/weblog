@@ -1,7 +1,6 @@
 <template>
   <div class="announcement-detail">
-    <!-- 加载中 -->
-    <div v-if="loading" class="detail-skeleton">
+    <div v-if="pending" class="detail-skeleton">
       <div class="skeleton-title" />
       <div class="skeleton-meta" />
       <div class="skeleton-line" />
@@ -9,31 +8,29 @@
       <div class="skeleton-line" />
     </div>
 
-    <!-- 内容 -->
     <article v-else-if="announcement" class="detail-card">
-      <div class="detail-header">
-        <div class="detail-badge">
-          <Icon name="heroicons:megaphone-20-solid" size="16" />
-          公告
-        </div>
-        <h1 class="detail-title">{{ announcement.title }}</h1>
-        <div class="detail-meta">
-          <span class="meta-priority">
-            <Icon name="heroicons:flag-16-solid" size="14" />
-            优先级 {{ announcement.priority }}
-          </span>
-        </div>
-      </div>
-      <div class="detail-body" v-html="sanitize(announcement.content)" />
-      <div class="detail-footer">
+      <header class="detail-header">
         <NuxtLink to="/" class="back-link">
           <Icon name="heroicons:arrow-left-16-solid" size="16" />
           返回首页
         </NuxtLink>
-      </div>
+        <p class="detail-label">站点公告</p>
+        <h1 class="detail-title">{{ announcement.title }}</h1>
+        <div class="detail-meta">
+          <span class="meta-item">
+            <Icon name="heroicons:calendar-days-16-solid" size="14" />
+            发布于 {{ formatDateTime(announcement.createTime) }}
+          </span>
+          <span v-if="showUpdateTime" class="meta-item">
+            <Icon name="heroicons:clock-16-solid" size="14" />
+            更新于 {{ formatDateTime(announcement.updateTime) }}
+          </span>
+        </div>
+      </header>
+
+      <div class="detail-body" v-html="sanitize(announcement.content)" />
     </article>
 
-    <!-- 404 -->
     <div v-else class="detail-empty">
       <Icon name="heroicons:document-magnifying-glass" size="48" />
       <p>公告不存在或已下线</p>
@@ -47,45 +44,75 @@ import { announcementApi, type AnnouncementVO } from '~/api/ad'
 import { sanitizeHtml } from '~/utils/xss'
 
 const route = useRoute()
-const announcement = ref<AnnouncementVO | null>(null)
-const loading = ref(true)
 
-function sanitize(html: string) {
+const announcementId = computed(() => Number(route.params.id))
+
+const { data: announcement, pending } = await useAsyncData<AnnouncementVO | null>(
+  () => `announcement-${announcementId.value || 'invalid'}`,
+  async () => {
+    if (!Number.isInteger(announcementId.value) || announcementId.value <= 0) {
+      return null
+    }
+
+    try {
+      const res = await announcementApi.getById(announcementId.value)
+      return res.data || null
+    } catch {
+      return null
+    }
+  },
+  {
+    default: () => null,
+    watch: [announcementId]
+  }
+)
+
+const showUpdateTime = computed(() => {
+  const current = announcement.value
+  if (!current?.createTime || !current.updateTime) return false
+
+  const createTime = Date.parse(current.createTime)
+  const updateTime = Date.parse(current.updateTime)
+  if (Number.isNaN(createTime) || Number.isNaN(updateTime)) {
+    return current.createTime !== current.updateTime
+  }
+
+  return Math.abs(updateTime - createTime) > 60_000
+})
+
+function sanitize(html: string): string {
   return sanitizeHtml(html)
 }
 
-useHead({
-  title: computed(() => announcement.value ? `${announcement.value.title} - 公告` : '公告详情'),
-})
+function formatDateTime(value?: string): string {
+  if (!value) return '最近'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '最近'
 
-onMounted(async () => {
-  const id = Number(route.params.id)
-  if (!id || isNaN(id)) {
-    loading.value = false
-    return
-  }
-  try {
-    const res = await announcementApi.getById(id)
-    announcement.value = res.data
-  } catch {
-    announcement.value = null
-  } finally {
-    loading.value = false
-  }
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hour}:${minute}`
+}
+
+useHead({
+  title: computed(() => announcement.value ? `${announcement.value.title} - 公告` : '公告详情')
 })
 </script>
 
 <style lang="scss" scoped>
 .announcement-detail {
-  max-width: var(--layout-max-width);
+  max-width: 920px;
   margin: 0 auto;
-  padding: $spacing-xl $spacing-lg;
+  padding: 1.75rem 1rem;
 }
 
 .detail-card {
   background: $color-bg;
   border: 1px solid $color-border;
-  border-radius: $radius-lg;
+  border-radius: 16px;
   overflow: hidden;
 
   .dark & {
@@ -95,7 +122,7 @@ onMounted(async () => {
 }
 
 .detail-header {
-  padding: 2rem 2rem 1.5rem;
+  padding: 1.5rem 1.75rem 1.25rem;
   border-bottom: 1px solid $color-border;
 
   .dark & {
@@ -103,40 +130,25 @@ onMounted(async () => {
   }
 }
 
-.detail-badge {
+.back-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  background: #eff6ff;
+  gap: 0.28rem;
+  text-decoration: none;
   color: $color-primary;
-  font-size: 0.78rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
+  font-size: 0.84rem;
+  margin-bottom: 0.85rem;
+  transition: opacity 0.2s;
 
-  .dark & {
-    background: rgba(59, 130, 246, 0.15);
+  &:hover {
+    opacity: 0.82;
   }
 }
 
-.detail-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: $color-text;
-  line-height: 1.4;
-  margin-bottom: 0.75rem;
-
-  .dark & {
-    color: $color-dark-text;
-  }
-}
-
-.detail-meta {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  font-size: 0.82rem;
+.detail-label {
+  margin: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
   color: $color-text-muted;
 
   .dark & {
@@ -144,14 +156,39 @@ onMounted(async () => {
   }
 }
 
-.meta-priority {
+.detail-title {
+  margin: 0.45rem 0 0;
+  font-size: clamp(1.3rem, 3vw, 1.65rem);
+  line-height: 1.45;
+  color: $color-text;
+
+  .dark & {
+    color: $color-dark-text;
+  }
+}
+
+.detail-meta {
+  margin-top: 0.82rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.75rem 1rem;
+  color: $color-text-muted;
+  font-size: 0.8rem;
+
+  .dark & {
+    color: #94a3b8;
+  }
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
 }
 
 .detail-body {
-  padding: 2rem;
+  padding: 1.45rem 1.75rem;
   font-size: 0.95rem;
   line-height: 1.8;
   color: $color-text;
@@ -166,49 +203,26 @@ onMounted(async () => {
   }
 
   :deep(p) {
-    margin-bottom: 1rem;
+    margin: 0 0 0.95rem;
+  }
 
-    &:last-child {
-      margin-bottom: 0;
-    }
+  :deep(p:last-child) {
+    margin-bottom: 0;
   }
 
   :deep(img) {
     max-width: 100%;
-    border-radius: $radius-md;
+    border-radius: 10px;
   }
 }
 
-.detail-footer {
-  padding: 1.25rem 2rem;
-  border-top: 1px solid $color-border;
-
-  .dark & {
-    border-top-color: $color-dark-border;
-  }
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: $color-primary;
-  font-size: 0.85rem;
-  text-decoration: none;
-  transition: opacity 0.2s;
-
-  &:hover {
-    opacity: 0.8;
-  }
-}
-
-/* 空状态 */
 .detail-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-md;
-  padding: 4rem 0;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 300px;
   color: $color-text-muted;
 
   .dark & {
@@ -216,16 +230,16 @@ onMounted(async () => {
   }
 
   p {
+    margin: 0;
     font-size: 0.95rem;
   }
 }
 
-/* 骨架屏 */
 .detail-skeleton {
-  background: $color-bg;
+  border-radius: 16px;
   border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  padding: 2rem;
+  background: $color-bg;
+  padding: 1.5rem 1.75rem;
 
   .dark & {
     background: $color-dark-bg-secondary;
@@ -233,60 +247,61 @@ onMounted(async () => {
   }
 }
 
-.skeleton-title {
-  height: 28px;
-  width: 60%;
-  border-radius: $radius-sm;
-  background: $color-bg-secondary;
-  margin-bottom: 1rem;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+.skeleton-title,
+.skeleton-meta,
+.skeleton-line {
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.2), rgba(148, 163, 184, 0.35), rgba(148, 163, 184, 0.2));
+  animation: detail-skeleton 1.5s ease-in-out infinite;
 
   .dark & {
-    background: #1a2332;
+    background: linear-gradient(90deg, rgba(71, 85, 105, 0.35), rgba(100, 116, 139, 0.5), rgba(71, 85, 105, 0.35));
   }
 }
 
-.skeleton-meta {
-  height: 16px;
-  width: 30%;
-  border-radius: $radius-sm;
-  background: $color-bg-secondary;
-  margin-bottom: 2rem;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+.skeleton-title {
+  height: 30px;
+  width: min(72%, 480px);
+  margin-bottom: 0.95rem;
+}
 
-  .dark & {
-    background: #1a2332;
-  }
+.skeleton-meta {
+  height: 15px;
+  width: min(42%, 240px);
+  margin-bottom: 1.4rem;
 }
 
 .skeleton-line {
   height: 14px;
   width: 100%;
-  border-radius: $radius-sm;
-  background: $color-bg-secondary;
   margin-bottom: 0.75rem;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-
-  &.long {
-    width: 80%;
-  }
-
-  .dark & {
-    background: #1a2332;
-  }
 }
 
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.skeleton-line.long {
+  width: 84%;
+}
+
+@keyframes detail-skeleton {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: $breakpoint-md) {
+  .announcement-detail {
+    padding: 1rem 0.75rem;
+  }
+
   .detail-header,
   .detail-body,
-  .detail-footer {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+  .detail-skeleton {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
 </style>

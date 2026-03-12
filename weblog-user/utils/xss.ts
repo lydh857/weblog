@@ -1,11 +1,49 @@
 import DOMPurify from 'dompurify'
 
+interface DomPurifyLike {
+  sanitize: (dirty: string, config?: Record<string, unknown>) => string
+}
+
+function resolvePurify(): DomPurifyLike | null {
+  const mod = DOMPurify as unknown as {
+    sanitize?: DomPurifyLike['sanitize']
+    default?: {
+      sanitize?: DomPurifyLike['sanitize']
+    }
+  } & ((win: Window) => DomPurifyLike)
+
+  if (typeof mod?.sanitize === 'function') {
+    return { sanitize: mod.sanitize }
+  }
+
+  if (typeof mod?.default?.sanitize === 'function') {
+    return { sanitize: mod.default.sanitize }
+  }
+
+  if (import.meta.client && typeof mod === 'function' && typeof window !== 'undefined') {
+    const instance = mod(window)
+    if (instance && typeof instance.sanitize === 'function') {
+      return instance
+    }
+  }
+
+  return null
+}
+
+function safeSanitize(dirty: string, config?: Record<string, unknown>): string {
+  const purifier = resolvePurify()
+  if (!purifier) {
+    return escapeHtml(dirty)
+  }
+  return purifier.sanitize(dirty, config)
+}
+
 /**
  * XSS 清理 - 用于用户输入的文本内容
  * 移除所有 HTML 标签，只保留纯文本
  */
 export function sanitizeText(dirty: string): string {
-  return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] })
+  return safeSanitize(dirty, { ALLOWED_TAGS: [] })
 }
 
 /**
@@ -13,7 +51,7 @@ export function sanitizeText(dirty: string): string {
  * 保留安全的 HTML 标签，移除危险标签和属性
  */
 export function sanitizeHtml(dirty: string): string {
-  return DOMPurify.sanitize(dirty, {
+  return safeSanitize(dirty, {
     ALLOWED_TAGS: [
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'p', 'br', 'hr', 'blockquote', 'pre', 'code',
