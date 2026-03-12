@@ -30,6 +30,11 @@ public class CorsConfig {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
+
+        if (origins.stream().anyMatch("*"::equals)) {
+            throw new IllegalStateException("CORS 配置不允许使用通配符 '*'（当前已启用 credentials）");
+        }
+
         config.setAllowedOrigins(origins);
         config.setAllowCredentials(true);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));

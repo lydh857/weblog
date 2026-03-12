@@ -59,10 +59,11 @@ const currentAnn = computed(() =>
 
 /** 去除 HTML 标签，提取纯文本摘要 */
 function stripHtml(html: string): string {
-  if (!import.meta.client) return html
-  const div = document.createElement('div')
-  div.innerHTML = html
-  return div.textContent || div.innerText || ''
+  if (!html) return ''
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function nextAnn() {

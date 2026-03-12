@@ -257,6 +257,10 @@ public class GitHubOAuthService {
 
             String host = uri.getHost().toLowerCase();
 
+            if (!isLocalCallbackHost(host) && !"https".equalsIgnoreCase(scheme)) {
+                throw new IllegalArgumentException("non-local callback must use https");
+            }
+
             // 域名白名单验证：未配置时仅允许本地开发回调
             Set<String> allowList = parseAllowedCallbacks();
             if (allowList.isEmpty()) {

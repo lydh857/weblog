@@ -28,6 +28,13 @@ import java.util.stream.Stream;
 public class LocalFileService {
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
+    private static final Map<String, byte[]> MAGIC_NUMBERS = Map.of(
+            "jpg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
+            "jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
+            "png", new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47},
+            "gif", new byte[]{0x47, 0x49, 0x46, 0x38},
+            "webp", new byte[]{0x52, 0x49, 0x46, 0x46}
+    );
     private static final long MAX_SIZE = 5 * 1024 * 1024;
 
     @Value("${blog.upload.local-dir:./uploads}")
@@ -37,16 +44,16 @@ public class LocalFileService {
     private String baseUrl;
 
     public String upload(InputStream inputStream, String originalFilename, long fileSize) {
-        validate(originalFilename, fileSize);
+        InputStream safeInput = validateAndWrap(inputStream, originalFilename, fileSize);
         String objectKey = buildObjectKey(originalFilename);
-        saveFile(inputStream, objectKey);
+        saveFile(safeInput, objectKey);
         return baseUrl + "/" + objectKey;
     }
 
     public String uploadTemp(InputStream inputStream, String originalFilename, long fileSize) {
-        validate(originalFilename, fileSize);
+        InputStream safeInput = validateAndWrap(inputStream, originalFilename, fileSize);
         String objectKey = buildTempObjectKey(originalFilename);
-        saveFile(inputStream, objectKey);
+        saveFile(safeInput, objectKey);
         return baseUrl + "/" + objectKey;
     }
 
@@ -108,7 +115,7 @@ public class LocalFileService {
         log.info("批量删除 {} 个本地文件", objectKeys.size());
     }
 
-    private void validate(String filename, long fileSize) {
+    private InputStream validateAndWrap(InputStream inputStream, String filename, long fileSize) {
         if (fileSize > MAX_SIZE) {
             throw new BusinessException(ResultCode.FILE_TOO_LARGE);
         }
@@ -116,6 +123,38 @@ public class LocalFileService {
         if (!ALLOWED_EXTENSIONS.contains(ext)) {
             throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED);
         }
+
+        try {
+            java.io.BufferedInputStream bis = inputStream instanceof java.io.BufferedInputStream
+                    ? (java.io.BufferedInputStream) inputStream
+                    : new java.io.BufferedInputStream(inputStream);
+            bis.mark(8);
+            byte[] header = new byte[8];
+            int read = bis.read(header);
+            if (read < 4) {
+                throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容无效");
+            }
+            bis.reset();
+            if (!verifyMagicNumber(ext, header)) {
+                throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容与扩展名不匹配");
+            }
+            return bis;
+        } catch (IOException e) {
+            throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件读取失败");
+        }
+    }
+
+    private boolean verifyMagicNumber(String ext, byte[] header) {
+        byte[] expected = MAGIC_NUMBERS.get(ext);
+        if (expected == null || header.length < expected.length) {
+            return false;
+        }
+        for (int i = 0; i < expected.length; i++) {
+            if (header[i] != expected[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void saveFile(InputStream inputStream, String objectKey) {

@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Sa-Token 路由拦截配置
  * - /api/admin/** 需要登录且必须是 admin 角色
- * - /api/admin/auth/** 排除（登录/注册接口）
+ * - /api/admin/auth/login 与 /api/admin/auth/remember-login 放行
  * - /api/portal/** 公开访问
  */
 @Configuration
@@ -17,11 +17,14 @@ public class SaTokenRouteConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new SaInterceptor(handle -> {
+                registry.addInterceptor(new SaInterceptor(handle -> {
                     StpUtil.checkLogin();
                     StpUtil.checkRole("admin");
                 }))
                 .addPathPatterns("/api/admin/**")
-                .excludePathPatterns("/api/admin/auth/**");
+                .excludePathPatterns(
+                        "/api/admin/auth/login",
+                        "/api/admin/auth/remember-login"
+                );
     }
 }
