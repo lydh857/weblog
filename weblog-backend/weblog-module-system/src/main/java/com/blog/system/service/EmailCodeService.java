@@ -80,6 +80,10 @@ public class EmailCodeService {
         String codeKey = CommonConstant.REDIS_EMAIL_CODE + scene + ":" + email;
         redisService.set(codeKey, code, expireMinutes, TimeUnit.MINUTES);
 
+        // 发送新验证码时，重置失败次数
+        String attemptsKey = CommonConstant.REDIS_EMAIL_CODE_ATTEMPTS + scene + ":" + email;
+        redisService.delete(attemptsKey);
+
         // 设置冷却时间
         redisService.set(cooldownKey, "1", cooldownSeconds, TimeUnit.SECONDS);
 
@@ -96,13 +100,28 @@ public class EmailCodeService {
     public boolean verifyCode(String email, String scene, String code) {
         String codeKey = CommonConstant.REDIS_EMAIL_CODE + scene + ":" + email;
         String stored = redisService.get(codeKey);
+        String attemptsKey = CommonConstant.REDIS_EMAIL_CODE_ATTEMPTS + scene + ":" + email;
 
-        if (stored == null || !stored.equals(code)) {
+        if (stored == null) {
+            return false;
+        }
+
+        if (!stored.equals(code)) {
+            int maxAttempts = configService.getIntValue("mail_code_max_attempts", 10);
+            int expireMinutes = configService.getIntValue("mail_code_expire_minutes", 5);
+            long attempts = redisService.incrementWithExpire(attemptsKey, Math.max(60L, expireMinutes * 60L));
+
+            if (attempts >= maxAttempts) {
+                redisService.delete(codeKey);
+                log.warn("验证码连续校验失败已达上限，验证码失效: email={}, scene={}, attempts={}",
+                        email, scene, attempts);
+            }
             return false;
         }
 
         // 验证成功后删除，防止重复使用
         redisService.delete(codeKey);
+        redisService.delete(attemptsKey);
         return true;
     }
 

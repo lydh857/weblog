@@ -78,6 +78,7 @@ public class AdminAuthController {
 
     @Operation(summary = "Remember Token 自动登录", description = "使用 Remember Token 实现自动登录")
     @PostMapping("/remember-login")
+    @RateLimit(key = "admin-remember-login", capacity = 10, seconds = 60)
     public Result<LoginResponse> rememberLogin(HttpServletRequest request,
                                                HttpServletResponse response) {
         String token = readCookie(request, ADMIN_REMEMBER_COOKIE);

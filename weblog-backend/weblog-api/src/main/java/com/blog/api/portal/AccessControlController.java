@@ -62,6 +62,7 @@ public class AccessControlController {
 
     @Operation(summary = "记录阅读（文章详情页调用）")
     @PostMapping("/read/{postId}")
+    @RateLimit(key = "access-read", capacity = 120, seconds = 60)
     public Result<Void> recordRead(@PathVariable Long postId,
                                     HttpServletRequest request) {
         if (!StpUtil.isLogin()) {

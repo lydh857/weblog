@@ -50,6 +50,7 @@ public final class CommonConstant {
     public static final String REDIS_DEVICE_VIEW = REDIS_PREFIX + "device:view:";
     public static final String REDIS_EMAIL_CODE = REDIS_PREFIX + "email:code:";
     public static final String REDIS_EMAIL_CODE_COOLDOWN = REDIS_PREFIX + "email:cooldown:";
+    public static final String REDIS_EMAIL_CODE_ATTEMPTS = REDIS_PREFIX + "email:attempts:";
 
     // ========== 安全相关 ==========
     public static final int MAX_LOGIN_ATTEMPTS = 5;

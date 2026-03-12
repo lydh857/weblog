@@ -2,6 +2,9 @@ package com.blog.common.util;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * IP 地址工具类
  */
@@ -9,16 +12,22 @@ public final class IpUtil {
 
     private IpUtil() {}
 
-    private static final String[] TRUSTED_PROXIES = {
-        "127.0.0.1", "localhost", "0:0:0:0:0:0:0:1"
-    };
+    private static final Set<String> DEFAULT_TRUSTED_PROXIES = Set.of(
+            "127.0.0.1", "localhost", "0:0:0:0:0:0:0:1", "::1"
+    );
+
+    /**
+     * 可信代理列表（默认仅本机代理，可通过环境变量 TRUSTED_PROXY_IPS 追加）
+     */
+    private static final Set<String> TRUSTED_PROXIES = loadTrustedProxies();
 
     /**
      * 获取客户端真实 IP 地址，支持反向代理。
      *
      * 安全说明：
-     * - 只信任 X-Forwarded-For 和 X-Real-IP 头中的最后一个 IP（真实客户端）
-     * - 排除已知的内网地址作为客户端 IP
+     * - 仅当请求来自可信代理时，才解析 X-Forwarded-For / X-Real-IP
+     * - X-Forwarded-For 按从右到左提取首个公网地址，降低伪造头部影响
+     * - 排除内网地址作为客户端公网 IP
      * - 直接访问时使用 request.getRemoteAddr()
      */
     public static String getClientIp(HttpServletRequest request) {
@@ -33,26 +42,15 @@ public final class IpUtil {
         }
 
         // 从代理头获取真实 IP
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            // X-Forwarded-For 可能包含多个 IP，取最右边（最原始）的客户端 IP
-            ip = ip.trim();
-            if (ip.contains(",")) {
-                ip = ip.split(",")[ip.split(",").length - 1].trim();
-            }
-            // 验证是否是有效公网 IP（排除内网）
-            if (isValidPublicIp(ip)) {
-                return ip;
-            }
+        String ip = extractClientIpFromXff(request.getHeader("X-Forwarded-For"));
+        if (ip != null) {
+            return ip;
         }
 
         // 备用：尝试 X-Real-IP
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            ip = ip.trim();
-            if (isValidPublicIp(ip)) {
-                return ip;
-            }
+        ip = normalizeAddress(request.getHeader("X-Real-IP"));
+        if (isValidPublicIp(ip)) {
+            return ip;
         }
 
         // 都无效时使用远程地址
@@ -63,20 +61,52 @@ public final class IpUtil {
      * 检查请求是否来自可信的代理服务器
      */
     private static boolean isTrustedProxy(HttpServletRequest request) {
-        String remoteAddr = request.getRemoteAddr();
-        if (remoteAddr == null) {
+        String remoteAddr = normalizeAddress(request.getRemoteAddr());
+        if (remoteAddr == null || remoteAddr.isEmpty()) {
             return false;
         }
+        return TRUSTED_PROXIES.contains(remoteAddr);
+    }
 
-        // 本地请求或已知代理 IP
-        for (String trusted : TRUSTED_PROXIES) {
-            if (trusted.equalsIgnoreCase(remoteAddr)) {
-                return true;
-            }
+    private static Set<String> loadTrustedProxies() {
+        Set<String> proxies = new HashSet<>(DEFAULT_TRUSTED_PROXIES);
+        String extra = System.getenv("TRUSTED_PROXY_IPS");
+        if (extra == null || extra.isBlank()) {
+            return proxies;
         }
 
-        // 检查是否是私有 IP 段（可能是本地代理）
-        return isPrivateIp(remoteAddr);
+        for (String raw : extra.split(",")) {
+            String normalized = normalizeAddress(raw);
+            if (normalized != null && !normalized.isEmpty()) {
+                proxies.add(normalized);
+            }
+        }
+        return proxies;
+    }
+
+    private static String extractClientIpFromXff(String xForwardedFor) {
+        if (xForwardedFor == null || xForwardedFor.isBlank()) {
+            return null;
+        }
+
+        String[] parts = xForwardedFor.split(",");
+        for (int i = parts.length - 1; i >= 0; i--) {
+            String candidate = normalizeAddress(parts[i]);
+            if (candidate == null || candidate.isEmpty() || "unknown".equals(candidate)) {
+                continue;
+            }
+            if (isValidPublicIp(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static String normalizeAddress(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim().toLowerCase();
     }
 
     /**

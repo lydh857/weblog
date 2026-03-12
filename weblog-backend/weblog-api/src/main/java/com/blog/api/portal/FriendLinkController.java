@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.result.Result;
 import com.blog.content.entity.FriendLink;
 import com.blog.content.service.FriendLinkService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class FriendLinkController {
 
     @Operation(summary = "申请友链")
     @PostMapping("/apply")
+    @RateLimit(key = "friend-link-apply", capacity = 5, seconds = 300)
     public Result<FriendLink> applyLink(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -53,6 +55,7 @@ public class FriendLinkController {
 
     @Operation(summary = "更新我的友链申请")
     @PutMapping("/my")
+    @RateLimit(key = "friend-link-update", capacity = 10, seconds = 300)
     public Result<FriendLink> updateMyLink(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();

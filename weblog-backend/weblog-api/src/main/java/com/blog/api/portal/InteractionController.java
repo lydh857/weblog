@@ -11,6 +11,7 @@ import com.blog.interaction.entity.UserLike;
 import com.blog.interaction.mapper.UserLikeMapper;
 import com.blog.interaction.service.FavoriteService;
 import com.blog.interaction.service.LikeService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class InteractionController {
 
     @Operation(summary = "点赞/取消点赞文章")
     @PostMapping("/like/{postId}")
+    @RateLimit(key = "interaction-like-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleLike(@PathVariable Long postId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -61,6 +63,7 @@ public class InteractionController {
 
     @Operation(summary = "收藏/取消收藏文章")
     @PostMapping("/favorite/{postId}")
+    @RateLimit(key = "interaction-favorite-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleFavorite(@PathVariable Long postId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -121,6 +124,7 @@ public class InteractionController {
 
     @Operation(summary = "批量取消收藏")
     @DeleteMapping("/favorite/batch")
+    @RateLimit(key = "interaction-favorite-batch", capacity = 20, seconds = 60)
     public Result<Void> batchUnfavorite(@RequestBody List<Long> postIds) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();

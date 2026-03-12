@@ -5,6 +5,7 @@ import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.IpUtil;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.LoginResponse;
 import com.blog.system.service.GitHubOAuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +39,7 @@ public class GitHubOAuthController {
 
     @Operation(summary = "获取 GitHub 授权 URL", description = "生成 GitHub OAuth 授权链接，前端跳转到该链接进行授权")
     @GetMapping("/authorize")
+    @RateLimit(key = "github-oauth-authorize", capacity = 20, seconds = 60)
     public Result<String> authorize(@Parameter(description = "OAuth 回调地址") @RequestParam String redirectUri,
                                     HttpServletRequest request,
                                     HttpServletResponse response) {
@@ -53,6 +55,7 @@ public class GitHubOAuthController {
 
     @Operation(summary = "GitHub OAuth 回调", description = "GitHub 授权后回调，用 code 换取 token 并登录")
     @PostMapping("/callback")
+    @RateLimit(key = "github-oauth-callback", capacity = 20, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGIN", description = "GitHub OAuth 登录")
     public Result<LoginResponse> callback(@RequestParam String code,
                                           @RequestParam String state,

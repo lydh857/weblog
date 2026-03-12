@@ -6,6 +6,7 @@ import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Advertisement;
 import com.blog.content.service.AdvertisementService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.infra.security.util.XssUtil;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,7 @@ public class AdvertisementController {
 
     @Operation(summary = "记录广告点击")
     @PostMapping("/{id}/click")
+    @RateLimit(key = "ad-click", capacity = 120, seconds = 60)
     public Result<Void> recordClick(@PathVariable Long id) {
         advertisementService.recordClick(id);
         return Result.success();
@@ -50,6 +52,7 @@ public class AdvertisementController {
 
     @Operation(summary = "提交广告申请")
     @PostMapping("/apply")
+    @RateLimit(key = "ad-apply", capacity = 5, seconds = 300)
     public Result<Advertisement> apply(@RequestBody Advertisement ad) {
         StpUtil.checkLogin();
         // 检查申请入口是否开放

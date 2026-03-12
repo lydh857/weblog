@@ -8,9 +8,9 @@ import com.blog.infra.redis.RedisService;
 import com.blog.system.dto.LoginResponse;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -23,6 +23,7 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -37,11 +38,11 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GitHubOAuthService {
 
     private final UserMapper userMapper;
     private final RedisService redisService;
+    private final RestTemplate restTemplate;
 
     @Value("${github.oauth.client-id:}")
     private String clientId;
@@ -57,6 +58,17 @@ public class GitHubOAuthService {
     private static final String GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
     private static final String STATE_KEY_PREFIX = "github:oauth:state:";
     private static final long STATE_EXPIRE_SECONDS = 300;
+
+    public GitHubOAuthService(UserMapper userMapper,
+                              RedisService redisService,
+                              RestTemplateBuilder restTemplateBuilder) {
+        this.userMapper = userMapper;
+        this.redisService = redisService;
+        this.restTemplate = restTemplateBuilder
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(5))
+                .build();
+    }
 
     /**
      * 生成 GitHub OAuth 授权 URL
@@ -159,7 +171,6 @@ public class GitHubOAuthService {
 
     @SuppressWarnings("unchecked")
     private String exchangeAccessToken(String code) {
-        RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
@@ -182,7 +193,6 @@ public class GitHubOAuthService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> getGitHubUser(String accessToken) {
-        RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
 
@@ -203,7 +213,6 @@ public class GitHubOAuthService {
     @SuppressWarnings("unchecked")
     private String getGitHubUserPrimaryEmail(String accessToken) {
         try {
-            RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
 

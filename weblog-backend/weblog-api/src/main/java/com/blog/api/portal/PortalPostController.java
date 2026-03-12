@@ -46,7 +46,8 @@ public class PortalPostController {
             @Parameter(description = "分类Slug") @RequestParam(required = false) String categorySlug,
             @Parameter(description = "标签Slug") @RequestParam(required = false) String tagSlug,
             @Parameter(description = "排序方式：latest-最新 / hottest-最热") @RequestParam(required = false) String sortBy) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        pageNum = Math.max(pageNum, 1);
+        pageSize = (int) Math.max(1, Math.min(pageSize, MAX_PAGE_SIZE));
         // slug 优先级高于 id
         if (categorySlug != null && !categorySlug.isBlank() && categoryId == null) {
             Category cat = categoryService.getBySlug(categorySlug);
@@ -88,7 +89,7 @@ public class PortalPostController {
     public Result<List<PostVO>> listTodayPosts(
             @Parameter(description = "最大返回条数，默认8，最大20")
             @RequestParam(defaultValue = "8") int limit) {
-        limit = Math.min(limit, 20);
+        limit = Math.max(1, Math.min(limit, 20));
         return Result.success(postService.listTodayPosts(limit));
     }
 
@@ -97,7 +98,7 @@ public class PortalPostController {
     public Result<List<PostVO>> listRecentPosts(
             @Parameter(description = "最大返回条数，默认10，最大20")
             @RequestParam(defaultValue = "10") int limit) {
-        limit = Math.min(limit, 20);
+        limit = Math.max(1, Math.min(limit, 20));
         return Result.success(postService.listRecentPosts(limit));
     }
 

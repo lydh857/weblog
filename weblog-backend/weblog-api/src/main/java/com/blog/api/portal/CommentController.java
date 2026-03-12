@@ -10,6 +10,7 @@ import com.blog.interaction.dto.CreateCommentRequest;
 import com.blog.interaction.entity.Comment;
 import com.blog.interaction.service.CommentService;
 import com.blog.interaction.service.LikeService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
@@ -41,6 +42,7 @@ public class CommentController {
 
     @Operation(summary = "发表评论")
     @PostMapping
+    @RateLimit(key = "comment-create", capacity = 10, seconds = 60)
     public Result<CommentVO> create(@Valid @RequestBody CreateCommentRequest req) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -143,6 +145,7 @@ public class CommentController {
 
     @Operation(summary = "评论点赞/取消点赞")
     @PostMapping("/like/{commentId}")
+    @RateLimit(key = "comment-like-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleCommentLike(@PathVariable Long commentId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();

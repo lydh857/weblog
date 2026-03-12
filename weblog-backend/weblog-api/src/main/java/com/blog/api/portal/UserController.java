@@ -8,6 +8,7 @@ import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.LocalFileService;
 import com.blog.infra.oss.OssService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.UpdateProfileRequest;
 import com.blog.system.dto.UserProfileVO;
 import com.blog.system.service.EmailCodeService;
@@ -75,6 +76,7 @@ public class UserController {
 
     @Operation(summary = "上传头像（提交审核）")
     @PostMapping("/avatar")
+    @RateLimit(key = "user-avatar-upload", capacity = 10, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交头像审核")
     public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) throws IOException {
         StpUtil.checkLogin();
@@ -146,6 +148,7 @@ public class UserController {
 
     @Operation(summary = "绑定邮箱（无邮箱用户）")
     @PostMapping("/bind-email")
+    @RateLimit(key = "user-bind-email", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "绑定邮箱")
     public Result<Void> bindEmail(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
@@ -164,6 +167,7 @@ public class UserController {
 
     @Operation(summary = "换绑邮箱")
     @PostMapping("/change-email")
+    @RateLimit(key = "user-change-email", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "换绑邮箱")
     public Result<Void> changeEmail(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
@@ -182,6 +186,7 @@ public class UserController {
 
     @Operation(summary = "设置密码（无密码用户）- 需要邮箱验证码二次验证")
     @PostMapping("/set-password")
+    @RateLimit(key = "user-set-password", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "设置密码")
     public Result<Void> setPassword(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
@@ -213,6 +218,7 @@ public class UserController {
 
     @Operation(summary = "重置密码（通过邮箱验证码）")
     @PostMapping("/reset-password")
+    @RateLimit(key = "user-reset-password", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "重置密码")
     public Result<Void> resetPassword(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
