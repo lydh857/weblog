@@ -102,6 +102,7 @@ interface Props {
   total: number
   currentPage: number
   pageSize: number
+  pageCount?: number
   pageSizeOptions?: number[]
 }
 
@@ -114,7 +115,12 @@ const emit = defineEmits<{
   'update:pageSize': [size: number]
 }>()
 
-const totalPages = computed(() => Math.ceil(props.total / props.pageSize) || 1)
+const totalPages = computed(() => {
+  if (props.pageCount && props.pageCount > 0) {
+    return props.pageCount
+  }
+  return Math.ceil(props.total / props.pageSize) || 1
+})
 
 // ===== 页码计算 =====
 interface EllipsisItem { type: 'ellipsis'; pages: number[] }

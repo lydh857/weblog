@@ -18,7 +18,10 @@
 
     <!-- 文章列表：双列布局 -->
     <section v-if="!loading && posts.length" class="post-grid">
-      <ArticleCard v-for="post in posts" :key="post.id" :post="post" />
+      <template v-for="item in postGridItems" :key="item.key">
+        <ArticleCard v-if="item.type === 'post'" :post="item.post" />
+        <AdMimicCard v-else :ad="item.ad" />
+      </template>
     </section>
 
     <!-- 空状态 -->
@@ -42,8 +45,10 @@
     <!-- 分页 -->
     <Pagination
       :total="total"
+      :page-count="pageCount"
       :current-page="filters.pageNum"
       :page-size="filters.pageSize"
+      :page-size-options="[20, 40, 60, 80]"
       @update:current-page="goToPage"
       @update:page-size="handlePageSizeChange"
     />
@@ -54,11 +59,18 @@
 import { categoryApi, type CategoryTreeVO } from '~/api/category'
 import { tagApi, type TagCloudVO } from '~/api/tag'
 import { postApi, type PostVO } from '~/api/post'
+import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
 
 useHead({ title: '分类浏览' })
 
 const route = useRoute()
 const router = useRouter()
+
+function normalizeDisplayPageSize(value: number | null | undefined) {
+  if (!value || Number.isNaN(value)) return 20
+  if (value <= 20) return 20
+  return Math.ceil(value / 20) * 20
+}
 
 const filters = reactive({
   categoryId: null as number | null,
@@ -72,8 +84,40 @@ const filters = reactive({
 const categories = ref<CategoryTreeVO[]>([])
 const tags = ref<TagCloudVO[]>([])
 const posts = ref<PostVO[]>([])
+const listCardAds = ref<AdvertisementVO[]>([])
 const total = ref(0)
+const pageCount = ref(0)
 const loading = ref(false)
+
+type CategoryGridItem =
+  | { key: string; type: 'post'; post: PostVO }
+  | { key: string; type: 'ad'; ad: AdvertisementVO }
+
+const listCardAdPool = computed(() => listCardAds.value.filter(item => item.type === 'image' && Boolean(item.content)))
+
+const backendPageSize = computed(() => Math.max(1, filters.pageSize - 1))
+
+function resolveListCardAd(pageNo: number): AdvertisementVO | null {
+  const pool = listCardAdPool.value
+  if (!pool.length) return null
+  if (pool.length === 1) return pool[0]
+  return pool[(Math.max(1, pageNo) - 1) % pool.length]
+}
+
+const postGridItems = computed<CategoryGridItem[]>(() => {
+  const items: CategoryGridItem[] = posts.value.map(post => ({ key: `post-${post.id}`, type: 'post', post }))
+  const ad = resolveListCardAd(filters.pageNum)
+  if (!ad) return items
+
+  const insertAfter = Math.max(1, ad.insertAfter || 4)
+  const insertIndex = Math.min(insertAfter, items.length)
+  items.splice(insertIndex, 0, {
+    key: `ad-${ad.id}-p${filters.pageNum}`,
+    type: 'ad',
+    ad,
+  })
+  return items
+})
 
 /** 从 URL 查询参数初始化筛选状态 */
 function parseQueryParams() {
@@ -82,7 +126,7 @@ function parseQueryParams() {
   filters.subCategoryId = q.subCategoryId ? Number(q.subCategoryId) : null
   filters.tagId = q.tagId ? Number(q.tagId) : null
   filters.sortBy = (['recommended', 'latest', 'hottest'].includes(q.sortBy as string) ? q.sortBy : 'recommended') as 'recommended' | 'latest' | 'hottest'
-  filters.pageSize = q.pageSize ? Number(q.pageSize) : 20
+  filters.pageSize = normalizeDisplayPageSize(q.pageSize ? Number(q.pageSize) : 20)
   filters.pageNum = q.pageNum ? Number(q.pageNum) : 1
 }
 
@@ -120,7 +164,7 @@ async function fetchPosts() {
   try {
     const params: Record<string, number | string | undefined> = {
       pageNum: filters.pageNum,
-      pageSize: filters.pageSize,
+      pageSize: backendPageSize.value,
     }
     if (filters.subCategoryId !== null) {
       params.categoryId = filters.subCategoryId
@@ -133,11 +177,22 @@ async function fetchPosts() {
     const res = await postApi.list(params as Parameters<typeof postApi.list>[0])
     posts.value = res.data.records
     total.value = res.data.total
+    pageCount.value = Math.ceil(res.data.total / filters.pageSize)
   } catch {
     posts.value = []
     total.value = 0
+    pageCount.value = 0
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchListCardAds() {
+  try {
+    const res = await advertisementApi.getBySlot('post_list_card')
+    listCardAds.value = res.data || []
+  } catch {
+    listCardAds.value = []
   }
 }
 
@@ -176,7 +231,7 @@ function handleSortChange(sortBy: 'recommended' | 'latest' | 'hottest') {
 }
 
 function handlePageSizeChange(size: number) {
-  filters.pageSize = size
+  filters.pageSize = normalizeDisplayPageSize(size)
   resetAndFetch()
 }
 
@@ -195,7 +250,7 @@ watch(() => route.query, () => {
 
 onMounted(async () => {
   parseQueryParams()
-  const [catRes] = await Promise.all([categoryApi.tree(), fetchTags()])
+  const [catRes] = await Promise.all([categoryApi.tree(), fetchTags(), fetchListCardAds()])
   categories.value = catRes.data
   await fetchPosts()
 })

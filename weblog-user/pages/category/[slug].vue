@@ -16,16 +16,19 @@
 
       <section class="post-list">
         <template v-if="posts.length">
-          <article v-for="post in posts" :key="post.id" class="post-item">
-            <NuxtLink :to="`/post/${post.slug}`" class="post-link">
-              <h3 class="post-title">{{ post.title }}</h3>
-              <p v-if="post.summary" class="post-summary">{{ post.summary }}</p>
-              <div class="post-meta">
-                <time>{{ formatDate(post.createTime) }}</time>
-                <span>{{ post.viewCount }} 阅读</span>
-              </div>
-            </NuxtLink>
-          </article>
+          <template v-for="item in postRenderItems" :key="item.key">
+            <article v-if="item.type === 'post'" class="post-item">
+              <NuxtLink :to="`/post/${item.post.slug}`" class="post-link">
+                <h3 class="post-title">{{ item.post.title }}</h3>
+                <p v-if="item.post.summary" class="post-summary">{{ item.post.summary }}</p>
+                <div class="post-meta">
+                  <time>{{ formatDate(item.post.createTime) }}</time>
+                  <span>{{ item.post.viewCount }} 阅读</span>
+                </div>
+              </NuxtLink>
+            </article>
+            <AdMimicCard v-else class="post-item post-item--ad" :ad="item.ad" />
+          </template>
 
           <div v-if="totalPages > 1" class="pagination">
             <button class="page-btn" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">
@@ -46,6 +49,7 @@
 <script setup lang="ts">
 import { postApi, type PostVO } from '~/api/post'
 import { categoryApi } from '~/api/category'
+import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
 
 const route = useRoute()
 const slug = route.params.slug as string
@@ -53,9 +57,43 @@ const slug = route.params.slug as string
 const categoryName = ref('')
 const categoryDesc = ref('')
 const posts = ref<PostVO[]>([])
+const listCardAds = ref<AdvertisementVO[]>([])
 const loading = ref(true)
 const currentPage = ref(1)
 const totalPages = ref(0)
+
+type RenderItem =
+  | { key: string; type: 'post'; post: PostVO }
+  | { key: string; type: 'ad'; ad: AdvertisementVO }
+
+const listCardAdPool = computed(() => listCardAds.value.filter(item => item.type === 'image' && Boolean(item.content)))
+
+function resolveListCardAd(pageNo: number): AdvertisementVO | null {
+  const pool = listCardAdPool.value
+  if (!pool.length) return null
+  if (pool.length === 1) return pool[0]
+  return pool[(Math.max(1, pageNo) - 1) % pool.length]
+}
+
+const postRenderItems = computed<RenderItem[]>(() => {
+  const postItems: RenderItem[] = posts.value.map(post => ({
+    key: `post-${post.id}`,
+    type: 'post',
+    post,
+  }))
+
+  const ad = resolveListCardAd(currentPage.value)
+  if (!ad) return postItems
+  const insertAfter = Math.max(1, ad.insertAfter || 4)
+  const insertIndex = Math.min(insertAfter, postItems.length)
+
+  postItems.splice(insertIndex, 0, {
+    key: `ad-${ad.id}-p${currentPage.value}`,
+    type: 'ad',
+    ad,
+  })
+  return postItems
+})
 
 async function loadPosts() {
   try {
@@ -63,6 +101,15 @@ async function loadPosts() {
     posts.value = res.data.records
     totalPages.value = res.data.pages
   } catch { /* ignore */ }
+}
+
+async function loadListCardAds() {
+  try {
+    const res = await advertisementApi.getBySlot('post_list_card')
+    listCardAds.value = res.data || []
+  } catch {
+    listCardAds.value = []
+  }
 }
 
 function changePage(page: number) {
@@ -89,7 +136,7 @@ onMounted(async () => {
       ],
     })
 
-    await loadPosts()
+    await Promise.all([loadPosts(), loadListCardAds()])
   } catch { /* ignore */ }
   finally { loading.value = false }
 })
@@ -129,6 +176,13 @@ onMounted(async () => {
   border-bottom: 1px solid $color-border;
   .dark & { border-bottom-color: $color-dark-border; }
 }
+
+.post-item--ad {
+  padding: 0;
+  border-bottom: none;
+  margin: 0.8rem 0;
+}
+
 .post-link { text-decoration: none; color: inherit; display: block; cursor: pointer; }
 .post-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.375rem; color: $color-text; .dark & { color: $color-dark-text; } }
 .post-summary { font-size: 0.875rem; color: $color-text-muted; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.375rem; }

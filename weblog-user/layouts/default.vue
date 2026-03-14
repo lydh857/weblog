@@ -15,7 +15,7 @@
 
         <div class="nav-main">
           <NuxtLink
-            v-for="(item, index) in mainNavLinks"
+            v-for="(item, index) in navLinks"
             :key="item.to"
             :to="item.to"
             class="nav-link desktop-nav-item"
@@ -118,7 +118,7 @@
       </div>
       <!-- 移动端菜单 -->
       <div v-if="mobileMenuOpen" class="mobile-menu" @click="mobileMenuOpen = false">
-        <NuxtLink v-for="item in mainNavLinks" :key="`mobile-${item.to}`" :to="item.to" class="mobile-link">
+        <NuxtLink v-for="item in navLinks" :key="`mobile-${item.to}`" :to="item.to" class="mobile-link">
           <Icon :name="item.icon" size="16" class="mobile-link__icon" />
           <span>{{ item.label }}</span>
         </NuxtLink>
@@ -157,6 +157,11 @@
     <main class="main-content" :class="{ 'has-announcement': announcementBarVisible && !isHomePage }">
       <slot />
     </main>
+    <Transition name="left-ad-float-fade">
+      <aside v-if="globalLeftAdVisible" class="global-left-ad">
+        <AdSlotBanner ad-slot="home_left" :visible="globalLeftAdVisible" :force-rotate="true" />
+      </aside>
+    </Transition>
     <AnnouncementPopup />
     <footer class="site-footer">
       <p>&copy; {{ new Date().getFullYear() }} zhhhkl. All rights reserved.</p>
@@ -194,6 +199,11 @@ const isScrolled = ref(false)
 const isNavHidden = ref(false)
 const lastScrollY = ref(0)
 const isHomePage = computed(() => route.path === '/')
+const globalLeftAdVisible = ref(false)
+let leftAdHeroObserver: IntersectionObserver | null = null
+let leftAdHeroRetryTimer: ReturnType<typeof setTimeout> | null = null
+let leftAdHeroRetryCount = 0
+const LEFT_AD_HERO_RETRY_MAX = 30
 
 interface NavLinkItem {
   to: string
@@ -209,6 +219,8 @@ const mainNavLinks: NavLinkItem[] = [
   { to: '/ranking', label: '排行', icon: 'heroicons:trophy-20-solid' },
   { to: '/friend-links', label: '友链', icon: 'heroicons:link-20-solid' }
 ]
+
+const navLinks = computed<NavLinkItem[]>(() => mainNavLinks)
 
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)
@@ -228,6 +240,54 @@ function triggerHomeNavEnterAnimation() {
   })
 }
 
+function clearLeftAdHeroWatchers() {
+  leftAdHeroObserver?.disconnect()
+  leftAdHeroObserver = null
+
+  if (leftAdHeroRetryTimer) {
+    clearTimeout(leftAdHeroRetryTimer)
+    leftAdHeroRetryTimer = null
+  }
+
+  leftAdHeroRetryCount = 0
+}
+
+function observeHomeHeroForLeftAd() {
+  if (!import.meta.client) return
+
+  const heroEl = document.querySelector<HTMLElement>('.hero-carousel')
+  if (!heroEl) {
+    globalLeftAdVisible.value = false
+    if (leftAdHeroRetryCount >= LEFT_AD_HERO_RETRY_MAX) return
+    leftAdHeroRetryCount += 1
+    leftAdHeroRetryTimer = setTimeout(() => {
+      observeHomeHeroForLeftAd()
+    }, 120)
+    return
+  }
+
+  leftAdHeroObserver?.disconnect()
+  leftAdHeroObserver = new IntersectionObserver((entries) => {
+    const entry = entries[0]
+    if (!entry) return
+    globalLeftAdVisible.value = !entry.isIntersecting
+  }, { threshold: 0 })
+
+  leftAdHeroObserver.observe(heroEl)
+}
+
+function refreshGlobalLeftAdVisibility() {
+  if (!import.meta.client) return
+
+  clearLeftAdHeroWatchers()
+  if (route.path === '/') {
+    observeHomeHeroForLeftAd()
+    return
+  }
+
+  globalLeftAdVisible.value = true
+}
+
 // 进入首页时，等 DOM 渲染完成后再触发动画，确保用户能看到
 watch(isHomePage, (val) => {
   if (val) {
@@ -236,6 +296,13 @@ watch(isHomePage, (val) => {
     shouldAnimate.value = false
     shouldHideNavbarBeforeEnter.value = false
   }
+}, { immediate: true })
+
+watch(() => route.path, () => {
+  if (!import.meta.client) return
+  nextTick(() => {
+    refreshGlobalLeftAdVisibility()
+  })
 }, { immediate: true })
 
 function handleScroll() {
@@ -261,10 +328,12 @@ function handleScroll() {
 onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
+  refreshGlobalLeftAdVisibility()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  clearLeftAdHeroWatchers()
 })
 
 onMounted(async () => {
@@ -565,17 +634,12 @@ async function handleLogout() {
 
 .notice-badge-dot {
   position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 8px;
-  height: 8px;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ef4444;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
-
-  .dark & {
-    box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.95);
-  }
 }
 
 .login-btn {
@@ -766,10 +830,30 @@ async function handleLogout() {
 
 .mobile-notice-dot {
   margin-left: auto;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ef4444;
+}
+
+.global-left-ad {
+  position: fixed;
+  top: 50%;
+  left: clamp(8px, calc((100vw - var(--layout-max-width)) / 2 - 158px), 96px);
+  width: 140px;
+  transform: translateY(-50%);
+  z-index: 55;
+}
+
+.left-ad-float-fade-enter-active,
+.left-ad-float-fade-leave-active {
+  transition: opacity 260ms ease, transform 320ms ease;
+}
+
+.left-ad-float-fade-enter-from,
+.left-ad-float-fade-leave-to {
+  opacity: 0;
+  transform: translate3d(-12px, -50%, 0);
 }
 
 .main-content {
@@ -779,6 +863,18 @@ async function handleLogout() {
 
   &.has-announcement {
     padding-top: 96px; /* 60px 导航栏 + 36px 公告栏 */
+  }
+}
+
+@media (max-width: 1540px) {
+  .global-left-ad {
+    display: none;
+  }
+}
+
+@media (max-width: $breakpoint-md) {
+  .global-left-ad {
+    display: none;
   }
 }
 

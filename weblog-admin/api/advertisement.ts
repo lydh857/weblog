@@ -5,8 +5,18 @@ export interface AdvertisementVO {
   title: string
   type: string
   content: string
+  adInfo?: string | null
+  reviewReason?: string | null
+  mimicContent?: string | null
   linkUrl: string
   position: string
+  insertAfter?: number | null
+  closable?: boolean
+  autoRotate?: boolean
+  rotateIntervalSec?: number | null
+  pitEnabled?: boolean | null
+  pitAdId?: number | null
+  pitIndex?: number | null
   advertiserId: number | null
   status: string
   startTime: string | null
@@ -23,6 +33,13 @@ export interface AdPageResult {
   pages: number
 }
 
+export interface AdPriceRuleVO {
+  position: string
+  pitIndex: number
+  durationDays: number
+  price: number
+}
+
 export const advertisementApi = {
   list: (params: { pageNum?: number; pageSize?: number; status?: string; position?: string }) =>
     http.get<unknown, { data: AdPageResult }>('/admin/advertisement', { params }),
@@ -33,8 +50,13 @@ export const advertisementApi = {
   update: (id: number, data: Partial<AdvertisementVO>) =>
     http.put(`/admin/advertisement/${id}`, data),
 
-  updateStatus: (id: number, status: string) =>
-    http.put(`/admin/advertisement/${id}/status`, null, { params: { status } }),
+  updateStatus: (id: number, status: string, reason?: string) =>
+    http.put(`/admin/advertisement/${id}/status`, null, {
+      params: {
+        status,
+        reason: reason || undefined,
+      },
+    }),
 
   delete: (id: number) =>
     http.delete(`/admin/advertisement/${id}`),
@@ -50,6 +72,12 @@ export const advertisementApi = {
 
   setApplySwitch: (enabled: boolean) =>
     http.put('/admin/advertisement/apply-switch', { enabled }),
+
+  getPriceRules: () =>
+    http.get<unknown, { data: { rules: AdPriceRuleVO[] } }>('/admin/advertisement/price-rules'),
+
+  setPriceRules: (rules: AdPriceRuleVO[]) =>
+    http.put('/admin/advertisement/price-rules', { rules }),
 
   // 回收站
   trashPage: (params: { pageNum?: number; pageSize?: number; keyword?: string }) =>

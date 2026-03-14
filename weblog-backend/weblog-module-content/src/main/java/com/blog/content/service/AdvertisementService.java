@@ -1,12 +1,15 @@
 package com.blog.content.service;
 
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.content.entity.Advertisement;
+import com.blog.content.entity.Post;
 import com.blog.content.mapper.AdvertisementMapper;
+import com.blog.content.mapper.PostMapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
 import com.blog.infra.security.util.XssUtil;
@@ -20,8 +23,12 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 广告服务
@@ -31,16 +38,45 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class AdvertisementService {
 
+    private static final Map<String, String> POSITION_ALIAS_MAP = Map.ofEntries(
+            Map.entry("top", "home_top"),
+            Map.entry("sidebar", "home_left"),
+            Map.entry("middle", "post_inline"),
+            Map.entry("bottom", "post_bottom"),
+            Map.entry("home_left", "home_left"),
+            Map.entry("post_top", "post_top"),
+            Map.entry("post_bottom", "post_bottom"),
+            Map.entry("post_inline", "post_inline"),
+            Map.entry("post_list_card", "post_list_card")
+    );
+
+    private static final int DEFAULT_ROTATE_INTERVAL_SEC = 6;
+    private static final int MAX_SLOT_AD_COUNT = 7;
+    private static final int MIMIC_POSTS_PER_PAGE = 19;
+    private static final int MAX_MIMIC_AD_COUNT = 7;
+    private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
+
     private final AdvertisementMapper advertisementMapper;
+    private final PostMapper postMapper;
 
     /**
      * 按位置获取有效广告（用户端）
      */
     public List<Advertisement> getActiveByPosition(String position) {
+        return getActiveBySlot(position);
+    }
+
+    public List<Advertisement> getActiveBySlot(String slotOrPosition) {
+        String normalizedSlot = normalizePosition(slotOrPosition);
+        if (normalizedSlot == null) {
+            return List.of();
+        }
+
+        List<String> candidatePositions = buildCandidatePositions(normalizedSlot);
         LocalDateTime now = LocalDateTime.now();
-        return advertisementMapper.selectList(
+        List<Advertisement> records = advertisementMapper.selectList(
                 new LambdaQueryWrapper<Advertisement>()
-                        .eq(Advertisement::getPosition, position)
+                        .in(Advertisement::getPosition, candidatePositions)
                         .eq(Advertisement::getStatus, "active")
                         .and(w -> w
                                 .isNull(Advertisement::getStartTime)
@@ -51,6 +87,17 @@ public class AdvertisementService {
                                 .or()
                                 .ge(Advertisement::getEndTime, now))
                         .orderByDesc(Advertisement::getWeight));
+
+        records.forEach(ad -> {
+            if (isCarouselPosition(normalizePosition(ad.getPosition()))) {
+                ad.setClosable(true);
+                ad.setAutoRotate(true);
+                if (ad.getRotateIntervalSec() == null || ad.getRotateIntervalSec() < 2) {
+                    ad.setRotateIntervalSec(DEFAULT_ROTATE_INTERVAL_SEC);
+                }
+            }
+        });
+        return applySlotDisplayLimit(normalizedSlot, records);
     }
 
     /**
@@ -64,6 +111,48 @@ public class AdvertisementService {
         }
     }
 
+    public Advertisement getById(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return advertisementMapper.selectById(id);
+    }
+
+    public List<Advertisement> listByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return advertisementMapper.selectByIds(ids);
+    }
+
+    public long countActiveByPosition(String position) {
+        String normalized = normalizePosition(position);
+        if (normalized == null || normalized.isBlank()) {
+            return 0L;
+        }
+
+        return advertisementMapper.selectCount(
+                new LambdaQueryWrapper<Advertisement>()
+                        .eq(Advertisement::getPosition, normalized)
+                        .eq(Advertisement::getStatus, "active")
+        );
+    }
+
+    public int getMimicSlotCapacity() {
+        Long publishedCount = postMapper.selectCount(
+                new QueryWrapper<Post>()
+                        .eq("status", "published")
+                        .ne("is_disabled", 1)
+        );
+        long total = publishedCount == null ? 0L : publishedCount;
+        if (total <= 0) {
+            return 0;
+        }
+
+        long pages = (total + MIMIC_POSTS_PER_PAGE - 1) / MIMIC_POSTS_PER_PAGE;
+        return (int) Math.min(MAX_MIMIC_AD_COUNT, pages);
+    }
+
     // ========== 管理端方法 ==========
 
     /**
@@ -75,7 +164,8 @@ public class AdvertisementService {
             wrapper.eq(Advertisement::getStatus, status);
         }
         if (position != null && !position.isEmpty()) {
-            wrapper.eq(Advertisement::getPosition, position);
+            String normalized = normalizePosition(position);
+            wrapper.in(Advertisement::getPosition, buildCandidatePositions(normalized));
         }
         wrapper.orderByDesc(Advertisement::getCreateTime);
         return advertisementMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
@@ -86,6 +176,8 @@ public class AdvertisementService {
      */
     public Advertisement create(Advertisement ad) {
         sanitizeAdvertisementFields(ad, ad.getType(), true);
+        normalizeDisplaySettings(ad);
+        validateSchedule(ad);
         if (ad.getStatus() == null) ad.setStatus("pending");
         if (ad.getClickCount() == null) ad.setClickCount(0);
         if (ad.getWeight() == null) ad.setWeight(1);
@@ -104,6 +196,8 @@ public class AdvertisementService {
 
         String effectiveType = ad.getType() != null ? ad.getType() : existing.getType();
         sanitizeAdvertisementFields(ad, effectiveType, false);
+        normalizeDisplaySettings(ad);
+        validateSchedule(ad);
 
         ad.setId(id);
         advertisementMapper.updateById(ad);
@@ -113,9 +207,39 @@ public class AdvertisementService {
      * 审核广告（approved/rejected）
      */
     public void updateStatus(Long id, String status) {
-        advertisementMapper.update(null, new LambdaUpdateWrapper<Advertisement>()
-                .eq(Advertisement::getId, id)
-                .set(Advertisement::getStatus, status));
+        Advertisement existing = advertisementMapper.selectById(id);
+        if (existing == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "广告不存在");
+        }
+
+        Advertisement update = new Advertisement();
+        update.setId(id);
+        update.setStatus(status);
+
+        // 用户申请广告从待审核转为投放中时，若审核时刻已晚于申请起始时刻，自动顺延完整投放时长
+        if ("active".equals(status)
+                && "pending".equals(existing.getStatus())
+                && existing.getAdvertiserId() != null
+                && existing.getStartTime() != null
+                && existing.getEndTime() != null
+                && existing.getEndTime().isAfter(existing.getStartTime())) {
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isAfter(existing.getStartTime())) {
+                long durationSeconds = ChronoUnit.SECONDS.between(existing.getStartTime(), existing.getEndTime());
+                if (durationSeconds > 0) {
+                    update.setStartTime(now);
+                    update.setEndTime(now.plusSeconds(durationSeconds));
+                    log.info("广告审核顺延: adId={}, oldStart={}, oldEnd={}, newStart={}, newEnd={}",
+                            id,
+                            existing.getStartTime(),
+                            existing.getEndTime(),
+                            update.getStartTime(),
+                            update.getEndTime());
+                }
+            }
+        }
+
+        advertisementMapper.updateById(update);
     }
 
     /**
@@ -136,6 +260,45 @@ public class AdvertisementService {
      * 批量更新广告状态
      */
     public void batchUpdateStatus(List<Long> ids, String status) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        if ("active".equals(status)) {
+            // 复用单条审核逻辑，确保用户申请广告在延迟审核时自动顺延完整投放时长
+            for (Long id : ids) {
+                if (id == null) {
+                    continue;
+                }
+                Advertisement existing = advertisementMapper.selectById(id);
+                if (existing == null) {
+                    continue;
+                }
+
+                Advertisement update = new Advertisement();
+                update.setId(id);
+                update.setStatus(status);
+
+                if ("pending".equals(existing.getStatus())
+                        && existing.getAdvertiserId() != null
+                        && existing.getStartTime() != null
+                        && existing.getEndTime() != null
+                        && existing.getEndTime().isAfter(existing.getStartTime())) {
+                    LocalDateTime now = LocalDateTime.now();
+                    if (now.isAfter(existing.getStartTime())) {
+                        long durationSeconds = ChronoUnit.SECONDS.between(existing.getStartTime(), existing.getEndTime());
+                        if (durationSeconds > 0) {
+                            update.setStartTime(now);
+                            update.setEndTime(now.plusSeconds(durationSeconds));
+                        }
+                    }
+                }
+
+                advertisementMapper.updateById(update);
+            }
+            return;
+        }
+
         advertisementMapper.update(null, new LambdaUpdateWrapper<Advertisement>()
                 .in(Advertisement::getId, ids)
                 .set(Advertisement::getStatus, status));
@@ -146,13 +309,57 @@ public class AdvertisementService {
      */
     public Advertisement submitApplication(Long userId, Advertisement ad) {
         sanitizeAdvertisementFields(ad, ad.getType(), true);
+        normalizeDisplaySettings(ad);
+        validateSchedule(ad);
+
+        if (ad.getPosition() == null || ad.getPosition().isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "广告位置不能为空");
+        }
+
+        Advertisement existing = advertisementMapper.selectOne(
+                new LambdaQueryWrapper<Advertisement>()
+                        .eq(Advertisement::getAdvertiserId, userId)
+                        .eq(Advertisement::getPosition, ad.getPosition())
+                        .orderByDesc(Advertisement::getCreateTime)
+                        .last("LIMIT 1"));
+
+        if (existing != null) {
+            ad.setId(existing.getId());
+            ad.setAdvertiserId(userId);
+            ad.setStatus("pending");
+            ad.setClickCount(existing.getClickCount() != null ? existing.getClickCount() : 0);
+            if (ad.getWeight() == null) {
+                ad.setWeight(existing.getWeight() != null ? existing.getWeight() : 1);
+            }
+            advertisementMapper.updateById(ad);
+            log.info("广告申请更新: userId={}, adId={}, position={}", userId, existing.getId(), ad.getPosition());
+            return advertisementMapper.selectById(existing.getId());
+        }
+
         ad.setAdvertiserId(userId);
         ad.setStatus("pending");
         ad.setClickCount(0);
         if (ad.getWeight() == null) ad.setWeight(1);
         advertisementMapper.insert(ad);
-        log.info("广告申请提交: userId={}, adId={}", userId, ad.getId());
+        log.info("广告申请提交: userId={}, adId={}, position={}", userId, ad.getId(), ad.getPosition());
         return ad;
+    }
+
+    /**
+     * 查询我的广告申请（按位置）
+     */
+    public Advertisement getMyApplication(Long userId, String position) {
+        LambdaQueryWrapper<Advertisement> wrapper = new LambdaQueryWrapper<Advertisement>()
+                .eq(Advertisement::getAdvertiserId, userId)
+                .orderByDesc(Advertisement::getCreateTime)
+                .last("LIMIT 1");
+
+        String normalizedPosition = normalizePosition(position);
+        if (normalizedPosition != null && !normalizedPosition.isBlank()) {
+            wrapper.eq(Advertisement::getPosition, normalizedPosition);
+        }
+
+        return advertisementMapper.selectOne(wrapper);
     }
 
     private void sanitizeAdvertisementFields(Advertisement ad, String effectiveType, boolean sanitizeLinkAlways) {
@@ -162,17 +369,109 @@ public class AdvertisementService {
         if (ad.getType() != null) {
             ad.setType(XssUtil.cleanText(ad.getType()));
         }
-        if (ad.getPosition() != null) {
-            ad.setPosition(XssUtil.cleanText(ad.getPosition()));
+        if (ad.getAdInfo() != null) {
+            ad.setAdInfo(XssUtil.cleanText(ad.getAdInfo()));
         }
-
+        if (ad.getMimicContent() != null) {
+            ad.setMimicContent(XssUtil.cleanText(ad.getMimicContent()));
+        }
+        if (ad.getPosition() != null) {
+            ad.setPosition(normalizePosition(XssUtil.cleanText(ad.getPosition())));
+        }
         if ("code".equals(effectiveType) && ad.getContent() != null) {
-            ad.setContent(XssUtil.cleanContent(ad.getContent()));
+            ad.setContent(XssUtil.cleanMarkdown(ad.getContent()));
         }
 
         if (sanitizeLinkAlways || ad.getLinkUrl() != null) {
             ad.setLinkUrl(validateAndCleanLinkUrl(ad.getLinkUrl()));
         }
+    }
+
+    private void normalizeDisplaySettings(Advertisement ad) {
+        if (ad.getPosition() != null) {
+            ad.setPosition(normalizePosition(ad.getPosition()));
+        }
+
+        if (isCarouselPosition(ad.getPosition())) {
+            ad.setAutoRotate(true);
+            ad.setClosable(true);
+            if (ad.getRotateIntervalSec() == null || ad.getRotateIntervalSec() < 2) {
+                ad.setRotateIntervalSec(DEFAULT_ROTATE_INTERVAL_SEC);
+            }
+        } else if (Boolean.TRUE.equals(ad.getAutoRotate())) {
+            if (ad.getRotateIntervalSec() == null || ad.getRotateIntervalSec() < 2) {
+                ad.setRotateIntervalSec(DEFAULT_ROTATE_INTERVAL_SEC);
+            }
+        } else if (ad.getAutoRotate() == null) {
+            ad.setAutoRotate(false);
+        }
+
+        if (!isCarouselPosition(ad.getPosition()) && ad.getClosable() == null) {
+            ad.setClosable(false);
+        }
+
+        if (ad.getInsertAfter() != null && ad.getInsertAfter() < 1) {
+            ad.setInsertAfter(1);
+        }
+        if (ad.getInsertAfter() != null && ad.getInsertAfter() > MIMIC_POSTS_PER_PAGE) {
+            ad.setInsertAfter(MIMIC_POSTS_PER_PAGE);
+        }
+    }
+
+    private void validateSchedule(Advertisement ad) {
+        if (ad.getStartTime() != null && ad.getEndTime() != null && ad.getEndTime().isBefore(ad.getStartTime())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "结束时间不能早于开始时间");
+        }
+    }
+
+    private String normalizePosition(String rawPosition) {
+        if (rawPosition == null || rawPosition.isBlank()) {
+            return null;
+        }
+        return POSITION_ALIAS_MAP.getOrDefault(rawPosition.trim(), rawPosition.trim());
+    }
+
+    private boolean isCarouselPosition(String position) {
+        return position != null && CAROUSEL_POSITIONS.contains(position);
+    }
+
+    private List<String> buildCandidatePositions(String normalizedSlot) {
+        List<String> candidates = new ArrayList<>();
+        candidates.add(normalizedSlot);
+
+        Map<String, String> reverseAlias = new HashMap<>();
+        reverseAlias.put("home_top", "top");
+        reverseAlias.put("home_left", "sidebar");
+        reverseAlias.put("post_inline", "middle");
+        reverseAlias.put("post_bottom", "bottom");
+
+        String legacy = reverseAlias.get(normalizedSlot);
+        if (legacy != null) {
+            candidates.add(legacy);
+        }
+        return candidates;
+    }
+
+    private List<Advertisement> applySlotDisplayLimit(String normalizedSlot, List<Advertisement> records) {
+        if (records == null || records.isEmpty()) {
+            return List.of();
+        }
+
+        int limit = records.size();
+        if (CAROUSEL_POSITIONS.contains(normalizedSlot)) {
+            limit = Math.min(records.size(), MAX_SLOT_AD_COUNT);
+        } else if ("post_list_card".equals(normalizedSlot)) {
+            int capacity = getMimicSlotCapacity();
+            if (capacity <= 0) {
+                return List.of();
+            }
+            limit = Math.min(records.size(), capacity);
+        }
+
+        if (limit >= records.size()) {
+            return records;
+        }
+        return new ArrayList<>(records.subList(0, limit));
     }
 
     private String validateAndCleanLinkUrl(String linkUrl) {

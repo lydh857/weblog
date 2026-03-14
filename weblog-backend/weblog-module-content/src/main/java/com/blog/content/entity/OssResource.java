@@ -34,6 +34,6 @@ public class OssResource extends BaseEntity {
     /** 上传者 ID */
     private Long uploaderId;
 
-    /** 用途：post / avatar / ad / other / content / cover */
+    /** 用途：post / avatar / ad / other / content / cover / ad_apply */
     private String usageType;
 }

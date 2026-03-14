@@ -43,69 +43,73 @@
         style="--reveal-delay: 160ms"
         :class="{ 'is-visible': sectionVisible.post }"
       >
-        <div class="section-header">
-          <div class="section-title-group">
-            <h2 class="section-title">推荐文章</h2>
-            <p class="section-desc">精选内容，值得一读</p>
-          </div>
-        </div>
-
-        <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
-
-        <div v-else-if="loading && !posts.length" class="loading-state">
-          <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
-          <span>加载中...</span>
-        </div>
-
-        <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
-          <ArticleCard
-            v-for="post in posts"
-            :key="post.id"
-            :post="post"
-            :class="{ 'post-card-load-enter': loadingMoreIds.has(post.id) }"
-          />
-          <template v-if="loadingMore">
-            <div v-for="i in 4" :key="`post-loading-${i}`" class="post-card-loading-placeholder" aria-hidden="true">
-              <div class="post-card-loading-placeholder__cover" />
-              <div class="post-card-loading-placeholder__content">
-                <div class="post-card-loading-placeholder__title" />
-                <div class="post-card-loading-placeholder__summary" />
-                <div class="post-card-loading-placeholder__summary short" />
-                <div class="post-card-loading-placeholder__meta">
-                  <span class="post-card-loading-placeholder__meta-item" />
-                  <span class="post-card-loading-placeholder__meta-item short" />
-                </div>
+            <div class="section-header">
+              <div class="section-title-group">
+                <h2 class="section-title">推荐文章</h2>
+                <p class="section-desc">精选内容，值得一读</p>
               </div>
             </div>
-          </template>
-        </div>
 
-        <!-- 加载更多 -->
-        <div v-if="sectionMounted.post && posts.length" class="load-more-container">
-          <div v-if="loadingMore" class="loading-state">
-            <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
-            <span>加载中...</span>
-          </div>
-          <div v-else-if="noMore" class="no-more">没有更多文章了</div>
-          <button v-else class="load-more-btn" @click="loadMore">
-            <svg class="load-more-icon" viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M12 4V2.21c0-.45-.54-.67-.85-.35l-2.8 2.79c-.2.2-.2.51 0 .71l2.8 2.79c.31.31.85.09.85-.35V6c3.31 0 6 2.69 6 6 0 .79-.15 1.56-.44 2.25-.15.36-.04.77.23 1.04.51.51 1.37.33 1.64-.34.37-.91.57-1.91.57-2.95 0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-.79.15-1.56.44-2.25.15-.36.04-.77-.23-1.04-.51-.51-1.37-.33-1.64.34C4.2 9.96 4 10.96 4 12c0 4.42 3.58 8 8 8v1.79c0 .45.54.67.85.35l2.8-2.79c.2-.2.2-.51 0-.71l-2.8-2.79c-.31-.31-.85-.09-.85.35V18z" />
-            </svg>
-            加载更多
-          </button>
-        </div>
+            <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
 
-        <div v-if="sectionMounted.post && !loading && !posts.length" class="empty-state">
-          <Icon name="heroicons:document-text-20-solid" size="48" />
-          <p>暂无文章</p>
-        </div>
+            <div v-else-if="loading && !posts.length" class="loading-state">
+              <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
+              <span>加载中...</span>
+            </div>
+
+            <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
+              <template v-for="item in postGridItems" :key="item.key">
+                <ArticleCard
+                  v-if="item.type === 'post'"
+                  :post="item.post"
+                  :class="{ 'post-card-load-enter': loadingMoreIds.has(item.post.id) }"
+                />
+                <AdMimicCard v-else :ad="item.ad" class="post-card-ad-enter post-grid-ad" />
+              </template>
+              <template v-if="loadingMore">
+                <div v-for="i in 4" :key="`post-loading-${i}`" class="post-card-loading-placeholder" aria-hidden="true">
+                  <div class="post-card-loading-placeholder__cover" />
+                  <div class="post-card-loading-placeholder__content">
+                    <div class="post-card-loading-placeholder__title" />
+                    <div class="post-card-loading-placeholder__summary" />
+                    <div class="post-card-loading-placeholder__summary short" />
+                    <div class="post-card-loading-placeholder__meta">
+                      <span class="post-card-loading-placeholder__meta-item" />
+                      <span class="post-card-loading-placeholder__meta-item short" />
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- 加载更多 -->
+            <div v-if="sectionMounted.post && posts.length" class="load-more-container">
+              <div v-if="loadingMore" class="loading-state">
+                <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
+                <span>加载中...</span>
+              </div>
+              <div v-else-if="noMore" class="no-more">没有更多文章了</div>
+              <button v-else class="load-more-btn" @click="loadMore">
+                <svg class="load-more-icon" viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="currentColor" d="M12 4V2.21c0-.45-.54-.67-.85-.35l-2.8 2.79c-.2.2-.2.51 0 .71l2.8 2.79c.31.31.85.09.85-.35V6c3.31 0 6 2.69 6 6 0 .79-.15 1.56-.44 2.25-.15.36-.04.77.23 1.04.51.51 1.37.33 1.64-.34.37-.91.57-1.91.57-2.95 0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-.79.15-1.56.44-2.25.15-.36.04-.77-.23-1.04-.51-.51-1.37-.33-1.64.34C4.2 9.96 4 10.96 4 12c0 4.42 3.58 8 8 8v1.79c0 .45.54.67.85.35l2.8-2.79c.2-.2.2-.51 0-.71l-2.8-2.79c-.31-.31-.85-.09-.85.35V18z" />
+                </svg>
+                加载更多
+              </button>
+            </div>
+
+            <div v-if="sectionMounted.post && !loading && !posts.length" class="empty-state">
+              <Icon name="heroicons:document-text-20-solid" size="48" />
+              <p>暂无文章</p>
+            </div>
       </section>
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { postApi, type PostVO } from '~/api/post'
+import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
 
 useHead({ title: 'Weblog - 首页' })
 
@@ -114,7 +118,7 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const noMore = ref(false)
 const currentPage = ref(1)
-const pageSize = 20
+const pageSize = 19
 const hasLoadedInitialPosts = ref(false)
 const postGridRef = ref<HTMLElement | null>(null)
 const loadingMoreIds = reactive(new Set<number>())
@@ -143,6 +147,47 @@ const sectionMounted = reactive<Record<HomeSectionKey, boolean>>({
 
 let sectionObserver: IntersectionObserver | null = null
 const sectionTargetMap = new Map<Element, HomeSectionKey>()
+const listCardAds = ref<AdvertisementVO[]>([])
+type PostGridItem =
+  | { key: string; type: 'post'; post: PostVO }
+  | { key: string; type: 'ad'; ad: AdvertisementVO }
+
+const listCardAdPool = computed(() => listCardAds.value.filter(item => item.type === 'image' && Boolean(item.content)))
+
+function resolveListCardAd(pageNo: number): AdvertisementVO | null {
+  const pool = listCardAdPool.value
+  if (!pool.length) return null
+  if (pool.length === 1) return pool[0]
+  return pool[(Math.max(1, pageNo) - 1) % pool.length]
+}
+
+const postGridItems = computed<PostGridItem[]>(() => {
+  const items: PostGridItem[] = []
+  if (!posts.value.length) return items
+
+  const pageCount = Math.ceil(posts.value.length / pageSize)
+  for (let pageNo = 1; pageNo <= pageCount; pageNo += 1) {
+    const start = (pageNo - 1) * pageSize
+    const end = start + pageSize
+    const chunk = posts.value.slice(start, end)
+    const chunkItems: PostGridItem[] = chunk.map(post => ({ key: `post-${post.id}`, type: 'post', post }))
+
+    const ad = resolveListCardAd(pageNo)
+    if (ad) {
+      const insertAfter = Math.max(1, ad.insertAfter || 4)
+      const insertIndex = Math.min(insertAfter, chunkItems.length)
+      chunkItems.splice(insertIndex, 0, {
+        key: `ad-${ad.id}-p${pageNo}`,
+        type: 'ad',
+        ad,
+      })
+    }
+
+    items.push(...chunkItems)
+  }
+
+  return items
+})
 
 function markSectionVisible(key: HomeSectionKey) {
   if (sectionVisible[key]) return
@@ -195,6 +240,15 @@ function initSectionObserver() {
     markSectionVisible('today')
     ensureSectionMounted('today')
   })
+}
+
+async function loadListCardAds() {
+  try {
+    const res = await advertisementApi.getBySlot('post_list_card')
+    listCardAds.value = res.data || []
+  } catch {
+    listCardAds.value = []
+  }
 }
 
 function animateLoadMoreCards(postIds: number[]) {
@@ -275,6 +329,7 @@ onMounted(() => {
   nextTick(() => {
     initSectionObserver()
   })
+  loadListCardAds()
 })
 
 onUnmounted(() => {
@@ -418,6 +473,10 @@ onUnmounted(() => {
 .post-card-load-enter {
   animation: postCardLoadEnter 780ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
   will-change: opacity, transform;
+}
+
+.post-card-ad-enter {
+  animation: postCardLoadEnter 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
 @keyframes postCardLoadEnter {

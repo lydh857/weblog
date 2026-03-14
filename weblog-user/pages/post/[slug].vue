@@ -29,6 +29,10 @@
 
         <!-- 中间内容区 -->
         <div class="center-content">
+          <div class="post-ad-slot post-ad-slot--top">
+            <AdSlotBanner ad-slot="post_top" />
+          </div>
+
           <div class="content-card">
             <!-- 文章头部 -->
             <header class="post-header">
@@ -88,6 +92,10 @@
 
             <!-- 免责声明 -->
             <ArticleDisclaimer />
+          </div>
+
+          <div class="post-ad-slot post-ad-slot--bottom">
+            <AdSlotBanner ad-slot="post_bottom" />
           </div>
 
           <!-- 互动按钮（移动端显示） -->
@@ -472,6 +480,14 @@ onMounted(async () => {
   padding: 0.75rem 2rem 2rem;
   .dark & { background: $color-dark-bg-secondary; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
   @media (max-width: $breakpoint-md) { padding: 0.75rem 1.25rem 1.25rem; }
+}
+
+.post-ad-slot {
+  margin-bottom: 0.9rem;
+}
+
+.post-ad-slot--bottom {
+  margin-top: 0.9rem;
 }
 
 /* 右侧目录 */
