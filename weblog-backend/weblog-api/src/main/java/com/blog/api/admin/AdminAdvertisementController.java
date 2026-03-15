@@ -5,6 +5,7 @@ import com.blog.common.result.Result;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Advertisement;
+import com.blog.content.service.AdPitBindingService;
 import com.blog.content.service.AdvertisementService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,13 +41,13 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 public class AdminAdvertisementController {
 
     private final AdvertisementService advertisementService;
+    private final AdPitBindingService adPitBindingService;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
     private static final Set<String> VALID_AD_STATUSES = Set.of("pending", "approved", "rejected", "active", "expired");
     private static final String AD_PRICE_RULES_KEY = "ad_price_rules";
     private static final String AD_REVIEW_REASONS_KEY = "ad_review_reasons";
     private static final String AD_APPLY_PIT_IDS_KEY = "ad_apply_pit_ids";
-    private static final String AD_APPLY_PIT_BINDINGS_KEY = "ad_apply_pit_bindings";
     private static final Set<String> SUPPORTED_POSITIONS = Set.of("home_left", "post_top", "post_bottom", "post_list_card");
     private static final Set<String> SLOT_LIMIT_POSITIONS = Set.of("home_left", "post_top", "post_bottom");
     private static final int MAX_SLOT_AD_COUNT = 7;
@@ -114,6 +115,83 @@ public class AdminAdvertisementController {
         return Result.success();
     }
 
+    @Operation(summary = "快捷切换广告坑位")
+    @PutMapping("/{id}/pit")
+    @AuditLog(module = "广告管理", operation = "UPDATE", description = "快捷切换广告坑位")
+    public Result<Void> updatePitEnabled(@PathVariable Long id, @RequestBody PitToggleRequest body) {
+        Advertisement existing = advertisementService.getById(id);
+        if (existing == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "广告不存在");
+        }
+        if (body == null || body.getEnabled() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "缺少坑位开关参数");
+        }
+
+        reconcilePitSetting(id,
+                existing.getAdvertiserId(),
+                existing.getStatus(),
+                existing.getPosition(),
+                body.getEnabled());
+        return Result.success();
+    }
+
+    @Operation(summary = "调整坑位顺序")
+    @PutMapping("/pit-order")
+    @AuditLog(module = "广告管理", operation = "UPDATE", description = "调整坑位顺序")
+    public Result<Void> updatePitOrder(@RequestBody PitOrderRequest body) {
+        if (body == null || body.getPosition() == null || body.getPosition().isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "坑位位置不能为空");
+        }
+        List<Long> pitIds = body.getPitIds();
+        if (pitIds == null || pitIds.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "坑位顺序不能为空");
+        }
+
+        String normalizedPosition = normalizePosition(body.getPosition());
+        if (!SUPPORTED_POSITIONS.contains(normalizedPosition)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "仅支持已开放广告位调整坑位顺序");
+        }
+
+        List<Long> normalizedOrderIds = normalizeIds(pitIds);
+        if (normalizedOrderIds.size() != pitIds.size()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "坑位顺序包含重复或非法ID");
+        }
+
+        Set<Long> currentPitIds = loadPitIdSet();
+        if (currentPitIds.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "当前没有可调整的坑位");
+        }
+
+        List<Long> targetPositionPitIds = getOrderedPitIdsByPosition(normalizedPosition, currentPitIds);
+        if (targetPositionPitIds.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "当前广告位没有已开放坑位");
+        }
+        if (targetPositionPitIds.size() != normalizedOrderIds.size()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "提交的坑位数量与当前配置不一致，请刷新后重试");
+        }
+        if (!new LinkedHashSet<>(targetPositionPitIds).equals(new LinkedHashSet<>(normalizedOrderIds))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "提交的坑位集合与当前配置不一致，请刷新后重试");
+        }
+
+        LinkedHashSet<Long> reordered = new LinkedHashSet<>();
+        boolean inserted = false;
+        for (Long pitId : currentPitIds) {
+            if (targetPositionPitIds.contains(pitId)) {
+                if (!inserted) {
+                    reordered.addAll(normalizedOrderIds);
+                    inserted = true;
+                }
+                continue;
+            }
+            reordered.add(pitId);
+        }
+        if (!inserted) {
+            reordered.addAll(normalizedOrderIds);
+        }
+        persistPitIdSet(reordered);
+        return Result.success();
+    }
+
     @Operation(summary = "审核/上下架广告")
     @PutMapping("/{id}/status")
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "审核广告")
@@ -142,10 +220,9 @@ public class AdminAdvertisementController {
             throw new BusinessException(ResultCode.NOT_FOUND, "广告不存在");
         }
 
-        Map<String, Long> pitBindingMap = loadPitBindingMap();
         Advertisement pitTarget = null;
         if ("active".equals(status)) {
-            pitTarget = resolvePitReplacement(existing, pitBindingMap);
+            pitTarget = resolvePitReplacement(existing);
             ensurePositionCapacityForActive(normalizePosition(existing.getPosition()), existing, pitTarget);
             if (pitTarget != null
                     && pitTarget.getId() != null
@@ -162,9 +239,7 @@ public class AdminAdvertisementController {
         }
 
         if ("rejected".equals(status) || "expired".equals(status)) {
-            if (pitBindingMap.remove(String.valueOf(id)) != null) {
-                persistPitBindingMap(pitBindingMap);
-            }
+            adPitBindingService.removeByApplyOrPitAdIds(List.of(id));
         }
 
         Map<String, String> reviewReasonMap = loadReviewReasonMap();
@@ -234,14 +309,13 @@ public class AdminAdvertisementController {
         if (ids != null && !ids.isEmpty() && status != null) {
             List<Long> longIds = ids.stream().map(Number::longValue).collect(java.util.stream.Collectors.toList());
             if ("active".equals(status)) {
-                Map<String, Long> pitBindingMap = loadPitBindingMap();
                 for (Long longId : longIds) {
                     Advertisement existing = advertisementService.getById(longId);
                     if (existing == null) {
                         continue;
                     }
 
-                    Advertisement pitTarget = resolvePitReplacement(existing, pitBindingMap);
+                    Advertisement pitTarget = resolvePitReplacement(existing);
                     ensurePositionCapacityForActive(normalizePosition(existing.getPosition()), existing, pitTarget);
 
                     if (pitTarget != null
@@ -257,7 +331,7 @@ public class AdminAdvertisementController {
                 advertisementService.batchUpdateStatus(longIds, status);
                 removePitIds(longIds);
                 if ("expired".equals(status)) {
-                    removePitBindings(longIds);
+                    adPitBindingService.removeByApplyOrPitAdIds(longIds);
                 }
             }
 
@@ -389,7 +463,24 @@ public class AdminAdvertisementController {
     @DeleteMapping("/trash/clear")
     @AuditLog(module = "广告管理", operation = "DELETE", description = "清空广告回收站")
     public Result<Integer> clearTrash() {
-        return Result.success(advertisementService.clearTrash());
+        List<Long> deletedIds = advertisementService.listDeletedIds();
+        int deletedCount = advertisementService.clearTrash();
+        if (deletedIds != null && !deletedIds.isEmpty()) {
+            removePitIds(deletedIds);
+            removePitBindings(deletedIds);
+
+            Map<String, String> reviewReasonMap = loadReviewReasonMap();
+            boolean changed = false;
+            for (Long id : deletedIds) {
+                if (id != null && reviewReasonMap.remove(String.valueOf(id)) != null) {
+                    changed = true;
+                }
+            }
+            if (changed) {
+                persistReviewReasonMap(reviewReasonMap);
+            }
+        }
+        return Result.success(deletedCount);
     }
 
     private void attachReviewReasons(List<Advertisement> records) {
@@ -412,8 +503,8 @@ public class AdminAdvertisementController {
         }
 
         Set<Long> pitIds = loadPitIdSet();
-        Map<String, Long> pitBindingMap = loadPitBindingMap();
-        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadActivePitAdvertisementMap());
+        Map<String, Long> pitBindingMap = adPitBindingService.loadBindingMap();
+        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadActivePitAdvertisementMap(), pitIds);
         for (Advertisement record : records) {
             if (record == null || record.getId() == null) {
                 continue;
@@ -467,17 +558,14 @@ public class AdminAdvertisementController {
         return result;
     }
 
-    private Map<Long, Integer> buildPitIndexMap(Map<Long, Advertisement> pitMap) {
+    private Map<Long, Integer> buildPitIndexMap(Map<Long, Advertisement> pitMap, Set<Long> orderedPitIds) {
         if (pitMap == null || pitMap.isEmpty()) {
             return Map.of();
         }
 
-        List<Advertisement> ordered = new ArrayList<>(pitMap.values());
-        ordered.sort(this::comparePitOrder);
-
         Map<String, Integer> sequenceByPosition = new HashMap<>();
         Map<Long, Integer> pitIndexMap = new HashMap<>();
-        for (Advertisement ad : ordered) {
+        for (Advertisement ad : getOrderedPitAdvertisements(pitMap, orderedPitIds)) {
             if (ad == null || ad.getId() == null) {
                 continue;
             }
@@ -492,6 +580,55 @@ public class AdminAdvertisementController {
         }
 
         return pitIndexMap;
+    }
+
+    private List<Advertisement> getOrderedPitAdvertisements(Map<Long, Advertisement> pitMap, Set<Long> orderedPitIds) {
+        List<Advertisement> ordered = new ArrayList<>();
+        Set<Long> consumed = new LinkedHashSet<>();
+        if (orderedPitIds != null) {
+            for (Long pitId : orderedPitIds) {
+                Advertisement advertisement = pitMap.get(pitId);
+                if (advertisement != null) {
+                    ordered.add(advertisement);
+                    consumed.add(pitId);
+                }
+            }
+        }
+
+        List<Advertisement> remaining = pitMap.values().stream()
+                .filter(ad -> ad != null && ad.getId() != null && !consumed.contains(ad.getId()))
+                .sorted(this::comparePitOrder)
+                .toList();
+        ordered.addAll(remaining);
+        return ordered;
+    }
+
+    private List<Long> getOrderedPitIdsByPosition(String position, Set<Long> orderedPitIds) {
+        if (position == null || orderedPitIds == null || orderedPitIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Advertisement> advertisements = advertisementService.listByIds(new ArrayList<>(orderedPitIds));
+        Map<Long, Advertisement> advertisementMap = new HashMap<>();
+        for (Advertisement advertisement : advertisements) {
+            if (advertisement == null || advertisement.getId() == null) {
+                continue;
+            }
+            advertisementMap.put(advertisement.getId(), advertisement);
+        }
+
+        List<Long> result = new ArrayList<>();
+        for (Long pitId : orderedPitIds) {
+            Advertisement advertisement = advertisementMap.get(pitId);
+            if (advertisement == null
+                    || advertisement.getAdvertiserId() != null
+                    || !"active".equals(advertisement.getStatus())
+                    || !Objects.equals(position, normalizePosition(advertisement.getPosition()))) {
+                continue;
+            }
+            result.add(pitId);
+        }
+        return result;
     }
 
     private int comparePitOrder(Advertisement left, Advertisement right) {
@@ -582,7 +719,7 @@ public class AdminAdvertisementController {
         }
     }
 
-    private Advertisement resolvePitReplacement(Advertisement target, Map<String, Long> pitBindingMap) {
+    private Advertisement resolvePitReplacement(Advertisement target) {
         if (target == null || target.getId() == null || target.getAdvertiserId() == null) {
             return null;
         }
@@ -590,7 +727,7 @@ public class AdminAdvertisementController {
             return null;
         }
 
-        Long pitAdId = pitBindingMap.get(String.valueOf(target.getId()));
+        Long pitAdId = adPitBindingService.getPitAdIdByApplyAdId(target.getId());
         if (pitAdId == null) {
             return null;
         }
@@ -689,50 +826,18 @@ public class AdminAdvertisementController {
         }
     }
 
-    private Map<String, Long> loadPitBindingMap() {
-        String raw = systemConfigService.getValue(AD_APPLY_PIT_BINDINGS_KEY);
-        if (raw == null || raw.isBlank()) {
-            return new HashMap<>();
+    private List<Long> normalizeIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
         }
 
-        try {
-            Map<String, Object> parsed = objectMapper.readValue(raw, new TypeReference<Map<String, Object>>() {});
-            Map<String, Long> result = new HashMap<>();
-            if (parsed == null || parsed.isEmpty()) {
-                return result;
+        LinkedHashSet<Long> normalized = new LinkedHashSet<>();
+        for (Long id : ids) {
+            if (id != null && id > 0) {
+                normalized.add(id);
             }
-            parsed.forEach((key, value) -> {
-                if (key == null || key.isBlank() || value == null) {
-                    return;
-                }
-                try {
-                    long pitId = value instanceof Number number
-                            ? number.longValue()
-                            : Long.parseLong(String.valueOf(value).trim());
-                    if (pitId > 0) {
-                        result.put(key.trim(), pitId);
-                    }
-                } catch (Exception ignored) {
-                    // 忽略非法配置
-                }
-            });
-            return result;
-        } catch (Exception e) {
-            return new HashMap<>();
         }
-    }
-
-    private void persistPitBindingMap(Map<String, Long> pitBindingMap) {
-        try {
-            String json = objectMapper.writeValueAsString(pitBindingMap == null ? Map.of() : pitBindingMap);
-            try {
-                systemConfigService.batchUpdate(Map.of(AD_APPLY_PIT_BINDINGS_KEY, json));
-            } catch (Exception e) {
-                systemConfigService.createIfAbsent(AD_APPLY_PIT_BINDINGS_KEY, json, "广告申请坑位映射(JSON)");
-            }
-        } catch (Exception e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "坑位映射保存失败");
-        }
+        return new ArrayList<>(normalized);
     }
 
     private void removePitIds(List<Long> ids) {
@@ -755,32 +860,7 @@ public class AdminAdvertisementController {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        Map<String, Long> pitBindingMap = loadPitBindingMap();
-        boolean changed = false;
-        Set<Long> idSet = new java.util.HashSet<>();
-        for (Long id : ids) {
-            if (id != null) {
-                idSet.add(id);
-            }
-        }
-        for (Long id : ids) {
-            if (id != null && pitBindingMap.remove(String.valueOf(id)) != null) {
-                changed = true;
-            }
-        }
-        if (!idSet.isEmpty()) {
-            var iterator = pitBindingMap.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<String, Long> entry = iterator.next();
-                if (entry.getValue() != null && idSet.contains(entry.getValue())) {
-                    iterator.remove();
-                    changed = true;
-                }
-            }
-        }
-        if (changed) {
-            persistPitBindingMap(pitBindingMap);
-        }
+        adPitBindingService.removeByApplyOrPitAdIds(ids);
     }
 
     private Map<String, String> loadReviewReasonMap() {
@@ -1122,6 +1202,39 @@ public class AdminAdvertisementController {
 
         public void setPrice(BigDecimal price) {
             this.price = price;
+        }
+    }
+
+    public static class PitToggleRequest {
+        private Boolean enabled;
+
+        public Boolean getEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(Boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
+    public static class PitOrderRequest {
+        private String position;
+        private List<Long> pitIds;
+
+        public String getPosition() {
+            return position;
+        }
+
+        public void setPosition(String position) {
+            this.position = position;
+        }
+
+        public List<Long> getPitIds() {
+            return pitIds;
+        }
+
+        public void setPitIds(List<Long> pitIds) {
+            this.pitIds = pitIds;
         }
     }
 }

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.content.entity.AdPitBinding;
 import com.blog.content.entity.Advertisement;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.AdvertisementMapper;
@@ -25,10 +26,12 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 广告服务
@@ -55,9 +58,11 @@ public class AdvertisementService {
     private static final int MIMIC_POSTS_PER_PAGE = 19;
     private static final int MAX_MIMIC_AD_COUNT = 7;
     private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
+    private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "approved", "active");
 
     private final AdvertisementMapper advertisementMapper;
     private final PostMapper postMapper;
+    private final AdPitBindingService adPitBindingService;
 
     /**
      * 按位置获取有效广告（用户端）
@@ -346,6 +351,21 @@ public class AdvertisementService {
     }
 
     /**
+     * 提交广告申请并独占绑定坑位
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Advertisement submitApplicationWithPit(Long userId,
+                                                  Advertisement ad,
+                                                  Long pitAdId,
+                                                  Integer pitIndex,
+                                                  Set<Long> activePitAdIds) {
+        Advertisement application = submitApplication(userId, ad);
+        cleanupInvalidPitBindings(activePitAdIds);
+        adPitBindingService.bindExclusive(application.getId(), pitAdId, pitIndex);
+        return application;
+    }
+
+    /**
      * 查询我的广告申请（按位置）
      */
     public Advertisement getMyApplication(Long userId, String position) {
@@ -360,6 +380,70 @@ public class AdvertisementService {
         }
 
         return advertisementMapper.selectOne(wrapper);
+    }
+
+    private void cleanupInvalidPitBindings(Set<Long> activePitAdIds) {
+        List<AdPitBinding> bindings = adPitBindingService.listAll();
+        if (bindings.isEmpty()) {
+            return;
+        }
+
+        Set<Long> validActivePitIds = activePitAdIds == null ? Set.of() : activePitAdIds;
+        Set<Long> invalidPitIds = new LinkedHashSet<>();
+        Set<Long> candidateApplyIds = new LinkedHashSet<>();
+
+        for (AdPitBinding binding : bindings) {
+            if (binding == null) {
+                continue;
+            }
+            Long applyAdId = binding.getApplyAdId();
+            Long pitAdId = binding.getPitAdId();
+            if (applyAdId == null || applyAdId <= 0 || pitAdId == null || pitAdId <= 0) {
+                if (applyAdId != null && applyAdId > 0) {
+                    candidateApplyIds.add(applyAdId);
+                }
+                if (pitAdId != null && pitAdId > 0) {
+                    invalidPitIds.add(pitAdId);
+                }
+                continue;
+            }
+
+            if (!validActivePitIds.contains(pitAdId)) {
+                invalidPitIds.add(pitAdId);
+            }
+            candidateApplyIds.add(applyAdId);
+        }
+
+        if (!invalidPitIds.isEmpty()) {
+            adPitBindingService.removeByPitAdIds(new ArrayList<>(invalidPitIds));
+        }
+
+        if (candidateApplyIds.isEmpty()) {
+            return;
+        }
+
+        List<Advertisement> applications = listByIds(new ArrayList<>(candidateApplyIds));
+        Map<Long, Advertisement> applicationMap = new HashMap<>();
+        for (Advertisement application : applications) {
+            if (application == null || application.getId() == null) {
+                continue;
+            }
+            applicationMap.put(application.getId(), application);
+        }
+
+        List<Long> staleApplyIds = new ArrayList<>();
+        for (Long applyAdId : candidateApplyIds) {
+            Advertisement application = applicationMap.get(applyAdId);
+            if (application == null
+                    || application.getAdvertiserId() == null
+                    || !PIT_OCCUPIED_STATUSES.contains(application.getStatus())) {
+                staleApplyIds.add(applyAdId);
+            }
+        }
+
+        if (!staleApplyIds.isEmpty()) {
+            adPitBindingService.removeByApplyAdIds(staleApplyIds);
+        }
     }
 
     private void sanitizeAdvertisementFields(Advertisement ad, String effectiveType, boolean sanitizeLinkAlways) {
@@ -561,6 +645,10 @@ public class AdvertisementService {
     public IPage<Advertisement> pageDeleted(int pageNum, int pageSize, String keyword) {
         Page<Advertisement> page = new Page<>(pageNum, pageSize);
         return advertisementMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
+    }
+
+    public List<Long> listDeletedIds() {
+        return advertisementMapper.selectDeletedIds();
     }
 
     /**

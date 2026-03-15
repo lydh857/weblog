@@ -5,6 +5,7 @@ import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Advertisement;
+import com.blog.content.service.AdPitBindingService;
 import com.blog.content.service.AdvertisementService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +40,7 @@ import java.util.Set;
 public class AdvertisementController {
 
     private final AdvertisementService advertisementService;
+    private final AdPitBindingService adPitBindingService;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
 
@@ -46,7 +48,6 @@ public class AdvertisementController {
     private static final String AD_PRICE_RULES_KEY = "ad_price_rules";
     private static final String AD_REVIEW_REASONS_KEY = "ad_review_reasons";
     private static final String AD_APPLY_PIT_IDS_KEY = "ad_apply_pit_ids";
-    private static final String AD_APPLY_PIT_BINDINGS_KEY = "ad_apply_pit_bindings";
     private static final Set<String> SUPPORTED_POSITIONS = Set.of("home_left", "post_top", "post_bottom", "post_list_card");
     private static final List<String> POSITION_ORDER = List.of("home_left", "post_top", "post_bottom", "post_list_card");
     private static final List<Integer> DEFAULT_DURATION_DAYS = List.of(7, 30, 90, 180);
@@ -62,6 +63,7 @@ public class AdvertisementController {
         String targetSlot = slot != null && !slot.isBlank() ? slot : position;
         List<Advertisement> ads = advertisementService.getActiveBySlot(targetSlot);
         attachPitFlags(ads);
+        reorderAdsByPitDisplayOrder(ads);
         return Result.success(ads);
     }
 
@@ -92,11 +94,10 @@ public class AdvertisementController {
         if (application != null && application.getId() != null) {
             Map<String, String> reviewReasonMap = loadReviewReasonMap();
             application.setReviewReason(reviewReasonMap.get(String.valueOf(application.getId())));
-            Map<String, Long> pitBindingMap = loadPitBindingMap();
-            Long pitAdId = pitBindingMap.get(String.valueOf(application.getId()));
+            Long pitAdId = adPitBindingService.getPitAdIdByApplyAdId(application.getId());
             application.setPitAdId(pitAdId);
             if (pitAdId != null) {
-                Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap());
+                Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap(), loadPitIdSet());
                 application.setPitIndex(pitIndexMap.get(pitAdId));
             }
         }
@@ -125,8 +126,14 @@ public class AdvertisementController {
             ad.setContent(XssUtil.cleanMarkdown(ad.getContent()));
         }
 
-        Advertisement application = advertisementService.submitApplication(userId, ad);
-        savePitBinding(application.getId(), resolvedPit.getPitAd().getId());
+        Set<Long> activePitAdIds = loadActivePitAdvertisementMap().keySet();
+        Advertisement application = advertisementService.submitApplicationWithPit(
+                userId,
+                ad,
+                resolvedPit.getPitAd().getId(),
+                resolvedPit.getPitIndex(),
+                activePitAdIds);
+
         application.setPitAdId(resolvedPit.getPitAd().getId());
         application.setPitIndex(resolvedPit.getPitIndex());
         clearReviewReason(application.getId());
@@ -149,17 +156,79 @@ public class AdvertisementController {
         }
 
         Set<Long> pitIds = loadPitIdSet();
-        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap());
+        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap(), pitIds);
+        Map<String, Long> pitBindingMap = adPitBindingService.loadBindingMap();
         for (Advertisement ad : ads) {
             if (ad == null || ad.getId() == null) {
                 continue;
             }
-            boolean enabled = pitIds.contains(ad.getId()) && ad.getAdvertiserId() == null;
-            ad.setPitEnabled(enabled);
-            if (enabled) {
-                ad.setPitIndex(pitIndexMap.get(ad.getId()));
+            Long pitAdId = resolveDisplayPitAdId(ad, pitIds, pitBindingMap);
+            if (pitAdId == null) {
+                continue;
+            }
+            Integer pitIndex = pitIndexMap.get(pitAdId);
+            if (pitIndex == null || pitIndex < 1) {
+                continue;
+            }
+
+            ad.setPitEnabled(true);
+            ad.setPitIndex(pitIndex);
+            if (!Objects.equals(ad.getId(), pitAdId)) {
+                ad.setPitAdId(pitAdId);
             }
         }
+    }
+
+    private Long resolveDisplayPitAdId(Advertisement ad, Set<Long> pitIds, Map<String, Long> pitBindingMap) {
+        if (ad == null || ad.getId() == null || pitIds == null || pitIds.isEmpty()) {
+            return null;
+        }
+        if (pitIds.contains(ad.getId()) && ad.getAdvertiserId() == null) {
+            return ad.getId();
+        }
+        if (pitBindingMap == null || pitBindingMap.isEmpty()) {
+            return null;
+        }
+        Long pitAdId = pitBindingMap.get(String.valueOf(ad.getId()));
+        return pitAdId != null && pitIds.contains(pitAdId) ? pitAdId : null;
+    }
+
+    private void reorderAdsByPitDisplayOrder(List<Advertisement> ads) {
+        if (ads == null || ads.size() < 2) {
+            return;
+        }
+
+        Map<Long, Integer> originalOrderMap = new HashMap<>();
+        for (int i = 0; i < ads.size(); i++) {
+            Advertisement ad = ads.get(i);
+            if (ad != null && ad.getId() != null) {
+                originalOrderMap.putIfAbsent(ad.getId(), i);
+            }
+        }
+
+        ads.sort((left, right) -> {
+            Integer leftPitIndex = normalizePositivePitIndex(left == null ? null : left.getPitIndex());
+            Integer rightPitIndex = normalizePositivePitIndex(right == null ? null : right.getPitIndex());
+
+            if (leftPitIndex != null && rightPitIndex != null) {
+                int compare = Integer.compare(leftPitIndex, rightPitIndex);
+                if (compare != 0) {
+                    return compare;
+                }
+            } else if (leftPitIndex != null) {
+                return -1;
+            } else if (rightPitIndex != null) {
+                return 1;
+            }
+
+            return Integer.compare(
+                    originalOrderMap.getOrDefault(left == null ? null : left.getId(), Integer.MAX_VALUE),
+                    originalOrderMap.getOrDefault(right == null ? null : right.getId(), Integer.MAX_VALUE));
+        });
+    }
+
+    private Integer normalizePositivePitIndex(Integer pitIndex) {
+        return pitIndex != null && pitIndex > 0 ? pitIndex : null;
     }
 
     private String normalizePosition(String rawPosition) {
@@ -206,63 +275,6 @@ public class AdvertisementController {
         } catch (Exception e) {
             return new LinkedHashSet<>();
         }
-    }
-
-    private Map<String, Long> loadPitBindingMap() {
-        String raw = systemConfigService.getValue(AD_APPLY_PIT_BINDINGS_KEY);
-        if (raw == null || raw.isBlank()) {
-            return new HashMap<>();
-        }
-
-        try {
-            Map<String, Object> parsed = objectMapper.readValue(raw, new TypeReference<Map<String, Object>>() {});
-            Map<String, Long> result = new HashMap<>();
-            if (parsed == null || parsed.isEmpty()) {
-                return result;
-            }
-
-            parsed.forEach((key, value) -> {
-                if (key == null || key.isBlank() || value == null) {
-                    return;
-                }
-                try {
-                    long pitId = value instanceof Number number
-                            ? number.longValue()
-                            : Long.parseLong(String.valueOf(value).trim());
-                    if (pitId > 0) {
-                        result.put(key.trim(), pitId);
-                    }
-                } catch (Exception ignored) {
-                    // 忽略非法映射
-                }
-            });
-
-            return result;
-        } catch (Exception e) {
-            return new HashMap<>();
-        }
-    }
-
-    private void persistPitBindingMap(Map<String, Long> pitBindingMap) {
-        try {
-            String json = objectMapper.writeValueAsString(pitBindingMap == null ? Map.of() : pitBindingMap);
-            try {
-                systemConfigService.batchUpdate(Map.of(AD_APPLY_PIT_BINDINGS_KEY, json));
-            } catch (Exception e) {
-                systemConfigService.createIfAbsent(AD_APPLY_PIT_BINDINGS_KEY, json, "广告申请坑位映射(JSON)");
-            }
-        } catch (Exception ignored) {
-            // 忽略持久化异常，避免影响主流程
-        }
-    }
-
-    private void savePitBinding(Long adId, Long pitAdId) {
-        if (adId == null || pitAdId == null) {
-            return;
-        }
-        Map<String, Long> pitBindingMap = loadPitBindingMap();
-        pitBindingMap.put(String.valueOf(adId), pitAdId);
-        persistPitBindingMap(pitBindingMap);
     }
 
     private Map<Long, Advertisement> loadConfiguredPitAdvertisementMap() {
@@ -323,11 +335,11 @@ public class AdvertisementController {
         return result;
     }
 
-    private Map<Long, Integer> buildPitIndexMap(Map<Long, Advertisement> pitMap) {
+    private Map<Long, Integer> buildPitIndexMap(Map<Long, Advertisement> pitMap, Set<Long> orderedPitIds) {
         if (pitMap == null || pitMap.isEmpty()) {
             return Map.of();
         }
-        return buildPitIndexMap(new ArrayList<>(pitMap.values()));
+        return buildPitIndexMap(getOrderedPitAdvertisements(pitMap, orderedPitIds));
     }
 
     private Map<Long, Integer> buildPitIndexMap(List<Advertisement> pitAds) {
@@ -335,12 +347,9 @@ public class AdvertisementController {
             return Map.of();
         }
 
-        List<Advertisement> ordered = new ArrayList<>(pitAds);
-        ordered.sort(this::comparePitOrder);
-
         Map<String, Integer> sequenceByPosition = new HashMap<>();
         Map<Long, Integer> pitIndexMap = new HashMap<>();
-        for (Advertisement ad : ordered) {
+        for (Advertisement ad : pitAds) {
             if (ad == null || ad.getId() == null) {
                 continue;
             }
@@ -355,6 +364,27 @@ public class AdvertisementController {
         }
 
         return pitIndexMap;
+    }
+
+    private List<Advertisement> getOrderedPitAdvertisements(Map<Long, Advertisement> pitMap, Set<Long> orderedPitIds) {
+        List<Advertisement> ordered = new ArrayList<>();
+        Set<Long> consumed = new LinkedHashSet<>();
+        if (orderedPitIds != null) {
+            for (Long pitId : orderedPitIds) {
+                Advertisement advertisement = pitMap.get(pitId);
+                if (advertisement != null) {
+                    ordered.add(advertisement);
+                    consumed.add(pitId);
+                }
+            }
+        }
+
+        List<Advertisement> remaining = pitMap.values().stream()
+                .filter(ad -> ad != null && ad.getId() != null && !consumed.contains(ad.getId()))
+                .sorted(this::comparePitOrder)
+                .toList();
+        ordered.addAll(remaining);
+        return ordered;
     }
 
     private int comparePitOrder(Advertisement left, Advertisement right) {
@@ -398,9 +428,9 @@ public class AdvertisementController {
             return List.of();
         }
 
-        Map<Long, Integer> pitIndexMap = buildPitIndexMap(pitMap);
-        List<Advertisement> ordered = new ArrayList<>(pitMap.values());
-        ordered.sort(this::comparePitOrder);
+        Set<Long> orderedPitIds = loadPitIdSet();
+        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap(), orderedPitIds);
+        List<Advertisement> ordered = getOrderedPitAdvertisements(pitMap, orderedPitIds);
 
         return ordered.stream()
                 .map(ad -> new ApplyPitOption(
@@ -423,7 +453,7 @@ public class AdvertisementController {
         }
 
         Map<Long, Advertisement> pitMap = loadActivePitAdvertisementMap();
-        Map<Long, Integer> pitIndexMap = buildPitIndexMap(pitMap);
+        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadConfiguredPitAdvertisementMap(), loadPitIdSet());
         Advertisement pitAd = pitMap.get(pitAdId);
         if (pitAd == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "所选坑位暂不可申请，请刷新后重试");

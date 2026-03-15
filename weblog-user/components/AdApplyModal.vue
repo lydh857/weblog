@@ -14,102 +14,40 @@
           </header>
 
           <div class="stepper">
-            <div class="step" :class="{ active: currentStep >= 1, completed: currentStep > 1 }">
+            <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
               <div class="step-dot">1</div>
-              <span class="step-label">规则</span>
+              <span class="step-label">填写申请</span>
             </div>
             <div class="step-line" />
-            <div class="step" :class="{ active: currentStep >= 2, completed: currentStep > 2 }">
+            <div class="step" :class="{ active: currentStep === 2 }">
               <div class="step-dot">2</div>
-              <span class="step-label">填写</span>
-            </div>
-            <div class="step-line" />
-            <div class="step" :class="{ active: currentStep >= 3 }">
-              <div class="step-dot">3</div>
-              <span class="step-label">状态</span>
+              <span class="step-label">申请状态</span>
             </div>
           </div>
 
           <div class="modal-body">
             <section v-if="currentStep === 1" class="step-content">
-              <div v-if="configLoading" class="loading-text">正在加载申请规则...</div>
+              <div v-if="configLoading" class="loading-text">正在加载申请配置...</div>
               <template v-else>
-                <div v-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
+                <div class="notice notice-info">
+                  <p>流程：选择位置和坑位 → 选择时效 → 上传素材 → 提交审核。</p>
+                  <p>审核若晚于申请开始时间，系统会自动顺延，保障完整投放天数。</p>
+                </div>
 
-                <template v-else>
-                  <div v-if="!isLoggedIn" class="notice notice-warning">
-                    登录后可提交广告申请。
-                    <button class="inline-btn" type="button" @click="openLogin">去登录</button>
-                  </div>
+                <div v-if="!isLoggedIn" class="notice notice-warning">
+                  登录后可提交广告申请。
+                  <button class="inline-btn" type="button" @click="openLogin">去登录</button>
+                </div>
+                <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
+                <div v-else-if="!hasAvailablePit" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
 
-                  <div class="notice notice-info">
-                    <p>当前预设位置：<strong>{{ posLabel(form.position) }}</strong></p>
-                    <p>价格由后台规则控制，审核通过后会自动生效投放。</p>
-                  </div>
-
-                  <div v-if="!hasAvailablePit" class="notice notice-warning">
-                    当前暂无可申请坑位，请稍后再试。
-                  </div>
-
-                  <div class="position-pills">
-                    <button
-                      v-for="item in positionOptions"
-                      :key="item.value"
-                      class="position-pill"
-                      :class="{ active: form.position === item.value }"
-                      type="button"
-                      :disabled="!hasPitForPosition(item.value)"
-                      @click="selectPresetPosition(item.value)"
-                    >
-                      {{ item.label }}
-                    </button>
-                  </div>
-
-                  <div class="rules-grid">
-                    <article v-for="card in groupedRuleCards" :key="card.position" class="rule-card">
-                      <h4>{{ posLabel(card.position) }}（#{{ card.pitIndex }}）</h4>
-                      <div class="rule-list">
-                        <span v-for="rule in card.rules" :key="`${card.position}-${rule.durationDays}`" class="rule-item">
-                          {{ rule.durationDays }} 天 / ¥{{ formatPrice(rule.price) }}
-                        </span>
-                      </div>
-                    </article>
-                  </div>
-
-                  <div class="step-actions">
-                    <button class="action-btn" type="button" @click="closeModal">取消</button>
-                    <button class="action-btn primary" type="button" :disabled="!isLoggedIn || !hasAvailablePit" @click="goToApplyForm">
-                      下一步
-                    </button>
-                    <button
-                      v-if="myApplication && ['pending', 'active'].includes(myApplication.status)"
-                      class="action-btn"
-                      type="button"
-                      @click="currentStep = 3"
-                    >
-                      {{ myApplication.status === 'active' ? '查看推广' : '查看申请' }}
-                    </button>
-                  </div>
-                </template>
-              </template>
-            </section>
-
-            <section v-if="currentStep === 2" class="step-content">
-              <div v-if="!isLoggedIn" class="notice notice-warning">
-                请先登录再继续申请。
-                <button class="inline-btn" type="button" @click="openLogin">去登录</button>
-              </div>
-              <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，暂不可提交。</div>
-              <div v-else-if="!hasAvailablePit" class="notice notice-warning">当前暂无可申请坑位，暂不可提交。</div>
-
-              <div v-else class="apply-form-layout">
-                <form class="apply-form" @submit.prevent="handleSubmit">
-                  <div class="form-item">
-                    <label>广告标题 <span class="required">*</span></label>
-                    <input v-model="form.title" type="text" maxlength="100" placeholder="请输入广告标题" required>
-                  </div>
-
+                <form v-else class="apply-form" @submit.prevent="handleSubmit">
                   <div class="form-grid">
+                    <div class="form-item">
+                      <label>广告标题 <span class="required">*</span></label>
+                      <input v-model="form.title" type="text" maxlength="100" placeholder="请输入广告标题" required>
+                    </div>
+
                     <div class="form-item">
                       <label>广告类型 <span class="required">*</span></label>
                       <div class="select-wrap">
@@ -120,7 +58,9 @@
                         <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
                       </div>
                     </div>
+                  </div>
 
+                  <div class="form-grid">
                     <div class="form-item">
                       <label>投放位置 <span class="required">*</span></label>
                       <div class="select-wrap">
@@ -133,24 +73,24 @@
                         <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
                       </div>
                     </div>
-                  </div>
 
-                  <div class="form-item">
-                    <label>申请坑位 <span class="required">*</span></label>
-                    <div v-if="currentPositionPitOptions.length > 0" class="pit-options">
-                      <button
-                        v-for="pit in currentPositionPitOptions"
-                        :key="pit.pitAdId"
-                        class="pit-chip"
-                        :class="{ active: form.pitAdId === pit.pitAdId }"
-                        type="button"
-                        @click="form.pitAdId = pit.pitAdId"
-                      >
-                        {{ pitOptionLabel(pit) }}
-                      </button>
+                    <div class="form-item">
+                      <label>申请坑位 <span class="required">*</span></label>
+                      <div v-if="currentPositionPitOptions.length > 0" class="pit-options">
+                        <button
+                          v-for="pit in currentPositionPitOptions"
+                          :key="pit.pitAdId"
+                          class="pit-chip"
+                          :class="{ active: form.pitAdId === pit.pitAdId }"
+                          type="button"
+                          @click="form.pitAdId = pit.pitAdId"
+                        >
+                          {{ pitOptionLabel(pit) }}
+                        </button>
+                      </div>
+                      <div v-else class="notice notice-warning compact">当前广告位暂无可申请坑位，请切换位置。</div>
+                      <p v-if="selectedPitOption" class="pit-tip">审核通过后将替换该坑位广告。</p>
                     </div>
-                    <div v-else class="notice notice-warning compact">当前广告位暂无可申请坑位，请切换位置。</div>
-                    <p v-if="selectedPitOption" class="pit-tip">审核通过后将替换该坑位广告。</p>
                   </div>
 
                   <div class="form-item">
@@ -168,63 +108,54 @@
                       </button>
                     </div>
                     <div v-else class="notice notice-warning compact">该位置尚未配置时效价格规则，请联系管理员。</div>
-                    <p v-if="selectedRule" class="price-tip">匹配价格：¥{{ formatPrice(selectedRule.price) }}</p>
-                    <p v-else class="rule-tip">当前起止日期未匹配到有效时效规则</p>
+                    <p v-if="selectedRule" class="price-tip">预估价格：¥{{ formatPrice(selectedRule.price) }}</p>
                   </div>
 
-                  <div class="form-item">
-                    <label>投放日期 <span class="required">*</span></label>
-                    <div class="date-preset-row">
-                      <button
-                        v-for="preset in startDatePresets"
-                        :key="preset.key"
-                        type="button"
-                        class="date-preset-btn"
-                        :class="{ active: isStartDatePresetActive(preset.value) }"
-                        @click="applyStartDatePreset(preset.value)"
-                      >
-                        {{ preset.label }}
-                      </button>
-                    </div>
-                    <div v-if="dateRangePresets.length > 0" class="date-range-row">
-                      <button
-                        v-for="preset in dateRangePresets"
-                        :key="preset.key"
-                        type="button"
-                        class="date-range-btn"
-                        :class="{ active: isDateRangePresetActive(preset.startDate, preset.durationDays) }"
-                        @click="applyDateRangePreset(preset.startDate, preset.durationDays)"
-                      >
-                        {{ preset.label }}
-                      </button>
-                    </div>
-                    <div class="date-grid">
-                      <div class="date-col">
-                        <span>开始日期</span>
-                        <input v-model="form.startDate" type="date" @change="handleStartDateChange">
+                  <div class="form-grid">
+                    <div class="form-item">
+                      <label>开始日期 <span class="required">*</span></label>
+                      <div class="date-preset-row">
+                        <button
+                          v-for="preset in startDatePresets"
+                          :key="preset.key"
+                          type="button"
+                          class="date-preset-btn"
+                          :class="{ active: isStartDatePresetActive(preset.value) }"
+                          @click="applyStartDatePreset(preset.value)"
+                        >
+                          {{ preset.label }}
+                        </button>
                       </div>
-                      <div class="date-col">
-                        <span>结束日期</span>
-                        <input v-model="form.endDate" type="date" @change="handleEndDateChange">
-                      </div>
+                      <input v-model="form.startDate" type="date" @change="handleStartDateChange">
                     </div>
-                    <p class="date-hint">可自由选择起止日期，也可先选择时效规则自动生成结束日期。</p>
+
+                    <div class="form-item">
+                      <label>结束日期（自动计算）</label>
+                      <input :value="form.endDate || '请选择时效后自动生成'" type="text" readonly>
+                      <p class="date-hint">结束日期会随开始日期和时效自动更新。</p>
+                    </div>
                   </div>
 
                   <div v-if="form.type === 'image'" class="form-item">
                     <label>广告图片 <span class="required">*</span></label>
-
                     <div class="image-upload-box">
-                      <button v-if="!imagePreviewUrl" type="button" class="upload-trigger" @click="triggerImageUpload">
-                        <Icon name="heroicons:photo-20-solid" size="20" />
-                        <span>上传并裁剪图片</span>
-                      </button>
-
-                      <div v-else class="image-preview-shell" :class="`slot-${form.position}`" @click="openImageCropper">
-                        <img :src="imagePreviewUrl" alt="广告预览" class="image-preview-img">
+                      <div class="image-preview-shell" :class="`slot-${form.position}`" @click="openImageCropper">
+                        <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="广告预览" class="image-preview-img">
+                        <div v-else class="image-preview-empty">
+                          <Icon name="heroicons:photo-20-solid" size="22" />
+                          <strong>点击上传广告图片</strong>
+                          <span>当前位置推荐比例 {{ currentRatioText }}</span>
+                        </div>
                         <span class="image-preview-badge">广告</span>
                         <span v-if="form.adInfo" class="image-preview-info">{{ form.adInfo }}</span>
                         <div class="image-preview-mask">点击裁剪 / 更换</div>
+                      </div>
+
+                      <div class="image-action-row">
+                        <button type="button" class="action-btn" @click="triggerImageUpload">
+                          {{ imagePreviewUrl ? '重新上传' : '上传图片' }}
+                        </button>
+                        <button v-if="imagePreviewUrl" type="button" class="action-btn" @click="openImageCropper">重新裁剪</button>
                       </div>
 
                       <input
@@ -235,7 +166,7 @@
                         @change="handleImageFileChange"
                       >
 
-                      <p class="upload-hint">支持 JPG/PNG/WebP，建议按当前广告位比例裁剪后上传。</p>
+                      <p class="upload-hint">支持 JPG/PNG/WebP；切换投放位置后会自动切换占位比例。</p>
                     </div>
                   </div>
 
@@ -249,14 +180,15 @@
                     />
                   </div>
 
-                  <div class="form-item">
-                    <label>跳转链接</label>
-                    <input v-model="form.linkUrl" type="text" placeholder="https://example.com（可选）">
-                  </div>
-
-                  <div class="form-item">
-                    <label>广告信息</label>
-                    <input v-model="form.adInfo" type="text" maxlength="40" placeholder="展示在图片上的简短说明（可选）">
+                  <div class="form-grid">
+                    <div class="form-item">
+                      <label>跳转链接</label>
+                      <input v-model="form.linkUrl" type="text" placeholder="https://example.com（可选）">
+                    </div>
+                    <div class="form-item">
+                      <label>图片文案</label>
+                      <input v-model="form.adInfo" type="text" maxlength="40" placeholder="展示在广告图上的简短说明（可选）">
+                    </div>
                   </div>
 
                   <div v-if="form.type === 'image' && form.position === 'post_list_card'" class="form-item">
@@ -265,45 +197,24 @@
                   </div>
 
                   <div class="step-actions step-actions--form">
-                    <button class="action-btn" type="button" @click="currentStep = 1">上一步</button>
+                    <button class="action-btn" type="button" @click="closeModal">取消</button>
                     <button class="action-btn primary" type="submit" :disabled="submitting || !selectedRule || !selectedPitOption">
                       {{ submitting ? '提交中...' : '提交投放申请' }}
                     </button>
+                    <button
+                      v-if="myApplication"
+                      class="action-btn"
+                      type="button"
+                      @click="currentStep = 2"
+                    >
+                      查看当前申请
+                    </button>
                   </div>
                 </form>
-
-                <aside class="apply-summary-card">
-                  <h4>实时预览</h4>
-
-                  <div class="summary-row"><span>广告位置</span><strong>{{ posLabel(form.position) }}</strong></div>
-                  <div class="summary-row"><span>申请坑位</span><strong>{{ selectedPitOption ? pitOptionLabel(selectedPitOption) : '未选择' }}</strong></div>
-                  <div class="summary-row"><span>广告类型</span><strong>{{ form.type === 'image' ? '图片广告' : '代码广告' }}</strong></div>
-                  <div class="summary-row"><span>投放时长</span><strong>{{ form.durationDays > 0 ? `${form.durationDays} 天` : '未选择' }}</strong></div>
-                  <div class="summary-row summary-row--price"><span>预估价格</span><strong>{{ selectedRule ? `¥${formatPrice(selectedRule.price)}` : '待匹配' }}</strong></div>
-                  <div class="summary-row"><span>预计投放期</span><strong>{{ estimateRangeText }}</strong></div>
-
-                  <div class="summary-preview">
-                    <template v-if="form.type === 'image' && imagePreviewUrl">
-                      <div class="summary-preview-shell" :class="`slot-${form.position}`">
-                        <img :src="imagePreviewUrl" alt="广告预览图" class="summary-preview-img">
-                        <span class="summary-preview-badge">广告</span>
-                        <span v-if="form.adInfo" class="summary-preview-info">{{ form.adInfo }}</span>
-                      </div>
-                      <div v-if="form.position === 'post_list_card'" class="summary-mimic-preview">
-                        <div class="summary-mimic-title">{{ form.title || '拟态广告标题' }}</div>
-                        <div class="summary-mimic-text">{{ form.mimicContent || '品牌推广' }}</div>
-                      </div>
-                    </template>
-                    <template v-else-if="form.type === 'code' && form.content.trim()">
-                      <pre class="summary-preview-code">{{ form.content.trim().slice(0, 240) }}</pre>
-                    </template>
-                    <p v-else class="summary-empty">填写素材后可在这里实时预览效果。</p>
-                  </div>
-                </aside>
-              </div>
+              </template>
             </section>
 
-            <section v-if="currentStep === 3" class="step-content">
+            <section v-if="currentStep === 2" class="step-content">
               <div v-if="statusLoading" class="loading-text">正在获取申请状态...</div>
               <template v-else>
                 <div v-if="!isLoggedIn" class="notice notice-warning">请先登录查看申请状态。</div>
@@ -337,6 +248,7 @@
 
                   <div class="step-actions">
                     <button class="action-btn" type="button" @click="refreshMyApplication">刷新状态</button>
+                    <button class="action-btn" type="button" @click="currentStep = 1">返回填写</button>
                     <button
                       v-if="['rejected', 'expired'].includes(myApplication.status)"
                       class="action-btn primary"
@@ -439,20 +351,6 @@ const cropRatioMap: Record<string, [number, number]> = {
   post_list_card: [16, 9],
 }
 
-const groupedRuleCards = computed(() => {
-  return positionOrder
-    .filter(position => hasPitForPosition(position))
-    .map(position => ({
-      position,
-      pitIndex: resolvePitIndex((pitOptionsByPosition.value.get(position) || [])[0]),
-      rules: priceRules.value
-        .filter(rule => rule.position === position && resolvePitIndex(rule) === resolvePitIndex((pitOptionsByPosition.value.get(position) || [])[0]))
-        .slice()
-        .sort((a, b) => a.durationDays - b.durationDays),
-    }))
-    .filter(item => item.rules.length > 0)
-})
-
 const currentPositionRules = computed(() => {
   const currentPit = resolvePitIndex(selectedPitOption.value)
   return priceRules.value
@@ -508,20 +406,13 @@ const startDatePresets = computed(() => {
   ]
 })
 
-const dateRangePresets = computed(() => {
-  const today = getTodayDate()
-  return currentPositionRules.value
-    .slice(0, 3)
-    .map(rule => ({
-      key: `today-${rule.durationDays}`,
-      label: `今天起 ${rule.durationDays} 天`,
-      startDate: today,
-      durationDays: rule.durationDays,
-    }))
-})
-
 const currentCropRatio = computed<[number, number]>(() => {
   return cropRatioMap[form.position] || [16, 9]
+})
+
+const currentRatioText = computed(() => {
+  const [width, height] = currentCropRatio.value
+  return `${width}:${height}`
 })
 
 const imagePreviewUrl = computed(() => {
@@ -535,11 +426,6 @@ const imagePreviewUrl = computed(() => {
   } catch {
     return ''
   }
-})
-
-const estimateRangeText = computed(() => {
-  if (!form.startDate || !form.endDate) return '请选择起止日期'
-  return `${form.startDate} ~ ${form.endDate}`
 })
 
 function normalizePosition(raw: unknown): string {
@@ -800,17 +686,6 @@ function applyStartDatePreset(startDate: string) {
   }
 }
 
-function isDateRangePresetActive(startDate: string, durationDays: number) {
-  return form.startDate === startDate && form.durationDays === durationDays
-}
-
-function applyDateRangePreset(startDate: string, durationDays: number) {
-  if (!startDate || durationDays < 1) return
-  form.startDate = startDate
-  form.durationDays = durationDays
-  form.endDate = addDays(startDate, durationDays)
-}
-
 function applyDurationRule(days: number) {
   form.durationDays = days
   if (!form.startDate) {
@@ -825,12 +700,10 @@ function handleStartDateChange() {
     form.endDate = addDays(form.startDate, form.durationDays)
     return
   }
-  handleEndDateChange()
-}
-
-function handleEndDateChange() {
-  const days = calcDurationDaysByDate(form.startDate, form.endDate)
-  form.durationDays = days > 0 ? days : 0
+  if (currentPositionRules.value.length > 0) {
+    form.durationDays = currentPositionRules.value[0].durationDays
+    form.endDate = addDays(form.startDate, form.durationDays)
+  }
 }
 
 function resetImageState() {
@@ -887,29 +760,6 @@ function openLogin() {
 
 function closeModal() {
   adApplyModal.close()
-}
-
-function selectPresetPosition(position: string) {
-  const normalized = normalizePosition(position)
-  if (!hasPitForPosition(normalized)) {
-    message.warning('该位置暂无可申请坑位')
-    return
-  }
-  form.position = normalized
-  ensurePitSelectedForPosition()
-  ensureDurationSelected()
-}
-
-function goToApplyForm() {
-  if (!isLoggedIn.value) {
-    openLogin()
-    return
-  }
-  if (!hasPitForPosition(form.position) || !selectedPitOption.value) {
-    message.warning('请先选择可申请坑位')
-    return
-  }
-  currentStep.value = 2
 }
 
 function syncFormFromApplication(ad: AdvertisementVO) {
@@ -1037,7 +887,7 @@ async function handleSubmit() {
 
     message.success('广告投放申请已提交')
     await refreshMyApplication()
-    currentStep.value = 3
+    currentStep.value = 2
     adApplyModal.notifyApplicationChanged()
   } catch {
   } finally {
@@ -1048,13 +898,13 @@ async function handleSubmit() {
 function editMyApplication() {
   if (!myApplication.value) return
   syncFormFromApplication(myApplication.value)
-  currentStep.value = 2
+  currentStep.value = 1
 }
 
 async function initWhenOpen() {
   form.startDate = getTodayDate()
 
-  await loadAdApplyConfig()
+  await loadAdApplyConfig(true)
   pickPreferredPositionAndPit()
   ensurePitSelectedForPosition()
   ensureDurationSelected()
@@ -1083,16 +933,16 @@ async function initWhenOpen() {
 
   const preferredStep = adApplyModal.preferredStep.value
   if (preferredStep === 3 && myApplication.value) {
-    currentStep.value = 3
+    currentStep.value = 2
     return
   }
 
   if (myApplication.value && ['pending', 'active'].includes(myApplication.value.status)) {
-    currentStep.value = preferredStep === 2 ? 2 : 3
+    currentStep.value = preferredStep === 3 ? 2 : 1
     return
   }
 
-  currentStep.value = 2
+  currentStep.value = 1
 }
 
 function handleEscClose(event: KeyboardEvent) {
@@ -1430,83 +1280,6 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.position-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.82rem;
-}
-
-.position-pill {
-  border: 1px solid $color-border;
-  border-radius: 999px;
-  background: $color-bg;
-  color: $color-text-muted;
-  padding: 0.3rem 0.62rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-
-  &:hover {
-    color: $color-primary;
-    border-color: rgba(59, 130, 246, 0.48);
-  }
-
-  &.active {
-    color: $color-primary;
-    border-color: $color-primary;
-    background: rgba(59, 130, 246, 0.11);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-    color: rgba(148, 163, 184, 0.95);
-    border-color: rgba(148, 163, 184, 0.4);
-  }
-}
-
-.rules-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.rule-card {
-  border: 1px solid $color-border;
-  border-radius: 10px;
-  padding: 0.7rem;
-  background: rgba(248, 250, 252, 0.72);
-
-  h4 {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-}
-
-.rule-list {
-  margin-top: 0.48rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.rule-item {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.apply-form-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 1rem;
-  align-items: start;
-}
-
 .apply-form {
   display: flex;
   flex-direction: column;
@@ -1688,25 +1461,11 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-.rule-tip {
-  margin: 0.42rem 0 0;
-  font-size: 0.8rem;
-  color: #f59e0b;
-  font-weight: 600;
-}
-
 .date-preset-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
   margin-bottom: 0.5rem;
-}
-
-.date-range-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-bottom: 0.55rem;
 }
 
 .date-preset-btn {
@@ -1731,57 +1490,6 @@ onUnmounted(() => {
   }
 }
 
-.date-range-btn {
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  border-radius: 999px;
-  background: rgba(236, 253, 245, 0.78);
-  color: #047857;
-  font-size: 0.76rem;
-  padding: 0.24rem 0.58rem;
-  cursor: pointer;
-
-  &:hover {
-    border-color: rgba(5, 150, 105, 0.48);
-    color: #065f46;
-    background: rgba(209, 250, 229, 0.84);
-  }
-
-  &.active {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.16);
-    color: #047857;
-    font-weight: 600;
-  }
-
-  .dark & {
-    border-color: rgba(16, 185, 129, 0.5);
-    background: rgba(6, 95, 70, 0.2);
-    color: #6ee7b7;
-
-    &.active {
-      border-color: rgba(16, 185, 129, 0.72);
-      background: rgba(16, 185, 129, 0.24);
-      color: #a7f3d0;
-    }
-  }
-}
-
-.date-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.date-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-
-  span {
-    font-size: 0.78rem;
-    color: $color-text-muted;
-  }
-}
 
 .date-hint {
   margin: 0.45rem 0 0;
@@ -1795,26 +1503,6 @@ onUnmounted(() => {
   gap: 0.55rem;
 }
 
-.upload-trigger {
-  width: 100%;
-  height: 180px;
-  border: 1px dashed rgba(148, 163, 184, 0.5);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.8), rgba(241, 245, 249, 0.92));
-  color: $color-text-muted;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  cursor: pointer;
-
-  &:hover {
-    border-color: rgba(59, 130, 246, 0.45);
-    color: $color-primary;
-  }
-}
-
 .image-preview-shell {
   position: relative;
   border-radius: 12px;
@@ -1822,6 +1510,10 @@ onUnmounted(() => {
   aspect-ratio: 16 / 9;
   cursor: pointer;
   border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.88));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &.slot-home_left {
     aspect-ratio: 5 / 8;
@@ -1831,6 +1523,27 @@ onUnmounted(() => {
   &.slot-post_top,
   &.slot-post_bottom {
     aspect-ratio: 16 / 5;
+  }
+}
+
+.image-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: $color-text-muted;
+  text-align: center;
+
+  strong {
+    font-size: 0.86rem;
+    color: $color-text;
+  }
+
+  span {
+    font-size: 0.78rem;
   }
 }
 
@@ -1884,6 +1597,12 @@ onUnmounted(() => {
   opacity: 1;
 }
 
+.image-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .hidden-input {
   display: none;
 }
@@ -1894,20 +1613,17 @@ onUnmounted(() => {
   color: $color-text-muted;
 }
 
-.apply-summary-card,
 .preview-card {
   border: 1px solid $color-border;
   border-radius: 10px;
   padding: 0.78rem;
 }
 
-.apply-summary-card h4,
 .preview-card h4 {
   margin: 0 0 0.62rem;
   font-size: 0.9rem;
 }
 
-.summary-row,
 .preview-row {
   display: flex;
   justify-content: space-between;
@@ -1923,105 +1639,6 @@ onUnmounted(() => {
     font-weight: 600;
     text-align: right;
   }
-}
-
-.summary-row--price strong {
-  color: $color-primary;
-  font-size: 0.9rem;
-}
-
-.summary-preview {
-  margin-top: 0.7rem;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  border-radius: 9px;
-  padding: 0.6rem;
-}
-
-.summary-preview-shell {
-  position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-
-  &.slot-home_left {
-    aspect-ratio: 5 / 8;
-    max-width: 180px;
-    margin: 0 auto;
-  }
-
-  &.slot-post_top,
-  &.slot-post_bottom {
-    aspect-ratio: 16 / 5;
-  }
-}
-
-.summary-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.summary-preview-badge {
-  position: absolute;
-  left: 0.4rem;
-  top: 0.4rem;
-  font-size: 0.58rem;
-  color: #fff;
-  background: rgba(15, 23, 42, 0.46);
-  border-radius: 999px;
-  padding: 0.08rem 0.4rem;
-}
-
-.summary-preview-info {
-  position: absolute;
-  left: 0.52rem;
-  right: 0.52rem;
-  bottom: 0.5rem;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-}
-
-.summary-mimic-preview {
-  margin-top: 0.55rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 9px;
-  padding: 0.5rem;
-}
-
-.summary-mimic-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: $color-text;
-}
-
-.summary-mimic-text {
-  margin-top: 0.3rem;
-  font-size: 0.76rem;
-  color: $color-text-muted;
-}
-
-.summary-preview-code {
-  margin: 0;
-  max-height: 190px;
-  overflow: auto;
-  padding: 0.55rem;
-  border-radius: 8px;
-  background: #0f172a;
-  color: #cbd5e1;
-  font-size: 0.74rem;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-}
-
-.summary-empty {
-  margin: 0;
-  font-size: 0.78rem;
-  color: $color-text-muted;
 }
 
 .preview-reason {
@@ -2085,11 +1702,12 @@ onUnmounted(() => {
     max-height: calc(100vh - 1rem);
   }
 
-  .rules-grid,
-  .form-grid,
-  .apply-form-layout,
-  .date-grid {
+  .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .image-preview-shell.slot-home_left {
+    max-width: 100%;
   }
 
   .step-actions {

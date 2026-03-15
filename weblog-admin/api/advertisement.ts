@@ -40,6 +40,11 @@ export interface AdPriceRuleVO {
   price: number
 }
 
+export interface AdPitOrderPayload {
+  position: string
+  pitIds: number[]
+}
+
 export const advertisementApi = {
   list: (params: { pageNum?: number; pageSize?: number; status?: string; position?: string }) =>
     http.get<unknown, { data: AdPageResult }>('/admin/advertisement', { params }),
@@ -49,6 +54,12 @@ export const advertisementApi = {
 
   update: (id: number, data: Partial<AdvertisementVO>) =>
     http.put(`/admin/advertisement/${id}`, data),
+
+  setPitEnabled: (id: number, enabled: boolean) =>
+    http.put(`/admin/advertisement/${id}/pit`, { enabled }),
+
+  updatePitOrder: (data: AdPitOrderPayload) =>
+    http.put('/admin/advertisement/pit-order', data),
 
   updateStatus: (id: number, status: string, reason?: string) =>
     http.put(`/admin/advertisement/${id}/status`, null, {

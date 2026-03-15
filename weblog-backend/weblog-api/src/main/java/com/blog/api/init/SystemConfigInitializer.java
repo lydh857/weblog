@@ -24,6 +24,5 @@ public class SystemConfigInitializer {
                 "广告位时效价格规则(JSON)");
         systemConfigService.createIfAbsent("ad_review_reasons", "{}", "广告审核拒绝原因映射(JSON)");
         systemConfigService.createIfAbsent("ad_apply_pit_ids", "[]", "广告申请坑位广告ID列表(JSON)");
-        systemConfigService.createIfAbsent("ad_apply_pit_bindings", "{}", "广告申请坑位映射(JSON)");
     }
 }

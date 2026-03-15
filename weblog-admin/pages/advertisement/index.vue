@@ -49,8 +49,67 @@
 
     <el-tabs v-model="contentTab" class="content-tabs">
       <el-tab-pane label="广告列表" name="list" />
+      <el-tab-pane label="坑位顺序" name="pitOrder" />
       <el-tab-pane label="时效价格规则" name="rules" />
     </el-tabs>
+
+    <div v-if="contentTab === 'pitOrder'" class="pit-order-panel">
+      <div class="pit-order-head">
+        <div>
+          <h3>坑位顺序</h3>
+          <p>拖动卡片即可调整展示顺序，保存后用户端会按新顺序显示坑位。</p>
+        </div>
+        <el-button size="small" :loading="pitOrderLoading" @click="loadPitOrderMeta">刷新</el-button>
+      </div>
+
+      <el-tabs v-model="pitOrderActiveTab" class="pit-order-tabs">
+        <el-tab-pane
+          v-for="position in rulePositionOptions"
+          :key="`pit-order-${position.value}`"
+          :name="position.value"
+        >
+          <template #label>
+            <div class="price-rule-tab-label">
+              <span>{{ position.label }}</span>
+              <el-tag size="small" effect="plain">{{ getPitOrderCount(position.value) }}</el-tag>
+            </div>
+          </template>
+
+          <div v-loading="pitOrderLoading" class="pit-order-list">
+            <template v-if="getPitOrderRows(position.value).length">
+              <div
+                v-for="(row, index) in getPitOrderRows(position.value)"
+                :key="`pit-row-${row.id}`"
+                class="pit-order-item"
+                :class="{
+                  'is-dragging': draggedPitId === row.id,
+                  'is-over': dragOverPitId === row.id,
+                }"
+                draggable="true"
+                @dragstart="handlePitDragStart(position.value, row.id, $event)"
+                @dragenter.prevent="handlePitDragEnter(position.value, row.id)"
+                @dragover.prevent
+                @dragend="resetPitDragState"
+                @drop.prevent="handlePitDrop(position.value, row.id)"
+              >
+                <div class="pit-order-main">
+                  <span class="pit-order-index">#{{ index + 1 }}</span>
+                  <div class="pit-order-content">
+                    <strong>{{ row.title }}</strong>
+                    <span>{{ row.adInfo || `广告ID：${row.id}` }}</span>
+                  </div>
+                </div>
+                <div class="pit-order-handle">
+                  <el-icon><Operation /></el-icon>
+                  <span>拖动排序</span>
+                </div>
+              </div>
+            </template>
+            <el-empty v-else description="当前广告位暂无开放坑位" :image-size="72" />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
 
     <div v-if="contentTab === 'rules'" class="price-rule-panel">
       <div class="price-rule-head">
@@ -167,7 +226,7 @@
       </el-table-column>
       <el-table-column label="位置" width="132" align="center">
         <template #default="{ row }">
-          <el-tag size="small">{{ positionDisplayLabel(row) }}</el-tag>
+          <el-tag size="small" :type="getPositionTagType(row.position)" effect="light">{{ posLabel(row.position) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="状态" width="90" align="center">
@@ -181,10 +240,17 @@
           <span v-else class="text-muted">管理员</span>
         </template>
       </el-table-column>
-      <el-table-column label="坑位" width="84" align="center">
+      <el-table-column label="坑位" width="88" align="center">
         <template #default="{ row }">
-          <el-tag v-if="row.pitEnabled" type="success" size="small" effect="plain">开放</el-tag>
-          <span v-else class="text-muted">关闭</span>
+          <el-switch
+            :model-value="Boolean(row.pitEnabled)"
+            :disabled="!canTogglePit(row) || pitSwitchLoadingMap[row.id]"
+            :loading="Boolean(pitSwitchLoadingMap[row.id])"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+            @change="handleTogglePit(row, $event)"
+          />
         </template>
       </el-table-column>
       <el-table-column label="投放时间" min-width="240">
@@ -474,7 +540,7 @@
           <el-table-column label="标题" prop="title" min-width="160" show-overflow-tooltip />
           <el-table-column label="位置" width="100" align="center">
             <template #default="{ row }">
-              <el-tag size="small">{{ posLabel(row.position) }}</el-tag>
+              <el-tag size="small" :type="getPositionTagType(row.position)" effect="light">{{ posLabel(row.position) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="点击" prop="clickCount" width="60" align="center" />
@@ -501,7 +567,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Delete, Search, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Delete, Search, ArrowDown, Operation } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import { advertisementApi, type AdvertisementVO, type AdPriceRuleVO } from '~/api/advertisement'
@@ -527,6 +593,19 @@ const disableBatchActivate = computed(() => {
 })
 const applyEnabled = ref(false)
 const switchLoading = ref(false)
+const pitOrderLoading = ref(false)
+const pitOrderSaving = ref(false)
+const pitOrderActiveTab = ref('home_left')
+const pitSwitchLoadingMap = reactive<Record<number, boolean>>({})
+const draggedPitId = ref<number | null>(null)
+const draggedPitPosition = ref<string>('')
+const dragOverPitId = ref<number | null>(null)
+const pitOrderRowsMap = reactive<Record<string, AdvertisementVO[]>>({
+  home_left: [],
+  post_top: [],
+  post_bottom: [],
+  post_list_card: [],
+})
 const priceRules = ref<AdPriceRuleVO[]>([])
 const ruleSaving = ref(false)
 const ruleActiveTab = ref('home_left')
@@ -601,6 +680,8 @@ const positionOrderMap: Record<string, number> = {
   post_bottom: 3,
   post_list_card: 4,
 }
+
+const supportedPitPositions = new Set(['home_left', 'post_top', 'post_bottom', 'post_list_card'])
 
 const filteredPriceRules = computed(() => {
   return priceRules.value
@@ -976,12 +1057,22 @@ function getPresetPrice(position: string, durationDays: number, pitIndex: number
   if (!preset) return 0
   return calcPresetPrice(preset.price, pitIndex)
 }
-function positionDisplayLabel(row: AdvertisementVO) {
-  const base = posLabel(row.position)
-  const pitIndex = normalizeRulePitIndex(row.pitIndex)
-  const shouldShowPit = Number(row.pitIndex || 0) > 0
-  if (!shouldShowPit) return base
-  return `${base}（#${pitIndex}）`
+function canTogglePit(row: AdvertisementVO) {
+  return !row.advertiserId && row.status === 'active' && supportedPitPositions.has(row.position)
+}
+function getPositionTagType(position: string) {
+  return ({
+    home_left: 'success',
+    post_top: 'warning',
+    post_bottom: 'danger',
+    post_list_card: 'info',
+  }[position] || 'info') as 'success' | 'warning' | 'danger' | 'info'
+}
+function getPitOrderRows(position: string) {
+  return pitOrderRowsMap[position] || []
+}
+function getPitOrderCount(position: string) {
+  return getPitOrderRows(position).length
 }
 function statusLabel(s: string) { return { pending: '待审核', approved: '已通过', rejected: '已拒绝', active: '投放中', expired: '已过期' }[s] || s }
 function statusType(s: string) { return ({ pending: 'warning', active: 'success', rejected: 'danger', expired: 'info' }[s] || 'info') as 'warning' | 'success' | 'danger' | 'info' }
@@ -1072,8 +1163,120 @@ async function loadData() {
     total.value = res.data.total
     selectedIds.value = []
     selectedRows.value = []
-    await loadMimicSlotMeta()
+    await Promise.all([loadMimicSlotMeta(), loadPitOrderMeta()])
   } catch (e: unknown) { ElMessage.error((e as Error).message || '加载失败') } finally { loading.value = false }
+}
+
+async function loadPitOrderMeta() {
+  pitOrderLoading.value = true
+  try {
+    const res = await advertisementApi.list({ pageNum: 1, pageSize: 200, status: 'active' })
+    const nextMap: Record<string, AdvertisementVO[]> = {
+      home_left: [],
+      post_top: [],
+      post_bottom: [],
+      post_list_card: [],
+    }
+
+    for (const row of res.data.records || []) {
+      if (!row || row.advertiserId || !row.pitEnabled || !supportedPitPositions.has(row.position)) {
+        continue
+      }
+      nextMap[row.position].push(row)
+    }
+
+    Object.keys(nextMap).forEach((position) => {
+      nextMap[position].sort((a, b) => {
+        const left = Number(a.pitIndex || 0)
+        const right = Number(b.pitIndex || 0)
+        if (left !== right) return left - right
+        return Number(a.id || 0) - Number(b.id || 0)
+      })
+      pitOrderRowsMap[position] = nextMap[position]
+    })
+  } catch {
+    Object.keys(pitOrderRowsMap).forEach((position) => {
+      pitOrderRowsMap[position] = []
+    })
+  } finally {
+    pitOrderLoading.value = false
+  }
+}
+
+async function handleTogglePit(row: AdvertisementVO, value: string | number | boolean) {
+  if (!canTogglePit(row)) return
+  const next = Boolean(value)
+  pitSwitchLoadingMap[row.id] = true
+  try {
+    await advertisementApi.setPitEnabled(row.id, next)
+    ElMessage.success(next ? '坑位已开启' : '坑位已关闭')
+    await loadData()
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '操作失败')
+  } finally {
+    pitSwitchLoadingMap[row.id] = false
+  }
+}
+
+function handlePitDragStart(position: string, pitId: number, event: DragEvent) {
+  if (pitOrderSaving.value) {
+    event.preventDefault()
+    return
+  }
+
+  draggedPitPosition.value = position
+  draggedPitId.value = pitId
+  dragOverPitId.value = pitId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(pitId))
+  }
+}
+
+function handlePitDragEnter(position: string, pitId: number) {
+  if (draggedPitPosition.value !== position || draggedPitId.value === null) {
+    return
+  }
+  dragOverPitId.value = pitId
+}
+
+function resetPitDragState() {
+  draggedPitId.value = null
+  draggedPitPosition.value = ''
+  dragOverPitId.value = null
+}
+
+async function handlePitDrop(position: string, targetPitId: number) {
+  const sourcePitId = draggedPitId.value
+  if (!sourcePitId || draggedPitPosition.value !== position) {
+    resetPitDragState()
+    return
+  }
+
+  const rows = getPitOrderRows(position).slice()
+  const sourceIndex = rows.findIndex(item => item.id === sourcePitId)
+  const targetIndex = rows.findIndex(item => item.id === targetPitId)
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    resetPitDragState()
+    return
+  }
+
+  const [current] = rows.splice(sourceIndex, 1)
+  rows.splice(targetIndex, 0, current)
+  pitOrderSaving.value = true
+  try {
+    await advertisementApi.updatePitOrder({
+      position,
+      pitIds: rows.map(item => item.id),
+    })
+    ElMessage.success('坑位顺序已更新')
+    await loadData()
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '保存顺序失败')
+  } finally {
+    pitOrderSaving.value = false
+    resetPitDragState()
+  }
 }
 
 async function loadApplySwitch() {
@@ -1616,6 +1819,126 @@ onMounted(() => { loadData(); loadApplySwitch(); loadPriceRules() })
     margin-bottom: 10px;
   }
 
+  .pit-order-panel {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.92));
+  }
+
+  .pit-order-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--el-text-color-primary);
+    }
+
+    p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+    }
+  }
+
+  .pit-order-tabs {
+    :deep(.el-tabs__header) {
+      margin-bottom: 10px;
+    }
+  }
+
+  .pit-order-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 96px;
+  }
+
+  .pit-order-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 10px;
+    background: var(--el-fill-color-blank);
+    cursor: grab;
+    transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+
+    &.is-dragging {
+      opacity: .72;
+      cursor: grabbing;
+      transform: scale(.99);
+    }
+
+    &.is-over {
+      border-color: var(--el-color-primary-light-5);
+      background: var(--el-color-primary-light-9);
+      box-shadow: 0 10px 24px rgba(64, 158, 255, 0.12);
+    }
+  }
+
+  .pit-order-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .pit-order-index {
+    flex-shrink: 0;
+    min-width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .pit-order-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    strong {
+      font-size: 13px;
+      color: var(--el-text-color-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    span {
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .pit-order-handle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+  }
+
   .price-rule-panel {
     margin-bottom: 12px;
     padding: 12px;
@@ -1718,6 +2041,12 @@ onMounted(() => { loadData(); loadApplySwitch(); loadPriceRules() })
     font-size: 12px;
     color: var(--el-color-primary);
     font-weight: 600;
+  }
+
+  .pit-switch-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .text-muted {
