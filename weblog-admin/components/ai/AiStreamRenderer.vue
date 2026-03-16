@@ -22,8 +22,15 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import { MdPreview } from 'md-editor-v3'
+import { ensureMdEditorConfigured } from '~/composables/useMdEditor'
+
+const MdPreview = defineAsyncComponent(async () => {
+  await ensureMdEditorConfigured()
+  const module = await import('md-editor-v3')
+  return module.MdPreview
+})
 
 const props = defineProps<{
   text: string

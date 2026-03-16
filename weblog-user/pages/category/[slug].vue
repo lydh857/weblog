@@ -52,15 +52,92 @@ import { categoryApi } from '~/api/category'
 import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
 
 const route = useRoute()
-const slug = route.params.slug as string
+const slug = computed(() => String(route.params.slug || ''))
 
-const categoryName = ref('')
-const categoryDesc = ref('')
-const posts = ref<PostVO[]>([])
-const listCardAds = ref<AdvertisementVO[]>([])
-const loading = ref(true)
-const currentPage = ref(1)
-const totalPages = ref(0)
+function parsePage(page: unknown): number {
+  if (Array.isArray(page)) {
+    return parsePage(page[0])
+  }
+  const value = Number(page)
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1
+}
+
+const currentPage = ref(parsePage(route.query.page))
+const pageSize = 10
+
+const { data: categoryPageData, pending: loading } = await useAsyncData(
+  'category-page',
+  async () => {
+    if (!slug.value) {
+      return {
+        categoryName: '',
+        categoryDesc: '',
+        posts: [] as PostVO[],
+        totalPages: 0,
+        listCardAds: [] as AdvertisementVO[],
+      }
+    }
+
+    try {
+      const [catRes, postRes, adRes] = await Promise.all([
+        categoryApi.getBySlug(slug.value),
+        postApi.list({ pageNum: currentPage.value, pageSize, categorySlug: slug.value }),
+        advertisementApi.getBySlot('post_list_card').catch(() => ({ data: [] as AdvertisementVO[] })),
+      ])
+
+      return {
+        categoryName: catRes.data.name,
+        categoryDesc: catRes.data.description || '',
+        posts: postRes.data.records,
+        totalPages: postRes.data.pages,
+        listCardAds: adRes.data || [],
+      }
+    } catch {
+      return {
+        categoryName: '',
+        categoryDesc: '',
+        posts: [] as PostVO[],
+        totalPages: 0,
+        listCardAds: [] as AdvertisementVO[],
+      }
+    }
+  },
+  {
+    watch: [slug, currentPage],
+  },
+)
+
+const categoryName = computed(() => categoryPageData.value?.categoryName || '')
+const categoryDesc = computed(() => categoryPageData.value?.categoryDesc || '')
+const posts = computed(() => categoryPageData.value?.posts || [])
+const totalPages = computed(() => categoryPageData.value?.totalPages || 0)
+const listCardAds = computed(() => categoryPageData.value?.listCardAds || [])
+
+watch(
+  () => route.query.page,
+  (page) => {
+    const nextPage = parsePage(page)
+    if (nextPage !== currentPage.value) {
+      currentPage.value = nextPage
+    }
+  },
+)
+
+watch(
+  () => slug.value,
+  () => {
+    if (currentPage.value !== 1) {
+      currentPage.value = 1
+    }
+  },
+)
+
+useHead(() => ({
+  title: categoryName.value ? `${categoryName.value} - 分类 - Weblog` : '分类 - Weblog',
+  meta: [
+    { name: 'description', content: categoryName.value ? `${categoryName.value}分类下的所有文章` : '分类文章列表' },
+  ],
+}))
 
 type RenderItem =
   | { key: string; type: 'post'; post: PostVO }
@@ -95,27 +172,15 @@ const postRenderItems = computed<RenderItem[]>(() => {
   return postItems
 })
 
-async function loadPosts() {
-  try {
-    const res = await postApi.list({ pageNum: currentPage.value, pageSize: 10, categorySlug: slug })
-    posts.value = res.data.records
-    totalPages.value = res.data.pages
-  } catch { /* ignore */ }
-}
-
-async function loadListCardAds() {
-  try {
-    const res = await advertisementApi.getBySlot('post_list_card')
-    listCardAds.value = res.data || []
-  } catch {
-    listCardAds.value = []
+async function changePage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return
+  await navigateTo({
+    path: route.path,
+    query: page > 1 ? { page: String(page) } : {},
+  })
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-}
-
-function changePage(page: number) {
-  currentPage.value = page
-  loadPosts()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function formatDate(dateStr: string) {
@@ -123,23 +188,6 @@ function formatDate(dateStr: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-onMounted(async () => {
-  try {
-    const catRes = await categoryApi.getBySlug(slug)
-    categoryName.value = catRes.data.name
-    categoryDesc.value = catRes.data.description || ''
-
-    useHead({
-      title: `${categoryName.value} - 分类 - Weblog`,
-      meta: [
-        { name: 'description', content: `${categoryName.value}分类下的所有文章` },
-      ],
-    })
-
-    await Promise.all([loadPosts(), loadListCardAds()])
-  } catch { /* ignore */ }
-  finally { loading.value = false }
-})
 </script>
 
 <style scoped lang="scss">

@@ -16,15 +16,19 @@ export interface LoginResult {
 }
 
 export const authApi = {
-  login: async (data: LoginParams) => {
-    return http.post<unknown, { data: LoginResult }>('/admin/auth/login', data)
+  login: async (data: LoginParams, verifyToken: string) => {
+    return http.post<unknown, { data: LoginResult }>('/admin/auth/login', data, {
+      headers: {
+        'X-Captcha-Token': verifyToken,
+      },
+    })
   },
   logout: () => http.post('/admin/auth/logout'),
   rememberLogin: async () => {
     return http.post<unknown, { data: LoginResult }>('/admin/auth/remember-login', {})
   },
   revokeToken: async (token: string) => {
-    return http.post(`/admin/auth/revoke-token?token=${token}`)
+    return http.post('/admin/auth/revoke-token', { token })
   },
   revokeAllTokens: async () => {
     return http.post('/admin/auth/revoke-all-tokens')

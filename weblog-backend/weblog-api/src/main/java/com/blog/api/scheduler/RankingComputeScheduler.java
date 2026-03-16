@@ -1,19 +1,19 @@
 package com.blog.api.scheduler;
 
-import com.blog.content.mapper.PostMapper;
-import com.blog.interaction.entity.PostRanking;
-import com.blog.interaction.mapper.PostRankingMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 排行榜计算定时任务
@@ -25,14 +25,21 @@ import java.util.Map;
 public class RankingComputeScheduler {
 
     private final JdbcTemplate jdbcTemplate;
-    private final PostRankingMapper postRankingMapper;
+    private final StringRedisTemplate redisTemplate;
+    private static final String LOCK_KEY = "scheduler:ranking:compute";
 
     /**
      * 每小时第30分钟执行（错开阅读数同步的整点）
      * 注：synchronized 仅对单机部署有效，多实例部署需改为 Redis 分布式锁
      */
     @Scheduled(cron = "0 30 * * * ?")
-    public synchronized void computeRankings() {
+    public void computeRankings() {
+        String lockValue = acquireLock();
+        if (lockValue == null) {
+            log.debug("排行榜任务跳过：未获取到分布式锁");
+            return;
+        }
+
         log.info("开始计算排行榜...");
         try {
             LocalDate today = LocalDate.now();
@@ -49,6 +56,8 @@ public class RankingComputeScheduler {
             log.info("排行榜计算完成");
         } catch (Exception e) {
             log.error("排行榜计算失败: {}", e.getMessage(), e);
+        } finally {
+            releaseLock(lockValue);
         }
     }
 
@@ -87,17 +96,41 @@ public class RankingComputeScheduler {
                 rankType, statDate);
         }
 
-        // 插入新排行
-        int rank = 1;
-        for (Map<String, Object> row : rows) {
-            PostRanking pr = new PostRanking();
-            pr.setPostId(((Number) row.get("post_id")).longValue());
-            pr.setCategoryId(null); // 总榜
-            pr.setRankType(rankType);
-            pr.setRankNum(rank++);
-            pr.setScore(((Number) row.get("score")).intValue());
-            pr.setStatDate(statDate);
-            postRankingMapper.insert(pr);
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        // 插入新排行（批量）
+        final int[] rankNum = {1};
+        jdbcTemplate.batchUpdate(
+                """
+                INSERT INTO t_post_ranking (post_id, category_id, rank_type, rank_num, score, stat_date, update_time)
+                VALUES (?, NULL, ?, ?, ?, ?, NOW())
+                """,
+                rows,
+                rows.size(),
+                (ps, row) -> {
+                    Number postId = (Number) row.get("post_id");
+                    Number score = (Number) row.get("score");
+                    ps.setLong(1, postId.longValue());
+                    ps.setInt(2, rankType);
+                    ps.setInt(3, rankNum[0]++);
+                    ps.setInt(4, score.intValue());
+                    ps.setObject(5, statDate);
+                }
+        );
+    }
+
+    private String acquireLock() {
+        String lockValue = UUID.randomUUID().toString();
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, lockValue, Duration.ofMinutes(10));
+        return Boolean.TRUE.equals(success) ? lockValue : null;
+    }
+
+    private void releaseLock(String lockValue) {
+        String current = redisTemplate.opsForValue().get(LOCK_KEY);
+        if (lockValue.equals(current)) {
+            redisTemplate.delete(LOCK_KEY);
         }
     }
 }

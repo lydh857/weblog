@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:mysql://localhost:3307/weblog?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:blog_user}
-    password: ${DB_PASSWORD:Zkldh857@}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
     hikari:
       # 连接池优化配置
       maximum-pool-size: 10  # 2C2G 机器建议上限
@@ -18,7 +18,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6380}
-      password: ${REDIS_PASSWORD:Zkldh857@}
+      password: ${REDIS_PASSWORD:}
       database: 0
       lettuce:
         pool:

@@ -7,6 +7,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
+        { rel: 'icon', type: 'image/png', href: '/brand/logo.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Pacifico&display=block' },
@@ -41,7 +42,7 @@ export default defineNuxtConfig({
     },
   },
 
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV === 'development' },
 
   // 页面缓存配置（SWR - Stale-While-Revalidate）
   routeRules: {
@@ -55,8 +56,6 @@ export default defineNuxtConfig({
     '/archive/**': { swr: 1800 },
     // 公告页缓存 10 分钟
     '/announcement/**': { swr: 600 },
-    // 搜索页不缓存
-    '/search': { ssr: false },
     // API 请求不缓存
     '/api/**': { cache: false },
   },

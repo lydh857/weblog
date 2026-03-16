@@ -57,8 +57,8 @@
       </el-table-column>
       <el-table-column label="封面" width="76" align="center">
         <template #default="{ row }">
-          <el-image v-if="row.coverImage" :src="row.coverImage" fit="cover" lazy class="cover-thumb"
-            :preview-src-list="[row.coverImage]" preview-teleported />
+          <AppImage v-if="row.coverImage" :src="row.coverImage" fit="cover" lazy class="cover-thumb"
+            :preview-src-list="[row.coverImage]" />
           <div v-else class="no-cover"><el-icon :size="20"><Picture /></el-icon></div>
         </template>
       </el-table-column>

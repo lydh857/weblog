@@ -5,12 +5,15 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.dto.MediaVO;
 import com.blog.content.entity.OssResource;
 import com.blog.content.service.MediaReferenceService;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.OssService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.system.mapper.UserMapper;
+import com.blog.system.mapper.UserProfileReviewMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +42,12 @@ public class AdminMediaController {
   @Autowired(required = false)
   private OssService ossService;
 
+  @Autowired(required = false)
+  private UserMapper userMapper;
+
+  @Autowired(required = false)
+  private UserProfileReviewMapper userProfileReviewMapper;
+
   private void checkOssEnabled() {
     if (ossResourceService == null) {
       throw new BusinessException(ResultCode.FAIL, "OSS 未启用");
@@ -65,12 +74,14 @@ public class AdminMediaController {
     Long uploaderId = isAdmin ? null : userId;
 
     // 获取引用 URL 集合和引用详情
-    Set<String> referencedUrls = mediaReferenceService != null
+    Set<String> referencedUrls = new java.util.HashSet<>(mediaReferenceService != null
         ? mediaReferenceService.getReferencedUrls()
-        : Set.of();
-    Map<String, List<MediaVO.ReferenceDetail>> detailMap = mediaReferenceService != null
+        : Set.of());
+    Map<String, List<MediaVO.ReferenceDetail>> detailMap = new java.util.HashMap<>(mediaReferenceService != null
         ? mediaReferenceService.getReferenceDetailsMap()
-        : Map.of();
+        : Map.of());
+
+    appendAvatarReferences(referencedUrls, detailMap);
 
     IPage<OssResource> page;
     if (referenceStatus != null && !referenceStatus.isEmpty()) {
@@ -118,6 +129,17 @@ public class AdminMediaController {
     return Result.success(mediaReferenceService.countUnreferenced());
   }
 
+  @Operation(summary = "获取媒体资源统计")
+  @GetMapping("/stats")
+  public Result<MediaStatsVO> stats() {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    Long userId = StpUtil.getLoginIdAsLong();
+    boolean isAdmin = StpUtil.hasRole("admin");
+    Long uploaderId = isAdmin ? null : userId;
+    return Result.success(ossResourceService.getStats(uploaderId));
+  }
+
   @Operation(summary = "清理所有未引用资源（仅管理员）")
   @PostMapping("/cleanup-unreferenced")
   @AuditLog(module = "媒体管理", operation = "CLEANUP", description = "清理未引用媒体资源")
@@ -132,10 +154,7 @@ public class AdminMediaController {
     return Result.success(count);
   }
 
-  /**
-   * OssResource 转 MediaVO，设置 referenced 字段和引用详情
-   * avatar 类型资源 referenced 为 null（不参与引用检测）
-   */
+  /** OssResource 转 MediaVO，设置 referenced 字段和引用详情 */
   private MediaVO toMediaVO(OssResource resource, Set<String> referencedUrls,
                             Map<String, List<MediaVO.ReferenceDetail>> detailMap) {
     MediaVO vo = new MediaVO();
@@ -162,14 +181,41 @@ public class AdminMediaController {
       vo.setThumbnailUrl(resource.getUrl());
     }
 
-    if (resource.getUsageType() != null && resource.getUsageType().startsWith("avatar")) {
-      vo.setReferenced(null);
-      vo.setReferenceDetails(List.of());
-    } else {
-      vo.setReferenced(resource.getUrl() != null && referencedUrls.contains(resource.getUrl()));
-      vo.setReferenceDetails(detailMap.getOrDefault(resource.getUrl(), List.of()));
-    }
+    vo.setReferenced(resource.getUrl() != null && referencedUrls.contains(resource.getUrl()));
+    vo.setReferenceDetails(detailMap.getOrDefault(resource.getUrl(), List.of()));
     return vo;
+  }
+
+  private void appendAvatarReferences(Set<String> referencedUrls, Map<String, List<MediaVO.ReferenceDetail>> detailMap) {
+    if (userMapper != null) {
+      List<String> avatarUrls = userMapper.selectActiveAvatarUrls();
+      if (avatarUrls != null) {
+        for (String avatarUrl : avatarUrls) {
+          if (avatarUrl == null || avatarUrl.isBlank()) continue;
+          referencedUrls.add(avatarUrl);
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(0L);
+          detail.setPostTitle("[用户] 已使用头像");
+          detail.setRefType("user_avatar");
+          detailMap.computeIfAbsent(avatarUrl, k -> new java.util.ArrayList<>()).add(detail);
+        }
+      }
+    }
+
+    if (userProfileReviewMapper != null) {
+      List<String> pendingAvatarUrls = userProfileReviewMapper.selectPendingAvatarUrls();
+      if (pendingAvatarUrls != null) {
+        for (String avatarUrl : pendingAvatarUrls) {
+          if (avatarUrl == null || avatarUrl.isBlank()) continue;
+          referencedUrls.add(avatarUrl);
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(0L);
+          detail.setPostTitle("[用户] 待审核头像");
+          detail.setRefType("user_avatar_pending");
+          detailMap.computeIfAbsent(avatarUrl, k -> new java.util.ArrayList<>()).add(detail);
+        }
+      }
+    }
   }
 
 }

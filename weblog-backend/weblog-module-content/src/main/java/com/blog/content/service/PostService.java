@@ -383,44 +383,75 @@ public class PostService {
         }
 
         List<Post> posts = page.getRecords();
-        Set<Long> categoryIds = new HashSet<>();
-        Set<Long> postIds = new HashSet<>();
+        Map<Long, Category> categoryMap = buildCategoryMap(posts);
+        Map<Long, List<Tag>> postTagsMap = buildPostTagsMap(posts);
 
-        for (Post p : posts) {
-            if (p.getCategoryId() != null) categoryIds.add(p.getCategoryId());
-            if (p.getSubCategoryId() != null) categoryIds.add(p.getSubCategoryId());
-            postIds.add(p.getId());
+        return page.convert(p -> toVO(p, false, categoryMap, postTagsMap));
+    }
+
+    private List<PostVO> convertListWithRelations(List<Post> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, Category> categoryMap = buildCategoryMap(posts);
+        Map<Long, List<Tag>> postTagsMap = buildPostTagsMap(posts);
+        return posts.stream()
+                .map(post -> toVO(post, false, categoryMap, postTagsMap))
+                .toList();
+    }
+
+    private Map<Long, Category> buildCategoryMap(List<Post> posts) {
+        Set<Long> categoryIds = new HashSet<>();
+        for (Post post : posts) {
+            if (post.getCategoryId() != null) {
+                categoryIds.add(post.getCategoryId());
+            }
+            if (post.getSubCategoryId() != null) {
+                categoryIds.add(post.getSubCategoryId());
+            }
+        }
+        if (categoryIds.isEmpty()) {
+            return Collections.emptyMap();
         }
 
-        Map<Long, Category> categoryMap = new HashMap<>();
-        if (!categoryIds.isEmpty()) {
-            List<Category> categories = categoryMapper.selectByIds(categoryIds);
-            for (Category c : categories) {
-                categoryMap.put(c.getId(), c);
+        List<Category> categories = categoryMapper.selectByIds(categoryIds);
+        Map<Long, Category> categoryMap = new HashMap<>(categories.size());
+        for (Category category : categories) {
+            categoryMap.put(category.getId(), category);
+        }
+        return categoryMap;
+    }
+
+    private Map<Long, List<Tag>> buildPostTagsMap(List<Post> posts) {
+        Set<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toSet());
+        if (postIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<PostTag> postTags = postTagMapper.selectList(
+                new LambdaQueryWrapper<PostTag>().in(PostTag::getPostId, postIds));
+        if (postTags.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Long> tagIds = postTags.stream().map(PostTag::getTagId).collect(Collectors.toSet());
+        Map<Long, Tag> tagMap = new HashMap<>();
+        if (!tagIds.isEmpty()) {
+            List<Tag> tags = tagMapper.selectByIds(tagIds);
+            for (Tag tag : tags) {
+                tagMap.put(tag.getId(), tag);
             }
         }
 
         Map<Long, List<Tag>> postTagsMap = new HashMap<>();
-        if (!postIds.isEmpty()) {
-            List<PostTag> postTags = postTagMapper.selectList(
-                    new LambdaQueryWrapper<PostTag>().in(PostTag::getPostId, postIds));
-            Set<Long> tagIds = postTags.stream().map(PostTag::getTagId).collect(Collectors.toSet());
-
-            Map<Long, Tag> tagMap = new HashMap<>();
-            if (!tagIds.isEmpty()) {
-                List<Tag> tags = tagMapper.selectByIds(tagIds);
-                for (Tag t : tags) {
-                    tagMap.put(t.getId(), t);
-                }
+        for (PostTag postTag : postTags) {
+            Tag tag = tagMap.get(postTag.getTagId());
+            if (tag == null) {
+                continue;
             }
-
-            for (PostTag pt : postTags) {
-                postTagsMap.computeIfAbsent(pt.getPostId(), k -> new ArrayList<>())
-                        .add(tagMap.get(pt.getTagId()));
-            }
+            postTagsMap.computeIfAbsent(postTag.getPostId(), key -> new ArrayList<>()).add(tag);
         }
-
-        return page.convert(p -> toVO(p, false, categoryMap, postTagsMap));
+        return postTagsMap;
     }
 
     /**
@@ -713,7 +744,7 @@ public class PostService {
         }
 
         IPage<Post> page = postMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
-        return page.convert(p -> toVO(p, false));
+        return convertPageWithRelations(page);
     }
 
     /**
@@ -736,7 +767,7 @@ public class PostService {
                .last("LIMIT " + limit);
 
         List<Post> posts = postMapper.selectList(wrapper);
-        return posts.stream().map(p -> toVO(p, false)).toList();
+        return convertListWithRelations(posts);
     }
 
     /**
@@ -753,7 +784,7 @@ public class PostService {
                .last("LIMIT " + limit);
 
         List<Post> posts = postMapper.selectList(wrapper);
-        return posts.stream().map(p -> toVO(p, false)).toList();
+        return convertListWithRelations(posts);
     }
 
     /**
@@ -1134,7 +1165,7 @@ public class PostService {
     public IPage<PostVO> pageDeleted(int pageNum, int pageSize, String keyword) {
         Page<Post> page = new Page<>(pageNum, pageSize);
         IPage<Post> result = postMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
-        return result.convert(p -> toVO(p, false));
+        return convertPageWithRelations(result);
     }
 
     /**

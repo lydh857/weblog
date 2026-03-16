@@ -10,6 +10,9 @@
     >
       <div class="nav-inner">
         <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
+          <span class="logo-mark">
+            <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-img">
+          </span>
           <span class="logo-text">zhhhkl</span>
         </NuxtLink>
 
@@ -163,9 +166,7 @@
       </aside>
     </Transition>
     <AnnouncementPopup />
-    <footer class="site-footer">
-      <p>&copy; {{ new Date().getFullYear() }} zhhhkl. All rights reserved.</p>
-    </footer>
+    <SiteFooter />
   </div>
 </template>
 
@@ -566,6 +567,26 @@ async function handleLogout() {
 .nav-logo {
   text-decoration: none;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .logo-text {
@@ -878,12 +899,4 @@ async function handleLogout() {
   }
 }
 
-.site-footer {
-  padding: 1.25rem;
-  text-align: center;
-  font-size: 0.8rem;
-  color: $color-text-muted;
-  border-top: 1px solid $color-border;
-  .dark & { color: #64748b; border-top-color: $color-dark-border; }
-}
 </style>

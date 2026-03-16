@@ -29,7 +29,7 @@ public class MediaVO {
   private String thumbnailUrl;
 
   /**
-   * 引用状态：true=已引用, false=未引用, null=不参与检测（如 avatar）
+   * 引用状态：true=已引用, false=未引用
    */
   private Boolean referenced;
 

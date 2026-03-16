@@ -23,6 +23,10 @@ export default defineNuxtConfig({
     resolve: {},
     server: {
       proxy: {
+        '/api': {
+          target: 'http://localhost:9091',
+          changeOrigin: true,
+        },
         // 代理本地上传文件，解决开发环境跨域（裁剪组件 canvas 需要同源图片）
         '/uploads': {
           target: 'http://localhost:9091',
@@ -34,31 +38,52 @@ export default defineNuxtConfig({
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            // UI 组件库 - 大约 300KB
-            'vendor-element': ['element-plus'],
-            // 图表库 - 大约 600KB（按需引入后）
-            'vendor-echarts': ['echarts'],
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+
+            if (
+              id.includes('node_modules/vue/') ||
+              id.includes('node_modules/@vue/') ||
+              id.includes('node_modules/vue-router/') ||
+              id.includes('node_modules/pinia/')
+            ) {
+              return 'vendor-vue'
+            }
+
+            if (id.includes('node_modules/element-plus/') || id.includes('node_modules/@element-plus/')) {
+              return 'vendor-element'
+            }
+
+            if (id.includes('node_modules/echarts/')) {
+              return 'vendor-echarts'
+            }
+
+            if (id.includes('node_modules/zrender/')) {
+              return 'vendor-zrender'
+            }
           },
         },
       },
       // 代码分割阈值优化
-      chunkSizeWarningLimit: 500,
+      chunkSizeWarningLimit: 1000,
     },
   },
 
   runtimeConfig: {
     public: {
-      apiBase: 'http://localhost:9091/api',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
     },
   },
 
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV === 'development' },
 
   // 全局标题配置
   app: {
     head: {
       title: 'zhhhkl-管理端',
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/brand/logo.png' },
+      ],
     }
   },
 

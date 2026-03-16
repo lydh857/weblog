@@ -11,8 +11,10 @@
       <!-- 左侧品牌区 -->
       <div class="brand-panel">
         <div class="brand-inner">
-          <div class="brand-logo">W</div>
-          <h2 class="brand-name">Weblog</h2>
+          <div class="brand-logo">
+            <img src="/brand/logo.png" alt="zhhhkl logo" class="brand-logo-img app-brand-logo">
+          </div>
+          <h2 class="brand-name">zhhhkl</h2>
           <p class="brand-slogan">简洁高效的博客管理系统</p>
           <div class="brand-divider" />
           <ul class="brand-features">
@@ -100,10 +102,12 @@
             </el-button>
           </el-form>
 
-          <p class="copyright">&copy; {{ new Date().getFullYear() }} Weblog. All rights reserved.</p>
+          <p class="copyright">&copy; {{ new Date().getFullYear() }} zhhhkl. All rights reserved.</p>
         </div>
       </div>
     </div>
+
+    <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
   </div>
 </template>
 
@@ -120,6 +124,8 @@ import { useUserStore } from '~/stores/user'
 import { useDarkMode } from '~/composables/useDarkMode'
 
 definePageMeta({ layout: false })
+
+const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
 
 const REMEMBER_KEY = 'weblog_admin_remember'
 const ACCOUNT_LOCKED_CODE = 40103
@@ -296,13 +302,19 @@ async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
+  openCaptcha((verifyToken: string) => {
+    void performLogin(verifyToken)
+  })
+}
+
+async function performLogin(verifyToken: string) {
   submitting.value = true
   try {
     const res = await authApi.login({ 
       email: form.email, 
       password: form.password,
       rememberMe: rememberMe.value
-    })
+    }, verifyToken)
     userStore.setUser(res.data)
     
     // 持久化记住我开关（Remember Token 由 HttpOnly Cookie 管理）
@@ -345,6 +357,7 @@ onMounted(async () => {
 /* ===== 页面容器 ===== */
 .login-page {
   min-height: 100vh;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -457,14 +470,17 @@ onMounted(async () => {
   height: 64px;
   margin: 0 auto 1rem;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -1px;
+  overflow: hidden;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .brand-name {
   font-size: 1.5rem;

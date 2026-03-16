@@ -6,6 +6,8 @@ import com.blog.common.util.IpUtil;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -27,6 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Aspect
 @Component
 public class RateLimitAspect {
+
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
 
     /**
      * 本地令牌桶缓存（单机部署足够，集群部署需改为 Redis）
@@ -60,13 +65,25 @@ public class RateLimitAspect {
 
     @Around("@annotation(rateLimit)")
     public Object around(ProceedingJoinPoint joinPoint, RateLimit rateLimit) throws Throwable {
+        String clientIp = getClientIp();
+
         // 本地开发 IP 跳过限流
-        if (rateLimit.perIp() && LOCAL_IP_WHITELIST.contains(getClientIp())) {
+        if (rateLimit.perIp() && LOCAL_IP_WHITELIST.contains(clientIp)) {
             return joinPoint.proceed();
         }
 
-        // 缓存过大时拒绝新 key（防止内存溢出攻击）
-        String key = resolveKey(joinPoint, rateLimit);
+        String key = resolveKey(joinPoint, rateLimit, clientIp);
+
+        // 优先使用 Redis 限流，支持多实例共享计数
+        if (redisTemplate != null) {
+            if (allowByRedisWindow(key, rateLimit.capacity(), rateLimit.seconds())) {
+                return joinPoint.proceed();
+            }
+            log.warn("接口限流触发(redis): key={}", key);
+            throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
+        }
+
+        // Redis 不可用时降级到本地令牌桶
         if (!bucketCache.containsKey(key) && bucketCache.size() >= MAX_CACHE_SIZE) {
             log.warn("限流缓存已满（{}），拒绝新 key: {}", MAX_CACHE_SIZE, key);
             throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
@@ -92,15 +109,31 @@ public class RateLimitAspect {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    private String resolveKey(ProceedingJoinPoint joinPoint, RateLimit rateLimit) {
+    private String resolveKey(ProceedingJoinPoint joinPoint, RateLimit rateLimit, String clientIp) {
         String prefix = rateLimit.key().isEmpty()
                 ? ((MethodSignature) joinPoint.getSignature()).getMethod().getName()
                 : rateLimit.key();
 
         if (rateLimit.perIp()) {
-            return prefix + ":" + getClientIp();
+            return prefix + ":" + clientIp;
         }
         return prefix;
+    }
+
+    private boolean allowByRedisWindow(String key, int capacity, int seconds) {
+        long now = System.currentTimeMillis();
+        long window = Math.max(1, seconds) * 1000L;
+        long bucket = now / window;
+        String redisKey = "rate:limit:" + key + ":" + bucket;
+
+        Long count = redisTemplate.opsForValue().increment(redisKey);
+        if (count == null) {
+            return false;
+        }
+        if (count == 1) {
+            redisTemplate.expire(redisKey, Duration.ofSeconds(seconds + 1L));
+        }
+        return count <= capacity;
     }
 
     private String getClientIp() {

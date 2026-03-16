@@ -1,6 +1,7 @@
 package com.blog.system.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
 import com.blog.system.dto.UpdateProfileRequest;
@@ -87,17 +88,20 @@ public class UserProfileReviewService {
         if (review == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "审核记录不存在");
         }
-        if (!PROFILE_REVIEW_PENDING.equals(review.getStatus())) {
+        LocalDateTime now = LocalDateTime.now();
+        int updated = userProfileReviewMapper.update(null, new LambdaUpdateWrapper<UserProfileReview>()
+                .eq(UserProfileReview::getId, reviewId)
+                .eq(UserProfileReview::getStatus, PROFILE_REVIEW_PENDING)
+                .set(UserProfileReview::getStatus, PROFILE_REVIEW_APPROVED)
+                .set(UserProfileReview::getRejectReason, null)
+                .set(UserProfileReview::getReviewerId, reviewerId)
+                .set(UserProfileReview::getReviewTime, now));
+
+        if (updated == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该记录不在待审核状态");
         }
 
         userService.applyApprovedProfile(review.getUserId(), review.getPendingNickname(), review.getPendingBio(), review.getPendingAvatar());
-
-        review.setStatus(PROFILE_REVIEW_APPROVED);
-        review.setRejectReason(null);
-        review.setReviewerId(reviewerId);
-        review.setReviewTime(LocalDateTime.now());
-        userProfileReviewMapper.updateById(review);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -106,14 +110,16 @@ public class UserProfileReviewService {
         if (review == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "审核记录不存在");
         }
-        if (!PROFILE_REVIEW_PENDING.equals(review.getStatus())) {
+        int updated = userProfileReviewMapper.update(null, new LambdaUpdateWrapper<UserProfileReview>()
+                .eq(UserProfileReview::getId, reviewId)
+                .eq(UserProfileReview::getStatus, PROFILE_REVIEW_PENDING)
+                .set(UserProfileReview::getStatus, PROFILE_REVIEW_REJECTED)
+                .set(UserProfileReview::getRejectReason, reason)
+                .set(UserProfileReview::getReviewerId, reviewerId)
+                .set(UserProfileReview::getReviewTime, LocalDateTime.now()));
+
+        if (updated == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该记录不在待审核状态");
         }
-
-        review.setStatus(PROFILE_REVIEW_REJECTED);
-        review.setRejectReason(reason);
-        review.setReviewerId(reviewerId);
-        review.setReviewTime(LocalDateTime.now());
-        userProfileReviewMapper.updateById(review);
     }
 }

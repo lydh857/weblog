@@ -41,7 +41,7 @@
     </div>
 
     <!-- 趋势图表 -->
-    <div v-loading="chartsLoading" class="chart-row">
+    <div ref="chartRowRef" v-loading="chartsLoading" class="chart-row">
       <div v-for="chart in chartConfigs" :key="chart.key" class="chart-card">
         <div class="chart-header">
           <span class="chart-title">{{ chart.getTitle(chart.period) }}</span>
@@ -166,22 +166,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { Document, View, User, ChatDotSquare } from '@element-plus/icons-vue'
-import { use } from 'echarts/core'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
-import {
-  TitleComponent, TooltipComponent, GridComponent,
-  LegendComponent
-} from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import { init as echartsInit, graphic } from 'echarts/core'
 import type { ECharts } from 'echarts/core'
-
-// 注册 ECharts 模块
-use([
-  BarChart, LineChart, PieChart,
-  TitleComponent, TooltipComponent, GridComponent, LegendComponent,
-  CanvasRenderer
-])
 import {
   getArticleStatistics,
   getPvStatistics,
@@ -239,6 +224,44 @@ const aiFeatureNameMap: Record<string, string> = {
   chat: 'AI 问答',
 }
 
+type EchartsCoreModule = typeof import('echarts/core')
+
+let echartsInit: EchartsCoreModule['init'] | null = null
+let echartsGraphic: EchartsCoreModule['graphic'] | null = null
+let echartsReadyPromise: Promise<void> | null = null
+
+async function ensureEchartsReady() {
+  if (!echartsReadyPromise) {
+    echartsReadyPromise = (async () => {
+      const [core, charts, components, renderers] = await Promise.all([
+        import('echarts/core'),
+        import('echarts/charts'),
+        import('echarts/components'),
+        import('echarts/renderers'),
+      ])
+
+      core.use([
+        charts.BarChart,
+        charts.LineChart,
+        charts.PieChart,
+        components.TitleComponent,
+        components.TooltipComponent,
+        components.GridComponent,
+        components.LegendComponent,
+        renderers.CanvasRenderer,
+      ])
+
+      echartsInit = core.init
+      echartsGraphic = core.graphic
+    })().catch((error) => {
+      echartsReadyPromise = null
+      throw error
+    })
+  }
+
+  return echartsReadyPromise
+}
+
 // 卡片配置
 const cardConfigs = computed(() => [
   {
@@ -291,13 +314,55 @@ const chartConfigs = reactive<ChartConfig[]>([
 ])
 
 // 图表实例管理
+const chartRowRef = ref<HTMLDivElement | null>(null)
 const chartRefs = new Map<string, HTMLDivElement>()
 const chartInstances = new Map<string, ECharts>()
-const categoryChartRef = ref<HTMLDivElement>()
+const categoryChartRef = ref<HTMLDivElement | null>(null)
 let categoryChartInstance: ECharts | null = null
+const chartsActivated = ref(false)
+const statsReady = ref(false)
+let chartObserver: IntersectionObserver | null = null
 
 function setChartRef(key: string, el: HTMLDivElement) {
   if (el) chartRefs.set(key, el)
+}
+
+async function activateCharts() {
+  if (chartsActivated.value) return
+
+  chartsActivated.value = true
+  chartObserver?.disconnect()
+  chartObserver = null
+
+  if (!statsReady.value) return
+
+  chartsLoading.value = true
+  try {
+    await safeRenderAllCharts()
+  } finally {
+    chartsLoading.value = false
+  }
+}
+
+function observeChartArea() {
+  if (typeof window === 'undefined' || chartsActivated.value || !chartRowRef.value) return
+
+  if (!('IntersectionObserver' in window)) {
+    void activateCharts()
+    return
+  }
+
+  chartObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      void activateCharts()
+    }
+  }, {
+    root: null,
+    rootMargin: '160px 0px',
+    threshold: 0.05,
+  })
+
+  chartObserver.observe(chartRowRef.value)
 }
 
 // 检测暗色模式
@@ -306,12 +371,22 @@ function isDarkMode(): boolean {
 }
 
 // 渲染趋势图表
-function renderChart(config: ChartConfig) {
+async function renderChart(config: ChartConfig) {
+  if (!chartsActivated.value) return
+
   const el = chartRefs.get(config.key)
   if (!el) {
-    console.error('[Dashboard] 图表容器不存在:', config.key)
     return
   }
+
+  try {
+    await ensureEchartsReady()
+  } catch (error) {
+    console.error('[Dashboard] ECharts 加载失败:', error)
+    return
+  }
+
+  if (!echartsInit || !echartsGraphic) return
 
   const dark = isDarkMode()
   let instance = chartInstances.get(config.key)
@@ -324,8 +399,6 @@ function renderChart(config: ChartConfig) {
   const statsData = config.getData()
   const labels = config.period === 'week' ? statsData.weekLabels : statsData.monthLabels
   const data = config.period === 'week' ? statsData.weekData : statsData.monthData
-
-  console.log('[Dashboard] 图表数据:', config.key, 'labels:', labels, 'data:', data)
 
   const option = {
     tooltip: { trigger: 'axis' },
@@ -345,7 +418,7 @@ function renderChart(config: ChartConfig) {
       itemStyle: { color: config.color, borderRadius: config.chartType === 'bar' ? [4, 4, 0, 0] : 0 },
       lineStyle: config.chartType === 'line' ? { width: 2, color: config.color } : undefined,
       areaStyle: config.chartType === 'line' ? {
-        color: new graphic.LinearGradient(0, 0, 0, 1, [
+        color: new echartsGraphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: config.color + '40' },
           { offset: 1, color: config.color + '05' }
         ])
@@ -360,23 +433,24 @@ function renderChart(config: ChartConfig) {
 }
 
 // 渲染分类饼图
-function renderCategoryChart() {
-  if (!categoryChartRef.value) {
-    console.error('[Dashboard] 分类饼图容器不存在')
+async function renderCategoryChart() {
+  if (!chartsActivated.value || !categoryChartRef.value) return
+
+  try {
+    await ensureEchartsReady()
+  } catch (error) {
+    console.error('[Dashboard] ECharts 加载失败:', error)
     return
   }
-  
-  // 检查容器尺寸
-  const rect = categoryChartRef.value.getBoundingClientRect()
-  console.log('[Dashboard] 分类饼图容器尺寸:', 'width:', rect.width, 'height:', rect.height)
-  
+
+  if (!echartsInit) return
+
   const dark = isDarkMode()
   if (categoryChartInstance) categoryChartInstance.dispose()
   categoryChartInstance = echartsInit(categoryChartRef.value)
 
   const data = categoryDist.value.map(item => ({ name: item.name, value: item.count }))
-  console.log('[Dashboard] 分类饼图数据:', data)
-  
+
   categoryChartInstance.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c}篇 ({d}%)' },
     legend: {
@@ -390,7 +464,6 @@ function renderCategoryChart() {
       itemStyle: { borderRadius: 6, borderColor: dark ? '#1e293b' : '#fff', borderWidth: 2 }
     }]
   })
-  console.log('[Dashboard] 分类饼图渲染完成')
 }
 
 // 窗口 resize 处理
@@ -402,9 +475,9 @@ function handleResize() {
 // 暗色模式切换时重新渲染图表
 const { isDark } = useDarkMode()
 watch(isDark, () => {
+  if (!chartsActivated.value) return
   nextTick(() => {
-    chartConfigs.forEach(c => renderChart(c))
-    renderCategoryChart()
+    void safeRenderAllCharts()
   })
 })
 
@@ -455,25 +528,28 @@ function setCoreLoadingState(value: boolean) {
   }, 3000)
 }
 
-function safeRenderAllCharts() {
-  chartConfigs.forEach(c => {
+async function safeRenderAllCharts() {
+  if (!chartsActivated.value || !statsReady.value) return
+
+  for (const config of chartConfigs) {
     try {
-      renderChart(c)
-    } catch (e) {
-      console.error('[Dashboard] 趋势图渲染失败:', c.key, e)
+      await renderChart(config)
+    } catch (error) {
+      console.error('[Dashboard] 趋势图渲染失败:', config.key, error)
     }
-  })
+  }
 
   try {
-    renderCategoryChart()
-  } catch (e) {
-    console.error('[Dashboard] 分类饼图渲染失败:', e)
+    await renderCategoryChart()
+  } catch (error) {
+    console.error('[Dashboard] 分类饼图渲染失败:', error)
   }
 }
 
 // 加载数据 - 使用批量查询优化
 async function loadDashboardStats() {
   setCoreLoadingState(true)
+  statsReady.value = false
 
   try {
     // 尝试使用批量查询（一次请求获取所有数据）
@@ -490,7 +566,11 @@ async function loadDashboardStats() {
 
     await nextTick()
     await nextTick()
-    safeRenderAllCharts()
+    statsReady.value = true
+
+    if (chartsActivated.value) {
+      await safeRenderAllCharts()
+    }
   } catch (error) {
     console.error('批量查询失败，降级为分批次查询:', error)
     await loadDashboardStatsFallback()
@@ -543,16 +623,24 @@ async function loadDashboardStatsFallback() {
 
   await nextTick()
   await nextTick()
-  safeRenderAllCharts()
+  statsReady.value = true
+
+  if (chartsActivated.value) {
+    await safeRenderAllCharts()
+  }
 }
 
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
+  await nextTick()
+  observeChartArea()
   await loadDashboardStats()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  chartObserver?.disconnect()
+  chartObserver = null
   chartInstances.forEach(c => c.dispose())
   categoryChartInstance?.dispose()
   if (loadingGuardTimer) {

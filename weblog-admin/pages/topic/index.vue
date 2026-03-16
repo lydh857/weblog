@@ -47,8 +47,8 @@
       <el-table-column label="#" type="index" width="50" align="center" />
       <el-table-column label="封面" width="100" align="center">
         <template #default="{ row }">
-          <el-image v-if="row.cover" :src="row.cover" fit="cover" :preview-src-list="[row.cover]" preview-teleported
-            style="width: 60px; height: 40px; border-radius: 4px" />
+          <AppImage v-if="row.cover" :src="row.cover" fit="cover" :preview-src-list="[row.cover]"
+            style="width: 60px; height: 40px" />
           <span v-else class="muted">无</span>
         </template>
       </el-table-column>
@@ -95,7 +95,7 @@
         <el-form-item label="封面">
           <div class="cover-upload">
             <div v-if="form.cover" class="cover-preview" @click="openCoverCropper">
-              <el-image :src="form.cover" fit="cover" class="cover-img" />
+              <AppImage :src="form.cover" fit="cover" class="cover-img" />
               <div class="cover-overlay">裁剪 / 更换</div>
             </div>
             <div v-else class="cover-placeholder" @click="triggerCoverUpload">

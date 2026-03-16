@@ -208,17 +208,32 @@ import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
 
 const route = useRoute()
-const slug = route.params.slug as string
+const slug = computed(() => String(route.params.slug || ''))
 const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
 // sticky top 值：导航栏 60px + 间距 10px + 公告栏 36px（如果有）
 const stickyTop = computed(() => bannerVisible.value ? '106px' : '70px')
 
+const { data: detailData, pending: loading } = await useAsyncData(
+  'post-detail',
+  async () => {
+    if (!slug.value) return null
+    try {
+      const res = await postApi.detail(slug.value)
+      return res.data
+    } catch {
+      return null
+    }
+  },
+  {
+    watch: [slug],
+  },
+)
+
 const post = ref<PostVO | null>(null)
 const prevPost = ref<{ id: number; title: string; slug: string; coverImage?: string } | null>(null)
 const nextPost = ref<{ id: number; title: string; slug: string; coverImage?: string } | null>(null)
-const loading = ref(true)
 const tocVisible = ref(false)
 const hasToc = ref(false)
 const commentSectionRef = ref<HTMLElement | null>(null)
@@ -235,6 +250,20 @@ const readLimitState = ref({
   limit: 3,
   loggedIn: false,
 })
+
+watch(detailData, (value) => {
+  post.value = value?.post ?? null
+  prevPost.value = value?.prev ?? null
+  nextPost.value = value?.next ?? null
+}, { immediate: true })
+
+useHead(() => ({
+  title: post.value?.title ? `${post.value.title} - Weblog` : 'Weblog',
+  meta: [
+    { name: 'description', content: post.value?.seoDescription || post.value?.summary || '' },
+    { name: 'keywords', content: post.value?.seoKeywords || '' },
+  ],
+}))
 
 function scrollToComments() {
   commentSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -328,107 +357,80 @@ function formatTimeAgo(dateStr: string): string {
 // 记录阅读
 async function recordRead() {
   if (!post.value) return
-  
-  console.log('[阅读限制] 检查用户登录状态:', userStore.userInfo)
-  console.log('[阅读限制] userId:', userStore.userInfo?.userId)
-  
+
   // 已登录用户跳过
   if (userStore.userInfo?.userId) {
-    console.log('[阅读限制] 已登录用户，跳过记录')
     return
   }
-  
+
   try {
-    console.log('[阅读限制] 记录阅读文章 ID:', post.value.id)
     await accessApi.recordRead(post.value.id)
-    console.log('[阅读限制] 记录成功')
   } catch (error) {
-    console.error('[阅读限制] 记录失败:', error)
+    console.error('记录阅读失败:', error)
   }
 }
 
 // 检查是否可以阅读
 async function checkAccess(): Promise<boolean | null> {
-  if (!post.value) return
-  
-  console.log('[阅读限制] 检查访问权限，用户 ID:', userStore.userInfo?.userId)
-  
+  if (!post.value) return null
+
   // 已登录用户跳过检查
   if (userStore.userInfo?.userId) {
-    console.log('[阅读限制] 已登录用户，跳过检查')
     readLimitState.value.loggedIn = true
     return true
   }
-  
+
   try {
-    console.log('[阅读限制] 调用 API 检查权限，文章 ID:', post.value.id)
     const res = await accessApi.check(post.value.id)
     const { allowed, readCount, limit } = res.data
-    
-    console.log('[阅读限制] API 返回结果:', { allowed, readCount, limit })
-    console.log('[阅读限制] 判断：readCount=', readCount, 'limit=', limit, 'allowed=', allowed)
-    
+
     readLimitState.value = {
       show: !allowed,
       readCount,
       limit,
       loggedIn: false,
     }
-    
-    if (!allowed) {
-      console.log('[阅读限制] 触发限制弹窗')
-    } else {
-      console.log('[阅读限制] 允许访问，未达限制')
-    }
-    
+
     return allowed
   } catch (error) {
-    console.error('[阅读限制] 检查失败:', error)
+    console.error('检查阅读权限失败:', error)
     return null
   }
 }
 
-onMounted(async () => {
-  console.log('[阅读限制] 页面加载完成，开始处理')
-  
-  try {
-    const res = await postApi.detail(slug)
-    post.value = res.data.post
-    prevPost.value = res.data.prev
-    nextPost.value = res.data.next
+let tocDetectTimer: ReturnType<typeof setTimeout> | null = null
 
-    useHead({
-      title: `${post.value.title} - Weblog`,
-      meta: [
-        { name: 'description', content: post.value.seoDescription || post.value.summary || '' },
-        { name: 'keywords', content: post.value.seoKeywords || '' },
-      ],
-    })
-
-    // 检测是否有目录（MdPreview 异步渲染，延迟检测）
-    setTimeout(() => {
-      const contentEl = document.querySelector('.post-content .md-editor-preview')
-      if (contentEl) {
-        hasToc.value = contentEl.querySelectorAll('h1, h2, h3, h4').length > 0
-      }
-    }, 500)
-
-    // 先检查限制，只有允许时才记录阅读
-    console.log('[阅读限制] 开始调用 checkAccess')
-    const allowed = await checkAccess()
-    if (allowed === true) {
-      console.log('[阅读限制] 允许访问，开始调用 recordRead')
-      await recordRead()
-    } else if (allowed === false) {
-      console.log('[阅读限制] 已达限制，本次不记录阅读')
-    } else {
-      console.log('[阅读限制] 检查失败，本次不记录阅读')
-    }
-    console.log('[阅读限制] 处理完成')
-  } catch (err) {
-    console.error('[阅读限制] 加载文章失败:', err)
+function detectToc() {
+  if (!import.meta.client) return
+  if (tocDetectTimer) {
+    clearTimeout(tocDetectTimer)
   }
-  finally { loading.value = false }
+  tocDetectTimer = setTimeout(() => {
+    const contentEl = document.querySelector('.post-content .md-editor-preview')
+    hasToc.value = Boolean(contentEl?.querySelectorAll('h1, h2, h3, h4').length)
+  }, 500)
+}
+
+async function checkAndRecordAccess() {
+  const allowed = await checkAccess()
+  if (allowed === true) {
+    await recordRead()
+  }
+}
+
+watch(() => post.value?.id, (id) => {
+  tocVisible.value = false
+  hasToc.value = false
+  readLimitState.value.show = false
+  if (!id || !import.meta.client) return
+  detectToc()
+  void checkAndRecordAccess()
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (tocDetectTimer) {
+    clearTimeout(tocDetectTimer)
+  }
 })
 
 

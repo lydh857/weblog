@@ -6,6 +6,10 @@ import com.blog.content.entity.OssResource;
 import com.blog.content.mapper.OssResourceMapper;
 import com.blog.content.mapper.PostContentMapper;
 import com.blog.content.mapper.PostMapper;
+import com.blog.content.mapper.TopicMapper;
+import com.blog.content.mapper.CarouselMapper;
+import com.blog.content.mapper.FriendLinkMapper;
+import com.blog.content.mapper.AdvertisementMapper;
 import com.blog.content.util.MarkdownImageExtractor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +35,10 @@ public class MediaReferenceService {
   private final PostMapper postMapper;
   private final PostContentMapper postContentMapper;
   private final OssResourceMapper ossResourceMapper;
+  private final TopicMapper topicMapper;
+  private final CarouselMapper carouselMapper;
+  private final FriendLinkMapper friendLinkMapper;
+  private final AdvertisementMapper advertisementMapper;
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
   private final OssResourceService ossResourceService;
@@ -38,11 +46,19 @@ public class MediaReferenceService {
   public MediaReferenceService(PostMapper postMapper,
                                PostContentMapper postContentMapper,
                                OssResourceMapper ossResourceMapper,
+                               TopicMapper topicMapper,
+                               CarouselMapper carouselMapper,
+                               FriendLinkMapper friendLinkMapper,
+                               AdvertisementMapper advertisementMapper,
                                StringRedisTemplate redisTemplate,
                                OssResourceService ossResourceService) {
     this.postMapper = postMapper;
     this.postContentMapper = postContentMapper;
     this.ossResourceMapper = ossResourceMapper;
+    this.topicMapper = topicMapper;
+    this.carouselMapper = carouselMapper;
+    this.friendLinkMapper = friendLinkMapper;
+    this.advertisementMapper = advertisementMapper;
     this.redisTemplate = redisTemplate;
     this.objectMapper = new ObjectMapper();
     this.ossResourceService = ossResourceService;
@@ -91,15 +107,14 @@ public class MediaReferenceService {
   }
 
     /**
-     * 统计未引用且非 avatar 相关类型的资源数量
+     * 统计未引用资源数量
      */
   public long countUnreferenced() {
     Set<String> referencedUrls = getReferencedUrls();
 
-    // 查询所有非 avatar 相关类型的资源
+    // 查询所有资源
     List<OssResource> resources = ossResourceMapper.selectList(
         new LambdaQueryWrapper<OssResource>()
-            .notLike(OssResource::getUsageType, "avatar")
             .select(OssResource::getUrl));
 
     return resources.stream()
@@ -122,7 +137,7 @@ public class MediaReferenceService {
 
   /**
    * 批量清理未引用资源，返回删除数量
-   * 排除 avatar 相关类型资源，清理完成后自动失效缓存
+   * 清理完成后自动失效缓存
    *
    * @param operatorId 操作者 ID
    * @return 删除的资源数量
@@ -131,10 +146,9 @@ public class MediaReferenceService {
     // 1. 获取引用 URL 集合
     Set<String> referencedUrls = getReferencedUrls();
 
-    // 2. 查询所有非 avatar 相关类型的资源
+    // 2. 查询所有资源
     List<OssResource> resources = ossResourceMapper.selectList(
         new LambdaQueryWrapper<OssResource>()
-            .notLike(OssResource::getUsageType, "avatar")
             .select(OssResource::getId, OssResource::getUrl));
 
     // 3. 筛选出未引用的资源 ID 列表
@@ -183,6 +197,30 @@ public class MediaReferenceService {
           urls.addAll(MarkdownImageExtractor.extractImageUrls(content));
         }
       }
+    }
+
+    // 3. 获取已发布专题封面 URL
+    List<String> topicCovers = topicMapper.selectPublishedCoverUrls();
+    if (topicCovers != null) {
+      topicCovers.forEach(url -> addUrl(urls, url));
+    }
+
+    // 4. 获取启用轮播图 URL
+    List<String> carouselImages = carouselMapper.selectEnabledImageUrls();
+    if (carouselImages != null) {
+      carouselImages.forEach(url -> addUrl(urls, url));
+    }
+
+    // 5. 获取有效友链 Logo URL
+    List<String> friendLinkLogos = friendLinkMapper.selectEffectiveLogoUrls();
+    if (friendLinkLogos != null) {
+      friendLinkLogos.forEach(url -> addUrl(urls, url));
+    }
+
+    // 6. 获取图片广告 URL
+    List<String> adImages = advertisementMapper.selectImageContentUrls();
+    if (adImages != null) {
+      adImages.forEach(url -> addUrl(urls, url));
     }
 
     log.info("从数据库构建引用 URL 集合完成，数量: {}", urls.size());
@@ -268,7 +306,75 @@ public class MediaReferenceService {
       }
     }
 
+    // 处理专题封面引用
+    List<Map<String, Object>> topicSummaries = topicMapper.selectPublishedTopicSummaries();
+    if (topicSummaries != null) {
+      for (Map<String, Object> row : topicSummaries) {
+        Long topicId = ((Number) row.get("id")).longValue();
+        String title = (String) row.get("title");
+        String cover = (String) row.get("cover");
+        if (cover != null && !cover.isEmpty()) {
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(topicId);
+          detail.setPostTitle("[专题] " + (title == null || title.isBlank() ? "无标题" : title));
+          detail.setRefType("topic_cover");
+          detailMap.computeIfAbsent(cover, k -> new ArrayList<>()).add(detail);
+        }
+      }
+    }
+
+    // 处理轮播图引用
+    List<String> carouselImages = carouselMapper.selectEnabledImageUrls();
+    if (carouselImages != null) {
+      for (int i = 0; i < carouselImages.size(); i++) {
+        String imageUrl = carouselImages.get(i);
+        if (imageUrl == null || imageUrl.isBlank()) continue;
+        MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+        detail.setPostId(0L);
+        detail.setPostTitle("[轮播] 第 " + (i + 1) + " 项");
+        detail.setRefType("carousel_image");
+        detailMap.computeIfAbsent(imageUrl, k -> new ArrayList<>()).add(detail);
+      }
+    }
+
+    // 处理友链 Logo 引用
+    List<String> friendLinkLogos = friendLinkMapper.selectEffectiveLogoUrls();
+    if (friendLinkLogos != null) {
+      for (int i = 0; i < friendLinkLogos.size(); i++) {
+        String logo = friendLinkLogos.get(i);
+        if (logo == null || logo.isBlank()) continue;
+        MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+        detail.setPostId(0L);
+        detail.setPostTitle("[友链] 第 " + (i + 1) + " 项");
+        detail.setRefType("friend_link_logo");
+        detailMap.computeIfAbsent(logo, k -> new ArrayList<>()).add(detail);
+      }
+    }
+
+    // 处理图片广告引用
+    List<Map<String, Object>> adSummaries = advertisementMapper.selectImageAdSummaries();
+    if (adSummaries != null) {
+      for (Map<String, Object> row : adSummaries) {
+        Long adId = ((Number) row.get("id")).longValue();
+        String title = (String) row.get("title");
+        String content = (String) row.get("content");
+        if (content != null && !content.isBlank()) {
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(adId);
+          detail.setPostTitle("[广告] " + (title == null || title.isBlank() ? "未命名广告" : title));
+          detail.setRefType("ad_image");
+          detailMap.computeIfAbsent(content, k -> new ArrayList<>()).add(detail);
+        }
+      }
+    }
+
     log.info("从数据库构建引用详情完成，URL 数量: {}", detailMap.size());
     return detailMap;
+  }
+
+  private void addUrl(Set<String> urls, String url) {
+    if (url != null && !url.isEmpty()) {
+      urls.add(url);
+    }
   }
 }

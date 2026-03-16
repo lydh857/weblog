@@ -132,12 +132,31 @@
 
 
 <script setup lang="ts">
-import { MdEditor, DropdownToolbar, NormalToolbar } from 'md-editor-v3'
+import { defineAsyncComponent } from 'vue'
 import type { ExposeParam, Footers, ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { uploadApi } from '~/api/upload'
 import { calculateMdStats, calculateHtmlStats, countCharsAndLines } from '~/composables/useEditorStats'
 import { applyFormat } from '~/composables/useEditorFormat'
+import { ensureMdEditorConfigured } from '~/composables/useMdEditor'
+
+const MdEditor = defineAsyncComponent(async () => {
+  await ensureMdEditorConfigured()
+  const module = await import('md-editor-v3')
+  return module.MdEditor
+})
+
+const DropdownToolbar = defineAsyncComponent(async () => {
+  await ensureMdEditorConfigured()
+  const module = await import('md-editor-v3')
+  return module.DropdownToolbar
+})
+
+const NormalToolbar = defineAsyncComponent(async () => {
+  await ensureMdEditorConfigured()
+  const module = await import('md-editor-v3')
+  return module.NormalToolbar
+})
 
 const props = withDefaults(defineProps<{
   modelValue: string

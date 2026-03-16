@@ -141,7 +141,7 @@ watch(visible, async (show) => {
     await nextTick()
     initCropper()
   } else {
-    destroyCropper()
+    destroyCropper(true)
     errorMsg.value = ''
   }
 })
@@ -213,7 +213,7 @@ function schedulePreview() {
 }
 
 function initCropper() {
-  destroyCropper()
+  destroyCropper(false)
   if (!imgRef.value || !imgSrc.value) return
   const ar = props.aspectRatio
   const ratio = ar[0] === 0 ? NaN : ar[0] / ar[1]
@@ -239,10 +239,10 @@ function initCropper() {
   scaleY = 1
 }
 
-function destroyCropper() {
+function destroyCropper(releaseLocalBlobUrl = false) {
   if (previewRafId) { cancelAnimationFrame(previewRafId); previewRafId = null }
   if (cropper) { cropper.destroy(); cropper = null }
-  if (localBlobUrl) { URL.revokeObjectURL(localBlobUrl); localBlobUrl = null }
+  if (releaseLocalBlobUrl && localBlobUrl) { URL.revokeObjectURL(localBlobUrl); localBlobUrl = null }
   previewCtx = null
   lastPreviewW = 0
   lastPreviewH = 0
@@ -308,6 +308,13 @@ function confirmCrop() {
     imageSmoothingEnabled: true,
     imageSmoothingQuality: 'high',
   })
+
+  if (!canvas) {
+    cropping.value = false
+    errorMsg.value = '裁剪失败，请重新选择图片'
+    return
+  }
+
   canvas.toBlob((blob) => {
     cropping.value = false
     if (!blob) {
@@ -320,7 +327,7 @@ function confirmCrop() {
   }, props.outputType, outputQuality.value)
 }
 
-onBeforeUnmount(() => { destroyCropper() })
+onBeforeUnmount(() => { destroyCropper(true) })
 </script>
 
 <style lang="scss">

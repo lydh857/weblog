@@ -309,7 +309,7 @@
 
         <div class="detail-preview">
           <template v-if="detailRecord.type === 'image'">
-            <el-image :src="detailRecord.content" fit="cover" class="detail-preview-image" />
+            <AppImage :src="detailRecord.content" fit="cover" class="detail-preview-image" />
           </template>
           <template v-else>
             <pre class="detail-code-preview">{{ detailRecord.content }}</pre>
@@ -366,7 +366,7 @@
           <el-form-item v-if="form.type === 'image'" label="广告图片" class="span-2">
             <div class="ad-upload-area">
                 <div v-if="form.content" class="ad-preview" :class="`ad-preview--${form.position}`" :style="adPreviewStyle" @click="openImageCropper">
-                  <el-image :src="form.content" fit="cover" class="ad-preview-img" />
+                  <AppImage :src="form.content" fit="cover" class="ad-preview-img" />
                   <span class="ad-preview-badge">广告</span>
                   <button v-if="isCarouselPosition" class="ad-preview-close" type="button" aria-label="关闭预览">×</button>
                   <div
@@ -387,7 +387,7 @@
 
               <div v-if="form.position === 'post_list_card' && showPreviewImage" class="mimic-live-preview">
                 <div class="mimic-live-cover">
-                  <el-image :src="form.content" fit="cover" class="mimic-live-cover-img" />
+                  <AppImage :src="form.content" fit="cover" class="mimic-live-cover-img" />
                   <div v-if="form.adInfo" class="mimic-live-ad-info">{{ form.adInfo }}</div>
                 </div>
                 <div class="mimic-live-body">

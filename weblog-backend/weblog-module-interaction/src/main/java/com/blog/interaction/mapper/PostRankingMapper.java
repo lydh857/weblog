@@ -22,18 +22,21 @@ public interface PostRankingMapper extends BaseMapper<PostRanking> {
                p.title, p.slug, p.cover_image, p.view_count, p.like_count, p.collect_count, p.comment_count,
                c.name AS category_name,
                sc.name AS sub_category_name,
-               (SELECT GROUP_CONCAT(t.name ORDER BY t.id SEPARATOR '、')
-                FROM t_post_tag pt INNER JOIN t_tag t ON pt.tag_id = t.id
-                WHERE pt.post_id = r.post_id) AS tag_names
+               GROUP_CONCAT(DISTINCT t.name ORDER BY t.id SEPARATOR '、') AS tag_names
         FROM t_post_ranking r
         INNER JOIN t_post p ON r.post_id = p.id AND p.is_deleted = 0 AND p.status = 'published'
         LEFT JOIN t_category c ON p.category_id = c.id
         LEFT JOIN t_category sc ON p.sub_category_id = sc.id
+        LEFT JOIN t_post_tag pt ON pt.post_id = r.post_id
+        LEFT JOIN t_tag t ON pt.tag_id = t.id
         WHERE r.rank_type = #{rankType}
           AND r.category_id IS NULL
           <if test="statDate != null">AND r.stat_date = #{statDate}</if>
           <if test="statDate == null">AND r.stat_date IS NULL</if>
           <if test="categoryId != null">AND p.category_id = #{categoryId}</if>
+        GROUP BY r.rank_num, r.score, r.post_id,
+                 p.title, p.slug, p.cover_image, p.view_count, p.like_count, p.collect_count, p.comment_count,
+                 c.name, sc.name
         ORDER BY r.rank_num ASC
         LIMIT #{limit} OFFSET #{offset}
         </script>

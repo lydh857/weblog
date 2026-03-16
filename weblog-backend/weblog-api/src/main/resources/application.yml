@@ -6,8 +6,6 @@ server:
 spring:
   application:
     name: weblog-api
-  profiles:
-    active: dev
 
   # 完全禁用 Spring AI 自动配置
   autoconfigure:
@@ -61,7 +59,7 @@ sa-token:
   is-share: false
   token-style: uuid
   is-log: false
-  jwt-secret-key: ${JWT_SECRET:dev-jwt-secret-key-change-in-production}
+  jwt-secret-key: ${JWT_SECRET:}
   is-read-cookie: true
   is-read-header: false
   token-prefix: ""
@@ -134,4 +132,4 @@ blog:
 
 # 滑块验证码配置
 captcha:
-  secret-key: ${CAPTCHA_SECRET_KEY:dev-captcha-secret-change-in-production}
+  secret-key: ${CAPTCHA_SECRET_KEY:}

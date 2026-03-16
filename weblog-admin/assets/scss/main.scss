@@ -92,3 +92,12 @@ html.dark ::-webkit-scrollbar-thumb {
   opacity: 0;
   transform: translateY(-4px);
 }
+
+// ===== 管理端统一图片展示基线 =====
+.app-brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;
+}

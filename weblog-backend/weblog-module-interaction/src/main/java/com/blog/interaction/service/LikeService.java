@@ -134,11 +134,8 @@ public class LikeService {
             RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_LIKE + postId);
             redisTemplate.opsForSet().add(KEY_LIKE_DIRTY, postIdStr);
 
-            // MySQL 软删除
-            userLikeMapper.delete(new LambdaQueryWrapper<UserLike>()
-                    .eq(UserLike::getUserId, userId)
-                    .eq(UserLike::getTargetType, "post")
-                    .eq(UserLike::getTargetId, postId));
+            // MySQL 软删除（按唯一键）
+            userLikeMapper.softDeleteByUnique(userId, "post", postId);
 
             log.debug("取消点赞: userId={}, postId={}", userId, postId);
             return false;
@@ -148,18 +145,8 @@ public class LikeService {
             redisTemplate.opsForValue().increment(KEY_POST_LIKE + postId);
             redisTemplate.opsForSet().add(KEY_LIKE_DIRTY, postIdStr);
 
-            // MySQL 插入（先查是否有记录，包括软删除的）
-            UserLike existing = userLikeMapper.selectIncludeDeleted(userId, "post", postId);
-            if (existing != null) {
-                // 恢复软删除记录
-                userLikeMapper.restoreById(existing.getId());
-            } else {
-                UserLike like = new UserLike();
-                like.setUserId(userId);
-                like.setTargetType("post");
-                like.setTargetId(postId);
-                userLikeMapper.insert(like);
-            }
+            // MySQL 原子 upsert，避免并发下先查后写
+            userLikeMapper.upsertActive(userId, "post", postId);
 
             log.debug("点赞: userId={}, postId={}", userId, postId);
             return true;

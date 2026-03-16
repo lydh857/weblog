@@ -281,19 +281,14 @@ public class AuthService {
     }
 
     private void handleFailedLogin(User user) {
-        int attempts = (user.getFailedLoginAttempts() == null ? 0 : user.getFailedLoginAttempts()) + 1;
+        LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
+        userMapper.incrementFailedAttemptsAndLock(user.getId(), MAX_FAILED_ATTEMPTS, lockUntil);
 
-        LambdaUpdateWrapper<User> wrapper = new LambdaUpdateWrapper<User>()
-                .eq(User::getId, user.getId())
-                .set(User::getFailedLoginAttempts, attempts);
-
-        if (attempts >= MAX_FAILED_ATTEMPTS) {
-            wrapper.set(User::getStatus, "locked")
-                   .set(User::getLockUntil, LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES));
+        User latest = userMapper.selectById(user.getId());
+        if (latest != null && "locked".equals(latest.getStatus())) {
+            Integer attempts = latest.getFailedLoginAttempts() == null ? 0 : latest.getFailedLoginAttempts();
             log.warn("账户锁定: email={}, 连续失败{}次", user.getEmail(), attempts);
         }
-
-        userMapper.update(null, wrapper);
     }
 
     private void resetFailedAttempts(Long userId) {

@@ -1,10 +1,12 @@
 package com.blog.content.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.entity.OssResource;
 import com.blog.content.mapper.OssResourceMapper;
 import com.blog.infra.oss.LocalFileService;
@@ -14,8 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * OSS 资源管理服务
@@ -101,6 +102,46 @@ public class OssResourceService {
     }
 
     /**
+     * 更新直传完成后的资源元信息
+     */
+    public void updateUploadedMetadata(String filePath,
+                                       Long uploaderId,
+                                       Long fileSize,
+                                       String fileType,
+                                       String mimeType,
+                                       String url) {
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
+        LambdaUpdateWrapper<OssResource> wrapper = new LambdaUpdateWrapper<OssResource>()
+                .eq(OssResource::getFilePath, filePath);
+        if (uploaderId != null) {
+            wrapper.eq(OssResource::getUploaderId, uploaderId);
+        }
+        wrapper.set(fileSize != null, OssResource::getFileSize, fileSize)
+                .set(fileType != null && !fileType.isBlank(), OssResource::getFileType, fileType)
+                .set(mimeType != null && !mimeType.isBlank(), OssResource::getMimeType, mimeType)
+                .set(url != null && !url.isBlank(), OssResource::getUrl, url);
+        ossResourceMapper.update(null, wrapper);
+    }
+
+    /**
+     * 按 filePath 软删除资源记录
+     */
+    public void markDeletedByFilePath(String filePath, Long uploaderId) {
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
+        LambdaUpdateWrapper<OssResource> wrapper = new LambdaUpdateWrapper<OssResource>()
+                .eq(OssResource::getFilePath, filePath)
+                .set(OssResource::getIsDeleted, true);
+        if (uploaderId != null) {
+            wrapper.eq(OssResource::getUploaderId, uploaderId);
+        }
+        ossResourceMapper.update(null, wrapper);
+    }
+
+    /**
      * 分页查询资源列表
      */
     public IPage<OssResource> page(int pageNum, int pageSize, Long uploaderId, String usageType) {
@@ -118,7 +159,7 @@ public class OssResourceService {
     /**
      * 按引用状态分页查询资源
      * referenced: URL 在 referencedUrls 集合中
-     * unreferenced: URL 不在 referencedUrls 集合中，且非 avatar 类型
+     * unreferenced: URL 不在 referencedUrls 集合中
      */
     public IPage<OssResource> pageByReferenceStatus(int pageNum, int pageSize,
                                                      Long uploaderId, String usageType,
@@ -139,8 +180,6 @@ public class OssResourceService {
             }
             wrapper.in(OssResource::getUrl, referencedUrls);
         } else if ("unreferenced".equals(referenceStatus)) {
-            // 排除 avatar 相关类型（avatar 不参与引用检测）
-            wrapper.notLike(OssResource::getUsageType, "avatar");
             if (!referencedUrls.isEmpty()) {
                 wrapper.notIn(OssResource::getUrl, referencedUrls);
             }
@@ -148,6 +187,55 @@ public class OssResourceService {
 
         wrapper.orderByDesc(OssResource::getCreateTime);
         return ossResourceMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+    }
+
+    /**
+     * 查询媒体统计信息
+     */
+    public MediaStatsVO getStats(Long uploaderId) {
+        LambdaQueryWrapper<OssResource> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(OssResource::getUsageType, OssResource::getFileSize);
+        if (uploaderId != null) {
+            wrapper.eq(OssResource::getUploaderId, uploaderId);
+        }
+
+        List<OssResource> resources = ossResourceMapper.selectList(wrapper);
+
+        MediaStatsVO stats = new MediaStatsVO();
+        if (resources == null || resources.isEmpty()) {
+            return stats;
+        }
+
+        Map<String, MediaStatsVO.UsageTypeStat> usageTypeStatMap = new HashMap<>();
+        long totalSize = 0L;
+
+        for (OssResource resource : resources) {
+            long fileSize = resource.getFileSize() == null ? 0L : resource.getFileSize();
+            totalSize += fileSize;
+
+            String usageType = resource.getUsageType();
+            if (usageType == null || usageType.isBlank()) {
+                usageType = "other";
+            }
+
+            MediaStatsVO.UsageTypeStat usageTypeStat = usageTypeStatMap.computeIfAbsent(usageType, key -> {
+                MediaStatsVO.UsageTypeStat created = new MediaStatsVO.UsageTypeStat();
+                created.setUsageType(key);
+                created.setFileCount(0L);
+                created.setTotalSize(0L);
+                return created;
+            });
+            usageTypeStat.setFileCount(usageTypeStat.getFileCount() + 1);
+            usageTypeStat.setTotalSize(usageTypeStat.getTotalSize() + fileSize);
+        }
+
+        List<MediaStatsVO.UsageTypeStat> usageTypeStats = new ArrayList<>(usageTypeStatMap.values());
+        usageTypeStats.sort(Comparator.comparingLong(MediaStatsVO.UsageTypeStat::getTotalSize).reversed());
+
+        stats.setTotalCount(resources.size());
+        stats.setTotalSize(totalSize);
+        stats.setUsageTypeStats(usageTypeStats);
+        return stats;
     }
 
     /**

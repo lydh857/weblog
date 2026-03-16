@@ -1,3 +1,3 @@
 <script setup lang="ts">
-await navigateTo('/profile-review', { replace: true })
+await navigateTo('/user?tab=reviews', { replace: true })
 </script>

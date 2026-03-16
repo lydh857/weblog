@@ -2,7 +2,10 @@
   <BaseModal :visible="modalVisible" :show-close="true" :mask-closable="true" width="420px"
     @update:visible="v => { if (!v) loginModal.close() }" @close="loginModal.close()">
     <template #header>
-      <span class="modal-logo">Weblog</span>
+      <div class="modal-logo">
+        <img src="/brand/logo.png" alt="zhhhkl logo" class="modal-logo-img">
+        <span>zhhhkl</span>
+      </div>
     </template>
 
     <div ref="contentRef" class="login-modal-body">
@@ -944,7 +947,21 @@ watch(() => loginModal.visible.value, (v) => {
 
 <style scoped lang="scss">
 .modal-logo {
-  font-size: 1.5rem; font-weight: 700; color: #3b82f6; flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #3b82f6;
+  flex: 1;
+}
+
+.modal-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
 }
 .login-modal-body {
   padding: 0;

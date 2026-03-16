@@ -2,6 +2,7 @@ package com.blog.infra.oss;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.DeleteObjectsRequest;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.OSSObjectSummary;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.blog.common.exception.BusinessException;
@@ -115,6 +116,62 @@ public class OssService {
         result.put("cdnUrl", ossProperties.getCdnDomain() + "/" + objectKey);
         result.put("expireAt", String.valueOf(expiration.getTime()));
         return result;
+    }
+
+    /**
+     * 校验前端直传对象（扩展名、大小、MIME、魔数）
+     */
+    public VerifiedUploadResult verifyUploadedObject(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "objectKey 不能为空");
+        }
+        if (!objectKey.startsWith("images/")) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "非法对象路径");
+        }
+
+        String ext = getExtension(objectKey).toLowerCase();
+        if (!MAGIC_NUMBERS.containsKey(ext)) {
+            throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件扩展名不允许");
+        }
+
+        ObjectMetadata metadata;
+        try {
+            metadata = ossClient.getObjectMetadata(ossProperties.getBucketName(), objectKey);
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "上传对象不存在或已过期");
+        }
+
+        long contentLength = metadata.getContentLength();
+        if (contentLength <= 0 || contentLength > MAX_SIZE) {
+            throw new BusinessException(ResultCode.FILE_TOO_LARGE, "文件大小超出限制");
+        }
+
+        String contentType = metadata.getContentType();
+        if (contentType != null && !contentType.isBlank()
+                && !contentType.toLowerCase().startsWith("image/")) {
+            throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件 MIME 类型不合法");
+        }
+
+        byte[] header = new byte[8];
+        try (OSSObject object = ossClient.getObject(ossProperties.getBucketName(), objectKey);
+             InputStream in = object.getObjectContent()) {
+            int read = in.read(header);
+            if (read < 4 || !verifyMagicNumber(ext, header)) {
+                throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容与扩展名不匹配");
+            }
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容校验失败");
+        }
+
+        return new VerifiedUploadResult(
+                objectKey,
+                contentLength,
+                contentType,
+                ext,
+                ossProperties.getCdnDomain() + "/" + objectKey
+        );
     }
 
     /**
@@ -287,5 +344,14 @@ public class OssService {
             if (header[i] != expected[i]) return false;
         }
         return true;
+    }
+
+    public record VerifiedUploadResult(
+            String objectKey,
+            long fileSize,
+            String mimeType,
+            String fileType,
+            String url
+    ) {
     }
 }

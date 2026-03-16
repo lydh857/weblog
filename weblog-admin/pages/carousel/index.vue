@@ -14,7 +14,7 @@
       <el-table-column label="#" type="index" width="50" align="center" />
       <el-table-column label="背景图" width="120">
         <template #default="{ row }">
-          <el-image :src="row.imageUrl" fit="cover" class="cover-thumb" :preview-src-list="[row.imageUrl]" preview-teleported />
+          <AppImage :src="row.imageUrl" fit="cover" class="cover-thumb" :preview-src-list="[row.imageUrl]" />
         </template>
       </el-table-column>
       <el-table-column label="标题" prop="title" min-width="160" show-overflow-tooltip />
@@ -98,11 +98,11 @@
         <el-form-item label="背景图" :prop="form.type === 'image' ? 'imageUrl' : undefined">
           <div class="cover-upload-area">
             <div v-if="form.imageUrl" class="cover-preview" @click="openImageCropper">
-              <el-image :src="form.imageUrl" fit="cover" class="cover-img" />
+              <AppImage :src="form.imageUrl" fit="cover" class="cover-img" />
               <div class="cover-overlay">裁剪 / 更换</div>
             </div>
             <div v-else-if="form.type === 'article' && articleDefaults.coverImage" class="cover-preview cover-preview--default" @click="triggerImageUpload">
-              <el-image :src="articleDefaults.coverImage" fit="cover" class="cover-img" />
+              <AppImage :src="articleDefaults.coverImage" fit="cover" class="cover-img" />
               <div class="cover-overlay cover-overlay--default">
                 <span>使用文章封面</span>
                 <span class="cover-overlay-sub">点击可自定义上传</span>

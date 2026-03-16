@@ -32,7 +32,7 @@
         <input v-model="form.title" class="title-input" placeholder="请输入文章标题..." maxlength="200" />
         <div class="editor-wrap">
           <ClientOnly>
-            <MarkdownEditor v-model="form.content" v-model:preview-theme="form.previewTheme" v-model:code-theme="form.codeTheme" :height="editorHeight" @save="handleEditorSave" />
+            <LazyMarkdownEditor v-model="form.content" v-model:preview-theme="form.previewTheme" v-model:code-theme="form.codeTheme" :height="editorHeight" @save="handleEditorSave" />
           </ClientOnly>
         </div>
       </div>
@@ -44,7 +44,7 @@
         <div v-show="!sidebarCollapsed" class="sidebar-scroll">
           <!-- AI 元信息生成（顶部） -->
           <div class="setting-group ai-meta-top">
-            <AiMetaGenerator
+            <LazyAiMetaGenerator
               ref="aiMetaRef"
               :title="form.title"
               :content="form.content"
@@ -102,7 +102,7 @@
             <label class="setting-label">封面图</label>
             <div class="cover-upload-area">
               <div v-if="form.coverImage" class="cover-preview" @click="openCoverCropper">
-                <el-image :src="form.coverImage" fit="cover" class="cover-img" />
+                <AppImage :src="form.coverImage" fit="cover" class="cover-img" />
                 <div class="cover-overlay">裁剪 / 更换</div>
               </div>
               <div v-else class="cover-placeholder" @click="triggerCoverUpload">
@@ -182,7 +182,7 @@
     </el-dialog>
 
     <!-- 封面裁剪弹窗 -->
-    <ImageCropper v-model="showCoverCropper" :image-src="coverCropperSrc" :aspect-ratio="[16, 9]"
+    <LazyImageCropper v-if="showCoverCropper" v-model="showCoverCropper" :image-src="coverCropperSrc" :aspect-ratio="[16, 9]"
       output-type="image/webp" :max-output-width="1200" @crop="handleCoverCropped" />
   </div>
 </template>
@@ -194,7 +194,6 @@ import { postApi, type PostCreateParams } from '~/api/post'
 import { categoryApi, type CategoryVO } from '~/api/category'
 import { tagApi, type TagVO } from '~/api/tag'
 import { uploadApi } from '~/api/upload'
-import ImageCropper from '~/components/ImageCropper.vue'
 
 const route = useRoute()
 const router = useRouter()

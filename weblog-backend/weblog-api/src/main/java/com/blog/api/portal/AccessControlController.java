@@ -42,15 +42,11 @@ public class AccessControlController {
         }
 
         String fingerprint = getFingerprint(request);
-        log.info("检查访问权限：postId={}, fingerprint={}", postId, fingerprint);
-        
+
         boolean allowed = accessControlService.canRead(fingerprint, postId);
         long readCount = accessControlService.getReadCount(fingerprint);
         long limit = accessControlService.getLimit(fingerprint);
         boolean unlocked = accessControlService.isUnlocked(fingerprint);
-
-        log.info("访问控制结果：allowed={}, readCount={}, limit={}, unlocked={}", 
-                 allowed, readCount, limit, unlocked);
 
         return Result.success(Map.of(
                 "allowed", allowed,
@@ -67,11 +63,7 @@ public class AccessControlController {
                                     HttpServletRequest request) {
         if (!StpUtil.isLogin()) {
             String fingerprint = getFingerprint(request);
-            log.info("记录阅读：postId={}, fingerprint={}", postId, fingerprint);
             accessControlService.recordRead(fingerprint, postId);
-            
-            long readCount = accessControlService.getReadCount(fingerprint);
-            log.info("记录后已读数量：{}", readCount);
         }
         return Result.success();
     }

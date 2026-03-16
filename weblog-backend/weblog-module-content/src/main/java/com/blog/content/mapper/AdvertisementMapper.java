@@ -13,6 +13,14 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface AdvertisementMapper extends BaseMapper<Advertisement> {
 
+    /** 查询图片广告内容 URL */
+    @Select("SELECT content FROM t_advertisement WHERE is_deleted = 0 AND type = 'image' AND content IS NOT NULL AND content <> ''")
+    java.util.List<String> selectImageContentUrls();
+
+    /** 查询图片广告 id、title、content（用于引用来源检测） */
+    @Select("SELECT id, title, content FROM t_advertisement WHERE is_deleted = 0 AND type = 'image'")
+    java.util.List<java.util.Map<String, Object>> selectImageAdSummaries();
+
     /** 分页查询已软删除的广告 */
     @Select("<script>" +
             "SELECT * FROM t_advertisement WHERE is_deleted = 1" +

@@ -3,14 +3,17 @@
     <!-- 侧边栏 -->
     <el-aside :width="isCollapsed ? '64px' : '220px'" class="admin-aside">
       <div class="logo" @click="navigateTo('/')">
-        <div class="logo-icon">W</div>
+        <div class="logo-icon">
+          <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-icon-img app-brand-logo">
+        </div>
         <Transition name="fade">
-          <span v-if="!isCollapsed" class="logo-text">Weblog</span>
+          <span v-if="!isCollapsed" class="logo-text">zhhhkl</span>
         </Transition>
       </div>
       <el-menu
         :default-active="activeMenu"
         :collapse="isCollapsed"
+        :collapse-transition="false"
         :background-color="'transparent'"
         :text-color="isDark ? '#8b949e' : '#5a6d82'"
         :active-text-color="isDark ? '#7ba4f2' : '#5b8def'"
@@ -50,10 +53,6 @@
           <el-icon><Picture /></el-icon>
           <template #title>媒体管理</template>
         </el-menu-item>
-        <el-menu-item index="/profile-review">
-          <el-icon><Picture /></el-icon>
-          <template #title>个人信息审核</template>
-        </el-menu-item>
         <el-menu-item index="/friend-link">
           <el-icon><Link /></el-icon>
           <template #title>友链管理</template>
@@ -64,7 +63,17 @@
         </el-menu-item>
         <el-menu-item index="/user">
           <el-icon><User /></el-icon>
-          <template #title>用户管理</template>
+          <template #title>
+            <span class="menu-title-with-badge">
+              用户管理
+              <el-badge
+                v-if="pendingProfileReviewCount > 0"
+                :value="pendingProfileReviewCount > 99 ? '99+' : pendingProfileReviewCount"
+                type="danger"
+                class="menu-review-badge"
+              />
+            </span>
+          </template>
         </el-menu-item>
         <el-menu-item index="/advertisement">
           <el-icon><Promotion /></el-icon>
@@ -143,18 +152,30 @@ import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '~/stores/user'
 import { useDarkMode } from '~/composables/useDarkMode'
 import { authApi } from '~/api/auth'
+import { profileReviewApi } from '~/api/profileReview'
 
 const route = useRoute()
 const userStore = useUserStore()
 const { isDark, toggleDark } = useDarkMode()
 const isCollapsed = ref(false)
+const pendingProfileReviewCount = useState<number>('pendingProfileReviewCount', () => 0)
 
 const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/post/create')) return '/post'
+  if (path.startsWith('/profile-review') || path.startsWith('/avatar-review')) return '/user'
   if (path === '/category' || path === '/tag') return path
   return path
 })
+
+async function loadPendingReviewCount() {
+  try {
+    const res = await profileReviewApi.page({ pageNum: 1, pageSize: 1 })
+    pendingProfileReviewCount.value = res.data.total
+  } catch {
+    pendingProfileReviewCount.value = 0
+  }
+}
 
 async function handleCommand(command: string) {
   if (command === 'portal') {
@@ -173,6 +194,16 @@ async function handleCommand(command: string) {
     navigateTo('/login')
   }
 }
+
+watch(() => route.path, (path) => {
+  if (path.startsWith('/user')) {
+    loadPendingReviewCount()
+  }
+})
+
+onMounted(() => {
+  loadPendingReviewCount()
+})
 </script>
 
 <style scoped lang="scss">
@@ -209,14 +240,18 @@ async function handleCommand(command: string) {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #5b8def, #4a7de0);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.logo-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .logo-text {
@@ -225,6 +260,18 @@ async function handleCommand(command: string) {
   color: var(--el-text-color-primary);
   white-space: nowrap;
   transition: color 0.3s ease;
+}
+
+.menu-title-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-review-badge {
+  :deep(.el-badge__content) {
+    transform: scale(0.92);
+  }
 }
 
 .fade-enter-active,
@@ -275,6 +322,11 @@ async function handleCommand(command: string) {
 :deep(.el-menu--collapse .el-sub-menu__title) {
   padding: 0 !important;
   justify-content: center;
+}
+
+:deep(.el-menu--collapse .el-menu-item .el-icon),
+:deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
+  margin-right: 0 !important;
 }
 
 // 子菜单缩进

@@ -49,9 +49,7 @@ public class FavoriteService {
             RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_COLLECT + postId);
             redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, postIdStr);
 
-            userFavoriteMapper.delete(new LambdaQueryWrapper<UserFavorite>()
-                    .eq(UserFavorite::getUserId, userId)
-                    .eq(UserFavorite::getPostId, postId));
+            userFavoriteMapper.softDeleteByUnique(userId, postId);
 
             log.debug("取消收藏: userId={}, postId={}", userId, postId);
             return false;
@@ -61,15 +59,7 @@ public class FavoriteService {
             redisTemplate.opsForValue().increment(KEY_POST_COLLECT + postId);
             redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, postIdStr);
 
-            UserFavorite existing = userFavoriteMapper.selectIncludeDeleted(userId, postId);
-            if (existing != null) {
-                userFavoriteMapper.restoreById(existing.getId());
-            } else {
-                UserFavorite fav = new UserFavorite();
-                fav.setUserId(userId);
-                fav.setPostId(postId);
-                userFavoriteMapper.insert(fav);
-            }
+            userFavoriteMapper.upsertActive(userId, postId);
 
             log.debug("收藏: userId={}, postId={}", userId, postId);
             return true;

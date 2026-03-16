@@ -40,6 +40,9 @@ public class RefererFilter implements Filter {
     public void initAllowedOrigins() {
         if (!StringUtils.hasText(allowedOrigins)) {
             originSet = Set.of();
+            if (refererEnabled) {
+                throw new IllegalStateException("Referer 校验已开启，但 blog.security.allowed-origins 为空");
+            }
             return;
         }
         Set<String> normalized = new LinkedHashSet<>();
@@ -87,9 +90,9 @@ public class RefererFilter implements Filter {
     }
 
     private boolean isAllowedOrigin(String referer, String origin) {
-        // 如果没有配置允许的来源，跳过验证
+        // 允许来源为空时，按 fail-closed 处理
         if (originSet.isEmpty()) {
-            return true;
+            return false;
         }
 
         String normalizedOrigin = normalizeOrigin(origin);

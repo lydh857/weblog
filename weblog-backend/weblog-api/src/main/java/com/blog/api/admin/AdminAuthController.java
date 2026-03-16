@@ -1,7 +1,9 @@
 package com.blog.api.admin;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
+import com.blog.infra.captcha.service.CaptchaService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.LoginRequest;
@@ -17,6 +19,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -36,6 +39,7 @@ public class AdminAuthController {
     private final AuthService authService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
+    private final CaptchaService captchaService;
     private static final String ADMIN_REMEMBER_COOKIE = "Admin-Remember-Token";
     private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
 
@@ -44,10 +48,12 @@ public class AdminAuthController {
     @RateLimit(key = "admin-login", capacity = 5, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "LOGIN", description = "管理员登录")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
+                                       @RequestHeader(value = "X-Captcha-Token") String verifyToken,
                                        HttpServletRequest request,
                                        HttpServletResponse response) {
-        String clientIp = getClientIp(request);
+        String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         LoginResponse loginResponse = authService.adminLogin(req, clientIp, userAgent);
 
         syncRememberCookie(response, request, loginResponse.getRememberToken(), req.isRememberMe());
@@ -86,7 +92,7 @@ public class AdminAuthController {
             throw new com.blog.common.exception.BusinessException(
                     com.blog.common.result.ResultCode.PARAM_MISSING, "token 不能为空");
         }
-        String clientIp = getClientIp(request);
+        String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         
         com.blog.system.dto.LoginVO vo = rememberTokenService.autoLogin(token, userAgent, clientIp);
@@ -121,8 +127,8 @@ public class AdminAuthController {
     @Operation(summary = "撤销 Remember Token", description = "使指定 Token 失效（用于用户手动撤销设备）")
     @PostMapping("/revoke-token")
     @AuditLog(module = "管理端认证", operation = "REVOKE_TOKEN", description = "撤销 Remember Token")
-    public Result<Void> revokeToken(@RequestParam String token) {
-        rememberTokenService.invalidateToken(token);
+    public Result<Void> revokeToken(@Valid @RequestBody RevokeTokenRequest request) {
+        rememberTokenService.invalidateToken(request.token());
         return Result.success();
     }
 
@@ -144,20 +150,6 @@ public class AdminAuthController {
             @RequestParam(required = false) String loginType,
             @RequestParam(required = false) String result) {
         return Result.success(loginLogService.getAllLoginLogs(pageNum, pageSize, email, loginType, result));
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip;
     }
 
     private void syncRememberCookie(HttpServletResponse response,
@@ -216,4 +208,6 @@ public class AdminAuthController {
         String proto = request.getHeader("X-Forwarded-Proto");
         return proto != null && "https".equalsIgnoreCase(proto);
     }
+
+    public record RevokeTokenRequest(@NotBlank(message = "token 不能为空") String token) {}
 }

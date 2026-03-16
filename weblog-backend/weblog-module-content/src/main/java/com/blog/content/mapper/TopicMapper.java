@@ -15,6 +15,14 @@ import java.util.Map;
 @Mapper
 public interface TopicMapper extends BaseMapper<Topic> {
 
+    /** 查询所有已发布专题封面 URL */
+    @Select("SELECT cover FROM t_topic WHERE is_deleted = 0 AND is_publish = 1 AND cover IS NOT NULL AND cover <> ''")
+    java.util.List<String> selectPublishedCoverUrls();
+
+    /** 查询所有已发布专题 id、title、cover（用于引用来源检测） */
+    @Select("SELECT id, title, cover FROM t_topic WHERE is_deleted = 0 AND is_publish = 1")
+    java.util.List<java.util.Map<String, Object>> selectPublishedTopicSummaries();
+
     /**
      * 分页查询专题列表，通过 LEFT JOIN 统计每个专题关联的文章数
      */

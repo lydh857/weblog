@@ -11,11 +11,14 @@ import com.blog.infra.oss.OssService;
 import com.blog.infra.security.audit.AuditLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -100,14 +103,94 @@ public class AdminUploadController {
         }
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        Map<String, String> policy = ossService.generateUploadPolicy(ext);
+        String normalizedExt = normalizeExt(ext);
+        String normalizedUsageType = normalizeUsageType(usageType);
+        Map<String, String> policy = ossService.generateUploadPolicy(normalizedExt);
 
         if (ossResourceService != null) {
             ossResourceService.record(
                     null, policy.get("objectKey"), null,
-                    ext, null, policy.get("cdnUrl"), userId, usageType);
+                    normalizedExt, null, policy.get("cdnUrl"), userId, normalizedUsageType);
         }
 
         return Result.success(policy);
     }
+
+    @Operation(summary = "校验直传文件并回填元信息")
+    @PostMapping("/sign/verify")
+    public Result<Map<String, Object>> verifySignedUpload(@Valid @RequestBody VerifyUploadRequest request) {
+        if (ossService == null) {
+            throw new BusinessException(ResultCode.FAIL, "直传校验仅在 OSS 模式下可用");
+        }
+        StpUtil.checkLogin();
+        Long userId = StpUtil.getLoginIdAsLong();
+        String objectKey = request.objectKey().trim();
+
+        try {
+            OssService.VerifiedUploadResult verified = ossService.verifyUploadedObject(objectKey);
+            if (ossResourceService != null) {
+                ossResourceService.updateUploadedMetadata(
+                        verified.objectKey(),
+                        userId,
+                        verified.fileSize(),
+                        verified.fileType(),
+                        verified.mimeType(),
+                        verified.url());
+            }
+            return Result.success(Map.of(
+                    "objectKey", verified.objectKey(),
+                    "url", verified.url(),
+                    "fileSize", verified.fileSize(),
+                    "mimeType", verified.mimeType() == null ? "" : verified.mimeType(),
+                    "fileType", verified.fileType()
+            ));
+        } catch (BusinessException ex) {
+            cleanupInvalidUpload(objectKey, userId);
+            throw ex;
+        }
+    }
+
+    private void cleanupInvalidUpload(String objectKey, Long userId) {
+        try {
+            if (ossService != null) {
+                ossService.delete(objectKey);
+            }
+        } catch (Exception ignore) {
+            // ignore
+        }
+        if (ossResourceService != null) {
+            ossResourceService.markDeletedByFilePath(objectKey, userId);
+        }
+    }
+
+    private String normalizeExt(String ext) {
+        if (ext == null) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "ext 不能为空");
+        }
+        String normalized = ext.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        normalized = normalized.replaceAll("[^a-z0-9]", "");
+        if (normalized.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "ext 格式非法");
+        }
+        return normalized;
+    }
+
+    private String normalizeUsageType(String usageType) {
+        if (usageType == null || usageType.isBlank()) {
+            return "other";
+        }
+        String normalized = usageType.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
+        if (normalized.isBlank()) {
+            return "other";
+        }
+        return switch (normalized) {
+            case "post", "avatar", "ad", "other", "content", "cover", "carousel", "ad_apply" -> normalized;
+            default -> "other";
+        };
+    }
+
+    public record VerifyUploadRequest(@NotBlank(message = "objectKey 不能为空") String objectKey) {}
 }

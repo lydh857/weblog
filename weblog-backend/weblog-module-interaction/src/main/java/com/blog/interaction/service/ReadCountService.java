@@ -1,8 +1,6 @@
 package com.blog.interaction.service;
 
 import cn.hutool.crypto.digest.DigestUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.blog.interaction.entity.UserViewLog;
 import com.blog.interaction.mapper.UserViewLogMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -115,24 +113,6 @@ public class ReadCountService {
 
     private void saveViewLog(String deviceHash, Long userId, Long postId, String ipAddress) {
         LocalDate today = LocalDate.now();
-        // 查询今天是否已有记录
-        LambdaQueryWrapper<UserViewLog> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserViewLog::getDeviceHash, deviceHash)
-                .eq(UserViewLog::getViewDate, today);
-        UserViewLog existing = userViewLogMapper.selectOne(wrapper);
-
-        if (existing != null) {
-            existing.setViewCount(existing.getViewCount() + 1);
-            userViewLogMapper.updateById(existing);
-        } else {
-            UserViewLog viewLog = new UserViewLog();
-            viewLog.setDeviceHash(deviceHash);
-            viewLog.setUserId(userId);
-            viewLog.setPostId(postId);
-            viewLog.setViewDate(today);
-            viewLog.setViewCount(1);
-            viewLog.setIpAddress(ipAddress);
-            userViewLogMapper.insert(viewLog);
-        }
+        userViewLogMapper.upsertDailyView(deviceHash, userId, postId, today, ipAddress);
     }
 }

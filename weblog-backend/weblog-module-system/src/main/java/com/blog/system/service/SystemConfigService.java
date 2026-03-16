@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -23,6 +24,8 @@ import java.util.stream.Collectors;
 public class SystemConfigService {
 
     private final SystemConfigMapper configMapper;
+    private final Map<String, ConfigCacheEntry> valueCache = new ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MILLIS = 30_000L;
 
     /**
      * 查询所有配置
@@ -36,9 +39,17 @@ public class SystemConfigService {
      * 根据 key 获取配置值
      */
     public String getValue(String key) {
+        ConfigCacheEntry cached = valueCache.get(key);
+        long now = System.currentTimeMillis();
+        if (cached != null && now - cached.cachedAt <= CACHE_TTL_MILLIS) {
+            return cached.value;
+        }
+
         SystemConfig config = configMapper.selectOne(
                 new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, key));
-        return config != null ? config.getConfigValue() : null;
+        String value = config != null ? config.getConfigValue() : null;
+        valueCache.put(key, new ConfigCacheEntry(value, now));
+        return value;
     }
 
     /**
@@ -69,6 +80,7 @@ public class SystemConfigService {
             }
             existing.setConfigValue(entry.getValue());
             configMapper.updateById(existing);
+            valueCache.remove(entry.getKey());
         }
         log.info("系统配置批量更新: keys={}", configs.keySet());
     }
@@ -95,6 +107,10 @@ public class SystemConfigService {
             config.setDescription(description);
             configMapper.insert(config);
             log.info("系统配置创建: key={}, value={}", key, value);
+            valueCache.remove(key);
         }
+    }
+
+    private record ConfigCacheEntry(String value, long cachedAt) {
     }
 }

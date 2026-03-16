@@ -9,6 +9,8 @@ LOG_FILE="/var/log/weblog/deploy.log"
 HEALTH_URL="http://localhost:9091/actuator/health"
 HEALTH_TIMEOUT=60
 COMPOSE_FILE="docker-compose.prod.yml"
+MAIN_REMOTE="github"
+MAIN_BRANCH="master"
 
 # ===== 颜色输出 =====
 RED='\033[0;31m'
@@ -46,8 +48,65 @@ backup() {
 pull_code() {
     log "拉取最新代码..."
     cd "$DEPLOY_DIR"
-    git pull gitee master
+
+    if ! git remote get-url "$MAIN_REMOTE" >/dev/null 2>&1; then
+        error "未找到主线远程: $MAIN_REMOTE"
+        return 1
+    fi
+
+    git fetch "$MAIN_REMOTE" "$MAIN_BRANCH"
+    git pull --ff-only "$MAIN_REMOTE" "$MAIN_BRANCH"
     log "代码更新完成"
+}
+
+wait_mysql_healthy() {
+    log "等待 MySQL 健康检查通过..."
+    local elapsed=0
+    local interval=5
+    local timeout=120
+
+    while [ $elapsed -lt $timeout ]; do
+        local status
+        status=$(docker inspect -f '{{.State.Health.Status}}' weblog-mysql 2>/dev/null || echo "starting")
+        if [ "$status" = "healthy" ]; then
+            log "MySQL 已就绪 (${elapsed}s)"
+            return 0
+        fi
+
+        sleep $interval
+        elapsed=$((elapsed + interval))
+    done
+
+    error "MySQL 健康检查超时"
+    return 1
+}
+
+run_migrations() {
+    log "执行数据库迁移脚本..."
+    cd "$DEPLOY_DIR"
+
+    local migration_dir="deploy/mysql"
+    if [ ! -d "$migration_dir" ]; then
+        warn "迁移目录不存在，跳过迁移"
+        return 0
+    fi
+
+    shopt -s nullglob
+    local sql_files=("$migration_dir"/*.sql)
+    shopt -u nullglob
+
+    if [ ${#sql_files[@]} -eq 0 ]; then
+        log "未发现迁移脚本，跳过迁移"
+        return 0
+    fi
+
+    for sql_file in "${sql_files[@]}"; do
+        log "执行迁移: $sql_file"
+        docker compose -f "$COMPOSE_FILE" exec -T mysql \
+            sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" weblog' < "$sql_file"
+    done
+
+    log "数据库迁移完成"
 }
 
 # ===== Step 3: 构建并部署 =====
@@ -58,9 +117,16 @@ deploy() {
     # 构建镜像
     docker compose -f "$COMPOSE_FILE" build --no-cache
 
-    # 停止旧容器并启动新容器
+    # 停止旧容器
     docker compose -f "$COMPOSE_FILE" down
-    docker compose -f "$COMPOSE_FILE" up -d
+
+    # 先启动基础设施并执行迁移
+    docker compose -f "$COMPOSE_FILE" up -d mysql redis
+    wait_mysql_healthy
+    run_migrations
+
+    # 再启动应用服务
+    docker compose -f "$COMPOSE_FILE" up -d weblog-api weblog-user weblog-admin-build nginx
 
     log "容器启动完成"
 }
