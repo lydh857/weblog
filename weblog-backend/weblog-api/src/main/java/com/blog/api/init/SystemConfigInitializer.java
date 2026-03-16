@@ -2,20 +2,24 @@ package com.blog.api.init;
 
 import com.blog.system.service.SystemConfigService;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
  * 系统配置初始化 - 确保必要的配置项存在
  */
 @Component
-@RequiredArgsConstructor
 public class SystemConfigInitializer {
 
     private final SystemConfigService systemConfigService;
 
+    public SystemConfigInitializer(SystemConfigService systemConfigService) {
+        this.systemConfigService = systemConfigService;
+    }
+
     @PostConstruct
     public void init() {
+        systemConfigService.createIfAbsent("site_name", "Weblog", "站点名称");
+        systemConfigService.createIfAbsent("site_description", "记录经验、分享洞察、连接有价值的内容。", "站点描述");
         systemConfigService.createIfAbsent("comment_audit_enabled", "true", "评论审核开关（true=开启审核）");
         systemConfigService.createIfAbsent("ad_apply_enabled", "false", "广告申请入口开关（true=开放申请）");
         systemConfigService.createIfAbsent(

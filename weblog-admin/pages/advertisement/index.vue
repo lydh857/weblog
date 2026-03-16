@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <el-tabs v-model="contentTab" class="content-tabs">
+    <el-tabs v-model="contentTab" class="content-tabs compact-tabs">
       <el-tab-pane label="广告列表" name="list" />
       <el-tab-pane label="坑位顺序" name="pitOrder" />
       <el-tab-pane label="时效价格规则" name="rules" />
@@ -62,7 +62,7 @@
         <el-button size="small" :loading="pitOrderLoading" @click="loadPitOrderMeta">刷新</el-button>
       </div>
 
-      <el-tabs v-model="pitOrderActiveTab" class="pit-order-tabs">
+      <el-tabs v-model="pitOrderActiveTab" class="pit-order-tabs compact-tabs">
         <el-tab-pane
           v-for="position in rulePositionOptions"
           :key="`pit-order-${position.value}`"
@@ -124,7 +124,7 @@
         </div>
       </div>
 
-      <el-tabs v-model="ruleActiveTab" class="price-rule-tabs">
+      <el-tabs v-model="ruleActiveTab" class="price-rule-tabs compact-tabs">
         <el-tab-pane
           v-for="position in rulePositionOptions"
           :key="position.value"
@@ -575,6 +575,7 @@ import { postApi } from '~/api/post'
 import { uploadApi } from '~/api/upload'
 import ImageCropper from '~/components/ImageCropper.vue'
 
+const route = useRoute()
 const loading = ref(false)
 const records = ref<AdvertisementVO[]>([])
 const total = ref(0)
@@ -682,6 +683,7 @@ const positionOrderMap: Record<string, number> = {
 }
 
 const supportedPitPositions = new Set(['home_left', 'post_top', 'post_bottom', 'post_list_card'])
+const supportedFilterStatus = new Set(['pending', 'active', 'rejected', 'expired'])
 
 const filteredPriceRules = computed(() => {
   return priceRules.value
@@ -1809,7 +1811,26 @@ async function handleClearTrash() {
   } catch (e: unknown) { ElMessage.error((e as Error).message || '操作失败') }
 }
 
-onMounted(() => { loadData(); loadApplySwitch(); loadPriceRules() })
+function applyRouteQueryFilters() {
+  const queryStatus = Array.isArray(route.query.status) ? route.query.status[0] : route.query.status
+  const queryPosition = Array.isArray(route.query.position) ? route.query.position[0] : route.query.position
+  const queryTab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab
+
+  filterStatus.value = typeof queryStatus === 'string' && supportedFilterStatus.has(queryStatus)
+    ? queryStatus
+    : ''
+  filterPosition.value = typeof queryPosition === 'string' && supportedPitPositions.has(queryPosition)
+    ? queryPosition
+    : ''
+  contentTab.value = queryTab === 'pitOrder' || queryTab === 'rules' ? queryTab : 'list'
+}
+
+onMounted(() => {
+  applyRouteQueryFilters()
+  loadData()
+  loadApplySwitch()
+  loadPriceRules()
+})
 </script>
 
 <style scoped lang="scss">
@@ -1845,12 +1866,6 @@ onMounted(() => { loadData(); loadApplySwitch(); loadPriceRules() })
       margin: 4px 0 0;
       font-size: 12px;
       color: var(--el-text-color-secondary);
-    }
-  }
-
-  .pit-order-tabs {
-    :deep(.el-tabs__header) {
-      margin-bottom: 10px;
     }
   }
 
@@ -1975,12 +1990,6 @@ onMounted(() => { loadData(); loadApplySwitch(); loadPriceRules() })
     flex-wrap: wrap;
     flex-shrink: 0;
     justify-content: flex-end;
-  }
-
-  .price-rule-tabs {
-    :deep(.el-tabs__header) {
-      margin-bottom: 10px;
-    }
   }
 
   .price-rule-tab-label {

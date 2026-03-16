@@ -127,23 +127,26 @@ public class TokenMeterService {
     vo.setMonth(month);
 
     YearMonth ym = YearMonth.parse(month, MONTH_FMT);
-    LocalDateTime start = ym.atDay(1).atStartOfDay();
-    LocalDateTime end = ym.atEndOfMonth().atTime(23, 59, 59);
+    LocalDate monthStart = ym.atDay(1);
+    LocalDate monthEnd = ym.atEndOfMonth();
+    LocalDateTime start = monthStart.atStartOfDay();
+    LocalDateTime end = monthEnd.atTime(23, 59, 59);
 
-    // SQL 聚合查询，按 feature 分组
+    // SQL 聚合：月度总览
+    Map<String, Object> summary = tokenLogMapper.selectMonthlyUsageSummary(start, end);
+    long totalInput = toLong(summary.get("totalInput"));
+    long totalOutput = toLong(summary.get("totalOutput"));
+    long totalRequests = toLong(summary.get("totalRequests"));
+    long totalTokens = totalInput + totalOutput;
+
+    // SQL 聚合：按 feature 分组
     List<Map<String, Object>> rows = tokenLogMapper.selectMonthlyUsageGroupByFeature(start, end);
-
-    long totalInput = 0;
-    long totalOutput = 0;
     Map<String, TokenUsageVO.FeatureUsage> breakdown = new HashMap<>();
 
     for (Map<String, Object> row : rows) {
       String feature = (String) row.get("feature");
-      long input = row.get("totalInput") != null ? ((Number) row.get("totalInput")).longValue() : 0;
-      long output = row.get("totalOutput") != null ? ((Number) row.get("totalOutput")).longValue() : 0;
-
-      totalInput += input;
-      totalOutput += output;
+      long input = toLong(row.get("totalInput"));
+      long output = toLong(row.get("totalOutput"));
 
       TokenUsageVO.FeatureUsage fu = new TokenUsageVO.FeatureUsage();
       fu.setInputTokens(input);
@@ -151,10 +154,102 @@ public class TokenMeterService {
       breakdown.put(feature, fu);
     }
 
+    // SQL 聚合：按天趋势
+    List<Map<String, Object>> dailyRows = tokenLogMapper.selectDailyUsage(start, end);
+    Map<LocalDate, TokenUsageVO.DailyUsage> dailyUsageMap = new HashMap<>();
+    for (Map<String, Object> row : dailyRows) {
+      LocalDate usageDate = toLocalDate(row.get("usageDate"));
+      if (usageDate == null) {
+        continue;
+      }
+      long input = toLong(row.get("totalInput"));
+      long output = toLong(row.get("totalOutput"));
+      long requests = toLong(row.get("requestCount"));
+
+      TokenUsageVO.DailyUsage daily = new TokenUsageVO.DailyUsage();
+      daily.setDate(usageDate.toString());
+      daily.setInputTokens(input);
+      daily.setOutputTokens(output);
+      daily.setTotalTokens(input + output);
+      daily.setRequests(requests);
+      dailyUsageMap.put(usageDate, daily);
+    }
+
+    LocalDate today = LocalDate.now();
+    LocalDate trendEnd = month.equals(today.format(MONTH_FMT)) ? today : monthEnd;
+    List<TokenUsageVO.DailyUsage> dailyTrend = new ArrayList<>();
+    for (LocalDate date = monthStart; !date.isAfter(trendEnd); date = date.plusDays(1)) {
+      TokenUsageVO.DailyUsage daily = dailyUsageMap.get(date);
+      if (daily == null) {
+        daily = new TokenUsageVO.DailyUsage();
+        daily.setDate(date.toString());
+        daily.setInputTokens(0);
+        daily.setOutputTokens(0);
+        daily.setTotalTokens(0);
+        daily.setRequests(0);
+      }
+      dailyTrend.add(daily);
+    }
+
+    long todayInput = 0;
+    long todayOutput = 0;
+    long todayRequests = 0;
+    if (month.equals(today.format(MONTH_FMT))) {
+      TokenUsageVO.DailyUsage todayUsage = dailyUsageMap.get(today);
+      if (todayUsage != null) {
+        todayInput = todayUsage.getInputTokens();
+        todayOutput = todayUsage.getOutputTokens();
+        todayRequests = todayUsage.getRequests();
+      }
+    }
+
+    long monthlyLimit = getAiConfigService().getMonthlyTokenLimit();
+    double limitUsagePercent = monthlyLimit > 0 ? (totalTokens * 100.0 / monthlyLimit) : 0D;
+
     vo.setTotalInput(totalInput);
     vo.setTotalOutput(totalOutput);
+    vo.setTotalTokens(totalTokens);
+    vo.setTotalRequests(totalRequests);
+    vo.setTodayInput(todayInput);
+    vo.setTodayOutput(todayOutput);
+    vo.setTodayTokens(todayInput + todayOutput);
+    vo.setTodayRequests(todayRequests);
+    vo.setMonthlyLimit(monthlyLimit);
+    vo.setLimitUsagePercent(limitUsagePercent);
+    vo.setDailyTrend(dailyTrend);
     vo.setFeatureBreakdown(breakdown);
     return vo;
+  }
+
+  private long toLong(Object value) {
+    if (value instanceof Number number) {
+      return number.longValue();
+    }
+    if (value == null) {
+      return 0L;
+    }
+    try {
+      return Long.parseLong(value.toString());
+    } catch (NumberFormatException e) {
+      return 0L;
+    }
+  }
+
+  private LocalDate toLocalDate(Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof LocalDate localDate) {
+      return localDate;
+    }
+    if (value instanceof java.sql.Date sqlDate) {
+      return sqlDate.toLocalDate();
+    }
+    try {
+      return LocalDate.parse(value.toString());
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   /**

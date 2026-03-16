@@ -1,9 +1,6 @@
 <template>
   <div class="category-posts-page">
-    <div v-if="loading" class="loading-state">
-      <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-      <span>加载中...</span>
-    </div>
+    <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else>
       <header class="page-header">
@@ -249,8 +246,5 @@ function formatDate(dateStr: string) {
 }
 .page-info { font-size: 0.85rem; color: $color-text-muted; }
 
-.loading-state { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 3rem; color: $color-text-muted; }
 .empty-state { text-align: center; padding: 3rem; color: #94a3b8; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>

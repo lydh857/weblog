@@ -12,9 +12,7 @@
       <p class="edit-subtitle">完善你的公开资料和账号安全设置</p>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-    </div>
+    <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <section
       v-if="!loading && profileData?.profileReviewStatus"
@@ -818,12 +816,6 @@ onUnmounted(() => {
 .btn-sm {
   min-height: 36px;
   padding: 0.35rem 0.7rem;
-}
-
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 3rem;
 }
 
 .spin { animation: spin 1s linear infinite; }

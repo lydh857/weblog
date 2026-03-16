@@ -21,10 +21,7 @@
         </button>
       </div>
 
-      <div v-if="loading && !items.length" class="state state--loading">
-        <Icon name="heroicons:arrow-path-20-solid" size="22" class="spin" />
-        <span>加载中...</span>
-      </div>
+      <UnifiedPageLoader v-if="loading && !items.length" text="加载中..." />
 
       <div v-else-if="!items.length" class="state state--empty">
         <Icon name="heroicons:chart-bar-square-20-solid" size="28" />

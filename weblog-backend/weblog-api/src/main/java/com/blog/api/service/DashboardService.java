@@ -3,9 +3,11 @@ package com.blog.api.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.blog.content.entity.Advertisement;
 import com.blog.content.entity.Category;
+import com.blog.content.entity.FriendLink;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.AdvertisementMapper;
 import com.blog.content.mapper.CategoryMapper;
+import com.blog.content.mapper.FriendLinkMapper;
 import com.blog.content.mapper.PostMapper;
 import com.blog.interaction.entity.Comment;
 import com.blog.interaction.entity.UserViewLog;
@@ -13,7 +15,9 @@ import com.blog.interaction.mapper.CommentMapper;
 import com.blog.interaction.mapper.PostRankingMapper;
 import com.blog.interaction.mapper.UserViewLogMapper;
 import com.blog.system.entity.User;
+import com.blog.system.entity.UserProfileReview;
 import com.blog.system.mapper.UserMapper;
+import com.blog.system.mapper.UserProfileReviewMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
@@ -48,6 +52,8 @@ public class DashboardService {
   private final PostRankingMapper postRankingMapper;
   private final UserViewLogMapper userViewLogMapper;
   private final UserMapper userMapper;
+  private final UserProfileReviewMapper userProfileReviewMapper;
+  private final FriendLinkMapper friendLinkMapper;
   private final JdbcTemplate jdbcTemplate;
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
@@ -291,11 +297,19 @@ public class DashboardService {
     // 待审核广告数
     long pendingAds = advertisementMapper.selectCount(
         Wrappers.<Advertisement>lambdaQuery().eq(Advertisement::getStatus, "pending"));
+    // 待审核个人信息
+    long pendingProfileReviews = userProfileReviewMapper.selectCount(
+        Wrappers.<UserProfileReview>lambdaQuery().eq(UserProfileReview::getStatus, "pending"));
+    // 待审核友链
+    long pendingFriendLinks = friendLinkMapper.selectCount(
+        Wrappers.<FriendLink>lambdaQuery().eq(FriendLink::getStatus, "pending"));
 
     PendingVO vo = new PendingVO();
     vo.setDraftPosts(draftPosts);
     vo.setPendingComments(pendingComments);
     vo.setPendingAds(pendingAds);
+    vo.setPendingProfileReviews(pendingProfileReviews);
+    vo.setPendingFriendLinks(pendingFriendLinks);
     putToCache("pending", vo);
     return vo;
   }
@@ -482,6 +496,8 @@ public class DashboardService {
     private long draftPosts;
     private long pendingComments;
     private long pendingAds;
+    private long pendingProfileReviews;
+    private long pendingFriendLinks;
   }
 
   @Data

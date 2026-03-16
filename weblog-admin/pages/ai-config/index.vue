@@ -4,7 +4,7 @@
       <h2>AI 配置</h2>
     </div>
 
-    <el-tabs v-model="activeTab" class="config-tabs">
+    <el-tabs v-model="activeTab" class="config-tabs compact-tabs">
       <!-- Tab 1: 基础配置 -->
       <el-tab-pane label="基础配置" name="config">
         <div v-loading="configLoading" class="config-grid">
@@ -459,8 +459,5 @@ onMounted(() => {
 }
 :deep(.el-form-item) {
   margin-bottom: 12px;
-}
-:deep(.el-tabs__header) {
-  margin-bottom: 16px;
 }
 </style>

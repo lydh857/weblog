@@ -31,6 +31,35 @@ public interface AiTokenLogMapper extends BaseMapper<AiTokenLog> {
     @Param("end") LocalDateTime end);
 
   /**
+   * 查询月度总览（输入/输出/请求数）
+   */
+  @Select("SELECT " +
+    "COALESCE(SUM(input_tokens), 0) AS totalInput, " +
+    "COALESCE(SUM(output_tokens), 0) AS totalOutput, " +
+    "COUNT(*) AS totalRequests " +
+    "FROM t_ai_token_log " +
+    "WHERE create_time BETWEEN #{start} AND #{end}")
+  Map<String, Object> selectMonthlyUsageSummary(
+    @Param("start") LocalDateTime start,
+    @Param("end") LocalDateTime end);
+
+  /**
+   * 查询月内按天聚合用量
+   */
+  @Select("SELECT " +
+    "DATE(create_time) AS usageDate, " +
+    "COALESCE(SUM(input_tokens), 0) AS totalInput, " +
+    "COALESCE(SUM(output_tokens), 0) AS totalOutput, " +
+    "COUNT(*) AS requestCount " +
+    "FROM t_ai_token_log " +
+    "WHERE create_time BETWEEN #{start} AND #{end} " +
+    "GROUP BY DATE(create_time) " +
+    "ORDER BY usageDate ASC")
+  List<Map<String, Object>> selectDailyUsage(
+    @Param("start") LocalDateTime start,
+    @Param("end") LocalDateTime end);
+
+  /**
    * 删除指定日期之前的历史日志（用于定期清理）
    */
   @org.apache.ibatis.annotations.Delete("DELETE FROM t_ai_token_log WHERE create_time < #{before}")

@@ -1,27 +1,105 @@
 @use 'variables' as *;
 @use 'common';
 
-// ===== Element Plus 主题色覆盖（柔和蓝） =====
+// ===== Element Plus + 管理端统一主题变量 =====
 :root {
+  --admin-primary: #{$color-primary};
+  --admin-primary-soft: #eaf1fd;
+  --admin-primary-soft-hover: #dce8fc;
+  --admin-surface-0: #{$color-bg-light};
+  --admin-surface-1: #{$color-bg-secondary-light};
+  --admin-surface-2: #{$color-bg-tertiary-light};
+  --admin-border-1: #{$color-border-light};
+  --admin-border-2: #{$color-border-strong-light};
+
   --el-color-primary: #{$color-primary};
   --el-color-primary-light-3: #7ba4f2;
   --el-color-primary-light-5: #9dbcf5;
   --el-color-primary-light-7: #bdd3f8;
   --el-color-primary-light-8: #d4e3fa;
   --el-color-primary-light-9: #eaf1fd;
-  --el-color-primary-dark-2: #4a7de0;
-  --el-border-radius-base: 8px;
-  --el-border-radius-small: 6px;
+  --el-color-primary-dark-2: #{$color-primary-hover};
+
+  --el-color-success: #{$color-success};
+  --el-color-warning: #{$color-warning};
+  --el-color-danger: #{$color-danger};
+  --el-color-info: #{$color-info};
+
+  --el-text-color-primary: #{$color-text-light};
+  --el-text-color-regular: #31465f;
+  --el-text-color-secondary: #647d98;
+  --el-text-color-placeholder: #8fa1b6;
+  --el-text-color-disabled: #a5b3c5;
+
+  --el-bg-color-page: var(--admin-surface-0);
+  --el-bg-color: var(--admin-surface-1);
+  --el-bg-color-overlay: var(--admin-surface-1);
+
+  --el-fill-color-blank: var(--admin-surface-0);
+  --el-fill-color-extra-light: var(--admin-surface-2);
+  --el-fill-color-light: #e4edf9;
+  --el-fill-color: #d8e5f7;
+  --el-fill-color-dark: #c8d9f1;
+
+  --el-border-color-extra-light: #e8eff9;
+  --el-border-color-light: var(--admin-border-1);
+  --el-border-color: var(--admin-border-1);
+  --el-border-color-lighter: var(--admin-border-1);
+  --el-border-color-dark: var(--admin-border-2);
+
+  --el-mask-color: rgba(15, 23, 42, 0.35);
+  --el-box-shadow-light: none;
+  --el-box-shadow: none;
+  --el-border-radius-base: #{$radius-base};
+  --el-border-radius-small: #{$radius-small};
 }
 
 html.dark {
-  --el-color-primary: #7ba4f2;
-  --el-color-primary-light-3: #5b8def;
-  --el-color-primary-light-5: #4a7de0;
-  --el-color-primary-light-7: #2d5ab8;
-  --el-color-primary-light-8: #1e3f7a;
-  --el-color-primary-light-9: #152a52;
-  --el-color-primary-dark-2: #9dbcf5;
+  --admin-primary: #5b8def;
+  --admin-primary-soft: rgba(91, 141, 239, 0.2);
+  --admin-primary-soft-hover: rgba(91, 141, 239, 0.28);
+  --admin-surface-0: #{$color-bg-dark};
+  --admin-surface-1: #{$color-bg-secondary-dark};
+  --admin-surface-2: #{$color-bg-tertiary-dark};
+  --admin-border-1: #{$color-border-dark};
+  --admin-border-2: #{$color-border-strong-dark};
+
+  --el-color-primary: #78a1ee;
+  --el-color-primary-light-3: #8cb0f2;
+  --el-color-primary-light-5: #9dbdf4;
+  --el-color-primary-light-7: #486da6;
+  --el-color-primary-light-8: #334f7f;
+  --el-color-primary-light-9: #243a61;
+  --el-color-primary-dark-2: #9fbdf2;
+
+  --el-color-success: #63c28d;
+  --el-color-warning: #e0b062;
+  --el-color-danger: #e3838d;
+  --el-color-info: #8da4bf;
+
+  --el-text-color-primary: #{$color-text-dark};
+  --el-text-color-regular: #c4cfde;
+  --el-text-color-secondary: #9eacbf;
+  --el-text-color-placeholder: #7f91a9;
+  --el-text-color-disabled: #6f8199;
+
+  --el-bg-color-page: var(--admin-surface-0);
+  --el-bg-color: var(--admin-surface-1);
+  --el-bg-color-overlay: var(--admin-surface-1);
+
+  --el-fill-color-blank: var(--admin-surface-0);
+  --el-fill-color-extra-light: var(--admin-surface-2);
+  --el-fill-color-light: #232b35;
+  --el-fill-color: #2c3642;
+  --el-fill-color-dark: #344150;
+
+  --el-border-color-extra-light: #27303a;
+  --el-border-color-light: var(--admin-border-1);
+  --el-border-color: var(--admin-border-1);
+  --el-border-color-lighter: var(--admin-border-1);
+  --el-border-color-dark: var(--admin-border-2);
+
+  --el-mask-color: rgba(7, 10, 14, 0.65);
 }
 
 // ===== 全局重置 =====
@@ -33,28 +111,33 @@ html.dark {
   padding: 0;
 }
 
-// ===== 暗黑模式切换过渡 =====
+// ===== 全局基础 =====
 html {
   font-family: $font-family-base;
-  color: $color-text-light;
-  background-color: $color-bg-light;
-  // 暗黑模式切换时平滑过渡颜色
+  color: var(--el-text-color-primary);
+  background-color: var(--el-bg-color-page);
   transition: color 0.3s ease, background-color 0.3s ease;
+}
 
-  &.dark {
-    color: $color-text-dark;
-    background-color: $color-bg-dark;
-  }
+body,
+#__nuxt {
+  min-height: 100vh;
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+}
+
+body {
+  margin: 0;
 }
 
 // ===== 全局滚动条样式 =====
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+  scrollbar-color: rgba(91, 141, 239, 0.25) transparent;
 }
 
 html.dark * {
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: rgba(120, 161, 238, 0.35) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -67,30 +150,36 @@ html.dark * {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(91, 141, 239, 0.22);
   border-radius: 3px;
-  &:hover { background: rgba(0, 0, 0, 0.2); }
+
+  &:hover {
+    background: rgba(91, 141, 239, 0.34);
+  }
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  &:hover { background: rgba(255, 255, 255, 0.2); }
+  background: rgba(120, 161, 238, 0.3);
+
+  &:hover {
+    background: rgba(120, 161, 238, 0.42);
+  }
 }
 
 // ===== 页面路由过渡动画 =====
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(6px);
 }
 
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-3px);
 }
 
 // ===== 管理端统一图片展示基线 =====

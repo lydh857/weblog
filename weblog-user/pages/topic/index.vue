@@ -10,10 +10,7 @@
       </header>
 
       <!-- 加载态 -->
-      <div v-if="loading" class="loading-state">
-        <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-        <span>加载中...</span>
-      </div>
+      <UnifiedPageLoader v-if="loading" text="加载中..." />
 
       <!-- 专题列表 -->
       <template v-else>
@@ -263,14 +260,6 @@ onMounted(() => fetchTopics())
 }
 
 /* 状态 */
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 4rem;
-  color: $color-text-muted;
-}
 .empty-state {
   text-align: center;
   padding: 4rem;
@@ -280,6 +269,4 @@ onMounted(() => fetchTopics())
   align-items: center;
   gap: 0.75rem;
 }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>

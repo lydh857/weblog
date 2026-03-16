@@ -11,9 +11,9 @@
       <div class="nav-inner">
         <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
           <span class="logo-mark">
-            <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-img">
+            <img src="/brand/logo.png" :alt="`${siteName} logo`" class="logo-img">
           </span>
-          <span class="logo-text">zhhhkl</span>
+          <span class="logo-text">{{ siteName }}</span>
         </NuxtLink>
 
         <div class="nav-main">
@@ -184,6 +184,7 @@ const userStore = useUserStore()
 const searchModal = useSearchModal()
 const router = useRouter()
 const route = useRoute()
+const siteConfig = useSiteConfigState()
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
 const announcementCenterVisible = ref(false)
@@ -222,6 +223,26 @@ const mainNavLinks: NavLinkItem[] = [
 ]
 
 const navLinks = computed<NavLinkItem[]>(() => mainNavLinks)
+const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
+const siteDescription = computed(() => siteConfig.value.siteDescription || DEFAULT_SITE_DESCRIPTION)
+
+useHead(() => ({
+  titleTemplate: (titleChunk?: string) => {
+    const currentSiteName = siteName.value
+    if (!titleChunk) return currentSiteName
+    if (titleChunk.includes(currentSiteName)) return titleChunk
+    if (titleChunk.includes(DEFAULT_SITE_NAME)) {
+      return titleChunk.replaceAll(DEFAULT_SITE_NAME, currentSiteName)
+    }
+    return `${titleChunk} - ${currentSiteName}`
+  },
+  meta: [
+    {
+      name: 'description',
+      content: siteDescription.value,
+    },
+  ],
+}))
 
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)

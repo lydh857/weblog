@@ -4,7 +4,7 @@
       <div
         v-for="tab in tabStore.tabs"
         :key="tab.path"
-        :class="['tab-item', { active: tabStore.activeTab === tab.path }]"
+        :class="['tab-item', { active: tabStore.activeTab === tab.path, closable: tab.path !== '/' }]"
         @click="handleClick(tab.path)"
         @contextmenu.prevent="openContextMenu($event, tab)"
       >
@@ -12,8 +12,11 @@
         <span
           v-if="tab.path !== '/'"
           class="tab-close"
+          aria-label="关闭标签"
           @click.stop="tabStore.closeTab(tab.path)"
-        >&times;</span>
+        >
+          <el-icon><Close /></el-icon>
+        </span>
       </div>
     </div>
 
@@ -39,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import { Close } from '@element-plus/icons-vue'
 import { useTabBarStore, type TabItem } from '~/stores/tabBar'
 
 const tabStore = useTabBarStore()
@@ -124,24 +128,21 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .tab-bar {
-  height: 38px;
+  height: 34px;
   background: var(--el-bg-color);
-  border-bottom: 1px solid $color-border-light;
+  border-bottom: 1px solid var(--el-border-color-light);
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 6px;
   user-select: none;
   flex-shrink: 0;
   transition: background-color 0.3s ease, border-color 0.3s ease;
-  .dark & {
-    border-bottom-color: $color-border-dark;
-  }
 }
 
 .tab-bar-scroll {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
@@ -151,39 +152,48 @@ onUnmounted(() => {
 }
 
 .tab-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 12px;
-  height: 28px;
-  border-radius: 6px;
+  gap: 0;
+  padding: 0 8px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid transparent;
   font-size: 12px;
   color: var(--el-text-color-regular);
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
-    .dark & { background: rgba(255, 255, 255, 0.06); }
+    background: var(--admin-primary-soft);
+    border-color: var(--el-color-primary-light-8);
+    color: var(--el-color-primary);
   }
 
   &.active {
-    background: #5b8def;
-    color: #fff;
-    .dark & {
-      background: #7ba4f2;
-      color: #fff;
-    }
+    background: var(--admin-primary-soft-hover);
+    border-color: var(--el-color-primary-light-7);
+    color: var(--el-color-primary);
+    font-weight: 600;
+
     .tab-close {
-      color: rgba(255, 255, 255, 0.7);
+      border-color: var(--el-color-primary-light-7);
+      color: var(--el-color-primary);
+
       &:hover {
-        color: #fff;
-        background: rgba(255, 255, 255, 0.2);
+        color: var(--el-color-danger);
+        background: var(--el-color-danger-light-9);
+        border-color: var(--el-color-danger-light-5);
       }
     }
   }
+}
+
+.tab-item.closable {
+  padding-right: 10px;
 }
 
 .tab-title {
@@ -191,23 +201,45 @@ onUnmounted(() => {
 }
 
 .tab-close {
-  font-size: 14px;
-  line-height: 1;
-  width: 16px;
-  height: 16px;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: var(--el-text-color-placeholder);
-  transition: background-color 0.15s, color 0.15s;
-  &:hover {
-    background: rgba(0, 0, 0, 0.08);
-    color: var(--el-text-color-primary);
-    .dark & {
-      background: rgba(255, 255, 255, 0.12);
-    }
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-1px) scale(0.86);
+  pointer-events: none;
+  z-index: 5;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s;
+
+  :deep(.el-icon) {
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
+
+  &:hover {
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-5);
+    color: var(--el-color-danger);
+    transform: scale(1);
+  }
+}
+
+.tab-item:hover .tab-close {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  pointer-events: auto;
 }
 
 // 右键菜单
@@ -218,23 +250,20 @@ onUnmounted(() => {
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
   padding: 4px 0;
-  min-width: 120px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 108px;
+  box-shadow: none;
 }
 
 .ctx-item {
-  padding: 6px 16px;
-  font-size: 13px;
+  padding: 5px 12px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
   cursor: pointer;
   transition: background-color 0.15s;
+
   &:hover {
-    background: rgba(91, 141, 239, 0.08);
-    color: #5b8def;
-    .dark & {
-      background: rgba(123, 164, 242, 0.1);
-      color: #7ba4f2;
-    }
+    background: var(--admin-primary-soft);
+    color: var(--el-color-primary);
   }
 }
 </style>

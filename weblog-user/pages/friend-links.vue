@@ -14,10 +14,7 @@
       </button>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-      <span>加载中...</span>
-    </div>
+    <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else-if="links.length">
       <div class="links-grid">
@@ -297,7 +294,6 @@ onMounted(() => {
   transition: opacity 0.2s, transform 0.2s;
 }
 
-.loading-state,
 .empty-state {
   min-height: 300px;
   border: 1px dashed rgba(148, 163, 184, 0.48);
@@ -318,9 +314,6 @@ onMounted(() => {
 :deep(.pagination) {
   margin-top: 1.1rem;
 }
-
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: $breakpoint-md) {
   .page-header {

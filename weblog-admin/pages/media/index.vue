@@ -4,7 +4,7 @@
       <h2>媒体管理</h2>
     </div>
 
-    <el-tabs v-model="activeTab" class="media-tabs" @tab-change="handleTabChange">
+    <el-tabs v-model="activeTab" class="media-tabs compact-tabs" @tab-change="handleTabChange">
       <el-tab-pane label="媒体列表" name="list">
         <div class="toolbar">
           <div class="filter-bar">
@@ -595,18 +595,6 @@ onBeforeUnmount(() => {
 .media-page {
   .page-header {
     margin-bottom: 8px;
-    h2 {
-      margin: 0;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-    }
-  }
-}
-
-.media-tabs {
-  :deep(.el-tabs__header) {
-    margin-bottom: 14px;
   }
 }
 

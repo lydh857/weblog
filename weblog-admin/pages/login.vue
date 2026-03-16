@@ -354,32 +354,16 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-/* ===== 页面容器 ===== */
 .login-page {
   min-height: 100vh;
-  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   position: relative;
-  background-color: #f0f4f8;
-  background-image:
-    radial-gradient(circle at 15% 25%, rgba(91, 141, 239, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 85% 75%, rgba(74, 125, 224, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(123, 164, 242, 0.03) 0%, transparent 70%),
-    linear-gradient(180deg, rgba(91, 141, 239, 0.02) 0%, transparent 40%);
-  transition: background-color 0.3s ease;
-  .dark & {
-    background-color: #0d1117;
-    background-image:
-      radial-gradient(circle at 15% 25%, rgba(91, 141, 239, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 85% 75%, rgba(74, 125, 224, 0.06) 0%, transparent 50%),
-      radial-gradient(circle at 50% 50%, rgba(123, 164, 242, 0.03) 0%, transparent 70%);
-  }
+  background: var(--el-bg-color-page);
 }
 
-/* ===== 主题切换 ===== */
 .theme-toggle {
   position: absolute;
   top: 1.25rem;
@@ -387,89 +371,54 @@ onMounted(async () => {
   z-index: 10;
   width: 38px;
   height: 38px;
-  border-radius: 50%;
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #606266;
+  border-radius: 999px;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
   &:hover {
-    color: #5b8def;
-    border-color: #5b8def;
-    transform: rotate(20deg);
-  }
-  .dark & {
-    background: #1c2128;
-    border-color: #30363d;
-    color: #8b949e;
-    &:hover { color: #7ba4f2; border-color: #7ba4f2; }
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary-light-5);
+    background: var(--admin-primary-soft);
   }
 }
 
-/* ===== 登录卡片容器 ===== */
 .login-container {
   display: flex;
   width: 100%;
-  max-width: 880px;
+  max-width: 860px;
   min-height: 500px;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #e8ecf1;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s;
-  .dark & {
-    background: #161b22;
-    border-color: #30363d;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
-  }
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
 }
 
-/* ===== 左侧品牌区 ===== */
 .brand-panel {
-  flex: 0 0 340px;
+  flex: 0 0 320px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3rem 2rem;
-  background: linear-gradient(160deg, #5b8def 0%, #4a7de0 100%);
+  padding: 2.5rem 2rem;
+  background: var(--el-color-primary);
   color: #fff;
-  position: relative;
-  overflow: hidden;
-  &::before {
-    content: '';
-    position: absolute;
-    top: -60px;
-    right: -60px;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.06);
-  }
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -40px;
-    left: -40px;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.04);
-  }
 }
+
 .brand-inner {
-  position: relative;
-  z-index: 1;
   text-align: center;
 }
+
 .brand-logo {
   width: 64px;
   height: 64px;
   margin: 0 auto 1rem;
-  border-radius: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -482,137 +431,153 @@ onMounted(async () => {
   object-fit: cover;
   display: block;
 }
+
 .brand-name {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 700;
   margin-bottom: 0.375rem;
-  letter-spacing: 0.5px;
 }
+
 .brand-slogan {
-  font-size: 0.85rem;
-  opacity: 0.8;
-  margin-bottom: 1.5rem;
+  font-size: 0.86rem;
+  opacity: 0.88;
+  margin-bottom: 1.25rem;
 }
+
 .brand-divider {
-  width: 32px;
+  width: 36px;
   height: 2px;
   background: rgba(255, 255, 255, 0.3);
-  margin: 0 auto 1.5rem;
+  margin: 0 auto 1.25rem;
   border-radius: 1px;
 }
+
 .brand-features {
   list-style: none;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
+
   li {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     font-size: 0.8rem;
-    opacity: 0.85;
-    padding: 0.35rem 0.75rem;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.08);
-    transition: background 0.2s;
-    &:hover { background: rgba(255, 255, 255, 0.14); }
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
 }
 
-/* ===== 右侧表单区 ===== */
 .form-panel {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3rem 2.5rem;
+  padding: 2.5rem 2.25rem;
 }
+
 .form-inner {
   width: 100%;
   max-width: 320px;
 }
+
 .form-title {
-  font-size: 1.4rem;
+  font-size: 1.36rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 0.25rem;
-  .dark & { color: #d3dce6; }
 }
+
 .form-subtitle {
   font-size: 0.85rem;
-  color: #909399;
-  margin-bottom: 2rem;
-  .dark & { color: #666; }
+  color: var(--el-text-color-secondary);
+  margin-bottom: 1.75rem;
 }
+
 .submit-btn {
   width: 100%;
   margin-top: 0.5rem;
-  background: #5b8def;
-  border-color: #5b8def;
-  &:hover { background: #4a7de0; border-color: #4a7de0; }
-}
-.remember-row {
-  .remember-tip {
-    font-size: 12px;
-    color: #909399;
-    margin-left: 8px;
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+
+  &:hover {
+    background: var(--el-color-primary-dark-2);
+    border-color: var(--el-color-primary-dark-2);
   }
+}
+
+.remember-row {
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
+
   :deep(.el-checkbox__label) {
     font-size: 0.8rem;
-    color: #909399;
+    color: var(--el-text-color-secondary);
   }
+
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background-color: #5b8def;
-    border-color: #5b8def;
+    background-color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
   }
+
   :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
-    color: #5b8def;
+    color: var(--el-color-primary);
   }
-  .dark & :deep(.el-checkbox__label) { color: #666; }
-  .dark & :deep(.el-checkbox__input.is-checked + .el-checkbox__label) { color: #7ba4f2; }
-}
-.pwd-toggle {
-  cursor: pointer;
-  color: #909399;
-  transition: color 0.2s;
-  &:hover { color: #303133; }
-  .dark & { color: #666; &:hover { color: #ccc; } }
-}
-.pwd-wrapper { width: 100%; }
-.full-width { width: 100%; }
-.copyright {
-  text-align: center;
-  font-size: 0.7rem;
-  color: #c0c4cc;
-  margin-top: 2.5rem;
-  .dark & { color: #444; }
 }
 
-/* ===== 响应式 ===== */
+.pwd-toggle {
+  cursor: pointer;
+  color: var(--el-text-color-secondary);
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+  }
+}
+
+.pwd-wrapper,
+.full-width {
+  width: 100%;
+}
+
+.copyright {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--el-text-color-secondary);
+  margin-top: 2.25rem;
+}
+
 @media (max-width: 768px) {
   .login-container {
     flex-direction: column;
     max-width: 420px;
     min-height: auto;
   }
+
   .brand-panel {
     flex: none;
+    padding: 1.75rem 1.5rem;
+  }
+
+  .brand-features,
+  .brand-divider {
+    display: none;
+  }
+
+  .form-panel {
     padding: 2rem 1.5rem;
   }
-  .brand-features { display: none; }
-  .brand-divider { display: none; }
-  .form-panel { padding: 2rem 1.5rem; }
 }
 
-/* ===== 减弱动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
-  .theme-toggle { transition: none; }
-  .theme-toggle:hover { transform: none; }
-  .login-container { transition: none; }
+  .theme-toggle,
+  .login-container {
+    transition: none;
+  }
 }
 </style>

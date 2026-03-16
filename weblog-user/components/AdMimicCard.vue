@@ -11,17 +11,25 @@
         </button>
       </div>
 
-      <a
-        v-if="safeLinkUrl"
+      <component
+        :is="safeLinkUrl ? 'a' : 'div'"
         class="ad-mimic-link"
-        :href="safeLinkUrl"
-        target="_blank"
-        rel="noopener noreferrer nofollow"
-        @click="handleClick"
+        v-bind="linkAttributes"
+        @click="handleCardClick"
       >
-        <div class="ad-cover-wrap">
-          <img :src="ad.content" :alt="ad.title" class="ad-cover">
-          <span v-if="ad.adInfo" class="ad-cover-info">{{ ad.adInfo }}</span>
+        <div class="ad-cover-wrap" :class="{ 'is-broken': imageLoadFailed }">
+          <img
+            :src="ad.content"
+            :alt="ad.title"
+            class="ad-cover"
+            :class="{ 'is-error': imageLoadFailed }"
+            @error="handleImageError"
+          >
+          <div v-if="imageLoadFailed" class="ad-cover-fallback">
+            <Icon name="heroicons:photo-16-solid" size="16" />
+            <span>广告图片加载失败</span>
+          </div>
+          <span v-if="ad.adInfo && !imageLoadFailed" class="ad-cover-info">{{ ad.adInfo }}</span>
         </div>
         <div class="ad-content">
           <div class="ad-tags">
@@ -31,21 +39,7 @@
           <h3 class="ad-title">{{ ad.title }}</h3>
           <p class="ad-summary">{{ adSummary }}</p>
         </div>
-      </a>
-      <div v-else class="ad-mimic-link">
-        <div class="ad-cover-wrap">
-          <img :src="ad.content" :alt="ad.title" class="ad-cover">
-          <span v-if="ad.adInfo" class="ad-cover-info">{{ ad.adInfo }}</span>
-        </div>
-        <div class="ad-content">
-          <div class="ad-tags">
-            <span class="ad-tag">精选推荐</span>
-            <span class="ad-tag ad-tag--sponsor">广告</span>
-          </div>
-          <h3 class="ad-title">{{ ad.title }}</h3>
-          <p class="ad-summary">{{ adSummary }}</p>
-        </div>
-      </div>
+      </component>
 
     </article>
   </div>
@@ -62,12 +56,21 @@ const props = defineProps<{
 }>()
 
 const safeLinkUrl = computed(() => normalizeSafeHref(props.ad.linkUrl))
+const linkAttributes = computed<Record<string, string>>(() => {
+  if (!safeLinkUrl.value) return {}
+  return {
+    href: safeLinkUrl.value,
+    target: '_blank',
+    rel: 'noopener noreferrer nofollow',
+  }
+})
 const adSummary = computed(() => props.ad.mimicContent || '品牌推广')
 const { applyEnabled, loadAdApplyConfig } = useAdApplyConfig()
 const userStore = useUserStore()
 const loginModal = useLoginModal()
 const adApplyModal = useAdApplyModal()
 const myApplication = ref<AdvertisementVO | null>(null)
+const imageLoadFailed = ref(false)
 const applyButtonLabel = computed(() => {
   const status = myApplication.value?.status
   if (status === 'active') return '查看推广'
@@ -77,6 +80,15 @@ const applyButtonLabel = computed(() => {
 
 function handleClick() {
   advertisementApi.recordClick(props.ad.id).catch(() => {})
+}
+
+function handleCardClick() {
+  if (!safeLinkUrl.value) return
+  handleClick()
+}
+
+function handleImageError() {
+  imageLoadFailed.value = true
 }
 
 function handleApplyClick() {
@@ -127,6 +139,10 @@ watch(() => userStore.isLoggedIn, async (loggedIn) => {
 
 watch(() => adApplyModal.applicationVersion.value, async () => {
   await loadMyApplicationStatus()
+})
+
+watch(() => props.ad.content, () => {
+  imageLoadFailed.value = false
 })
 </script>
 
@@ -235,6 +251,35 @@ watch(() => adApplyModal.applicationVersion.value, async () => {
   height: 100%;
   object-fit: cover;
   transition: transform 0.35s ease;
+}
+
+.ad-cover.is-error {
+  opacity: 0;
+}
+
+.ad-cover-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.8rem;
+  text-align: center;
+  color: #334155;
+  background: linear-gradient(180deg, #eef2f7, #e2e8f0);
+  font-size: 0.72rem;
+
+  .dark & {
+    color: #cbd5e1;
+    background: linear-gradient(180deg, #1f2937, #111827);
+  }
+}
+
+.ad-cover-wrap.is-broken .ad-cover {
+  transform: none !important;
 }
 
 .ad-cover-info {

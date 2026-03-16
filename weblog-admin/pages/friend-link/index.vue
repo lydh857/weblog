@@ -28,42 +28,42 @@
     </div>
 
     <!-- 状态筛选 Tab -->
-    <el-tabs v-model="statusFilter" class="status-tabs" @tab-change="handleTabChange">
+    <el-tabs v-model="statusFilter" class="status-tabs compact-tabs" @tab-change="handleTabChange">
       <el-tab-pane name="">
         <template #label>
           <span>全部</span>
-          <span class="tab-count">{{ links.length }}</span>
+          <span class="compact-tab-count">{{ links.length }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="pending">
         <template #label>
           <span>待审核</span>
-          <span v-if="pendingCount > 0" class="tab-count tab-count--warning">{{ pendingCount }}</span>
-          <span v-else class="tab-count">0</span>
+          <span v-if="pendingCount > 0" class="compact-tab-count compact-tab-count--warning">{{ pendingCount }}</span>
+          <span v-else class="compact-tab-count">0</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="active">
         <template #label>
           <span>正常</span>
-          <span class="tab-count">{{ countByStatus('active') }}</span>
+          <span class="compact-tab-count">{{ countByStatus('active') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="inactive">
         <template #label>
           <span>停用</span>
-          <span class="tab-count">{{ countByStatus('inactive') }}</span>
+          <span class="compact-tab-count">{{ countByStatus('inactive') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="broken">
         <template #label>
           <span>失效</span>
-          <span class="tab-count">{{ countByStatus('broken') }}</span>
+          <span class="compact-tab-count">{{ countByStatus('broken') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="rejected">
         <template #label>
           <span>已拒绝</span>
-          <span class="tab-count">{{ countByStatus('rejected') }}</span>
+          <span class="compact-tab-count">{{ countByStatus('rejected') }}</span>
         </template>
       </el-tab-pane>
     </el-tabs>
@@ -100,7 +100,7 @@
       </el-table-column>
       <el-table-column label="来源" width="80" align="center">
         <template #default="{ row }">
-          <el-tag v-if="row.applicantUserId" type="info" size="small" effect="plain">用户申请</el-tag>
+          <span v-if="row.applicantUserId" class="source-tag">用户申请</span>
           <span v-else class="text-muted">管理员</span>
         </template>
       </el-table-column>
@@ -216,6 +216,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
 
+const route = useRoute()
 const loading = ref(false)
 const links = ref<FriendLinkVO[]>([])
 const dialogVisible = ref(false)
@@ -225,6 +226,7 @@ const dialogFormRef = ref<FormInstance>()
 const selectedIds = ref<number[]>([])
 const checking = ref(false)
 const statusFilter = ref('')
+const supportedStatusFilter = new Set(['', 'pending', 'active', 'inactive', 'broken', 'rejected'])
 
 // 审核弹窗
 const auditDialogVisible = ref(false)
@@ -426,7 +428,13 @@ async function handleAuditAction(action: 'approve' | 'reject') {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  const queryStatus = Array.isArray(route.query.status) ? route.query.status[0] : route.query.status
+  if (typeof queryStatus === 'string' && supportedStatusFilter.has(queryStatus)) {
+    statusFilter.value = queryStatus
+  }
+  loadData()
+})
 </script>
 
 <style scoped lang="scss">
@@ -437,40 +445,27 @@ onMounted(loadData)
 // 状态筛选 Tab
 .status-tabs {
   margin-bottom: 16px;
-  :deep(.el-tabs__header) {
-    margin-bottom: 0;
-  }
-  :deep(.el-tabs__nav-wrap::after) {
-    height: 1px;
-  }
-  :deep(.el-tabs__item) {
-    padding: 0 20px;
-    height: 40px;
-    line-height: 40px;
-  }
-}
-
-.tab-count {
-  display: inline-block;
-  min-width: 18px;
-  height: 18px;
-  line-height: 18px;
-  padding: 0 5px;
-  margin-left: 6px;
-  border-radius: 9px;
-  font-size: 12px;
-  text-align: center;
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-secondary);
-  &--warning {
-    background: var(--el-color-warning);
-    color: #fff;
-  }
 }
 
 .text-muted {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-extra-light);
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 // 网站单元格

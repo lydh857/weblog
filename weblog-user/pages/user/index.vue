@@ -8,10 +8,7 @@
       <p class="page-desc">管理你的资料、收藏和评论记录</p>
     </header>
 
-    <div v-if="loading" class="loading-state">
-      <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-      <span>加载中...</span>
-    </div>
+    <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else-if="profile">
       <section class="profile-card">
@@ -171,11 +168,8 @@ watch(() => profile.value?.avatar, () => {
 .quick-desc { margin-top: .1rem; font-size: .8rem; color: $color-text-muted; }
 .quick-arrow { color: $color-text-muted; }
 
-.loading-state { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: 4rem; color: $color-text-muted; }
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
 .login-link { display: inline-block; margin-top: 1rem; padding: .5rem 1.5rem; background: $color-primary; color: #fff; border-radius: $radius-md; border: none; cursor: pointer; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: $breakpoint-md) {
   .profile-card { grid-template-columns: 1fr; text-align: center; }

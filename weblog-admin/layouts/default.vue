@@ -15,8 +15,8 @@
         :collapse="isCollapsed"
         :collapse-transition="false"
         :background-color="'transparent'"
-        :text-color="isDark ? '#8b949e' : '#5a6d82'"
-        :active-text-color="isDark ? '#7ba4f2' : '#5b8def'"
+        :text-color="isDark ? '#b1bccb' : '#4b5f7a'"
+        :active-text-color="'#5b8def'"
         router
       >
         <el-menu-item index="/">
@@ -146,7 +146,7 @@ import {
   HomeFilled, Document, Folder, PriceTag, Picture, Film,
   Link, ChatDotRound, User, Promotion, Bell,
   Sunny, Moon, Setting, ArrowDown, Monitor,
-  SwitchButton, Fold, Expand, List, Collection, MagicStick, DataLine,
+  SwitchButton, Fold, Expand, List, Collection, MagicStick,
 } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '~/stores/user'
@@ -155,10 +155,27 @@ import { authApi } from '~/api/auth'
 import { profileReviewApi } from '~/api/profileReview'
 
 const route = useRoute()
+const runtimeConfig = useRuntimeConfig()
 const userStore = useUserStore()
 const { isDark, toggleDark } = useDarkMode()
 const isCollapsed = ref(false)
 const pendingProfileReviewCount = useState<number>('pendingProfileReviewCount', () => 0)
+
+function getPortalTargetUrl() {
+  const configured = String(runtimeConfig.public.portalBaseUrl || '').trim()
+  if (configured) {
+    return configured
+  }
+
+  if (import.meta.client) {
+    const { protocol, hostname, port } = window.location
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3001') {
+      return `${protocol}//${hostname}:3000`
+    }
+  }
+
+  return '/'
+}
 
 const activeMenu = computed(() => {
   const path = route.path
@@ -179,7 +196,7 @@ async function loadPendingReviewCount() {
 
 async function handleCommand(command: string) {
   if (command === 'portal') {
-    window.open('/', '_blank', 'noopener,noreferrer')
+    window.open(getPortalTargetUrl(), '_blank', 'noopener,noreferrer')
   } else if (command === 'logout') {
     await ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' })
     try {
@@ -209,29 +226,30 @@ onMounted(() => {
 <style scoped lang="scss">
 .admin-layout {
   height: 100vh;
+  background: var(--el-bg-color-page);
 }
 
 // ===== 侧边栏 =====
 .admin-aside {
   background: var(--el-bg-color);
-  border-right: 1px solid var(--el-border-color-lighter);
+  border-right: 1px solid var(--el-border-color-light);
   display: flex;
   flex-direction: column;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              background-color 0.3s ease,
-              border-color 0.3s ease;
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   overflow: hidden;
 }
 
 .logo {
-  height: 56px;
+  height: 54px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
   cursor: pointer;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-light);
   overflow: hidden;
   transition: border-color 0.3s ease;
 }
@@ -255,10 +273,11 @@ onMounted(() => {
 }
 
 .logo-text {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--el-text-color-primary);
   white-space: nowrap;
+  letter-spacing: 0.2px;
   transition: color 0.3s ease;
 }
 
@@ -294,7 +313,7 @@ onMounted(() => {
 :deep(.el-menu-item),
 :deep(.el-sub-menu__title) {
   border-radius: 8px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   height: 40px;
   line-height: 40px;
   font-size: 13px;
@@ -302,19 +321,14 @@ onMounted(() => {
 }
 
 :deep(.el-menu-item.is-active) {
-  background: rgba(91, 141, 239, 0.1);
-  color: #5b8def;
+  background: var(--admin-primary-soft);
+  color: var(--el-color-primary);
   font-weight: 500;
-
-  .dark & {
-    background: rgba(123, 164, 242, 0.12);
-    color: #7ba4f2;
-  }
 }
 
 :deep(.el-menu-item:hover),
 :deep(.el-sub-menu__title:hover) {
-  background: var(--el-fill-color-light) !important;
+  background: var(--admin-primary-soft-hover) !important;
 }
 
 // 折叠状态下菜单项居中
@@ -339,7 +353,7 @@ onMounted(() => {
 .admin-header {
   height: 56px;
   background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-light);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -355,7 +369,7 @@ onMounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .user-dropdown-trigger {
@@ -363,13 +377,13 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: 8px;
   outline: none;
   transition: background-color 0.15s ease;
 
   &:hover {
-    background: var(--el-fill-color-light);
+    background: var(--admin-primary-soft);
   }
 }
 
@@ -385,12 +399,8 @@ onMounted(() => {
 
 // ===== 主内容区 =====
 .admin-main {
-  background: var(--el-fill-color-blank);
+  background: var(--el-bg-color-page);
   overflow-y: auto;
   transition: background-color 0.3s ease;
-
-  .dark & {
-    background: var(--el-bg-color-page);
-  }
 }
 </style>

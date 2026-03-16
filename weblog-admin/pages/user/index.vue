@@ -4,7 +4,7 @@
       <h2>用户管理</h2>
     </div>
 
-    <el-tabs v-model="activeTab" class="user-tabs" @tab-change="handleTabChange">
+    <el-tabs v-model="activeTab" class="user-tabs compact-tabs" @tab-change="handleTabChange">
       <el-tab-pane label="用户列表" name="users">
         <div class="toolbar-row">
           <div class="filter-bar">
@@ -514,12 +514,6 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .user-page {
-  .user-tabs {
-    :deep(.el-tabs__header) {
-      margin-bottom: 12px;
-    }
-  }
-
   .toolbar-row {
     display: flex;
     justify-content: space-between;

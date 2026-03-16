@@ -52,10 +52,7 @@
 
             <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
 
-            <div v-else-if="loading && !posts.length" class="loading-state">
-              <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
-              <span>加载中...</span>
-            </div>
+            <UnifiedPageLoader v-else-if="loading && !posts.length" text="加载中..." />
 
             <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
               <template v-for="item in postGridItems" :key="item.key">
@@ -84,10 +81,7 @@
 
             <!-- 加载更多 -->
             <div v-if="sectionMounted.post && posts.length" class="load-more-container">
-              <div v-if="loadingMore" class="loading-state">
-                <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
-                <span>加载中...</span>
-              </div>
+              <UnifiedPageLoader v-if="loadingMore" compact text="加载中..." />
               <div v-else-if="noMore" class="no-more">没有更多文章了</div>
               <button v-else class="load-more-btn" @click="loadMore">
                 <svg class="load-more-icon" viewBox="0 0 24 24" width="18" height="18">
@@ -677,22 +671,12 @@ onUnmounted(() => {
 }
 
 /* ===== 状态 ===== */
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 4rem;
-  color: $color-text-muted;
-}
 .empty-state {
   text-align: center;
   padding: 5rem 1rem;
   color: #94a3b8;
   p { margin-top: 0.75rem; font-size: 0.95rem; }
 }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ===== 响应式 ===== */
 @media (max-width: $breakpoint-md) {

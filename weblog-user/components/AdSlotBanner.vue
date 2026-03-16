@@ -32,7 +32,7 @@
               }"
             >
               <template v-if="ad.type === 'image'">
-                <div class="ad-image-wrap">
+                <div class="ad-image-wrap" :class="{ 'is-broken': isImageFailed(ad.id) }">
                   <a
                     v-if="ad.safeLinkUrl"
                     class="ad-link"
@@ -41,16 +41,34 @@
                     rel="noopener noreferrer nofollow"
                     @click="handleClick(ad.id)"
                   >
-                    <img :src="ad.content" :alt="ad.title" class="ad-image" loading="lazy">
+                    <img
+                      :src="ad.content"
+                      :alt="ad.title"
+                      class="ad-image"
+                      :class="{ 'is-error': isImageFailed(ad.id) }"
+                      loading="lazy"
+                      @error="handleImageError(ad.id)"
+                    >
+                    <div v-if="isImageFailed(ad.id)" class="ad-image-fallback">
+                      <Icon name="heroicons:photo-16-solid" size="16" />
+                      <span>广告图片加载失败</span>
+                    </div>
                   </a>
-                  <img
-                    v-else
-                    :src="ad.content"
-                    :alt="ad.title"
-                    class="ad-image"
-                    loading="lazy"
-                  >
-                  <span v-if="ad.adInfo" class="ad-info">{{ ad.adInfo }}</span>
+                  <div v-else class="ad-link">
+                    <img
+                      :src="ad.content"
+                      :alt="ad.title"
+                      class="ad-image"
+                      :class="{ 'is-error': isImageFailed(ad.id) }"
+                      loading="lazy"
+                      @error="handleImageError(ad.id)"
+                    >
+                    <div v-if="isImageFailed(ad.id)" class="ad-image-fallback">
+                      <Icon name="heroicons:photo-16-solid" size="16" />
+                      <span>广告图片加载失败</span>
+                    </div>
+                  </div>
+                  <span v-if="ad.adInfo && !isImageFailed(ad.id)" class="ad-info">{{ ad.adInfo }}</span>
                 </div>
               </template>
               <div v-else class="ad-code" v-html="sanitize(ad.content)" />
@@ -128,6 +146,7 @@ const isPaused = ref(false)
 const slideStartTime = ref(0)
 const elapsed = ref(0)
 const slideTransitionMs = 820
+const failedImageIds = ref<Set<number>>(new Set())
 
 const currentAd = computed(() => ads.value[currentIndex.value] || null)
 const currentRotateDurationMs = computed(() => {
@@ -167,6 +186,17 @@ function sanitize(html: string) {
     ALLOWED_ATTR: ['href', 'src', 'alt', 'target', 'rel', 'class', 'style'],
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|\/(?!\/)|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   })
+}
+
+function isImageFailed(id: number) {
+  return failedImageIds.value.has(id)
+}
+
+function handleImageError(id: number) {
+  if (failedImageIds.value.has(id)) return
+  const next = new Set(failedImageIds.value)
+  next.add(id)
+  failedImageIds.value = next
 }
 
 function clearRotateTimer() {
@@ -308,6 +338,7 @@ onMounted(async () => {
   void loadMyApplicationStatus()
   try {
     const res = await advertisementApi.getBySlot(props.adSlot)
+    failedImageIds.value = new Set()
     ads.value = (res.data || []).map(item => ({
       ...item,
       safeLinkUrl: normalizeSafeHref(item.linkUrl)
@@ -403,6 +434,30 @@ onUnmounted(() => {
   transition: opacity 0.55s ease;
   position: relative;
   z-index: 0;
+}
+
+.ad-image.is-error {
+  opacity: 0 !important;
+}
+
+.ad-image-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.86));
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.ad-image-wrap.is-broken::after {
+  background: none;
 }
 
 .ad-image-wrap::after {

@@ -28,9 +28,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-    </div>
+    <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else-if="comments.length">
       <div v-for="comment in comments" :key="comment.id" class="comment-card" :class="{ selected: selectedIds.has(comment.id), managing }" @click="managing && toggleSelect(comment.id)">
@@ -175,8 +173,7 @@ onMounted(() => loadData())
 .reply-prefix { color: #94a3b8; font-size: .8rem; }
 .delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; }
 .comment-card:hover .delete-btn { opacity: 1; }
-.empty-state,
-.loading-state {
+.empty-state {
   text-align: center;
   padding: 4rem 1rem;
   color: #94a3b8;
@@ -188,8 +185,6 @@ onMounted(() => loadData())
   justify-content: center;
   gap: .5rem;
 }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

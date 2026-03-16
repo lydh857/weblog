@@ -40,6 +40,8 @@ defineEmits<{ close: [] }>()
 
 const posterCanvas = ref<HTMLCanvasElement | null>(null)
 const tip = ref('')
+const siteConfig = useSiteConfigState()
+const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
 
 watch(() => props.visible, (v) => {
   if (v) nextTick(() => drawPoster())
@@ -76,7 +78,7 @@ function drawPoster() {
   // Logo
   ctx.fillStyle = '#3b82f6'
   ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif'
-  ctx.fillText('Weblog', 24, 44)
+  ctx.fillText(siteName.value, 24, 44)
 
   // 分割线
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'
@@ -98,7 +100,7 @@ function drawPoster() {
   // 作者
   ctx.fillStyle = '#64748b'
   ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif'
-  ctx.fillText(`作者: ${props.author || 'Weblog'}`, 24, h - 80)
+  ctx.fillText(`作者: ${props.author || siteName.value}`, 24, h - 80)
 
   // 底部提示
   ctx.fillStyle = '#475569'
@@ -137,7 +139,8 @@ function downloadPoster() {
   const canvas = posterCanvas.value
   if (!canvas) return
   const link = document.createElement('a')
-  link.download = `weblog-share-${Date.now()}.png`
+  const filePrefix = siteName.value.trim().replace(/\s+/g, '-').toLowerCase() || 'site'
+  link.download = `${filePrefix}-share-${Date.now()}.png`
   link.href = canvas.toDataURL('image/png')
   link.click()
   tip.value = '海报已保存'
@@ -145,7 +148,8 @@ function downloadPoster() {
 }
 
 function copyLink() {
-  const utmUrl = `${props.url}${props.url.includes('?') ? '&' : '?'}utm_source=share&utm_medium=poster&utm_campaign=weblog`
+  const campaign = siteName.value.trim().replace(/\s+/g, '-').toLowerCase() || 'site'
+  const utmUrl = `${props.url}${props.url.includes('?') ? '&' : '?'}utm_source=share&utm_medium=poster&utm_campaign=${campaign}`
   navigator.clipboard.writeText(utmUrl).then(() => {
     tip.value = '链接已复制（含UTM追踪参数）'
     setTimeout(() => { tip.value = '' }, 2000)

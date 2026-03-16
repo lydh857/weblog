@@ -3,8 +3,8 @@
     @update:visible="v => { if (!v) loginModal.close() }" @close="loginModal.close()">
     <template #header>
       <div class="modal-logo">
-        <img src="/brand/logo.png" alt="zhhhkl logo" class="modal-logo-img">
-        <span>zhhhkl</span>
+        <img src="/brand/logo.png" :alt="`${siteName} logo`" class="modal-logo-img">
+        <span>{{ siteName }}</span>
       </div>
     </template>
 
@@ -313,6 +313,8 @@ import { normalizeSafeHref } from '~/utils/urlSafety'
 
 const loginModal = useLoginModal()
 const message = useMessage()
+const siteConfig = useSiteConfigState()
+const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
 
 // 解构 ref 以便模板中正确响应
 const modalVisible = computed(() => loginModal.visible.value)

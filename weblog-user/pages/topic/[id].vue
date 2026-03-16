@@ -2,10 +2,7 @@
   <div class="topic-detail-bg" :style="{ '--sticky-top': stickyTop }">
     <div class="topic-detail-page">
       <!-- 加载中 -->
-      <div v-if="loading" class="loading-state">
-        <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-        <span>加载中...</span>
-      </div>
+      <UnifiedPageLoader v-if="loading" text="加载中..." />
 
       <template v-else-if="topic">
         <div class="three-col-layout">
@@ -31,10 +28,7 @@
             </div>
 
             <!-- 当前文章 -->
-            <div v-if="articleLoading" class="loading-state small">
-              <Icon name="heroicons:arrow-path-20-solid" size="20" class="spin" />
-              <span>加载文章中...</span>
-            </div>
+            <UnifiedPageLoader v-if="articleLoading" compact text="加载文章中..." />
             <template v-else-if="currentPost">
               <div class="content-card">
                 <ClientOnly>
@@ -517,17 +511,6 @@ onMounted(async () => {
   .dark & { background: $color-dark-bg-secondary; color: #64748b; }
 }
 
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 4rem;
-  color: $color-text-muted;
-  &.small { padding: 2rem; }
-}
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
 .back-link { display: inline-block; margin-top: 1rem; color: $color-primary; text-decoration: underline; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>

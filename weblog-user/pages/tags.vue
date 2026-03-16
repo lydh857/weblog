@@ -31,10 +31,7 @@
         </div>
       </div>
 
-      <div v-if="loading" class="loading-state">
-        <Icon name="heroicons:arrow-path-20-solid" size="24" class="spin" />
-        <span>加载中...</span>
-      </div>
+      <UnifiedPageLoader v-if="loading" text="加载中..." />
 
       <template v-else-if="tags.length">
         <div
@@ -364,20 +361,6 @@ onUnmounted(() => {
       color: $color-primary;
     }
   }
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 4rem;
-  color: $color-text-muted;
-  .spin { animation: spin 1s linear infinite; }
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .cloud-wrapper {

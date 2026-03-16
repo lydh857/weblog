@@ -3,7 +3,7 @@
     <!-- 统计卡片 -->
     <div v-loading="loading" class="stat-cards">
       <template v-if="!loading">
-        <div v-for="card in cardConfigs" :key="card.key" class="stat-card">
+        <div v-for="card in cardConfigs" :key="card.key" class="stat-card" :class="`stat-card--${card.key}`">
           <div class="card-header">
             <div class="card-icon" :style="{ background: card.color }">
               <el-icon :size="20" color="#fff"><component :is="card.icon" /></el-icon>
@@ -35,6 +35,7 @@
                 <span class="detail-label">{{ card.labels.month }}</span>
               </div>
             </div>
+
           </div>
         </div>
       </template>
@@ -45,10 +46,28 @@
       <div v-for="chart in chartConfigs" :key="chart.key" class="chart-card">
         <div class="chart-header">
           <span class="chart-title">{{ chart.getTitle(chart.period) }}</span>
-          <el-radio-group v-model="chart.period" size="small" @change="renderChart(chart)">
-            <el-radio-button value="week">周视图</el-radio-button>
-            <el-radio-button value="month">月视图</el-radio-button>
-          </el-radio-group>
+          <div class="view-toggle period-switch" role="group" aria-label="视图切换">
+            <button
+              type="button"
+              class="toggle-btn"
+              :class="{ active: chart.period === 'week' }"
+              aria-label="周视图"
+              :aria-pressed="chart.period === 'week'"
+              @click="handlePeriodChange(chart, 'week')"
+            >
+              <span>周视图</span>
+            </button>
+            <button
+              type="button"
+              class="toggle-btn"
+              :class="{ active: chart.period === 'month' }"
+              aria-label="月视图"
+              :aria-pressed="chart.period === 'month'"
+              @click="handlePeriodChange(chart, 'month')"
+            >
+              <span>月视图</span>
+            </button>
+          </div>
         </div>
         <div :ref="(el: unknown) => setChartRef(chart.key, el as HTMLDivElement)" class="chart-container" />
       </div>
@@ -56,52 +75,49 @@
 
     <!-- 底部区域 -->
     <div class="bottom-section">
-      <!-- 左侧：待处理 + 评论统计 -->
+      <!-- 左侧：代办事项 + AI -->
       <div class="bottom-left">
-        <div v-loading="pendingLoading" class="info-card">
+        <div v-loading="pendingLoading" class="info-card todo-card">
           <template v-if="!pendingLoading">
-            <div class="info-card-title">待处理事项</div>
-            <div class="pending-list">
-              <div class="pending-item">
-                <span class="pending-label">草稿文章</span>
-                <span class="pending-value">{{ pending.draftPosts }}</span>
+            <div class="info-card-title todo-title-row">
+              <span>代办事项</span>
+              <span class="todo-title-total">总计 {{ formatNumber(todoTotal) }}</span>
+            </div>
+
+            <div class="todo-summary">
+              <div class="todo-summary-item">
+                <span class="todo-summary-label">待处理总数</span>
+                <span class="todo-summary-value">{{ formatNumber(todoTotal) }}</span>
               </div>
-              <div class="pending-item">
-                <span class="pending-label">待审评论</span>
-                <span class="pending-value warning">{{ pending.pendingComments }}</span>
-              </div>
-              <div class="pending-item">
-                <span class="pending-label">待审广告</span>
-                <span class="pending-value warning">{{ pending.pendingAds }}</span>
+              <div class="todo-summary-item">
+                <span class="todo-summary-label">涉及类型</span>
+                <span class="todo-summary-value">{{ todoActiveTypes }} 项</span>
               </div>
             </div>
-          </template>
-        </div>
-        <div v-loading="commentLoading" class="info-card">
-          <template v-if="!commentLoading">
-            <div class="info-card-title">评论统计</div>
-            <div class="comment-stats">
-              <div class="comment-stat-item">
-                <span class="comment-stat-value">{{ commentStats.total }}</span>
-                <span class="comment-stat-label">总评论</span>
-              </div>
-              <div class="comment-stat-item">
-                <span class="comment-stat-value approved">{{ commentStats.approved }}</span>
-                <span class="comment-stat-label">已通过</span>
-              </div>
-              <div class="comment-stat-item">
-                <span class="comment-stat-value pending">{{ commentStats.pending }}</span>
-                <span class="comment-stat-label">待审核</span>
-              </div>
-              <div class="comment-stat-item">
-                <span class="comment-stat-value today">{{ commentStats.todayNew }}</span>
-                <span class="comment-stat-label">今日新增</span>
-              </div>
+
+            <div class="todo-grid">
+              <button
+                v-for="item in todoItems"
+                :key="item.key"
+                type="button"
+                class="todo-task"
+                :class="[`todo-task--${item.tone}`, { 'is-empty': item.count === 0, 'is-active': item.count > 0 }]"
+                @click="handleQuickNavigate(item.path, item.query)"
+              >
+                <div class="todo-task-head">
+                  <div class="todo-task-main">
+                    <span class="todo-task-dot" />
+                    <span class="todo-task-label">{{ item.label }}</span>
+                  </div>
+                  <span class="todo-task-count">{{ formatNumber(item.count) }}</span>
+                </div>
+                <span class="todo-task-action">{{ item.count > 0 ? '进入处理' : '查看列表' }}</span>
+              </button>
             </div>
           </template>
         </div>
         <!-- AI 用量统计 -->
-        <div v-if="aiTokenUsage" v-loading="aiLoading" class="info-card">
+        <div v-if="aiTokenUsage" v-loading="aiLoading" class="info-card ai-card">
           <template v-if="!aiLoading">
             <div class="info-card-title">AI 当月用量</div>
             <div class="ai-usage-summary">
@@ -118,10 +134,50 @@
                 <span class="ai-usage-label">合计</span>
               </div>
             </div>
-            <div v-if="Object.keys(aiTokenUsage.featureBreakdown).length" class="ai-usage-breakdown">
-              <div v-for="(usage, feature) in aiTokenUsage.featureBreakdown" :key="feature" class="ai-breakdown-item">
-                <span class="ai-breakdown-label">{{ aiFeatureNameMap[feature] || feature }}</span>
-                <span class="ai-breakdown-value">{{ formatNumber(usage.inputTokens + usage.outputTokens) }}</span>
+
+            <div class="ai-usage-meta">
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">本月请求</span>
+                <span class="ai-meta-value">{{ formatNumber(aiTokenUsage.totalRequests) }}</span>
+              </div>
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">今日 Token</span>
+                <span class="ai-meta-value">{{ formatNumber(aiTokenUsage.todayTokens) }}</span>
+              </div>
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">上限占用</span>
+                <span class="ai-meta-value">{{ aiTokenUsage.monthlyLimit > 0 ? `${aiTokenUsage.limitUsagePercent.toFixed(1)}%` : '无限制' }}</span>
+              </div>
+            </div>
+
+            <div v-if="aiTokenUsage.monthlyLimit > 0" class="ai-limit-progress">
+              <el-progress
+                :percentage="Math.min(100, Number(aiTokenUsage.limitUsagePercent.toFixed(1)))"
+                :status="getAiUsageStatus(aiTokenUsage.limitUsagePercent)"
+                :stroke-width="8"
+              />
+              <div class="ai-limit-text">
+                已使用 {{ formatNumber(aiTokenUsage.totalTokens) }} / {{ formatNumber(aiTokenUsage.monthlyLimit) }} Token
+              </div>
+            </div>
+
+            <div v-if="aiRecentTrend.length" class="ai-trend">
+              <div v-for="item in aiRecentTrend" :key="item.date" class="ai-trend-item">
+                <div class="ai-trend-bar-wrap">
+                  <div
+                    class="ai-trend-bar"
+                    :style="{ height: `${Math.max(8, Math.round((getAiTrendTotal(item) / aiTrendMax) * 46))}px` }"
+                    :title="`${item.date}：${formatNumber(getAiTrendTotal(item))}`"
+                  />
+                </div>
+                <span class="ai-trend-label">{{ item.date.slice(5) }}</span>
+              </div>
+            </div>
+
+            <div v-if="aiFeatureBreakdownList.length" class="ai-usage-breakdown">
+              <div v-for="featureUsage in aiFeatureBreakdownList" :key="featureUsage.feature" class="ai-breakdown-item">
+                <span class="ai-breakdown-label">{{ aiFeatureNameMap[featureUsage.feature] || featureUsage.feature }}</span>
+                <span class="ai-breakdown-value">{{ formatNumber(featureUsage.totalTokens) }}</span>
               </div>
             </div>
           </template>
@@ -164,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick, type Component } from 'vue'
 import { Document, View, User, ChatDotSquare } from '@element-plus/icons-vue'
 import type { ECharts } from 'echarts/core'
 import {
@@ -196,7 +252,6 @@ function formatNumber(n: number): string {
 const loading = ref(true)
 const chartsLoading = ref(true)
 const pendingLoading = ref(true)
-const commentLoading = ref(true)
 const categoryLoading = ref(true)
 const hotPostsLoading = ref(true)
 const aiLoading = ref(true)
@@ -210,10 +265,50 @@ const articleStats = ref<StatisticsVO>({ ...emptyStats })
 const pvStats = ref<StatisticsVO>({ ...emptyStats })
 const userStats = ref<StatisticsVO>({ ...emptyStats })
 const hotPosts = ref<HotPostVO[]>([])
-const pending = ref<PendingVO>({ draftPosts: 0, pendingComments: 0, pendingAds: 0 })
+const pending = ref<PendingVO>({
+  draftPosts: 0,
+  pendingComments: 0,
+  pendingAds: 0,
+  pendingProfileReviews: 0,
+  pendingFriendLinks: 0,
+})
 const categoryDist = ref<CategoryDistVO[]>([])
 const commentStats = ref<CommentStatsVO>({ total: 0, pending: 0, approved: 0, todayNew: 0 })
 const aiTokenUsage = ref<AiTokenUsageVO | null>(null)
+
+function normalizePending(data?: Partial<PendingVO> | null): PendingVO {
+  return {
+    draftPosts: data?.draftPosts ?? 0,
+    pendingComments: data?.pendingComments ?? 0,
+    pendingAds: data?.pendingAds ?? 0,
+    pendingProfileReviews: data?.pendingProfileReviews ?? 0,
+    pendingFriendLinks: data?.pendingFriendLinks ?? 0,
+  }
+}
+
+function normalizeAiUsage(data: Partial<AiTokenUsageVO> | null | undefined): AiTokenUsageVO {
+  const totalInput = data?.totalInput ?? 0
+  const totalOutput = data?.totalOutput ?? 0
+  const totalTokens = data?.totalTokens ?? (totalInput + totalOutput)
+  const todayInput = data?.todayInput ?? 0
+  const todayOutput = data?.todayOutput ?? 0
+
+  return {
+    month: data?.month || '',
+    totalInput,
+    totalOutput,
+    totalTokens,
+    totalRequests: data?.totalRequests ?? 0,
+    todayInput,
+    todayOutput,
+    todayTokens: data?.todayTokens ?? (todayInput + todayOutput),
+    todayRequests: data?.todayRequests ?? 0,
+    monthlyLimit: data?.monthlyLimit ?? 0,
+    limitUsagePercent: data?.limitUsagePercent ?? 0,
+    dailyTrend: data?.dailyTrend ?? [],
+    featureBreakdown: data?.featureBreakdown ?? {},
+  }
+}
 
 const aiFeatureNameMap: Record<string, string> = {
   writing: '写作助手',
@@ -223,6 +318,44 @@ const aiFeatureNameMap: Record<string, string> = {
   recommend: '语义推荐',
   chat: 'AI 问答',
 }
+
+const aiFeatureBreakdownList = computed(() => {
+  if (!aiTokenUsage.value) {
+    return [] as Array<{
+      feature: string
+      inputTokens: number
+      outputTokens: number
+      totalTokens: number
+    }>
+  }
+
+  return Object.entries(aiTokenUsage.value.featureBreakdown || {})
+    .map(([feature, usage]) => {
+      const inputTokens = usage.inputTokens || 0
+      const outputTokens = usage.outputTokens || 0
+      return {
+        feature,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+      }
+    })
+    .sort((left, right) => right.totalTokens - left.totalTokens)
+})
+
+const aiRecentTrend = computed(() => {
+  if (!aiTokenUsage.value?.dailyTrend?.length) {
+    return [] as AiTokenUsageVO['dailyTrend']
+  }
+  return aiTokenUsage.value.dailyTrend.slice(-7)
+})
+
+const aiTrendMax = computed(() => {
+  if (!aiRecentTrend.value.length) {
+    return 1
+  }
+  return Math.max(...aiRecentTrend.value.map(item => getAiTrendTotal(item)), 1)
+})
 
 type EchartsCoreModule = typeof import('echarts/core')
 
@@ -263,22 +396,124 @@ async function ensureEchartsReady() {
 }
 
 // 卡片配置
-const cardConfigs = computed(() => [
-  {
-    key: 'article', title: '文章统计', icon: Document, color: '#5b8def',
-    totalLabel: '总文章数', data: articleStats.value,
-    labels: { today: '今日发布', yesterday: '昨日发布', week: '本周发布', month: '本月发布' }
-  },
-  {
-    key: 'pv', title: '访问量统计', icon: View, color: '#67c23a',
-    totalLabel: '总访问量', data: pvStats.value,
-    labels: { today: '今日访问', yesterday: '昨日访问', week: '本周访问', month: '本月访问' }
-  },
-  {
-    key: 'user', title: '用户统计', icon: User, color: '#e6a23c',
-    totalLabel: '总用户数', data: userStats.value,
-    labels: { today: '今日注册', yesterday: '昨日注册', week: '本周注册', month: '本月注册' }
+interface DashboardCardConfig {
+  key: string
+  title: string
+  icon: Component
+  color: string
+  totalLabel: string
+  data: Pick<StatisticsVO, 'total' | 'today' | 'yesterday' | 'week' | 'month'>
+  labels: {
+    today: string
+    yesterday: string
+    week: string
+    month: string
   }
+}
+
+interface TodoTask {
+  key: string
+  label: string
+  count: number
+  path: string
+  query?: Record<string, string>
+  tone: 'primary' | 'warning' | 'success' | 'info'
+}
+
+const todoItems = computed<TodoTask[]>(() => [
+  {
+    key: 'profile-review',
+    label: '个人信息审核',
+    count: pending.value.pendingProfileReviews,
+    path: '/user',
+    query: { tab: 'reviews' },
+    tone: 'primary',
+  },
+  {
+    key: 'advertisement-review',
+    label: '广告审核',
+    count: pending.value.pendingAds,
+    path: '/advertisement',
+    query: { status: 'pending', tab: 'list' },
+    tone: 'warning',
+  },
+  {
+    key: 'friend-link-review',
+    label: '友链审核',
+    count: pending.value.pendingFriendLinks,
+    path: '/friend-link',
+    query: { status: 'pending' },
+    tone: 'success',
+  },
+  {
+    key: 'comment-review',
+    label: '评论待审',
+    count: pending.value.pendingComments,
+    path: '/comment',
+    tone: 'info',
+  },
+])
+
+const todoTotal = computed(() => {
+  return todoItems.value.reduce((sum, item) => sum + item.count, 0)
+})
+
+const todoActiveTypes = computed(() => {
+  return todoItems.value.filter(item => item.count > 0).length
+})
+
+const commentCardStats = computed<Pick<StatisticsVO, 'total' | 'today' | 'yesterday' | 'week' | 'month'>>(() => {
+  const total = commentStats.value.total || 0
+  const todayNew = commentStats.value.todayNew || 0
+  const pendingCount = commentStats.value.pending || 0
+  const approvedCount = commentStats.value.approved || 0
+
+  return {
+    total,
+    today: todayNew,
+    yesterday: pendingCount,
+    week: approvedCount,
+    month: total,
+  }
+})
+
+const cardConfigs = computed<DashboardCardConfig[]>(() => [
+  {
+    key: 'article',
+    title: '文章统计',
+    icon: Document,
+    color: '#5b8def',
+    totalLabel: '总文章数',
+    data: articleStats.value,
+    labels: { today: '今日发布', yesterday: '昨日发布', week: '本周发布', month: '本月发布' },
+  },
+  {
+    key: 'pv',
+    title: '访问量统计',
+    icon: View,
+    color: '#67c23a',
+    totalLabel: '总访问量',
+    data: pvStats.value,
+    labels: { today: '今日访问', yesterday: '昨日访问', week: '本周访问', month: '本月访问' },
+  },
+  {
+    key: 'user',
+    title: '用户统计',
+    icon: User,
+    color: '#e6a23c',
+    totalLabel: '总用户数',
+    data: userStats.value,
+    labels: { today: '今日注册', yesterday: '昨日注册', week: '本周注册', month: '本月注册' },
+  },
+  {
+    key: 'comment',
+    title: '评论统计',
+    icon: ChatDotSquare,
+    color: '#f56c6c',
+    totalLabel: '总评论数',
+    data: commentCardStats.value,
+    labels: { today: '今日新增', yesterday: '待审核', week: '已通过', month: '总评论' },
+  },
 ])
 
 // 图表配置
@@ -325,6 +560,34 @@ let chartObserver: IntersectionObserver | null = null
 
 function setChartRef(key: string, el: HTMLDivElement) {
   if (el) chartRefs.set(key, el)
+}
+
+function handleQuickNavigate(path: string, query?: Record<string, string>) {
+  if (query) {
+    navigateTo({ path, query })
+    return
+  }
+  navigateTo(path)
+}
+
+function getAiTrendTotal(item: AiTokenUsageVO['dailyTrend'][number]) {
+  return (item?.inputTokens || 0) + (item?.outputTokens || 0)
+}
+
+function getAiUsageStatus(percent: number): '' | 'success' | 'warning' | 'exception' {
+  if (percent >= 90) {
+    return 'exception'
+  }
+  if (percent >= 70) {
+    return 'warning'
+  }
+  return 'success'
+}
+
+function handlePeriodChange(chart: ChartConfig, period: 'week' | 'month') {
+  if (chart.period === period) return
+  chart.period = period
+  void renderChart(chart)
 }
 
 async function activateCharts() {
@@ -506,7 +769,6 @@ function setCoreLoadingState(value: boolean) {
   loading.value = value
   chartsLoading.value = value
   pendingLoading.value = value
-  commentLoading.value = value
   categoryLoading.value = value
   hotPostsLoading.value = value
 
@@ -520,7 +782,6 @@ function setCoreLoadingState(value: boolean) {
     loading.value = false
     chartsLoading.value = false
     pendingLoading.value = false
-    commentLoading.value = false
     categoryLoading.value = false
     hotPostsLoading.value = false
     loadingGuardTimer = null
@@ -560,7 +821,7 @@ async function loadDashboardStats() {
     if (data.pvStats) pvStats.value = data.pvStats
     if (data.userStats) userStats.value = data.userStats
     if (data.hotPosts) hotPosts.value = data.hotPosts
-    if (data.pending) pending.value = data.pending
+    if (data.pending) pending.value = normalizePending(data.pending)
     if (Array.isArray(data.categoryDist)) categoryDist.value = data.categoryDist
     if (data.commentStats) commentStats.value = data.commentStats
 
@@ -583,7 +844,7 @@ async function loadDashboardStats() {
   aiLoading.value = true
   try {
     const ai = await getAiTokenUsage()
-    aiTokenUsage.value = ai.data
+    aiTokenUsage.value = normalizeAiUsage(ai.data)
   } catch {
     aiTokenUsage.value = null
   } finally {
@@ -603,12 +864,12 @@ async function loadDashboardStatsFallback() {
   if (coreStats[1].status === 'fulfilled') pvStats.value = coreStats[1].value.data
   if (coreStats[2].status === 'fulfilled') userStats.value = coreStats[2].value.data
 
-  // 第二批：待处理事项和评论统计
+  // 第二批：代办统计和评论统计
   const [pendingResult, commentResult] = await Promise.allSettled([
     getPending(),
     getCommentStats()
   ])
-  if (pendingResult.status === 'fulfilled') pending.value = pendingResult.value.data
+  if (pendingResult.status === 'fulfilled') pending.value = normalizePending(pendingResult.value.data)
   if (commentResult.status === 'fulfilled') commentStats.value = commentResult.value.data
 
   // 第三批：分类分布和热门文章
@@ -658,7 +919,7 @@ onUnmounted(() => {
 /* 统计卡片 */
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -667,7 +928,7 @@ onUnmounted(() => {
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
-  padding: 20px;
+  padding: 18px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .card-header {
@@ -696,7 +957,7 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 .total-value {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
@@ -746,18 +1007,48 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 12px;
 }
-.chart-header :deep(.el-radio-group) {
-  width: 136px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.period-switch {
+  display: inline-flex;
+  gap: 4px;
   flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  padding: 3px;
+
+  .dark & {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
-.chart-header :deep(.el-radio-button) {
-  width: 100%;
-}
-.chart-header :deep(.el-radio-button__inner) {
-  width: 100%;
-  text-align: center;
+
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+  }
+
+  &.active {
+    background: var(--admin-primary-soft);
+    color: var(--el-color-primary);
+    box-shadow: none;
+
+    .dark & {
+      background: var(--admin-primary-soft);
+      color: var(--el-color-primary);
+    }
+  }
 }
 .chart-title {
   font-size: 14px;
@@ -773,8 +1064,9 @@ onUnmounted(() => {
 /* 底部区域 */
 .bottom-section {
   display: grid;
-  grid-template-columns: 280px 1fr 1fr;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1.18fr);
   gap: 16px;
+  align-items: stretch;
 }
 .info-card {
   background: var(--el-bg-color);
@@ -782,6 +1074,8 @@ onUnmounted(() => {
   border-radius: 10px;
   padding: 16px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  height: 100%;
+  box-sizing: border-box;
 }
 .info-card-title {
   font-size: 14px;
@@ -795,53 +1089,163 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-/* 待处理事项 */
-.pending-list {
+/* 代办事项 */
+.todo-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.pending-item {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-.pending-label {
-  font-size: 13px;
-  color: var(--el-text-color-regular);
-}
-.pending-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-.pending-value.warning {
-  color: #e6a23c;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-/* 评论统计 */
-.comment-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.todo-title-total {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
 }
-.comment-stat-item {
+
+.todo-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.todo-summary-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
 }
-.comment-stat-value {
-  font-size: 20px;
+
+.todo-summary-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.todo-summary-value {
+  font-size: 15px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
-.comment-stat-value.approved { color: #67c23a; }
-.comment-stat-value.pending { color: #e6a23c; }
-.comment-stat-value.today { color: #5b8def; }
-.comment-stat-label {
+
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.todo-task {
+  border: none;
+  border-radius: 8px;
+  background: var(--el-fill-color-extra-light);
+  min-height: 72px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.todo-task:hover {
+  background: var(--el-fill-color-light);
+}
+
+.todo-task:focus-visible {
+  outline: 2px solid var(--el-color-primary-light-5);
+  outline-offset: 1px;
+}
+
+.todo-task.is-empty {
+  opacity: 0.72;
+}
+
+.todo-task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.todo-task-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.todo-task-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--el-text-color-placeholder);
+}
+
+.todo-task--primary .todo-task-dot {
+  background: var(--el-color-primary);
+}
+
+.todo-task--warning .todo-task-dot {
+  background: var(--el-color-warning);
+}
+
+.todo-task--success .todo-task-dot {
+  background: var(--el-color-success);
+}
+
+.todo-task--info .todo-task-dot {
+  background: var(--el-color-info);
+}
+
+.todo-task-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.todo-task-count {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.todo-task.is-active .todo-task-count {
+  color: var(--el-text-color-primary);
+}
+
+.todo-task--primary.is-active .todo-task-count {
+  color: var(--el-color-primary);
+}
+
+.todo-task--warning.is-active .todo-task-count {
+  color: var(--el-color-warning);
+}
+
+.todo-task--success.is-active .todo-task-count {
+  color: var(--el-color-success);
+}
+
+.todo-task--info.is-active .todo-task-count {
+  color: var(--el-color-info);
+}
+
+.todo-task-action {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.todo-task.is-active .todo-task-action {
+  color: var(--el-text-color-regular);
 }
 
 /* 分类饼图 */
@@ -895,15 +1299,15 @@ onUnmounted(() => {
 }
 .hot-rank.rank-1 {
   color: #fff;
-  background: linear-gradient(135deg, #e6a23c, #d48806);
+  background: var(--el-color-primary);
 }
 .hot-rank.rank-2 {
-  color: #fff;
-  background: linear-gradient(135deg, #a0aec0, #718096);
+  color: var(--el-text-color-primary);
+  background: var(--el-color-primary-light-5);
 }
 .hot-rank.rank-3 {
-  color: #fff;
-  background: linear-gradient(135deg, #d48806, #b7791f);
+  color: var(--el-text-color-primary);
+  background: var(--el-color-primary-light-7);
 }
 .hot-rank.rank-normal {
   color: var(--el-text-color-secondary);
@@ -945,8 +1349,8 @@ onUnmounted(() => {
 }
 .hot-tag-badge {
   font-size: 10px;
-  color: #9b8ec4;
-  background: rgba(155, 142, 196, 0.08);
+  color: var(--el-color-primary);
+  background: var(--admin-primary-soft);
   padding: 0 5px;
   border-radius: 3px;
   cursor: default;
@@ -985,12 +1389,86 @@ onUnmounted(() => {
   color: var(--el-text-color-primary);
 }
 .ai-usage-value.ai-total {
-  color: #9b8ec4;
+  color: var(--el-color-primary);
 }
 .ai-usage-label {
   font-size: 11px;
   color: var(--el-text-color-secondary);
 }
+
+.ai-usage-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ai-meta-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--el-fill-color-extra-light);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-meta-label {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.ai-limit-progress {
+  margin-bottom: 10px;
+}
+
+.ai-limit-text {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-trend {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: end;
+}
+
+.ai-trend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-trend-bar-wrap {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ai-trend-bar {
+  width: 74%;
+  min-height: 8px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--el-color-primary);
+  opacity: 0.78;
+}
+
+.ai-trend-label {
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+}
+
 .ai-usage-breakdown {
   display: flex;
   flex-direction: column;
@@ -1011,5 +1489,46 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-primary);
+}
+
+@media (max-width: 1600px) {
+  .stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bottom-section {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hot-posts-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1280px) {
+  .chart-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-page {
+    padding: 12px;
+  }
+
+  .stat-cards,
+  .chart-row,
+  .bottom-section {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-usage-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .todo-summary,
+  .todo-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

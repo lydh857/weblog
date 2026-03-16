@@ -4,11 +4,11 @@
       <section class="footer-brand">
         <NuxtLink to="/" class="brand-head">
           <span class="brand-mark">
-            <img src="/brand/logo.png" alt="zhhhkl logo" class="brand-logo-img">
+            <img src="/brand/logo.png" :alt="`${siteName} logo`" class="brand-logo-img">
           </span>
-          <strong>zhhhkl</strong>
+          <strong>{{ siteName }}</strong>
         </NuxtLink>
-        <p class="brand-slogan">记录经验、分享洞察、连接有价值的内容。</p>
+        <p class="brand-slogan">{{ siteDescription }}</p>
       </section>
 
       <div class="footer-links">
@@ -39,7 +39,7 @@
 
     <div class="footer-bottom">
       <p>本站内容仅供学习与交流，商业使用请联系原作者授权。</p>
-      <p>&copy; {{ currentYear }} Weblog. All rights reserved.</p>
+      <p>&copy; {{ currentYear }} {{ siteName }}. All rights reserved.</p>
     </div>
   </footer>
 </template>
@@ -47,6 +47,9 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear()
 const searchModal = useSearchModal()
+const siteConfig = useSiteConfigState()
+const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
+const siteDescription = computed(() => siteConfig.value.siteDescription || DEFAULT_SITE_DESCRIPTION)
 
 function openSearchModal() {
   searchModal.open()

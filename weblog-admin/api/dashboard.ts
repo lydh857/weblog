@@ -32,6 +32,8 @@ export interface PendingVO {
   draftPosts: number
   pendingComments: number
   pendingAds: number
+  pendingProfileReviews: number
+  pendingFriendLinks: number
 }
 
 /** 分类文章分布 */
@@ -81,6 +83,21 @@ export interface AiTokenUsageVO {
   month: string
   totalInput: number
   totalOutput: number
+  totalTokens: number
+  totalRequests: number
+  todayInput: number
+  todayOutput: number
+  todayTokens: number
+  todayRequests: number
+  monthlyLimit: number
+  limitUsagePercent: number
+  dailyTrend: Array<{
+    date: string
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+    requests: number
+  }>
   featureBreakdown: Record<string, { inputTokens: number; outputTokens: number }>
 }
 

@@ -47,20 +47,20 @@ function handleError() {
   justify-content: center;
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f8fafc;
+  background: var(--el-bg-color-page);
 }
 .error-card {
   max-width: 500px;
   width: 100%;
   text-align: center;
   padding: 2.5rem 2rem;
-  background: #fff;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
   border-radius: 10px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 .error-card.warning {
-  border: 1px solid #e6a23c;
-  background: #fffbeb;
+  border-color: var(--el-color-warning);
+  background: var(--el-bg-color);
 }
 .error-icon {
   font-size: 3rem;
@@ -68,22 +68,22 @@ function handleError() {
 }
 .error-card h2 {
   font-size: 1.25rem;
-  color: #1e293b;
+  color: var(--el-text-color-primary);
   margin-bottom: 0.75rem;
 }
 .error-card p {
-  color: #64748b;
+  color: var(--el-text-color-secondary);
   line-height: 1.7;
   margin-bottom: 0.5rem;
 }
 .error-card .hint {
   margin-top: 1rem;
   font-weight: 600;
-  color: #92400e;
+  color: var(--el-color-warning);
 }
 .error-card ul {
   text-align: left;
-  color: #92400e;
+  color: var(--el-text-color-secondary);
   margin: 0.5rem auto 1.5rem;
   max-width: 320px;
   line-height: 1.8;
@@ -91,7 +91,7 @@ function handleError() {
 .retry-btn {
   margin-top: 1rem;
   padding: 0.6rem 2rem;
-  background: #5b8def;
+  background: var(--el-color-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -100,12 +100,13 @@ function handleError() {
   transition: background 0.2s;
 }
 .retry-btn:hover {
-  background: #4a7de0;
+  background: var(--el-color-primary-dark-2);
 }
 .warning .retry-btn {
-  background: #e6a23c;
+  background: var(--el-color-warning);
 }
 .warning .retry-btn:hover {
-  background: #d97706;
+  background: var(--el-color-warning);
+  filter: brightness(0.95);
 }
 </style>
