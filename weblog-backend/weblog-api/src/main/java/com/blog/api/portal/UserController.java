@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.ValidateUtil;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.LocalFileService;
 import com.blog.infra.oss.OssService;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -34,6 +36,9 @@ public class UserController {
 
     private static final String AVATAR_USAGE = "avatar";
     private static final String AVATAR_PENDING_FILE_PREFIX = "avatar_pending__";
+    private static final int MAX_EMAIL_LENGTH = 100;
+    private static final int MAX_CODE_LENGTH = 12;
+    private static final int MAX_PASSWORD_LENGTH = 128;
 
     private final UserService userService;
     private final UserProfileReviewService userProfileReviewService;
@@ -153,11 +158,8 @@ public class UserController {
     public Result<Void> bindEmail(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        String email = body.get("email");
-        String code = body.get("code");
-        if (email == null || code == null) {
-            throw new BusinessException(ResultCode.PARAM_MISSING, "邮箱和验证码不能为空");
-        }
+        String email = normalizeEmailField(body, "email");
+        String code = normalizeCodeField(body, "code");
         if (!emailCodeService.verifyCode(email, "bind", code)) {
             throw new BusinessException(ResultCode.VERIFY_CODE_INVALID);
         }
@@ -172,11 +174,8 @@ public class UserController {
     public Result<Void> changeEmail(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        String newEmail = body.get("email");
-        String code = body.get("code");
-        if (newEmail == null || code == null) {
-            throw new BusinessException(ResultCode.PARAM_MISSING, "邮箱和验证码不能为空");
-        }
+        String newEmail = normalizeEmailField(body, "email");
+        String code = normalizeCodeField(body, "code");
         if (!emailCodeService.verifyCode(newEmail, "change-email", code)) {
             throw new BusinessException(ResultCode.VERIFY_CODE_INVALID);
         }
@@ -198,12 +197,8 @@ public class UserController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "请先绑定邮箱");
         }
 
-        String code = body.get("code");
-        String password = body.get("password");
-
-        if (code == null || password == null) {
-            throw new BusinessException(ResultCode.PARAM_MISSING, "验证码和密码不能为空");
-        }
+        String code = normalizeCodeField(body, "code");
+        String password = getRequiredPassword(body, "password");
 
         // 验证邮箱验证码
         if (!emailCodeService.verifyCode(profile.getEmail(), "reset-pwd", code)) {
@@ -223,11 +218,8 @@ public class UserController {
     public Result<Void> resetPassword(@RequestBody Map<String, String> body) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        String code = body.get("code");
-        String newPassword = body.get("password");
-        if (code == null || newPassword == null) {
-            throw new BusinessException(ResultCode.PARAM_MISSING, "验证码和新密码不能为空");
-        }
+        String code = normalizeCodeField(body, "code");
+        String newPassword = getRequiredPassword(body, "password");
         // 获取当前用户邮箱来验证验证码
         var profile = userService.getProfile(userId);
         if (profile.getEmail() == null || profile.getEmail().isBlank()) {
@@ -240,5 +232,49 @@ public class UserController {
         String decryptedPassword = newPassword;
         userService.resetPassword(userId, decryptedPassword);
         return Result.success();
+    }
+
+    private String normalizeEmailField(Map<String, String> body, String field) {
+        String email = getRequiredText(body, field, "邮箱不能为空");
+        if (email.length() > MAX_EMAIL_LENGTH) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱长度不能超过" + MAX_EMAIL_LENGTH + "个字符");
+        }
+        if (!ValidateUtil.isValidEmail(email)) {
+            throw new BusinessException(ResultCode.EMAIL_INVALID);
+        }
+        return email.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeCodeField(Map<String, String> body, String field) {
+        String code = getRequiredText(body, field, "验证码不能为空");
+        if (code.length() > MAX_CODE_LENGTH) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "验证码格式不正确");
+        }
+        return code;
+    }
+
+    private String getRequiredPassword(Map<String, String> body, String field) {
+        if (body == null) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, "请求参数不能为空");
+        }
+        String value = body.get(field);
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, "密码不能为空");
+        }
+        if (value.length() > MAX_PASSWORD_LENGTH) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "密码长度不能超过" + MAX_PASSWORD_LENGTH + "个字符");
+        }
+        return value;
+    }
+
+    private String getRequiredText(Map<String, String> body, String field, String message) {
+        if (body == null) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, "请求参数不能为空");
+        }
+        String value = body.get(field);
+        if (value == null || value.trim().isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, message);
+        }
+        return value.trim();
     }
 }

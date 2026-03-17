@@ -7,7 +7,7 @@
     aria-busy="true"
     :aria-label="text || '页面加载中'"
   >
-    <StartupCubeLoader class="unified-page-loader__cube" />
+    <span v-if="!compact" class="unified-page-loader__spinner" aria-hidden="true" />
     <p v-if="text" class="unified-page-loader__text">{{ text }}</p>
   </div>
 </template>
@@ -45,9 +45,18 @@ withDefaults(defineProps<{
     linear-gradient(180deg, rgba(22, 32, 49, 0.92), rgba(16, 24, 38, 0.94));
 }
 
-.unified-page-loader__cube {
-  transform: scale(0.8);
-  transform-origin: center;
+.unified-page-loader__spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-top-color: #4f7cd8;
+  animation: unified-page-loader-spin 0.8s linear infinite;
+}
+
+:global(html.dark) .unified-page-loader__spinner {
+  border-color: rgba(148, 163, 184, 0.26);
+  border-top-color: #93b4f4;
 }
 
 .unified-page-loader__text {
@@ -63,13 +72,9 @@ withDefaults(defineProps<{
 }
 
 .unified-page-loader--compact {
-  min-height: 128px;
+  min-height: 88px;
   border-radius: 12px;
-  gap: 4px;
-}
-
-.unified-page-loader--compact .unified-page-loader__cube {
-  transform: scale(0.56);
+  gap: 0;
 }
 
 .unified-page-loader--compact .unified-page-loader__text {
@@ -79,6 +84,12 @@ withDefaults(defineProps<{
 @media (max-width: 768px) {
   .unified-page-loader {
     min-height: 208px;
+  }
+}
+
+@keyframes unified-page-loader-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

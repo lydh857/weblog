@@ -14,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.IDN;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 友链服务
@@ -25,6 +27,15 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class FriendLinkService {
+
+    private static final int LINK_CHECK_CONNECT_TIMEOUT_MS = 8000;
+    private static final int LINK_CHECK_READ_TIMEOUT_MS = 8000;
+    private static final int LINK_CHECK_MAX_ATTEMPTS = 3;
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_URL_LENGTH = 200;
+    private static final int MAX_LOGO_URL_LENGTH = 500;
+    private static final int MAX_DESCRIPTION_LENGTH = 200;
+    private static final int MAX_REJECT_REASON_LENGTH = 500;
 
     private final FriendLinkMapper friendLinkMapper;
 
@@ -65,9 +76,10 @@ public class FriendLinkService {
      */
     @Transactional
     public FriendLink create(String name, String url, String logo, String description, Integer sortOrder) {
-        name = XssUtil.cleanText(name);
+        name = sanitizeName(name);
         url = validateAndCleanUrl(url);
-        description = description != null ? XssUtil.cleanText(description) : null;
+        logo = validateAndCleanOptionalUrl(logo);
+        description = sanitizeDescription(description);
 
         FriendLink link = new FriendLink();
         link.setName(name);
@@ -88,10 +100,10 @@ public class FriendLinkService {
     public FriendLink update(Long id, String name, String url, String logo, String description,
                              String status, Integer sortOrder) {
         FriendLink link = getById(id);
-        link.setName(XssUtil.cleanText(name));
+        link.setName(sanitizeName(name));
         link.setUrl(validateAndCleanUrl(url));
-        link.setLogo(logo);
-        link.setDescription(description != null ? XssUtil.cleanText(description) : null);
+        link.setLogo(validateAndCleanOptionalUrl(logo));
+        link.setDescription(sanitizeDescription(description));
         if (status != null) {
             link.setStatus(status);
         }
@@ -163,24 +175,73 @@ public class FriendLinkService {
      * 检测 URL 是否可达（HEAD 请求，超时 5 秒）
      */
     private boolean isUrlReachable(String url) {
-        try {
-            if (!isSafeExternalUrl(url)) {
-                log.warn("友链URL安全校验失败，跳过可达性检测: url={}", url);
-                return false;
-            }
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
-                java.net.URI.create(url).toURL().openConnection();
-            conn.setRequestMethod("HEAD");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setInstanceFollowRedirects(false);
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; WeblogBot/1.0)");
-            int code = conn.getResponseCode();
-            conn.disconnect();
-            return code >= 200 && code < 400;
-        } catch (Exception e) {
+        if (!isSafeExternalUrl(url)) {
+            log.warn("友链URL安全校验失败，跳过可达性检测: url={}", url);
             return false;
         }
+
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= LINK_CHECK_MAX_ATTEMPTS; attempt++) {
+            try {
+                if (isUrlReachableByHeadOrGet(url)) {
+                    return true;
+                }
+            } catch (Exception e) {
+                lastError = e;
+            }
+
+            if (attempt < LINK_CHECK_MAX_ATTEMPTS) {
+                try {
+                    long sleepMs = ThreadLocalRandom.current().nextLong(180L, 420L);
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+
+        if (lastError != null) {
+            log.debug("友链可达性检测失败: url={}, error={}", url, lastError.getMessage());
+        }
+        return false;
+    }
+
+    private boolean isUrlReachableByHeadOrGet(String url) throws Exception {
+        int headCode = requestStatusCode(url, "HEAD");
+        if (isReachableStatusCode(headCode)) {
+            return true;
+        }
+
+        // 部分站点不支持 HEAD（如 405/501）或对机器人 HEAD 策略更严格，回退 GET 再判定
+        if (headCode == 405 || headCode == 501 || headCode == 403 || headCode == 401) {
+            int getCode = requestStatusCode(url, "GET");
+            return isReachableStatusCode(getCode);
+        }
+
+        return false;
+    }
+
+    private int requestStatusCode(String url, String method) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
+        try {
+            conn.setRequestMethod(method);
+            conn.setConnectTimeout(LINK_CHECK_CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(LINK_CHECK_READ_TIMEOUT_MS);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; WeblogBot/1.0)");
+            conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            if ("GET".equals(method)) {
+                conn.setRequestProperty("Range", "bytes=0-0");
+            }
+            return conn.getResponseCode();
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    private boolean isReachableStatusCode(int code) {
+        return (code >= 200 && code < 400) || code == 401 || code == 403;
     }
 
     /**
@@ -196,9 +257,10 @@ public class FriendLinkService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "您已申请过友链，请勿重复申请");
         }
 
-        name = XssUtil.cleanText(name);
+        name = sanitizeName(name);
         url = validateAndCleanUrl(url);
-        description = description != null ? XssUtil.cleanText(description) : null;
+        logo = validateAndCleanOptionalUrl(logo);
+        description = sanitizeDescription(description);
 
         FriendLink link = new FriendLink();
         link.setName(name);
@@ -234,10 +296,10 @@ public class FriendLinkService {
             throw new BusinessException(ResultCode.NOT_FOUND, "未找到您的友链申请");
         }
 
-        link.setName(XssUtil.cleanText(name));
+        link.setName(sanitizeName(name));
         link.setUrl(validateAndCleanUrl(url));
-        link.setLogo(logo);
-        link.setDescription(description != null ? XssUtil.cleanText(description) : null);
+        link.setLogo(validateAndCleanOptionalUrl(logo));
+        link.setDescription(sanitizeDescription(description));
         link.setStatus("pending");
         link.setReason(null);
         friendLinkMapper.updateById(link);
@@ -271,9 +333,10 @@ public class FriendLinkService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "只能审核待审批状态的友链");
         }
         link.setStatus("rejected");
-        link.setReason(reason);
+        String sanitizedReason = sanitizeRejectReason(reason);
+        link.setReason(sanitizedReason);
         friendLinkMapper.updateById(link);
-        log.info("友链审核拒绝: id={}, name={}, reason={}", id, link.getName(), reason);
+        log.info("友链审核拒绝: id={}, name={}, reason={}", id, link.getName(), sanitizedReason);
         return link;
     }
 
@@ -284,7 +347,26 @@ public class FriendLinkService {
         if (url == null || url.isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "URL不能为空");
         }
-        URI uri = parseAndValidateUrl(url.trim());
+        String trimmed = url.trim();
+        if (trimmed.length() > MAX_URL_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "URL长度不能超过" + MAX_URL_LENGTH + "个字符");
+        }
+        URI uri = parseAndValidateUrl(trimmed);
+        return XssUtil.cleanText(uri.toString());
+    }
+
+    private String validateAndCleanOptionalUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > MAX_LOGO_URL_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Logo URL长度不能超过" + MAX_LOGO_URL_LENGTH + "个字符");
+        }
+        URI uri = parseAndValidateUrl(trimmed);
         return XssUtil.cleanText(uri.toString());
     }
 
@@ -310,7 +392,12 @@ public class FriendLinkService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "URL缺少有效主机名");
         }
 
-        String normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+        String normalizedHost;
+        try {
+            normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "URL主机名无效");
+        }
         if (isLocalHostName(normalizedHost)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网地址");
         }
@@ -375,5 +462,44 @@ public class FriendLinkService {
         return "localhost".equals(host)
                 || host.endsWith(".localhost")
                 || host.endsWith(".local");
+    }
+
+    private String sanitizeName(String name) {
+        String cleaned = XssUtil.cleanText(name == null ? "" : name).trim();
+        if (cleaned.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "网站名称不能为空");
+        }
+        if (cleaned.length() > MAX_NAME_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "网站名称最长" + MAX_NAME_LENGTH + "字");
+        }
+        return cleaned;
+    }
+
+    private String sanitizeDescription(String description) {
+        if (description == null) {
+            return null;
+        }
+        String cleaned = XssUtil.cleanText(description).trim();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        if (cleaned.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "描述最长" + MAX_DESCRIPTION_LENGTH + "字");
+        }
+        return cleaned;
+    }
+
+    private String sanitizeRejectReason(String reason) {
+        if (reason == null) {
+            return null;
+        }
+        String cleaned = XssUtil.cleanText(reason).trim();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        if (cleaned.length() > MAX_REJECT_REASON_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "拒绝原因最长" + MAX_REJECT_REASON_LENGTH + "字");
+        }
+        return cleaned;
     }
 }

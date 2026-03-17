@@ -140,11 +140,12 @@
           <div class="rule-toolbar">
             <div class="pit-selector">
               <span class="quick-label">坑位</span>
-              <el-radio-group v-model="ruleActivePitIndex" size="small">
+              <el-radio-group v-model="ruleActivePitIndex" size="small" class="pit-radio-group">
                 <el-radio-button
                   v-for="pit in rulePitOptions"
                   :key="`${ruleActiveTab}-pit-${pit}`"
                   :label="pit"
+                  class="pit-radio-button"
                 >
                   #{{ pit }}
                 </el-radio-button>
@@ -242,7 +243,9 @@
       </el-table-column>
       <el-table-column label="坑位" width="88" align="center">
         <template #default="{ row }">
+          <span v-if="row.advertiserId" class="text-muted">不可用</span>
           <el-switch
+            v-else
             :model-value="Boolean(row.pitEnabled)"
             :disabled="!canTogglePit(row) || pitSwitchLoadingMap[row.id]"
             :loading="Boolean(pitSwitchLoadingMap[row.id])"
@@ -268,7 +271,8 @@
       <el-table-column label="点击" prop="clickCount" width="60" align="center" />
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="openDetailDialog(row)">详情</el-button>
+          <el-button v-if="isApplicationPending(row)" text type="warning" size="small" @click="openDetailDialog(row)">审核</el-button>
+          <el-button v-else-if="canViewApplicationDetail(row)" text type="primary" size="small" @click="openDetailDialog(row)">详情</el-button>
           <el-button v-if="row.status === 'active'" text type="info" size="small" @click="handleStatus(row, 'expired')">下架</el-button>
           <el-button v-if="row.status !== 'active' && row.status !== 'pending'" text type="success" size="small" @click="handleStatus(row, 'active')">上架</el-button>
           <el-button text type="primary" size="small" @click="openDialog(row)">编辑</el-button>
@@ -293,7 +297,10 @@
           <div class="detail-item"><span>位置</span><strong>{{ posLabel(detailRecord.position) }}</strong></div>
           <div class="detail-item"><span>状态</span><strong>{{ statusLabel(detailRecord.status) }}</strong></div>
           <div class="detail-item"><span>开放坑位</span><strong>{{ detailRecord.pitEnabled ? '是' : '否' }}</strong></div>
+          <div class="detail-item"><span>申请坑位</span><strong>{{ detailPitLabel(detailRecord) }}</strong></div>
           <div class="detail-item"><span>提交用户</span><strong>{{ detailRecord.advertiserId || '-' }}</strong></div>
+          <div class="detail-item"><span>用户账号</span><strong>{{ detailRecord.advertiserEmail || '-' }}</strong></div>
+          <div class="detail-item"><span>用户昵称</span><strong>{{ detailRecord.advertiserNickname || '-' }}</strong></div>
           <div class="detail-item"><span>点击量</span><strong>{{ detailRecord.clickCount }}</strong></div>
           <div class="detail-item"><span>开始时间</span><strong>{{ fmt(detailRecord.startTime) || '-' }}</strong></div>
           <div class="detail-item"><span>结束时间</span><strong>{{ fmt(detailRecord.endTime) || '-' }}</strong></div>
@@ -309,7 +316,14 @@
 
         <div class="detail-preview">
           <template v-if="detailRecord.type === 'image'">
-            <AppImage :src="detailRecord.content" fit="cover" class="detail-preview-image" />
+            <el-image
+              :src="detailRecord.content"
+              fit="contain"
+              :preview-src-list="[detailRecord.content]"
+              preview-teleported
+              class="detail-preview-image"
+            />
+            <div class="detail-preview-tip">点击图片可放大、缩放查看原图比例</div>
           </template>
           <template v-else>
             <pre class="detail-code-preview">{{ detailRecord.content }}</pre>
@@ -1062,6 +1076,24 @@ function getPresetPrice(position: string, durationDays: number, pitIndex: number
 function canTogglePit(row: AdvertisementVO) {
   return !row.advertiserId && row.status === 'active' && supportedPitPositions.has(row.position)
 }
+function isApplicationPending(row: AdvertisementVO) {
+  return Boolean(row.advertiserId) && row.status === 'pending'
+}
+function canViewApplicationDetail(row: AdvertisementVO) {
+  return Boolean(row.advertiserId) && (row.status === 'active' || row.status === 'approved')
+}
+function detailPitLabel(row: AdvertisementVO) {
+  if (!row.advertiserId) return '-'
+  const pitTitle = (row.pitTitle || '').trim()
+  const pitIndex = Number(row.pitIndex)
+  if (Number.isInteger(pitIndex) && pitIndex > 0) {
+    return pitTitle ? `#${pitIndex}（${pitTitle}）` : `#${pitIndex}`
+  }
+  if (row.pitAdId) {
+    return pitTitle ? `坑位广告ID ${row.pitAdId}（${pitTitle}）` : `坑位广告ID ${row.pitAdId}`
+  }
+  return '-'
+}
 function getPositionTagType(position: string) {
   return ({
     home_left: 'success',
@@ -1144,12 +1176,9 @@ async function submitDetailReview(status: 'active' | 'rejected') {
       ? (shouldAutoExtend ? '审核已通过，系统已自动顺延投放期' : '审核已通过')
       : '审核已拒绝')
     await loadData()
-
-    const latest = records.value.find(item => item.id === detailRecord.value?.id)
-    if (latest) {
-      detailRecord.value = { ...latest }
-      detailRejectReason.value = latest.reviewReason || ''
-    }
+    detailVisible.value = false
+    detailRecord.value = null
+    detailRejectReason.value = ''
   } catch (e: unknown) {
     ElMessage.error((e as Error).message || '操作失败')
   } finally {
@@ -2025,6 +2054,38 @@ onMounted(() => {
     flex-wrap: wrap;
   }
 
+  .pit-radio-group {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  :deep(.pit-radio-group .el-radio-button__inner) {
+    min-width: 42px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--el-border-color);
+    background: var(--el-fill-color-blank);
+    color: var(--el-text-color-regular);
+    font-weight: 600;
+    line-height: 28px;
+    padding: 0 12px;
+    box-shadow: none;
+    transition: all 0.16s ease;
+  }
+
+  :deep(.pit-radio-group .el-radio-button__original-radio:checked + .el-radio-button__inner) {
+    border-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+    box-shadow: inset 0 0 0 1px rgba(64, 158, 255, 0.2);
+  }
+
+  :deep(.pit-radio-group .el-radio-button:first-child .el-radio-button__inner),
+  :deep(.pit-radio-group .el-radio-button:last-child .el-radio-button__inner) {
+    border-radius: 999px;
+  }
+
   .quick-label {
     font-size: 12px;
     color: var(--el-text-color-secondary);
@@ -2154,12 +2215,34 @@ onMounted(() => {
   border-radius: 10px;
   overflow: hidden;
   background: var(--el-fill-color-blank);
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .detail-preview-image {
-  display: block;
   width: 100%;
-  max-height: 260px;
+  min-height: 260px;
+  max-height: 520px;
+  background: var(--el-fill-color-lighter);
+
+  :deep(.el-image__inner) {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 520px;
+    object-fit: contain;
+  }
+}
+
+.detail-preview-tip {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  border-top: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-blank);
 }
 
 .detail-code-preview {

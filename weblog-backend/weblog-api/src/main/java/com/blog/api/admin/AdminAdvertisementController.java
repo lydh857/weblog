@@ -11,6 +11,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.util.XssUtil;
+import com.blog.system.entity.User;
+import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +44,7 @@ public class AdminAdvertisementController {
 
     private final AdvertisementService advertisementService;
     private final AdPitBindingService adPitBindingService;
+    private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
     private static final Set<String> VALID_AD_STATUSES = Set.of("pending", "approved", "rejected", "active", "expired");
@@ -67,6 +70,7 @@ public class AdminAdvertisementController {
         pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
         IPage<Advertisement> page = advertisementService.listPage(pageNum, pageSize, status, position);
         List<Advertisement> records = page.getRecords();
+        attachAdvertiserInfo(records);
         attachReviewReasons(records);
         attachPitContext(records);
         return Result.success(Map.of(
@@ -223,6 +227,11 @@ public class AdminAdvertisementController {
         Advertisement pitTarget = null;
         if ("active".equals(status)) {
             pitTarget = resolvePitReplacement(existing);
+            if (existing.getAdvertiserId() != null
+                    && "pending".equals(existing.getStatus())
+                    && pitTarget == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "该申请未绑定有效坑位，请让用户重新提交申请");
+            }
             ensurePositionCapacityForActive(normalizePosition(existing.getPosition()), existing, pitTarget);
             if (pitTarget != null
                     && pitTarget.getId() != null
@@ -316,6 +325,12 @@ public class AdminAdvertisementController {
                     }
 
                     Advertisement pitTarget = resolvePitReplacement(existing);
+                    if (existing.getAdvertiserId() != null
+                            && "pending".equals(existing.getStatus())
+                            && pitTarget == null) {
+                        throw new BusinessException(ResultCode.BAD_REQUEST,
+                                "广告ID " + longId + " 未绑定有效坑位，请改为在详情中处理或让用户重新提交申请");
+                    }
                     ensurePositionCapacityForActive(normalizePosition(existing.getPosition()), existing, pitTarget);
 
                     if (pitTarget != null
@@ -497,14 +512,49 @@ public class AdminAdvertisementController {
         }
     }
 
+    private void attachAdvertiserInfo(List<Advertisement> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Set<Long> advertiserIds = records.stream()
+                .map(Advertisement::getAdvertiserId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (advertiserIds.isEmpty()) {
+            return;
+        }
+
+        List<User> users = userMapper.selectByIds(advertiserIds);
+        if (users == null || users.isEmpty()) {
+            return;
+        }
+
+        Map<Long, User> userMap = users.stream()
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toMap(User::getId, user -> user, (left, right) -> left));
+
+        for (Advertisement record : records) {
+            if (record == null || record.getAdvertiserId() == null) {
+                continue;
+            }
+            User user = userMap.get(record.getAdvertiserId());
+            if (user == null) {
+                continue;
+            }
+            record.setAdvertiserEmail(user.getEmail());
+            record.setAdvertiserNickname(user.getNickname());
+        }
+    }
+
     private void attachPitContext(List<Advertisement> records) {
         if (records == null || records.isEmpty()) {
             return;
         }
 
         Set<Long> pitIds = loadPitIdSet();
+        Map<Long, Advertisement> pitAdMap = loadActivePitAdvertisementMap();
         Map<String, Long> pitBindingMap = adPitBindingService.loadBindingMap();
-        Map<Long, Integer> pitIndexMap = buildPitIndexMap(loadActivePitAdvertisementMap(), pitIds);
+        Map<Long, Integer> pitIndexMap = buildPitIndexMap(pitAdMap, pitIds);
         for (Advertisement record : records) {
             if (record == null || record.getId() == null) {
                 continue;
@@ -526,6 +576,10 @@ public class AdminAdvertisementController {
             if (pitAdId != null) {
                 record.setPitAdId(pitAdId);
                 record.setPitIndex(pitIndexMap.get(pitAdId));
+                Advertisement pitAd = pitAdMap.get(pitAdId);
+                if (pitAd != null) {
+                    record.setPitTitle(pitAd.getTitle());
+                }
             }
         }
     }

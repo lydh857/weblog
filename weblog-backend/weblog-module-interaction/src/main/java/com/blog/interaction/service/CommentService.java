@@ -64,8 +64,11 @@ public class CommentService {
         comment.setUserId(userId);
         comment.setParentId(req.getParentId() != null ? req.getParentId() : 0L);
         comment.setReplyToUserId(req.getReplyToUserId());
-        // XSS 清理：去除所有 HTML 标签，评论只允许纯文本
-        comment.setContent(Jsoup.clean(sensitiveWordService.filter(req.getContent()), Safelist.none()));
+        String cleanedContent = Jsoup.clean(sensitiveWordService.filter(req.getContent()), Safelist.none()).trim();
+        if (cleanedContent.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "评论内容不能为空");
+        }
+        comment.setContent(cleanedContent);
         comment.setLikeCount(0);
         // 根据审核开关决定评论初始状态
         comment.setStatus(auditEnabled ? "pending" : "approved");

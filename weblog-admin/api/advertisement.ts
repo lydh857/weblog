@@ -17,7 +17,10 @@ export interface AdvertisementVO {
   pitEnabled?: boolean | null
   pitAdId?: number | null
   pitIndex?: number | null
+  pitTitle?: string | null
   advertiserId: number | null
+  advertiserEmail?: string | null
+  advertiserNickname?: string | null
   status: string
   startTime: string | null
   endTime: string | null

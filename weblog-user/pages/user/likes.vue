@@ -194,11 +194,17 @@ onMounted(() => loadData())
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity .2s;
+  transition: opacity .2s, color .2s, background-color .2s;
 }
 
 .post-card:hover .unfav-btn {
   opacity: 1;
+}
+
+.unfav-btn:hover,
+.unfav-btn:focus-visible {
+  color: #dc2626;
+  background: #fee2e2;
 }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; color: $color-text-muted; gap: .5rem; border: 1px dashed rgba(148,163,184,.45); border-radius: 12px; }

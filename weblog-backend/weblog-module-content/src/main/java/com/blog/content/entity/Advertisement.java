@@ -79,6 +79,18 @@ public class Advertisement extends BaseEntity {
     @TableField(exist = false)
     private Integer pitIndex;
 
+    /** 申请关联坑位广告标题（仅展示，不落库） */
+    @TableField(exist = false)
+    private String pitTitle;
+
+    /** 申请用户邮箱（仅管理端展示，不落库） */
+    @TableField(exist = false)
+    private String advertiserEmail;
+
+    /** 申请用户昵称（仅管理端展示，不落库） */
+    @TableField(exist = false)
+    private String advertiserNickname;
+
     public String getTitle() {
         return title;
     }
@@ -245,5 +257,29 @@ public class Advertisement extends BaseEntity {
 
     public void setPitIndex(Integer pitIndex) {
         this.pitIndex = pitIndex;
+    }
+
+    public String getPitTitle() {
+        return pitTitle;
+    }
+
+    public void setPitTitle(String pitTitle) {
+        this.pitTitle = pitTitle;
+    }
+
+    public String getAdvertiserEmail() {
+        return advertiserEmail;
+    }
+
+    public void setAdvertiserEmail(String advertiserEmail) {
+        this.advertiserEmail = advertiserEmail;
+    }
+
+    public String getAdvertiserNickname() {
+        return advertiserNickname;
+    }
+
+    public void setAdvertiserNickname(String advertiserNickname) {
+        this.advertiserNickname = advertiserNickname;
     }
 }

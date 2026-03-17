@@ -48,7 +48,7 @@ export interface AdApplyStatusVO {
 }
 
 export interface AdApplyPayload {
-  title: string
+  title?: string
   type: string
   content: string
   linkUrl?: string

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.infra.security.util.XssUtil;
 import com.blog.system.dto.UpdateProfileRequest;
 import com.blog.system.entity.User;
 import com.blog.system.entity.UserProfileReview;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -47,9 +49,9 @@ public class UserProfileReviewService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
-        String pendingNickname = req.getNickname() != null ? req.getNickname() : user.getNickname();
-        String pendingBio = req.getBio() != null ? req.getBio() : user.getBio();
-        String pendingAvatar = req.getAvatar() != null ? req.getAvatar() : user.getAvatar();
+        String pendingNickname = req.getNickname() != null ? sanitizeNickname(req.getNickname()) : user.getNickname();
+        String pendingBio = req.getBio() != null ? sanitizeBio(req.getBio()) : user.getBio();
+        String pendingAvatar = req.getAvatar() != null ? sanitizeAvatar(req.getAvatar()) : user.getAvatar();
 
         boolean changed = !Objects.equals(user.getNickname(), pendingNickname)
                 || !Objects.equals(user.getBio(), pendingBio)
@@ -121,5 +123,61 @@ public class UserProfileReviewService {
         if (updated == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该记录不在待审核状态");
         }
+    }
+
+    private String sanitizeNickname(String nickname) {
+        String cleaned = XssUtil.cleanText(nickname == null ? "" : nickname).trim();
+        if (cleaned.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "昵称不能为空");
+        }
+        if (cleaned.length() > 50) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "昵称长度1-50个字符");
+        }
+        return cleaned;
+    }
+
+    private String sanitizeBio(String bio) {
+        if (bio == null) {
+            return null;
+        }
+        String cleaned = XssUtil.cleanText(bio).trim();
+        if (cleaned.length() > 500) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "简介最多500个字符");
+        }
+        return cleaned;
+    }
+
+    private String sanitizeAvatar(String avatar) {
+        if (avatar == null) {
+            return null;
+        }
+        String cleaned = XssUtil.cleanText(avatar).trim();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        if (cleaned.length() > 500) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "头像URL长度不能超过500个字符");
+        }
+
+        if (cleaned.startsWith("/") && !cleaned.startsWith("//")) {
+            return cleaned;
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(cleaned);
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "头像URL格式不正确");
+        }
+
+        String scheme = uri.getScheme();
+        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "头像URL仅支持http/https协议");
+        }
+        if (uri.getHost() == null || uri.getHost().isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "头像URL缺少有效主机名");
+        }
+
+        return uri.toString();
     }
 }

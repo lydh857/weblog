@@ -39,176 +39,186 @@
                   <button class="inline-btn" type="button" @click="openLogin">去登录</button>
                 </div>
                 <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
-                <div v-else-if="!hasAvailablePit" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
+                <div v-else-if="myApplication && !canResubmitApplication" class="notice notice-info">
+                  你已提交过广告申请，当前不支持修改申请内容。
+                  <button class="inline-btn" type="button" @click="currentStep = 2">查看申请状态</button>
+                </div>
+                <div v-else-if="!hasAvailablePit && !canResubmitApplication" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
 
                 <form v-else class="apply-form" @submit.prevent="handleSubmit">
-                  <div class="form-grid">
-                    <div class="form-item">
-                      <label>广告标题 <span class="required">*</span></label>
-                      <input v-model="form.title" type="text" maxlength="100" placeholder="请输入广告标题" required>
-                    </div>
-
-                    <div class="form-item">
-                      <label>广告类型 <span class="required">*</span></label>
-                      <div class="select-wrap">
-                        <select v-model="form.type">
-                          <option value="image">图片广告</option>
-                          <option value="code">代码广告（HTML）</option>
-                        </select>
-                        <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-grid">
-                    <div class="form-item">
-                      <label>投放位置 <span class="required">*</span></label>
-                      <div class="select-wrap">
-                        <select v-model="form.position">
-                          <option :disabled="!hasPitForPosition('home_left')" value="home_left">首页左侧</option>
-                          <option :disabled="!hasPitForPosition('post_top')" value="post_top">文章顶部</option>
-                          <option :disabled="!hasPitForPosition('post_bottom')" value="post_bottom">文章底部</option>
-                          <option :disabled="form.type === 'code' || !hasPitForPosition('post_list_card')" value="post_list_card">文章列表拟态卡</option>
-                        </select>
-                        <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
-                      </div>
-                    </div>
-
-                    <div class="form-item">
-                      <label>申请坑位 <span class="required">*</span></label>
-                      <div v-if="currentPositionPitOptions.length > 0" class="pit-options">
-                        <button
-                          v-for="pit in currentPositionPitOptions"
-                          :key="pit.pitAdId"
-                          class="pit-chip"
-                          :class="{ active: form.pitAdId === pit.pitAdId }"
-                          type="button"
-                          @click="form.pitAdId = pit.pitAdId"
-                        >
-                          {{ pitOptionLabel(pit) }}
-                        </button>
-                      </div>
-                      <div v-else class="notice notice-warning compact">当前广告位暂无可申请坑位，请切换位置。</div>
-                      <p v-if="selectedPitOption" class="pit-tip">审核通过后将替换该坑位广告。</p>
-                    </div>
-                  </div>
-
-                  <div class="form-item">
-                    <label>投放时效 <span class="required">*</span></label>
-                    <div v-if="currentPositionRules.length > 0" class="duration-options">
-                      <button
-                        v-for="rule in currentPositionRules"
-                        :key="`${rule.position}-${rule.durationDays}`"
-                        class="duration-chip"
-                        :class="{ active: form.durationDays === rule.durationDays }"
-                        type="button"
-                        @click="applyDurationRule(rule.durationDays)"
-                      >
-                        {{ rule.durationDays }} 天 / ¥{{ formatPrice(rule.price) }}
-                      </button>
-                    </div>
-                    <div v-else class="notice notice-warning compact">该位置尚未配置时效价格规则，请联系管理员。</div>
-                    <p v-if="selectedRule" class="price-tip">预估价格：¥{{ formatPrice(selectedRule.price) }}</p>
-                  </div>
-
-                  <div class="form-grid">
-                    <div class="form-item">
-                      <label>开始日期 <span class="required">*</span></label>
-                      <div class="date-preset-row">
-                        <button
-                          v-for="preset in startDatePresets"
-                          :key="preset.key"
-                          type="button"
-                          class="date-preset-btn"
-                          :class="{ active: isStartDatePresetActive(preset.value) }"
-                          @click="applyStartDatePreset(preset.value)"
-                        >
-                          {{ preset.label }}
-                        </button>
-                      </div>
-                      <input v-model="form.startDate" type="date" @change="handleStartDateChange">
-                    </div>
-
-                    <div class="form-item">
-                      <label>结束日期（自动计算）</label>
-                      <input :value="form.endDate || '请选择时效后自动生成'" type="text" readonly>
-                      <p class="date-hint">结束日期会随开始日期和时效自动更新。</p>
-                    </div>
-                  </div>
-
-                  <div v-if="form.type === 'image'" class="form-item">
-                    <label>广告图片 <span class="required">*</span></label>
-                    <div class="image-upload-box">
-                      <div class="image-preview-shell" :class="`slot-${form.position}`" @click="openImageCropper">
-                        <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="广告预览" class="image-preview-img">
-                        <div v-else class="image-preview-empty">
-                          <Icon name="heroicons:photo-20-solid" size="22" />
-                          <strong>点击上传广告图片</strong>
-                          <span>当前位置推荐比例 {{ currentRatioText }}</span>
-                        </div>
-                        <span class="image-preview-badge">广告</span>
-                        <span v-if="form.adInfo" class="image-preview-info">{{ form.adInfo }}</span>
-                        <div class="image-preview-mask">点击裁剪 / 更换</div>
-                      </div>
-
-                      <div class="image-action-row">
-                        <button type="button" class="action-btn" @click="triggerImageUpload">
-                          {{ imagePreviewUrl ? '重新上传' : '上传图片' }}
-                        </button>
-                        <button v-if="imagePreviewUrl" type="button" class="action-btn" @click="openImageCropper">重新裁剪</button>
-                      </div>
-
-                      <input
-                        ref="imageInputRef"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        class="hidden-input"
-                        @change="handleImageFileChange"
-                      >
-
-                      <p class="upload-hint">支持 JPG/PNG/WebP；切换投放位置后会自动切换占位比例。</p>
-                    </div>
-                  </div>
-
-                  <div v-else class="form-item">
-                    <label>HTML 代码 <span class="required">*</span></label>
-                    <textarea
-                      v-model="form.content"
-                      rows="8"
-                      placeholder="请输入 HTML 广告代码"
-                      required
-                    />
-                  </div>
-
-                  <div class="form-grid">
-                    <div class="form-item">
-                      <label>跳转链接</label>
-                      <input v-model="form.linkUrl" type="text" placeholder="https://example.com（可选）">
-                    </div>
-                    <div class="form-item">
-                      <label>图片文案</label>
-                      <input v-model="form.adInfo" type="text" maxlength="40" placeholder="展示在广告图上的简短说明（可选）">
-                    </div>
-                  </div>
-
-                  <div v-if="form.type === 'image' && form.position === 'post_list_card'" class="form-item">
-                    <label>拟态文案</label>
-                    <textarea v-model="form.mimicContent" rows="2" maxlength="120" placeholder="用于文章列表拟态卡，不填则默认“品牌推广”" />
-                  </div>
-
-                  <div class="step-actions step-actions--form">
-                    <button class="action-btn" type="button" @click="closeModal">取消</button>
-                    <button class="action-btn primary" type="submit" :disabled="submitting || !selectedRule || !selectedPitOption">
-                      {{ submitting ? '提交中...' : '提交投放申请' }}
-                    </button>
+                  <div v-if="canResubmitApplication" class="notice notice-warning">
+                    {{ resubmitNoticeText }}
                     <button
-                      v-if="myApplication"
-                      class="action-btn"
+                      v-if="myApplication?.status === 'rejected'"
+                      class="inline-btn"
                       type="button"
                       @click="currentStep = 2"
                     >
-                      查看当前申请
+                      查看拒绝原因
                     </button>
+                  </div>
+                  <div class="apply-layout">
+                    <section class="preview-panel">
+                      <h4 class="preview-panel-title">预览区</h4>
+                      <div class="image-upload-box">
+                        <div class="image-upload-layout image-upload-layout--single">
+                          <div class="image-preview-shell" :class="`slot-${form.position}`" @click="openImageCropper">
+                            <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="广告预览" class="image-preview-img">
+                            <div v-else class="image-preview-empty">
+                              <Icon name="heroicons:photo-20-solid" size="22" />
+                              <strong>点击上传广告图片</strong>
+                              <span>当前位置推荐比例 {{ currentRatioText }}</span>
+                            </div>
+                            <span class="image-preview-badge">广告</span>
+                            <span v-if="form.adInfo" class="image-preview-info">{{ form.adInfo }}</span>
+                            <div class="image-preview-mask">点击裁剪 / 更换</div>
+                          </div>
+                        </div>
+                        <input
+                          ref="imageInputRef"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          class="hidden-input"
+                          @change="handleImageFileChange"
+                        >
+                        <p class="upload-hint">支持 JPG/PNG/WebP；点击预览区上传或重新裁剪。</p>
+                      </div>
+                    </section>
+
+                    <section class="form-panel">
+                      <div class="form-grid">
+                        <div class="form-item">
+                          <label>投放位置 <span class="required">*</span></label>
+                          <div ref="positionSelectRef" class="custom-select">
+                            <button
+                              type="button"
+                              class="custom-select-trigger"
+                              :class="{ open: positionSelectOpen }"
+                              @click="toggleSelectMenu('position')"
+                            >
+                              <span>{{ selectedPositionLabel }}</span>
+                              <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
+                            </button>
+                            <div v-if="positionSelectOpen" class="custom-select-menu">
+                              <button
+                                v-for="item in positionSelectOptions"
+                                :key="item.value"
+                                type="button"
+                                class="custom-select-option"
+                                :class="{ active: form.position === item.value }"
+                                :disabled="item.disabled"
+                                @click="selectPosition(item.value, item.disabled)"
+                              >
+                                {{ item.label }}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div v-if="currentPositionPitOptions.length > 0" class="form-item">
+                          <label>申请坑位 <span class="required">*</span></label>
+                          <div class="pit-options">
+                            <button
+                              v-for="pit in currentPositionPitOptions"
+                              :key="pit.pitAdId"
+                              class="pit-chip"
+                              :class="{ active: form.pitAdId === pit.pitAdId }"
+                              type="button"
+                              @click="form.pitAdId = pit.pitAdId"
+                            >
+                              {{ pitOptionLabel(pit) }}
+                            </button>
+                          </div>
+                          <p v-if="selectedPitOption" class="pit-tip">审核通过后将替换该坑位广告。</p>
+                        </div>
+                      </div>
+
+                      <div class="form-item">
+                        <label>投放时效 <span class="required">*</span></label>
+                        <div v-if="currentPositionRules.length > 0" class="duration-options">
+                          <button
+                            v-for="rule in currentPositionRules"
+                            :key="`${rule.position}-${rule.durationDays}`"
+                            class="duration-chip"
+                            :class="{ active: form.durationDays === rule.durationDays }"
+                            type="button"
+                            @click="applyDurationRule(rule.durationDays)"
+                          >
+                            {{ rule.durationDays }} 天 / ¥{{ formatPrice(rule.price) }}
+                          </button>
+                        </div>
+                        <div v-else class="notice notice-warning compact">该位置尚未配置时效价格规则，请联系管理员。</div>
+                        <p v-if="selectedRule" class="price-tip">预估价格：¥{{ formatPrice(selectedRule.price) }}</p>
+                      </div>
+
+                      <div class="form-grid">
+                        <div class="form-item">
+                          <label>开始日期 <span class="required">*</span></label>
+                          <div class="datetime-proxy">
+                            <input :value="startDateDisplay" class="datetime-display-input" type="text" readonly>
+                            <input
+                              v-model="form.startDate"
+                              class="datetime-native-input"
+                              type="datetime-local"
+                              step="60"
+                              @change="handleStartDateChange"
+                            >
+                            <span class="datetime-icon">
+                              <Icon name="heroicons:calendar-days-20-solid" size="18" />
+                            </span>
+                          </div>
+                          <div class="date-preset-row">
+                            <button
+                              v-for="preset in startDatePresets"
+                              :key="preset.key"
+                              type="button"
+                              class="date-preset-btn"
+                              :class="{ active: isStartDatePresetActive(preset.value) }"
+                              @click="applyStartDatePreset(preset.value)"
+                            >
+                              {{ preset.label }}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="form-item">
+                          <label>结束日期（自动计算）</label>
+                          <p class="date-hint date-hint-before">结束日期会随开始日期和时效自动更新。</p>
+                          <input :value="endDateDisplay" type="text" readonly>
+                        </div>
+                      </div>
+
+                      <div class="form-grid">
+                        <div class="form-item">
+                          <label>跳转链接</label>
+                          <input v-model="form.linkUrl" type="text" placeholder="https://example.com（可选）">
+                        </div>
+                        <div class="form-item">
+                          <label>图片文案</label>
+                          <input v-model="form.adInfo" type="text" maxlength="40" placeholder="展示在广告图上的简短说明（可选）">
+                        </div>
+                      </div>
+
+                      <div v-if="form.position === 'post_list_card'" class="form-item">
+                        <label>拟态文案</label>
+                        <textarea v-model="form.mimicContent" rows="2" maxlength="120" placeholder="用于文章列表拟态卡，不填则默认“品牌推广”" />
+                      </div>
+
+                      <div class="step-actions step-actions--form-panel">
+                        <button class="action-btn" type="button" @click="closeModal">取消</button>
+                        <button class="action-btn primary" type="submit" :disabled="submitting || !selectedRule">
+                          {{ submitting ? '提交中...' : '提交投放申请' }}
+                        </button>
+                        <button
+                          v-if="myApplication"
+                          class="action-btn"
+                          type="button"
+                          @click="currentStep = 2"
+                        >
+                          查看当前申请
+                        </button>
+                      </div>
+                    </section>
                   </div>
                 </form>
               </template>
@@ -220,42 +230,45 @@
                 <div v-if="!isLoggedIn" class="notice notice-warning">请先登录查看申请状态。</div>
                 <div v-else-if="!myApplication" class="notice notice-info">当前广告位暂无申请记录。</div>
                 <template v-else>
-                  <div class="notice" :class="statusNoticeClass(myApplication.status)">
+                  <div v-if="myApplication.status !== 'rejected'" class="notice" :class="statusNoticeClass(myApplication.status)">
                     <p>{{ statusLabel(myApplication.status) }}</p>
                     <p v-if="myApplication.status === 'pending'">管理员审核中，请耐心等待。</p>
                     <p v-else-if="myApplication.status === 'active'">审核通过，广告已处于投放状态；若审核晚于申请开始，系统会自动顺延保障完整时长。</p>
-                    <p v-else-if="myApplication.status === 'rejected'">审核未通过，可根据原因修改后重新提交。</p>
-                    <p v-else-if="myApplication.status === 'expired'">当前申请已过期，可重新提交。</p>
+                    <p v-else-if="myApplication.status === 'expired'">当前申请已过期，可重新提交新的投放申请。</p>
                   </div>
 
                   <div class="preview-card">
-                    <h4>我的申请信息</h4>
-                    <div class="preview-row"><span>标题</span><strong>{{ myApplication.title }}</strong></div>
-                    <div class="preview-row"><span>类型</span><strong>{{ myApplication.type === 'image' ? '图片广告' : '代码广告' }}</strong></div>
-                    <div class="preview-row"><span>位置</span><strong>{{ posLabel(myApplication.position) }}</strong></div>
-                    <div v-if="myApplication.pitAdId" class="preview-row"><span>申请坑位</span><strong>{{ applicationPitLabel(myApplication) }}</strong></div>
-                    <div class="preview-row"><span>时效</span><strong>{{ applicationDurationText(myApplication) }}</strong></div>
-                    <div class="preview-row"><span>预估价格</span><strong>{{ applicationPriceText(myApplication) }}</strong></div>
-                    <div class="preview-row"><span>起始时间</span><strong>{{ formatTime(myApplication.startTime) }}</strong></div>
-                    <div class="preview-row"><span>结束时间</span><strong>{{ formatTime(myApplication.endTime) }}</strong></div>
-                    <div class="preview-row"><span>剩余时间</span><strong>{{ applicationRemainingText(myApplication) }}</strong></div>
-                    <div class="preview-row"><span>提交时间</span><strong>{{ formatTime(myApplication.createTime) }}</strong></div>
-                    <div v-if="myApplication.reviewReason" class="preview-reason">
-                      <span>审核备注</span>
-                      <p>{{ myApplication.reviewReason }}</p>
+                    <div v-if="myApplicationImageUrl" class="preview-image-box">
+                      <img :src="myApplicationImageUrl" alt="申请广告图片" class="preview-image">
+                    </div>
+                    <div v-else class="preview-image-box">
+                      <div class="preview-image-empty">暂无图片预览</div>
+                    </div>
+                    <div class="preview-info-list">
+                      <div class="preview-row"><span>类型</span><strong>图片广告</strong></div>
+                      <div class="preview-row"><span>位置</span><strong>{{ posLabel(myApplication.position) }}</strong></div>
+                      <div v-if="myApplication.pitAdId" class="preview-row"><span>申请坑位</span><strong>{{ applicationPitLabel(myApplication) }}</strong></div>
+                      <div class="preview-row"><span>时效</span><strong>{{ applicationDurationText(myApplication) }}</strong></div>
+                      <div class="preview-row"><span>预估价格</span><strong>{{ applicationPriceText(myApplication) }}</strong></div>
+                      <div class="preview-row"><span>起始时间</span><strong>{{ formatTime(myApplication.startTime) }}</strong></div>
+                      <div class="preview-row"><span>结束时间</span><strong>{{ formatTime(myApplication.endTime) }}</strong></div>
+                      <div class="preview-row"><span>剩余时间</span><strong>{{ applicationRemainingText(myApplication) }}</strong></div>
+                      <div class="preview-row"><span>提交时间</span><strong>{{ formatTime(myApplication.createTime) }}</strong></div>
+                      <div v-if="myApplication.reviewReason" class="preview-reason">
+                        <span>审核备注</span>
+                        <p>{{ myApplication.reviewReason }}</p>
+                      </div>
                     </div>
                   </div>
 
                   <div class="step-actions">
-                    <button class="action-btn" type="button" @click="refreshMyApplication">刷新状态</button>
-                    <button class="action-btn" type="button" @click="currentStep = 1">返回填写</button>
                     <button
-                      v-if="['rejected', 'expired'].includes(myApplication.status)"
+                      v-if="canResubmitApplication"
                       class="action-btn primary"
                       type="button"
-                      @click="editMyApplication"
+                      @click="currentStep = 1"
                     >
-                      修改申请
+                      去修改
                     </button>
                   </div>
                 </template>
@@ -280,13 +293,13 @@
 <script setup lang="ts">
 import { advertisementApi, type AdApplyPitOption, type AdPriceRuleVO, type AdvertisementVO } from '~/api/advertisement'
 import { uploadApi } from '~/api/upload'
+import { useConfirm } from '~/composables/useConfirm'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
 import { useUserStore } from '~/stores/user'
 
 interface AdApplyFormState {
-  title: string
-  type: 'image' | 'code'
+  type: 'image'
   position: string
   pitAdId: number | null
   durationDays: number
@@ -300,6 +313,7 @@ interface AdApplyFormState {
 
 const adApplyModal = useAdApplyModal()
 const loginModal = useLoginModal()
+const { confirm } = useConfirm()
 const userStore = useUserStore()
 const message = useMessage()
 const {
@@ -318,12 +332,13 @@ const myApplication = ref<AdvertisementVO | null>(null)
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const lockedByModal = ref(false)
 const imageInputRef = ref<HTMLInputElement | null>(null)
+const positionSelectRef = ref<HTMLElement | null>(null)
+const positionSelectOpen = ref(false)
 const cropperVisible = ref(false)
 const cropperImageSrc = ref('')
 const pendingImageFile = ref<File | null>(null)
 
 const form = reactive<AdApplyFormState>({
-  title: '',
   type: 'image',
   position: 'home_left',
   pitAdId: null,
@@ -397,17 +412,46 @@ const selectedRule = computed(() => {
 })
 
 const startDatePresets = computed(() => {
-  const today = getTodayDate()
+  const current = getCurrentDateTime()
   return [
-    { key: 'today', label: '今天开始', value: today },
-    { key: 'tomorrow', label: '明天开始', value: addDays(today, 1) },
-    { key: 'next-monday', label: '下周一开始', value: getNextWeekdayDate(1) },
-    { key: 'next-month', label: '下月1号开始', value: getNextMonthFirstDate() },
+    { key: 'today', label: '现在开始', value: current },
+    { key: 'tomorrow', label: '明天同一时间', value: addDays(current, 1) },
+    { key: 'next-monday', label: '下周一 09:00', value: getNextWeekdayDate(1) },
+    { key: 'next-month', label: '下月1号 09:00', value: getNextMonthFirstDate() },
   ]
+})
+
+const endDateDisplay = computed(() => {
+  if (!form.endDate) return '请选择时效后自动生成'
+  return formatDateTimeDisplay(form.endDate)
+})
+
+const startDateDisplay = computed(() => {
+  if (!form.startDate) return ''
+  return formatDateTimeDisplay(form.startDate)
+})
+
+const positionSelectOptions = computed(() => {
+  return positionOptions.map(item => ({ ...item, disabled: false }))
+})
+
+const selectedPositionLabel = computed(() => {
+  return positionSelectOptions.value.find(item => item.value === form.position)?.label || '请选择投放位置'
 })
 
 const currentCropRatio = computed<[number, number]>(() => {
   return cropRatioMap[form.position] || [16, 9]
+})
+
+const canResubmitApplication = computed(() => {
+  const status = myApplication.value?.status
+  return status === 'rejected' || status === 'expired'
+})
+
+const resubmitNoticeText = computed(() => {
+  return myApplication.value?.status === 'expired'
+    ? '当前申请已过期，可重新填写并提交新的投放申请。'
+    : '当前申请已被拒绝，可修改后重新提交。'
 })
 
 const currentRatioText = computed(() => {
@@ -416,10 +460,20 @@ const currentRatioText = computed(() => {
 })
 
 const imagePreviewUrl = computed(() => {
-  if (form.type !== 'image') return ''
   const raw = form.content.trim()
   if (!raw) return ''
   if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw
+  try {
+    const parsed = new URL(raw)
+    return ['http:', 'https:'].includes(parsed.protocol) ? raw : ''
+  } catch {
+    return ''
+  }
+})
+
+const myApplicationImageUrl = computed(() => {
+  const raw = myApplication.value?.content?.trim() || ''
+  if (!raw) return ''
   try {
     const parsed = new URL(raw)
     return ['http:', 'https:'].includes(parsed.protocol) ? raw : ''
@@ -433,9 +487,10 @@ function normalizePosition(raw: unknown): string {
   return positionOrder.includes(value) ? value : 'home_left'
 }
 
-function getTodayDate() {
+function getCurrentDateTime() {
   const now = new Date()
-  return formatDateInput(now)
+  now.setSeconds(0, 0)
+  return formatDateTimeInput(now)
 }
 
 function getNextWeekdayDate(targetWeekday: number) {
@@ -446,23 +501,34 @@ function getNextWeekdayDate(targetWeekday: number) {
     diff = 7
   }
   const next = new Date(now.getTime() + diff * 86400000)
-  return formatDateInput(next)
+  next.setHours(9, 0, 0, 0)
+  return formatDateTimeInput(next)
 }
 
 function getNextMonthFirstDate() {
   const now = new Date()
   const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  return formatDateInput(next)
+  next.setHours(9, 0, 0, 0)
+  return formatDateTimeInput(next)
 }
 
-function formatDateInput(date: Date) {
+function formatDateTimeInput(date: Date) {
   const pad = (num: number) => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function formatDateTimeDisplay(value: string) {
+  if (!value) return ''
+  return value.replace('T', ' ')
 }
 
 function parseDateInput(value: string): Date | null {
   if (!value) return null
-  const normalized = `${value}T00:00:00`
+  const normalized = value.includes('T')
+    ? `${value}:00`
+    : value.includes(' ')
+      ? value.replace(' ', 'T')
+      : `${value}T00:00:00`
   const date = new Date(normalized)
   if (Number.isNaN(date.getTime())) return null
   return date
@@ -472,7 +538,7 @@ function addDays(startDate: string, days: number) {
   const date = parseDateInput(startDate)
   if (!date) return ''
   const next = new Date(date.getTime() + days * 86400000)
-  return formatDateInput(next)
+  return formatDateTimeInput(next)
 }
 
 function calcDurationDaysByDate(startDate: string, endDate: string) {
@@ -485,6 +551,13 @@ function calcDurationDaysByDate(startDate: string, endDate: string) {
 }
 
 function toDateTimeStringFromDateInput(dateValue: string) {
+  if (!dateValue) return ''
+  if (dateValue.includes('T')) {
+    return `${dateValue.replace('T', ' ')}:00`
+  }
+  if (dateValue.includes(' ')) {
+    return `${dateValue}:00`
+  }
   return `${dateValue} 00:00:00`
 }
 
@@ -663,7 +736,7 @@ function ensureDurationSelected() {
   }
 
   if (!form.startDate) {
-    form.startDate = getTodayDate()
+    form.startDate = getCurrentDateTime()
   }
   form.endDate = addDays(form.startDate, form.durationDays)
 }
@@ -689,7 +762,7 @@ function applyStartDatePreset(startDate: string) {
 function applyDurationRule(days: number) {
   form.durationDays = days
   if (!form.startDate) {
-    form.startDate = getTodayDate()
+    form.startDate = getCurrentDateTime()
   }
   form.endDate = addDays(form.startDate, days)
 }
@@ -704,6 +777,28 @@ function handleStartDateChange() {
     form.durationDays = currentPositionRules.value[0].durationDays
     form.endDate = addDays(form.startDate, form.durationDays)
   }
+}
+
+function closeSelectMenus() {
+  positionSelectOpen.value = false
+}
+
+function toggleSelectMenu(target: 'position') {
+  positionSelectOpen.value = !positionSelectOpen.value
+}
+
+function selectPosition(position: string, disabled: boolean) {
+  if (disabled) return
+  form.position = position
+  closeSelectMenus()
+}
+
+function handleSelectOutsideClick(event: MouseEvent) {
+  const target = event.target as Node | null
+  if (!target) return
+  const clickedPosition = positionSelectRef.value?.contains(target)
+  if (clickedPosition) return
+  closeSelectMenus()
 }
 
 function resetImageState() {
@@ -763,16 +858,15 @@ function closeModal() {
 }
 
 function syncFormFromApplication(ad: AdvertisementVO) {
-  form.title = ad.title || ''
-  form.type = ad.type === 'code' ? 'code' : 'image'
+  form.type = 'image'
   form.position = normalizePosition(ad.position)
   form.pitAdId = typeof ad.pitAdId === 'number' ? ad.pitAdId : null
   form.content = ad.content || ''
   form.linkUrl = ad.linkUrl || ''
   form.adInfo = ad.adInfo || ''
   form.mimicContent = ad.mimicContent || ''
-  form.startDate = ad.startTime ? formatDateInput(new Date(ad.startTime.replace(' ', 'T'))) : getTodayDate()
-  form.endDate = ad.endTime ? formatDateInput(new Date(ad.endTime.replace(' ', 'T'))) : ''
+  form.startDate = ad.startTime ? formatDateTimeInput(new Date(ad.startTime.replace(' ', 'T'))) : getCurrentDateTime()
+  form.endDate = ad.endTime ? formatDateTimeInput(new Date(ad.endTime.replace(' ', 'T'))) : ''
   const days = calcDurationDaysByDate(form.startDate, form.endDate)
   form.durationDays = days > 0 ? days : form.durationDays
   ensurePitSelectedForPosition()
@@ -793,10 +887,8 @@ async function refreshMyApplication() {
 }
 
 function validateForm(): string | null {
-  if (!form.title.trim()) return '广告标题不能为空'
   if (!positionOrder.includes(form.position)) return '广告位置不合法'
-  if (!hasPitForPosition(form.position)) return '当前广告位暂无可申请坑位'
-  if (!selectedPitOption.value) return '请选择可申请坑位'
+  if (!form.pitAdId || form.pitAdId <= 0) return '请选择申请坑位'
   if (!form.startDate || !form.endDate) return '请选择起止日期'
   const selectedDays = calcDurationDaysByDate(form.startDate, form.endDate)
   if (selectedDays < 1) return '结束日期必须晚于开始日期'
@@ -804,20 +896,16 @@ function validateForm(): string | null {
     return '起止日期与价格规则不匹配，请按规则时效选择'
   }
 
-  if (form.type === 'image') {
-    if (!form.content.trim()) return '请上传广告图片'
-    if (!pendingImageFile.value) {
-      try {
-        const parsed = new URL(form.content.trim())
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-          return '图片地址仅支持 http/https'
-        }
-      } catch {
-        return '图片地址格式不正确'
+  if (!form.content.trim()) return '请上传广告图片'
+  if (!pendingImageFile.value) {
+    try {
+      const parsed = new URL(form.content.trim())
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return '图片地址仅支持 http/https'
       }
+    } catch {
+      return '图片地址格式不正确'
     }
-  } else if (!form.content.trim()) {
-    return '代码内容不能为空'
   }
 
   if (form.linkUrl.trim()) {
@@ -843,6 +931,24 @@ async function handleSubmit() {
     message.warning('申请入口未开放')
     return
   }
+  if (myApplication.value && !canResubmitApplication.value) {
+    message.warning('已提交申请，当前不支持修改')
+    currentStep.value = 2
+    return
+  }
+
+  const confirmed = await confirm({
+    title: '确认提交',
+    message: canResubmitApplication.value
+      ? '重新提交后将覆盖当前申请内容，并重新进入审核流程，确认提交吗？'
+      : '提交后将进入审核流程，当前不支持修改申请内容，确认提交吗？',
+    type: 'warning',
+    confirmText: '确认提交',
+    cancelText: '再检查下',
+  })
+  if (!confirmed) {
+    return
+  }
 
   const error = validateForm()
   if (error) {
@@ -850,16 +956,10 @@ async function handleSubmit() {
     return
   }
 
-  const pit = selectedPitOption.value
-  if (!pit) {
-    message.warning('请选择可申请坑位')
-    return
-  }
-
   submitting.value = true
   try {
     let content = form.content.trim()
-    if (form.type === 'image' && pendingImageFile.value) {
+    if (pendingImageFile.value) {
       const uploadRes = await uploadApi.image(pendingImageFile.value, 'ad_apply')
       content = uploadRes.data
       if (isBlobOrDataUrl(form.content)) {
@@ -872,15 +972,14 @@ async function handleSubmit() {
     }
 
     await advertisementApi.apply({
-      title: form.title.trim(),
-      type: form.type,
+      type: 'image',
       position: form.position,
+      pitAdId: form.pitAdId || undefined,
       content,
       linkUrl: form.linkUrl.trim() || undefined,
       adInfo: form.adInfo.trim() || undefined,
       mimicContent: form.position === 'post_list_card' ? (form.mimicContent.trim() || undefined) : undefined,
-      insertAfter: form.position === 'post_list_card' ? (pit.insertAfter || 4) : undefined,
-      pitAdId: pit.pitAdId,
+      insertAfter: form.position === 'post_list_card' ? 4 : undefined,
       startTime: toDateTimeStringFromDateInput(form.startDate),
       endTime: toDateTimeStringFromDateInput(form.endDate),
     })
@@ -895,14 +994,8 @@ async function handleSubmit() {
   }
 }
 
-function editMyApplication() {
-  if (!myApplication.value) return
-  syncFormFromApplication(myApplication.value)
-  currentStep.value = 1
-}
-
 async function initWhenOpen() {
-  form.startDate = getTodayDate()
+  form.startDate = getCurrentDateTime()
 
   await loadAdApplyConfig(true)
   pickPreferredPositionAndPit()
@@ -910,11 +1003,6 @@ async function initWhenOpen() {
   ensureDurationSelected()
 
   if (!applyEnabled.value) {
-    currentStep.value = 1
-    return
-  }
-
-  if (!hasAvailablePit.value) {
     currentStep.value = 1
     return
   }
@@ -927,6 +1015,8 @@ async function initWhenOpen() {
   await refreshMyApplication()
   if (myApplication.value) {
     syncFormFromApplication(myApplication.value)
+    currentStep.value = 2
+    return
   } else {
     ensurePitSelectedForPosition()
   }
@@ -937,35 +1027,18 @@ async function initWhenOpen() {
     return
   }
 
-  if (myApplication.value && ['pending', 'active'].includes(myApplication.value.status)) {
-    currentStep.value = preferredStep === 3 ? 2 : 1
-    return
-  }
-
   currentStep.value = 1
 }
 
 function handleEscClose(event: KeyboardEvent) {
   if (!visible.value) return
   if (event.key !== 'Escape') return
+  if (positionSelectOpen.value) {
+    closeSelectMenus()
+    return
+  }
   closeModal()
 }
-
-watch(() => form.type, type => {
-  if (type === 'code' && form.position === 'post_list_card') {
-    form.position = 'post_top'
-    message.warning('代码广告不支持文章列表拟态卡位，已自动切换到文章顶部')
-  }
-  if (type === 'code') {
-    resetImageState()
-    if (!form.content.trim() || isBlobOrDataUrl(form.content) || /^https?:\/\//.test(form.content.trim())) {
-      form.content = ''
-    }
-  }
-  if (type === 'image' && !form.startDate) {
-    form.startDate = getTodayDate()
-  }
-})
 
 watch(() => form.position, async () => {
   ensurePitSelectedForPosition()
@@ -1022,10 +1095,12 @@ watch(() => visible.value, async opened => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleEscClose)
+  document.addEventListener('mousedown', handleSelectOutsideClick)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscClose)
+  document.removeEventListener('mousedown', handleSelectOutsideClick)
   if (lockedByModal.value) {
     unlockScroll()
     lockedByModal.value = false
@@ -1053,23 +1128,36 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(2, 6, 23, 0.52);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.56);
 }
 
 .ad-apply-modal {
+  --flat-surface: #ffffff;
+  --flat-surface-subtle: #f8fafc;
+  --flat-border: #dbe3ee;
+  --flat-text: #0f172a;
+  --flat-text-muted: #64748b;
+  --flat-primary: #2563eb;
+
   width: min(1120px, 100%);
   max-height: calc(100vh - 2rem);
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: $color-bg;
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.36);
+  border-radius: 12px;
+  border: 1px solid var(--flat-border);
+  background: var(--flat-surface);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
   overflow: hidden;
 
   .dark & {
-    background: $color-dark-bg-secondary;
-    border-color: rgba(71, 85, 105, 0.55);
-    box-shadow: 0 30px 80px rgba(2, 6, 23, 0.65);
+    --flat-surface: #111827;
+    --flat-surface-subtle: #1f2937;
+    --flat-border: #334155;
+    --flat-text: #e5e7eb;
+    --flat-text-muted: #94a3b8;
+    --flat-primary: #60a5fa;
+
+    border-color: var(--flat-border);
+    background: var(--flat-surface);
+    box-shadow: 0 14px 36px rgba(2, 6, 23, 0.5);
   }
 }
 
@@ -1079,22 +1167,18 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.1rem 0.82rem;
-  border-bottom: 1px solid $color-border;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.74));
-
-  .dark & {
-    border-bottom-color: $color-dark-border;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.78));
-  }
+  border-bottom: 1px solid var(--flat-border);
+  background: var(--flat-surface-subtle);
 
   h3 {
     margin: 0;
     font-size: 1.08rem;
+    color: var(--flat-text);
   }
 
   p {
     margin: 0.3rem 0 0;
-    color: $color-text-muted;
+    color: var(--flat-text-muted);
     font-size: 0.82rem;
   }
 }
@@ -1102,25 +1186,20 @@ onUnmounted(() => {
 .close-btn {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  border: 1px solid $color-border;
-  background: rgba(255, 255, 255, 0.95);
-  color: $color-text-muted;
+  border-radius: 6px;
+  border: 1px solid var(--flat-border);
+  background: transparent;
+  color: var(--flat-text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, color 0.2s, background-color 0.2s;
 
   &:hover {
-    border-color: $color-primary;
-    color: $color-primary;
-  }
-
-  .dark & {
-    border-color: $color-dark-border;
-    background: rgba(15, 23, 42, 0.9);
-    color: #94a3b8;
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
+    background: var(--flat-surface-subtle);
   }
 }
 
@@ -1129,11 +1208,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0.85rem 1.1rem;
-  border-bottom: 1px solid $color-border;
-
-  .dark & {
-    border-bottom-color: $color-dark-border;
-  }
+  border-bottom: 1px solid var(--flat-border);
 }
 
 .step {
@@ -1141,19 +1216,15 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  color: $color-text-muted;
-
-  .dark & {
-    color: #94a3b8;
-  }
+  color: var(--flat-text-muted);
 
   &.active {
-    color: $color-primary;
+    color: var(--flat-primary);
   }
 
   &.active .step-dot {
-    border-color: $color-primary;
-    background: $color-primary;
+    border-color: var(--flat-primary);
+    background: var(--flat-primary);
     color: #fff;
   }
 
@@ -1168,16 +1239,12 @@ onUnmounted(() => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 2px solid $color-border;
+  border: 2px solid var(--flat-border);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0.78rem;
   font-weight: 700;
-
-  .dark & {
-    border-color: $color-dark-border;
-  }
 }
 
 .step-label {
@@ -1188,18 +1255,14 @@ onUnmounted(() => {
 .step-line {
   flex: 1;
   height: 2px;
-  background: $color-border;
+  background: var(--flat-border);
   margin: 0 0.7rem 1.2rem;
-
-  .dark & {
-    background: $color-dark-border;
-  }
 }
 
 .modal-body {
-  max-height: calc(100vh - 11rem);
+  max-height: calc(100vh - 10.5rem);
   overflow: auto;
-  padding: 1rem;
+  padding: 1.05rem 1.2rem 1.2rem;
 }
 
 .step-content {
@@ -1209,12 +1272,12 @@ onUnmounted(() => {
 .loading-text {
   text-align: center;
   padding: 1.2rem 0;
-  color: $color-text-muted;
+  color: var(--flat-text-muted);
 }
 
 .notice {
-  border-left: 4px solid;
-  border-radius: 8px;
+  border-left: 3px solid;
+  border-radius: 6px;
   padding: 0.72rem 0.82rem;
   margin-bottom: 0.85rem;
   font-size: 0.86rem;
@@ -1231,65 +1294,69 @@ onUnmounted(() => {
 }
 
 .notice-info {
-  background: #e6f7ff;
-  border-color: #1890ff;
-  color: #096dd9;
-
-  .dark & {
-    background: rgba(24, 144, 255, 0.14);
-  }
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
 }
 
 .notice-success {
-  background: #f6ffed;
-  border-color: #52c41a;
-  color: #389e0d;
-
-  .dark & {
-    background: rgba(82, 196, 26, 0.14);
-  }
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #047857;
 }
 
 .notice-warning {
-  background: #fffbe6;
-  border-color: #faad14;
-  color: #d48806;
-
-  .dark & {
-    background: rgba(250, 173, 20, 0.14);
-  }
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #b45309;
 }
 
 .notice-error {
-  background: #fff1f0;
-  border-color: #f5222d;
-  color: #cf1322;
-
-  .dark & {
-    background: rgba(245, 34, 45, 0.14);
-  }
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #b91c1c;
 }
 
 .inline-btn {
   margin-left: 0.46rem;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--flat-primary);
   font-weight: 700;
-  text-decoration: underline;
   cursor: pointer;
 }
 
 .apply-form {
   display: flex;
   flex-direction: column;
-  gap: 0.88rem;
+  gap: 1rem;
+}
+
+.apply-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr);
+  gap: 0.95rem;
+  align-items: start;
+}
+
+.preview-panel,
+.form-panel {
+  border: 1px solid var(--flat-border);
+  border-radius: 10px;
+  background: var(--flat-surface-subtle);
+  padding: 0.76rem;
+}
+
+.preview-panel-title {
+  margin: 0 0 0.62rem;
+  font-size: 0.84rem;
+  color: var(--flat-text);
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.72rem;
+  gap: 0.8rem;
 }
 
 .form-item {
@@ -1300,6 +1367,7 @@ onUnmounted(() => {
     margin-bottom: 0.34rem;
     font-size: 0.84rem;
     font-weight: 600;
+    color: var(--flat-text);
   }
 
   .required {
@@ -1310,18 +1378,22 @@ onUnmounted(() => {
   textarea,
   select {
     width: 100%;
-    border: 1px solid $color-border;
-    border-radius: 10px;
+    border: 1px solid var(--flat-border);
+    border-radius: 8px;
     padding: 0.6rem 0.76rem;
     font-size: 0.88rem;
-    background: $color-bg;
-    color: $color-text;
-    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    background: var(--flat-surface);
+    color: var(--flat-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &::placeholder {
+      color: var(--flat-text-muted);
+    }
 
     &:focus {
       outline: none;
-      border-color: $color-primary;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      border-color: var(--flat-primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     }
   }
 
@@ -1330,59 +1402,87 @@ onUnmounted(() => {
   }
 }
 
-.select-wrap {
+.custom-select {
   position: relative;
-  border-radius: 11px;
+  border-radius: 10px;
+  background: var(--flat-surface);
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    border-radius: 10px;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+.custom-select-trigger {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--flat-border);
+  border-radius: 10px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 2.15rem 0.6rem 0.76rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
 
-    .dark & {
-      background: linear-gradient(180deg, rgba(148, 163, 184, 0.14), rgba(148, 163, 184, 0));
-    }
+  &:hover {
+    border-color: var(--flat-primary);
   }
 
-  select {
-    appearance: none;
-    position: relative;
-    z-index: 1;
-    padding-right: 2.05rem;
-    border-color: rgba(148, 163, 184, 0.52);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.9));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  &:focus-visible {
+    outline: none;
+    border-color: var(--flat-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  }
 
-    .dark & {
-      border-color: rgba(100, 116, 139, 0.64);
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.84));
-      color: $color-dark-text;
-      box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.14);
-    }
+  &.open {
+    border-color: var(--flat-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
+  }
+}
 
-    &:hover {
-      border-color: rgba(59, 130, 246, 0.52);
-    }
+.custom-select-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.28rem);
+  left: 0;
+  right: 0;
+  border: 1px solid var(--flat-border);
+  border-radius: 10px;
+  background: var(--flat-surface);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  box-shadow: none;
+}
 
-    &:focus + .select-arrow {
-      color: $color-primary;
-      transform: translateY(-50%) scale(1.05);
-    }
+.custom-select-option {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--flat-text);
+  padding: 0.46rem 0.58rem;
+  text-align: left;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s;
 
-    &:disabled {
-      cursor: not-allowed;
-      color: rgba(148, 163, 184, 0.96);
-      background: rgba(248, 250, 252, 0.75);
+  &:hover {
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--flat-primary);
+  }
 
-      .dark & {
-        color: rgba(148, 163, 184, 0.78);
-        background: rgba(30, 41, 59, 0.62);
-      }
-    }
+  &.active {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--flat-primary);
+    font-weight: 600;
+  }
+
+  &:disabled {
+    color: var(--flat-text-muted);
+    background: transparent;
+    cursor: not-allowed;
   }
 }
 
@@ -1391,7 +1491,7 @@ onUnmounted(() => {
   right: 0.66rem;
   top: 50%;
   transform: translateY(-50%);
-  color: $color-text-muted;
+  color: var(--flat-text-muted);
   pointer-events: none;
   transition: transform 0.2s ease, color 0.2s ease;
 }
@@ -1409,23 +1509,24 @@ onUnmounted(() => {
 }
 
 .pit-chip {
-  border: 1px solid rgba(148, 163, 184, 0.55);
+  border: 1px solid var(--flat-border);
   border-radius: 999px;
-  background: rgba(248, 250, 252, 0.95);
-  color: $color-text-muted;
+  background: var(--flat-surface-subtle);
+  color: var(--flat-text-muted);
   font-size: 0.78rem;
   padding: 0.28rem 0.62rem;
   cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 
   &:hover {
-    border-color: rgba(59, 130, 246, 0.45);
-    color: $color-primary;
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
   }
 
   &.active {
-    border-color: rgba(16, 185, 129, 0.72);
-    background: rgba(16, 185, 129, 0.14);
-    color: #047857;
+    border-color: var(--flat-primary);
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--flat-primary);
     font-weight: 600;
   }
 }
@@ -1433,23 +1534,24 @@ onUnmounted(() => {
 .pit-tip {
   margin: 0.42rem 0 0;
   font-size: 0.78rem;
-  color: #059669;
+  color: #0f766e;
   font-weight: 600;
 }
 
 .duration-chip {
-  border: 1px solid $color-border;
+  border: 1px solid var(--flat-border);
   border-radius: 999px;
   padding: 0.33rem 0.66rem;
-  background: $color-bg;
-  color: $color-text-muted;
+  background: var(--flat-surface-subtle);
+  color: var(--flat-text-muted);
   font-size: 0.8rem;
   cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 
   &.active {
-    border-color: $color-primary;
-    color: $color-primary;
-    background: rgba(59, 130, 246, 0.11);
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
+    background: rgba(37, 99, 235, 0.12);
     font-weight: 600;
   }
 }
@@ -1457,7 +1559,7 @@ onUnmounted(() => {
 .price-tip {
   margin: 0.42rem 0 0;
   font-size: 0.8rem;
-  color: $color-primary;
+  color: var(--flat-primary);
   font-weight: 700;
 }
 
@@ -1465,27 +1567,28 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .date-preset-btn {
-  border: 1px solid $color-border;
+  border: 1px solid var(--flat-border);
   border-radius: 999px;
-  background: $color-bg;
-  color: $color-text-muted;
+  background: var(--flat-surface-subtle);
+  color: var(--flat-text-muted);
   font-size: 0.76rem;
   padding: 0.24rem 0.58rem;
   cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 
   &:hover {
-    border-color: rgba(59, 130, 246, 0.45);
-    color: $color-primary;
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
   }
 
   &.active {
-    border-color: $color-primary;
-    color: $color-primary;
-    background: rgba(59, 130, 246, 0.12);
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
+    background: rgba(37, 99, 235, 0.12);
     font-weight: 600;
   }
 }
@@ -1494,7 +1597,66 @@ onUnmounted(() => {
 .date-hint {
   margin: 0.45rem 0 0;
   font-size: 0.76rem;
-  color: $color-text-muted;
+  color: var(--flat-text-muted);
+}
+
+.date-hint-before {
+  margin: 0 0 0.45rem;
+}
+
+.datetime-proxy {
+  position: relative;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.datetime-display-input {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  min-height: 40px;
+  padding-right: 2.6rem;
+  border-radius: 10px;
+  background: var(--flat-surface);
+  cursor: pointer;
+}
+
+.datetime-native-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.datetime-icon {
+  position: absolute;
+  right: 0.62rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--flat-text-muted);
+  pointer-events: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--flat-surface-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.datetime-display-input {
+  pointer-events: none;
+}
+
+.datetime-proxy:focus-within .datetime-display-input {
+  border-color: var(--flat-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.datetime-proxy:hover .datetime-display-input {
+  border-color: var(--flat-primary);
 }
 
 .image-upload-box {
@@ -1503,26 +1665,40 @@ onUnmounted(() => {
   gap: 0.55rem;
 }
 
+.image-upload-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.image-upload-layout--single {
+  gap: 0;
+}
+
 .image-preview-shell {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  width: min(100%, 520px);
+  max-height: 220px;
   cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.88));
+  border: 1px solid var(--flat-border);
+  background: var(--flat-surface-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
 
   &.slot-home_left {
     aspect-ratio: 5 / 8;
-    max-width: 220px;
+    width: min(100%, 190px);
+    max-height: 300px;
   }
 
   &.slot-post_top,
   &.slot-post_bottom {
     aspect-ratio: 16 / 5;
+    max-height: 170px;
   }
 }
 
@@ -1534,12 +1710,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  color: $color-text-muted;
+  color: var(--flat-text-muted);
   text-align: center;
 
   strong {
     font-size: 0.86rem;
-    color: $color-text;
+    color: var(--flat-text);
   }
 
   span {
@@ -1561,7 +1737,7 @@ onUnmounted(() => {
   z-index: 2;
   font-size: 0.58rem;
   color: #fff;
-  background: rgba(15, 23, 42, 0.44);
+  background: rgba(15, 23, 42, 0.72);
   border-radius: 999px;
   padding: 0.08rem 0.42rem;
 }
@@ -1588,19 +1764,13 @@ onUnmounted(() => {
   font-size: 0.82rem;
   font-weight: 600;
   color: #fff;
-  background: rgba(2, 6, 23, 0.4);
+  background: rgba(15, 23, 42, 0.48);
   opacity: 0;
   transition: opacity 0.2s;
 }
 
 .image-preview-shell:hover .image-preview-mask {
   opacity: 1;
-}
-
-.image-action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .hidden-input {
@@ -1610,43 +1780,76 @@ onUnmounted(() => {
 .upload-hint {
   margin: 0;
   font-size: 0.76rem;
-  color: $color-text-muted;
+  color: var(--flat-text-muted);
 }
 
 .preview-card {
-  border: 1px solid $color-border;
-  border-radius: 10px;
-  padding: 0.78rem;
-}
-
-.preview-card h4 {
-  margin: 0 0 0.62rem;
-  font-size: 0.9rem;
+  border: 1px solid var(--flat-border);
+  border-radius: 8px;
+  padding: 0.62rem;
+  background: var(--flat-surface-subtle);
+  display: grid;
+  grid-template-columns: minmax(200px, 0.75fr) minmax(0, 1.25fr);
+  column-gap: 0.72rem;
+  align-items: start;
 }
 
 .preview-row {
   display: flex;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.25rem 0;
-  font-size: 0.82rem;
+  gap: 0.52rem;
+  padding: 0.22rem 0;
+  font-size: 0.8rem;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.45);
 
   span {
-    color: $color-text-muted;
+    color: var(--flat-text-muted);
   }
 
   strong {
     font-weight: 600;
     text-align: right;
+    color: var(--flat-text);
   }
 }
 
-.preview-reason {
-  margin-top: 0.5rem;
-  padding: 0.55rem 0.62rem;
+.preview-image-box {
+  border: 1px solid var(--flat-border);
   border-radius: 8px;
-  border: 1px dashed rgba(239, 68, 68, 0.35);
-  background: rgba(254, 242, 242, 0.75);
+  background: transparent;
+  padding: 0.35rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.preview-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(56vh, 380px);
+  object-fit: contain;
+}
+
+.preview-image-empty {
+  font-size: 0.8rem;
+  color: var(--flat-text-muted);
+}
+
+.preview-reason {
+  margin-top: 0.3rem;
+  padding: 0.42rem 0.52rem;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(254, 242, 242, 0.92);
 
   span {
     font-size: 0.78rem;
@@ -1655,9 +1858,9 @@ onUnmounted(() => {
   }
 
   p {
-    margin: 0.32rem 0 0;
-    font-size: 0.8rem;
-    line-height: 1.55;
+    margin: 0.22rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.42;
     color: #991b1b;
   }
 }
@@ -1670,19 +1873,28 @@ onUnmounted(() => {
   margin-top: 0.95rem;
 }
 
-.step-actions--form {
-  justify-content: flex-start;
+.step-actions--form-panel {
+  justify-content: flex-end;
+  margin-top: 0.4rem;
+  padding-top: 0.2rem;
+  border-top: 1px solid var(--flat-border);
 }
 
 .action-btn {
-  border: 1px solid $color-border;
-  border-radius: 9px;
+  border: 1px solid var(--flat-border);
+  border-radius: 8px;
   padding: 0.52rem 1.2rem;
-  background: $color-bg;
-  color: $color-text-muted;
+  background: var(--flat-surface-subtle);
+  color: var(--flat-text);
   font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--flat-primary);
+    color: var(--flat-primary);
+  }
 
   &:disabled {
     opacity: 0.58;
@@ -1690,9 +1902,15 @@ onUnmounted(() => {
   }
 
   &.primary {
-    border-color: $color-primary;
-    background: $color-primary;
+    border-color: var(--flat-primary);
+    background: var(--flat-primary);
     color: #fff;
+
+    &:hover {
+      border-color: var(--flat-primary);
+      background: var(--flat-primary);
+      color: #fff;
+    }
   }
 }
 
@@ -1702,12 +1920,51 @@ onUnmounted(() => {
     max-height: calc(100vh - 1rem);
   }
 
+  .modal-body {
+    max-height: calc(100vh - 9.8rem);
+    padding: 0.92rem 0.88rem 1rem;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
 
+  .apply-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-panel,
+  .form-panel {
+    padding: 0.62rem;
+  }
+
+  .preview-card {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-image-box {
+    padding: 0.28rem;
+  }
+
+  .preview-row {
+    border-bottom-style: solid;
+  }
+
+  .step-actions--form-panel {
+    justify-content: stretch;
+    margin-top: 0.9rem;
+    padding-top: 0;
+    border-top: none;
+    background: transparent;
+  }
+
   .image-preview-shell.slot-home_left {
-    max-width: 100%;
+    width: min(100%, 200px);
+  }
+
+  .image-preview-shell {
+    width: 100%;
+    max-height: none;
   }
 
   .step-actions {

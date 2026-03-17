@@ -173,7 +173,8 @@ const canShowApplyButton = computed(() => {
 const applyButtonLabel = computed(() => {
   const status = myApplication.value?.status
   if (status === 'active') return '查看推广'
-  if (status === 'pending') return '查看申请'
+  if (status === 'pending' || status === 'rejected') return '查看申请'
+  if (status === 'expired') return '重新申请'
   return '申请投放'
 })
 const bannerTransitionName = computed(() => {
@@ -290,8 +291,12 @@ function handleApplyClick() {
   }
 
   const status = myApplication.value?.status
-  if (status === 'active' || status === 'pending') {
+  if (status === 'active' || status === 'pending' || status === 'rejected') {
     adApplyModal.open(props.adSlot, { step: 3, pitAdId })
+    return
+  }
+  if (status === 'expired') {
+    adApplyModal.open(props.adSlot, { step: 2, pitAdId })
     return
   }
   adApplyModal.open(props.adSlot, { step: 2, pitAdId })

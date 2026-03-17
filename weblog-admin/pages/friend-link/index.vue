@@ -98,10 +98,14 @@
           <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="来源" width="80" align="center">
+      <el-table-column label="来源" width="108" align="center" column-class-name="friend-link-source-col">
         <template #default="{ row }">
-          <span v-if="row.applicantUserId" class="source-tag">用户申请</span>
-          <span v-else class="text-muted">管理员</span>
+          <span
+            class="source-pill"
+            :class="row.applicantUserId ? 'source-pill--user' : 'source-pill--admin'"
+          >
+            {{ row.applicantUserId ? '用户申请' : '管理员' }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column label="排序" prop="sortOrder" width="80" align="center" />
@@ -447,25 +451,36 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.text-muted {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+:deep(.friend-link-source-col .cell) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.source-tag {
+.source-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 20px;
+  min-width: 56px;
+  height: 22px;
+  border-radius: 999px;
   padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid var(--el-border-color-light);
-  background: var(--el-fill-color-extra-light);
-  color: var(--el-text-color-regular);
   font-size: 12px;
-  font-weight: 500;
   line-height: 1;
   white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.source-pill--user {
+  color: #b45309;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.source-pill--admin {
+  color: var(--el-text-color-secondary);
+  border-color: var(--el-border-color);
+  background: var(--el-fill-color-lighter);
 }
 
 // 网站单元格

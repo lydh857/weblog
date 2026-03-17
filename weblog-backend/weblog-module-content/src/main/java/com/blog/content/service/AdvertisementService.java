@@ -57,6 +57,11 @@ public class AdvertisementService {
     private static final int MAX_SLOT_AD_COUNT = 7;
     private static final int MIMIC_POSTS_PER_PAGE = 19;
     private static final int MAX_MIMIC_AD_COUNT = 7;
+    private static final int MAX_APPLICATION_IMAGE_URL_LENGTH = 500;
+    private static final int MAX_APPLICATION_CODE_LENGTH = 20000;
+    private static final int MAX_APPLICATION_LINK_URL_LENGTH = 500;
+    private static final int MAX_APPLICATION_AD_INFO_LENGTH = 120;
+    private static final int MAX_APPLICATION_MIMIC_CONTENT_LENGTH = 120;
     private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
     private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "approved", "active");
 
@@ -316,6 +321,7 @@ public class AdvertisementService {
         sanitizeAdvertisementFields(ad, ad.getType(), true);
         normalizeDisplaySettings(ad);
         validateSchedule(ad);
+        validateApplicationInput(ad);
 
         if (ad.getPosition() == null || ad.getPosition().isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "广告位置不能为空");
@@ -328,7 +334,18 @@ public class AdvertisementService {
                         .orderByDesc(Advertisement::getCreateTime)
                         .last("LIMIT 1"));
 
+        if (StrUtil.isBlank(ad.getTitle())) {
+            if (existing != null && StrUtil.isNotBlank(existing.getTitle())) {
+                ad.setTitle(existing.getTitle());
+            } else {
+                ad.setTitle(buildApplicationTitle(userId, ad.getPosition(), ad.getType()));
+            }
+        }
+
         if (existing != null) {
+            if (!"rejected".equals(existing.getStatus()) && !"expired".equals(existing.getStatus())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "当前申请状态不支持修改，仅审核拒绝或已过期后可重新提交");
+            }
             ad.setId(existing.getId());
             ad.setAdvertiserId(userId);
             ad.setStatus("pending");
@@ -348,6 +365,86 @@ public class AdvertisementService {
         advertisementMapper.insert(ad);
         log.info("广告申请提交: userId={}, adId={}, position={}", userId, ad.getId(), ad.getPosition());
         return ad;
+    }
+
+    private String buildApplicationTitle(Long userId, String position, String type) {
+        String safePosition = StrUtil.blankToDefault(position, "unknown");
+        String safeType = StrUtil.blankToDefault(type, "image");
+        return String.format("用户%s-%s-%s", userId, safePosition, safeType);
+    }
+
+    private void validateApplicationInput(Advertisement ad) {
+        if (ad == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请求参数不能为空");
+        }
+
+        String type = StrUtil.blankToDefault(ad.getType(), "").trim();
+        if (!"image".equals(type) && !"code".equals(type)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "广告类型不合法");
+        }
+
+        String content = StrUtil.blankToDefault(ad.getContent(), "").trim();
+        if (content.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "广告内容不能为空");
+        }
+        if ("image".equals(type)) {
+            if (content.length() > MAX_APPLICATION_IMAGE_URL_LENGTH) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "广告图片地址长度不能超过" + MAX_APPLICATION_IMAGE_URL_LENGTH + "个字符");
+            }
+            if (!isSafeMediaUrl(content)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "广告图片地址不合法");
+            }
+        } else {
+            if (content.length() > MAX_APPLICATION_CODE_LENGTH) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "代码广告内容长度不能超过" + MAX_APPLICATION_CODE_LENGTH + "个字符");
+            }
+            if (containsDangerousCodeAdTags(content)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "代码广告包含高风险标签，请移除后重试");
+            }
+        }
+
+        if (StrUtil.isNotBlank(ad.getLinkUrl()) && ad.getLinkUrl().trim().length() > MAX_APPLICATION_LINK_URL_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接长度不能超过" + MAX_APPLICATION_LINK_URL_LENGTH + "个字符");
+        }
+        if (StrUtil.isNotBlank(ad.getAdInfo()) && ad.getAdInfo().trim().length() > MAX_APPLICATION_AD_INFO_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "广告信息长度不能超过" + MAX_APPLICATION_AD_INFO_LENGTH + "个字符");
+        }
+        if (StrUtil.isNotBlank(ad.getMimicContent()) && ad.getMimicContent().trim().length() > MAX_APPLICATION_MIMIC_CONTENT_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "拟态文案长度不能超过" + MAX_APPLICATION_MIMIC_CONTENT_LENGTH + "个字符");
+        }
+    }
+
+    private boolean isSafeMediaUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return false;
+        }
+        String trimmed = rawUrl.trim();
+        if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+            return true;
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(trimmed);
+        } catch (Exception e) {
+            return false;
+        }
+
+        String scheme = uri.getScheme();
+        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+            return false;
+        }
+        if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
+            return false;
+        }
+        return uri.getHost() != null && !uri.getHost().isBlank();
+    }
+
+    private boolean containsDangerousCodeAdTags(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        return content.matches("(?is).*</?(iframe|object|embed|form|input|button|textarea|select)\\b.*");
     }
 
     /**

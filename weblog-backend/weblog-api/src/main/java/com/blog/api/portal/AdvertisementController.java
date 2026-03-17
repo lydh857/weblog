@@ -11,6 +11,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.infra.security.util.XssUtil;
+import com.blog.system.entity.User;
+import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +43,7 @@ public class AdvertisementController {
 
     private final AdvertisementService advertisementService;
     private final AdPitBindingService adPitBindingService;
+    private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
 
@@ -117,27 +120,42 @@ public class AdvertisementController {
         Long userId = StpUtil.getLoginIdAsLong();
 
         ResolvedPit resolvedPit = validateAndResolvePitAd(ad);
-
         List<PriceRule> rules = loadPriceRules();
         validateApplicationByRules(ad, rules, resolvedPit.getPitIndex());
+
+        User currentUser = userMapper.selectById(userId);
+        ad.setTitle(buildApplyTitle(currentUser, ad.getPosition(), ad.getType()));
 
         // 安全过滤：如果是code类型广告，保留结构并清理危险脚本
         if ("code".equals(ad.getType()) && ad.getContent() != null) {
             ad.setContent(XssUtil.cleanMarkdown(ad.getContent()));
         }
 
-        Set<Long> activePitAdIds = loadActivePitAdvertisementMap().keySet();
         Advertisement application = advertisementService.submitApplicationWithPit(
                 userId,
                 ad,
                 resolvedPit.getPitAd().getId(),
                 resolvedPit.getPitIndex(),
-                activePitAdIds);
-
-        application.setPitAdId(resolvedPit.getPitAd().getId());
-        application.setPitIndex(resolvedPit.getPitIndex());
+                loadActivePitAdvertisementMap().keySet());
         clearReviewReason(application.getId());
         return Result.success(application);
+    }
+
+    private String buildApplyTitle(User user, String position, String type) {
+        String email = user == null ? null : user.getEmail();
+        String prefix = "user";
+        if (email != null) {
+            String trimmed = email.trim();
+            int atIndex = trimmed.indexOf('@');
+            if (atIndex > 0) {
+                prefix = trimmed.substring(0, atIndex);
+            } else if (!trimmed.isBlank()) {
+                prefix = trimmed;
+            }
+        }
+        String safePosition = (position == null || position.isBlank()) ? "unknown" : position.trim();
+        String safeType = (type == null || type.isBlank()) ? "image" : type.trim();
+        return prefix + "-" + safePosition + "-" + safeType;
     }
 
     private void clearReviewReason(Long adId) {
@@ -736,6 +754,9 @@ public class AdvertisementController {
 
         if (position == null || !SUPPORTED_POSITIONS.contains(position)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "广告位置不合法");
+        }
+        if (!"image".equals(type)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "用户端仅支持图片广告申请");
         }
         if ("code".equals(type) && "post_list_card".equals(position)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "代码广告不支持文章列表拟态卡位");

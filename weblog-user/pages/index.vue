@@ -81,7 +81,7 @@
 
             <!-- 加载更多 -->
             <div v-if="sectionMounted.post && posts.length" class="load-more-container">
-              <UnifiedPageLoader v-if="loadingMore" compact text="加载中..." />
+              <div v-if="loadingMore" class="load-more-loading">加载中...</div>
               <div v-else-if="noMore" class="no-more">没有更多文章了</div>
               <button v-else class="load-more-btn" @click="loadMore">
                 <svg class="load-more-icon" viewBox="0 0 24 24" width="18" height="18">
@@ -589,6 +589,16 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 2rem;
+}
+
+.load-more-loading {
+  font-size: 0.86rem;
+  color: $color-text-muted;
+  padding: 0.5rem 0;
+
+  .dark & {
+    color: #64748b;
+  }
 }
 
 .load-more-btn {

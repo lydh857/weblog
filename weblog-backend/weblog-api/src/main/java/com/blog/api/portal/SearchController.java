@@ -1,6 +1,8 @@
 package com.blog.api.portal;
 
+import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
+import com.blog.common.result.ResultCode;
 import com.blog.content.dto.SearchResult;
 import com.blog.content.service.PostSearchService;
 import com.blog.infra.security.ratelimit.RateLimit;
@@ -20,6 +22,8 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 @RequiredArgsConstructor
 public class SearchController {
 
+    private static final int MAX_KEYWORD_LENGTH = 100;
+
     private final PostSearchService postSearchService;
 
     @Operation(summary = "全文搜索文章")
@@ -29,7 +33,11 @@ public class SearchController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.length() > MAX_KEYWORD_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "搜索关键词长度不能超过" + MAX_KEYWORD_LENGTH + "个字符");
+        }
         pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        return Result.success(postSearchService.search(keyword, pageNum, pageSize));
+        return Result.success(postSearchService.search(normalizedKeyword, pageNum, pageSize));
     }
 }

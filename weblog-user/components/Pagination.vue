@@ -409,7 +409,7 @@ onUnmounted(() => {
   height: 28px;
   padding: 0 0.5rem;
   border: 1px solid $color-border;
-  border-radius: $radius-sm;
+  border-radius: 10px;
   background: transparent;
   font-size: 0.8rem;
   color: $color-text;
@@ -436,16 +436,22 @@ onUnmounted(() => {
   z-index: 10000;
   background: $color-bg;
   border: 1px solid $color-border;
-  border-radius: $radius-sm;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-  padding: 0.25rem 0;
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 0.3rem;
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+  }
 }
 
 .size-option {
   display: block;
   width: 100%;
-  padding: 0.35rem 0;
+  padding: 0.42rem 0.25rem;
   border: none;
+  border-radius: 8px;
   background: transparent;
   font-size: 0.8rem;
   color: $color-text;
@@ -462,6 +468,10 @@ onUnmounted(() => {
     background: rgba(59, 130, 246, 0.1);
     color: $color-primary;
     font-weight: 500;
+  }
+
+  .dark & {
+    color: $color-dark-text;
   }
 }
 

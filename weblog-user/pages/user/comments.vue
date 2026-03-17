@@ -171,8 +171,10 @@ onMounted(() => loadData())
 .status-badge { padding: 0 .3rem; border-radius: 999px; font-size: .6rem; line-height: 1.6; background: #fef3c7; color: #92400e; }
 .comment-text { font-size: .85rem; line-height: 1.5; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .reply-prefix { color: #94a3b8; font-size: .8rem; }
-.delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; }
+.delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .2s, color .2s, background-color .2s; }
 .comment-card:hover .delete-btn { opacity: 1; }
+.delete-btn:hover,
+.delete-btn:focus-visible { color: #dc2626; background: #fee2e2; }
 .empty-state {
   text-align: center;
   padding: 4rem 1rem;

@@ -102,12 +102,12 @@
       </el-table-column>
       <el-table-column label="置顶" width="65" align="center">
         <template #default="{ row }">
-          <el-switch :model-value="!!row.isTop" :loading="row._topLoading" @change="handleToggleTop(row)" size="small" />
+          <el-switch :model-value="!!row.isTop" :loading="row._topLoading" @change="handleToggleTop(row)" />
         </template>
       </el-table-column>
       <el-table-column label="禁用" width="65" align="center">
         <template #default="{ row }">
-          <el-switch :model-value="!!row.isDisabled" :loading="row._disableLoading" @change="handleToggleDisabled(row)" size="small" />
+          <el-switch :model-value="!!row.isDisabled" :loading="row._disableLoading" @change="handleToggleDisabled(row)" />
         </template>
       </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
@@ -988,17 +988,6 @@ onUnmounted(() => {
 :deep(.el-switch) {
   --el-switch-on-color: var(--el-color-primary);
   --el-switch-off-color: var(--el-fill-color-darker);
-  height: 20px;
-}
-:deep(.el-switch .el-switch__core) {
-  height: 20px;
-  min-width: 36px;
-  border-radius: 10px;
-  border: none;
-}
-:deep(.el-switch .el-switch__core .el-switch__action) {
-  width: 16px;
-  height: 16px;
 }
 
 .scheduled-time { color: var(--el-color-primary); font-weight: 500; font-size: 13px; }

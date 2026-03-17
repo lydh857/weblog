@@ -3,6 +3,7 @@ package com.blog.api.portal;
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
+import com.blog.common.util.ValidateUtil;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.*;
@@ -23,6 +24,8 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * 用户端认证接口
@@ -40,6 +43,9 @@ public class AuthController {
     private final RememberTokenService rememberTokenService;
     private static final String PORTAL_REMEMBER_COOKIE = "Portal-Remember-Token";
     private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
+    private static final int MAX_EMAIL_LENGTH = 100;
+    private static final int MAX_CODE_LENGTH = 12;
+    private static final int MAX_PASSWORD_LENGTH = 128;
 
     @Operation(summary = "用户注册", description = "通过邮箱和密码注册新用户，需要邮箱验证码")
     @PostMapping("/register")
@@ -175,16 +181,8 @@ public class AuthController {
     @Operation(summary = "检查邮箱可用性", description = "验证邮箱格式和域名MX记录")
     @PostMapping("/check-email")
     @RateLimit(key = "checkEmail", capacity = 10, seconds = 60)
-    public Result<Void> checkEmail(@RequestBody java.util.Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "邮箱不能为空");
-        }
-        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱格式不正确");
-        }
+    public Result<Void> checkEmail(@RequestBody Map<String, String> body) {
+        String email = normalizeEmailField(body, "email");
         String domain = email.substring(email.indexOf('@') + 1);
         try {
             var env = new java.util.Hashtable<String, String>();
@@ -210,16 +208,64 @@ public class AuthController {
     @Operation(summary = "忘记密码", description = "通过邮箱验证码重置密码，无需登录")
     @PostMapping("/forgot-password")
     @RateLimit(key = "forgotPassword", capacity = 5, seconds = 60)
-    public Result<Void> forgotPassword(@RequestBody java.util.Map<String, String> body) {
-        String email = body.get("email");
-        String code = body.get("code");
-        String password = body.get("password");
-        if (email == null || code == null || password == null) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "邮箱、验证码和新密码不能为空");
-        }
+    public Result<Void> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = normalizeEmailField(body, "email");
+        String code = normalizeCodeField(body, "code");
+        String password = getRequiredPassword(body, "password");
         authService.forgotPassword(email, code, password);
         return Result.success();
+    }
+
+    private String normalizeEmailField(Map<String, String> body, String field) {
+        String email = getRequiredText(body, field, "邮箱不能为空");
+        if (email.length() > MAX_EMAIL_LENGTH) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱长度不能超过" + MAX_EMAIL_LENGTH + "个字符");
+        }
+        if (!ValidateUtil.isValidEmail(email)) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱格式不正确");
+        }
+        return email.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeCodeField(Map<String, String> body, String field) {
+        String code = getRequiredText(body, field, "验证码不能为空");
+        if (code.length() > MAX_CODE_LENGTH) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_INVALID, "验证码格式不正确");
+        }
+        return code;
+    }
+
+    private String getRequiredPassword(Map<String, String> body, String field) {
+        if (body == null) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_MISSING, "请求参数不能为空");
+        }
+        String value = body.get(field);
+        if (value == null || value.isBlank()) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_MISSING, "新密码不能为空");
+        }
+        if (value.length() > MAX_PASSWORD_LENGTH) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_INVALID, "密码长度不能超过" + MAX_PASSWORD_LENGTH + "个字符");
+        }
+        return value;
+    }
+
+    private String getRequiredText(Map<String, String> body, String field, String message) {
+        if (body == null) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_MISSING, "请求参数不能为空");
+        }
+        String value = body.get(field);
+        if (value == null || value.trim().isEmpty()) {
+            throw new com.blog.common.exception.BusinessException(
+                    com.blog.common.result.ResultCode.PARAM_MISSING, message);
+        }
+        return value.trim();
     }
 
     private void syncRememberCookie(HttpServletResponse response,

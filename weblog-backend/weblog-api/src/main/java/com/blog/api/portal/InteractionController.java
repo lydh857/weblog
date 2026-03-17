@@ -3,7 +3,9 @@ package com.blog.api.portal;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
+import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
 import com.blog.interaction.entity.UserFavorite;
@@ -30,6 +32,8 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 @RequestMapping("/api/portal/interaction")
 @RequiredArgsConstructor
 public class InteractionController {
+
+    private static final int MAX_BATCH_OPERATE_COUNT = 100;
 
     private final LikeService likeService;
     private final FavoriteService favoriteService;
@@ -128,7 +132,16 @@ public class InteractionController {
     public Result<Void> batchUnfavorite(@RequestBody List<Long> postIds) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
+        if (postIds == null || postIds.isEmpty()) {
+            return Result.success();
+        }
+        if (postIds.size() > MAX_BATCH_OPERATE_COUNT) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "单次最多取消" + MAX_BATCH_OPERATE_COUNT + "条收藏");
+        }
         for (Long postId : postIds) {
+            if (postId == null || postId <= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "文章ID不合法");
+            }
             if (favoriteService.isFavorited(userId, postId)) {
                 favoriteService.toggleFavorite(userId, postId);
             }
