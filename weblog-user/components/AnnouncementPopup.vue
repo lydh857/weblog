@@ -424,7 +424,8 @@ onUnmounted(() => {
 
 .popup-envelope {
   --letter-closed-shift: 20%;
-  --letter-open-shift: -74px;
+  --letter-open-shift: 21%;
+  --letter-clip-safe: 4px;
 
   position: relative;
   width: 100%;
@@ -434,20 +435,26 @@ onUnmounted(() => {
   overflow: visible;
   perspective: 1200px;
   transform-style: preserve-3d;
-  background: #111827;
+  background: #F5F5F5;
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.35);
 }
 
 .popup-envelope::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 4px;
-  background: #111214;
-  z-index: 90;
+  top: 0;
+  right: -1px;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #2a2a2a 0%, #2a2a2a 50%, #292a2d 50%, #292a2d 100%);
+  z-index: 36;
   pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.popup-envelope.is-open::after {
+  opacity: 1;
+  background: #292a2d;
 }
 
 .popup-letter {
@@ -460,7 +467,7 @@ onUnmounted(() => {
   text-align: center;
   padding: 1.2rem 1.2rem 0.9rem;
   transform: translateY(var(--letter-closed-shift));
-  clip-path: inset(0 0 calc(var(--letter-closed-shift) + 2px) 0);
+  clip-path: inset(0 2px calc(var(--letter-closed-shift) + var(--letter-clip-safe)) 0);
   z-index: 12;
   opacity: 0.98;
   pointer-events: none;
@@ -478,8 +485,8 @@ onUnmounted(() => {
 }
 
 .popup-envelope.is-open .popup-letter {
-  transform: translateY(var(--letter-open-shift));
-  clip-path: inset(0 0 calc((var(--letter-open-shift) * -1) + 2px) 0);
+  transform: translateY(calc(var(--letter-open-shift) * -1));
+  clip-path: inset(0 2px calc(var(--letter-open-shift) + var(--letter-clip-safe)) 0);
   z-index: 14;
   opacity: 1;
   pointer-events: auto;
@@ -668,13 +675,13 @@ onUnmounted(() => {
 .envelope-right {
   background: #292a2d;
   clip-path: polygon(50% 50%, 100% 0, 100% 100%);
-  z-index: 29;
+  z-index: 31;
 }
 
 .envelope-bottom {
   background: #111214;
   clip-path: polygon(50% 50%, 100% 100%, 0 100%);
-  z-index: 28;
+  z-index: 29;
 }
 
 .popup-envelope.is-open .envelope-top {
@@ -689,7 +696,6 @@ onUnmounted(() => {
   }
 
   .popup-envelope {
-    --letter-open-shift: -52px;
     min-height: 248px;
     aspect-ratio: 16 / 10;
   }
