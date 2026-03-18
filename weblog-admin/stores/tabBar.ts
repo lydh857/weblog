@@ -24,6 +24,7 @@ const TAB_TITLE_MAP: Record<string, string> = {
   '/topic': '专题管理',
   '/ai-config': 'AI 配置',
   '/system-config': '系统配置',
+  '/logs': '日志中心',
 }
 
 // 固定首页标签，不可关闭

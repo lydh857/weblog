@@ -9,11 +9,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.Executor;
 
 /**
  * 审计日志切面
@@ -27,6 +29,8 @@ public class AuditLogAspect {
 
     private final AuditLogMapper auditLogMapper;
     private final ObjectMapper objectMapper;
+    @Qualifier("taskExecutor")
+    private final Executor taskExecutor;
 
     @Around("@annotation(auditLog)")
     public Object around(ProceedingJoinPoint joinPoint, AuditLog auditLog) throws Throwable {
@@ -86,7 +90,7 @@ public class AuditLogAspect {
             } catch (Exception e) {
                 log.error("异步写入审计日志失败", e);
             }
-        });
+        }, taskExecutor);
     }
 
     private String truncate(String value, int maxLength) {

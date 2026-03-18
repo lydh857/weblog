@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="popup-overlay-fade">
+    <Transition name="popup-overlay-fade" appear>
       <div v-if="visible && currentAnn" class="popup-overlay">
         <div class="popup-envelope-wrap">
           <div
@@ -74,6 +74,10 @@ const FETCH_RETRY_DELAY = 260
 
 let visibilityHandlerAttached = false
 let visibilityChangeHandler: (() => void) | null = null
+let startupDoneHandlerAttached = false
+let startupDoneHandler: (() => void) | null = null
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const isStartupDone = ref(false)
 
 const currentAnn = computed(() => popupAnnouncements.value[currentIndex.value] || null)
 const hasNext = computed(() => currentIndex.value < popupAnnouncements.value.length - 1)
@@ -133,6 +137,25 @@ function toggleEnvelopeByTap() {
 
 function showCurrentAnnouncement() {
   envelopeOpen.value = false
+}
+
+function hasStartupDone() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return Boolean(runtimeWindow.__weblogStartupDone)
+}
+
+function revealPopupIfReady() {
+  if (!isStartupDone.value || popupAnnouncements.value.length === 0) {
+    return
+  }
+
+  currentIndex.value = 0
+  visible.value = true
+  showCurrentAnnouncement()
 }
 
 function getDismissedKeys(): Set<string> {
@@ -351,13 +374,19 @@ async function fetchPopupAnnouncements(): Promise<AnnouncementVO[]> {
 }
 
 onMounted(async () => {
-  popupAnnouncements.value = await fetchPopupAnnouncements()
+  isStartupDone.value = hasStartupDone()
 
-  if (popupAnnouncements.value.length > 0) {
-    visible.value = true
-    currentIndex.value = 0
-    showCurrentAnnouncement()
+  if (import.meta.client && !isStartupDone.value && !startupDoneHandlerAttached) {
+    startupDoneHandler = () => {
+      isStartupDone.value = true
+      revealPopupIfReady()
+    }
+    window.addEventListener(STARTUP_DONE_EVENT, startupDoneHandler)
+    startupDoneHandlerAttached = true
   }
+
+  popupAnnouncements.value = await fetchPopupAnnouncements()
+  revealPopupIfReady()
 
   if (import.meta.client && !visibilityHandlerAttached) {
     visibilityChangeHandler = () => {
@@ -371,9 +400,7 @@ onMounted(async () => {
           return
         }
 
-        currentIndex.value = 0
-        visible.value = true
-        showCurrentAnnouncement()
+        revealPopupIfReady()
       })
     }
 
@@ -388,18 +415,43 @@ onUnmounted(() => {
     visibilityChangeHandler = null
     visibilityHandlerAttached = false
   }
+
+  if (import.meta.client && startupDoneHandler && startupDoneHandlerAttached) {
+    window.removeEventListener(STARTUP_DONE_EVENT, startupDoneHandler)
+    startupDoneHandler = null
+    startupDoneHandlerAttached = false
+  }
 })
 </script>
 
 <style scoped lang="scss">
 .popup-overlay-fade-enter-active,
+.popup-overlay-fade-appear-active,
 .popup-overlay-fade-leave-active {
   transition: opacity 0.24s ease;
 }
 
 .popup-overlay-fade-enter-from,
+.popup-overlay-fade-appear-from,
 .popup-overlay-fade-leave-to {
   opacity: 0;
+}
+
+.popup-overlay-fade-enter-active .popup-envelope-wrap,
+.popup-overlay-fade-appear-active .popup-envelope-wrap {
+  animation: popup-envelope-zoom-in 420ms cubic-bezier(0.22, 0.72, 0.22, 1) both;
+}
+
+@keyframes popup-envelope-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .popup-overlay {
@@ -429,32 +481,16 @@ onUnmounted(() => {
 
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   min-height: 300px;
   cursor: pointer;
   overflow: visible;
-  perspective: 1200px;
-  transform-style: preserve-3d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #F5F5F5;
+  transition: all 0.7s ease;
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.35);
-}
-
-.popup-envelope::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: -1px;
-  width: 3px;
-  height: 100%;
-  background: linear-gradient(180deg, #2a2a2a 0%, #2a2a2a 50%, #292a2d 50%, #292a2d 100%);
-  z-index: 36;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.popup-envelope.is-open::after {
-  opacity: 1;
-  background: #292a2d;
 }
 
 .popup-letter {
@@ -465,11 +501,12 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 1.2rem 1.2rem 0.9rem;
+  justify-content: flex-start;
+  padding: 1.35rem 1.7rem 2rem;
   transform: translateY(var(--letter-closed-shift));
   clip-path: inset(0 2px calc(var(--letter-closed-shift) + var(--letter-clip-safe)) 0);
   z-index: 12;
-  opacity: 0.98;
+  opacity: 1;
   pointer-events: none;
   transition:
     transform 0.95s cubic-bezier(0.22, 0.72, 0.22, 1),
@@ -494,8 +531,8 @@ onUnmounted(() => {
 }
 
 .popup-title {
-  margin: 0.55rem 0 0.55rem;
-  max-width: 92%;
+  margin: 0.8rem 0 0.7rem;
+  max-width: min(84%, 520px);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.65rem, 2.4vw, 2.75rem);
   font-weight: 700;
@@ -546,7 +583,7 @@ onUnmounted(() => {
 }
 
 .popup-body {
-  width: min(90%, 500px);
+  width: min(84%, 500px);
   max-height: 37%;
   overflow-y: auto;
   font-size: clamp(0.95rem, 1.5vw, 1.1rem);
@@ -568,20 +605,22 @@ onUnmounted(() => {
 }
 
 .popup-time {
-  margin: 0.65rem 0 0;
+  width: min(84%, 500px);
+  margin: 0.8rem 0 0;
   font-size: 0.8rem;
   color: #6b7280;
 }
 
 .popup-signature {
-  margin: 0.35rem 0 0;
+  width: min(84%, 500px);
+  margin: 0.45rem 0 0;
   font-size: 0.95rem;
   letter-spacing: 0.4px;
   color: #334155;
 }
 
 .popup-meta {
-  width: 100%;
+  width: min(84%, 500px);
   margin-top: auto;
   display: flex;
   align-items: center;
@@ -624,29 +663,29 @@ onUnmounted(() => {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 58px;
+  width: 56px;
   aspect-ratio: 1;
-  transform: translate(-50%, -50%) translateZ(80px);
-  border: 4px solid #881337;
+  transform: translate(-50%, -50%);
+  border: 3px solid #881337;
   border-radius: 999px;
   background: #fb7185;
   color: #7f1d1d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   clip-path: polygon(50% 0%, 80% 10%, 100% 35%, 100% 70%, 80% 90%, 50% 100%, 20% 90%, 0% 70%, 0% 35%, 20% 10%);
   transition: transform 1s ease, opacity 1s ease;
-  z-index: 120;
+  z-index: 40;
   will-change: transform, opacity;
   box-shadow: 0 8px 16px rgba(136, 19, 55, 0.35);
 }
 
 .popup-envelope.is-open .popup-seal {
   opacity: 0;
-  transform: translate(-50%, -50%) translateZ(80px) scale(0) rotate(180deg);
+  transform: translate(-50%, -50%) scale(0) rotate(180deg);
   pointer-events: none;
 }
 
@@ -654,39 +693,37 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  transition: clip-path 0.7s ease;
+  transition: all 0.7s ease;
 }
 
 .envelope-top {
-  background: #2a2a2a;
+  background: #262626;
   clip-path: polygon(50% 50%, 100% 0, 0 0);
   z-index: 35;
-  transform-origin: 50% 0%;
-  backface-visibility: hidden;
-  transition: transform 0.75s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.25s ease;
+  transition: clip-path 1s ease;
 }
 
 .envelope-left {
-  background: #111214;
+  background: #171717;
   clip-path: polygon(50% 50%, 0 0, 0 100%);
   z-index: 30;
 }
 
 .envelope-right {
-  background: #292a2d;
+  background: #262626;
   clip-path: polygon(50% 50%, 100% 0, 100% 100%);
   z-index: 31;
 }
 
 .envelope-bottom {
-  background: #111214;
+  background: #171717;
   clip-path: polygon(50% 50%, 100% 100%, 0 100%);
   z-index: 29;
 }
 
 .popup-envelope.is-open .envelope-top {
-  transform: rotateX(180deg);
-  opacity: 0;
+  clip-path: polygon(50% 0%, 100% 0, 0 0);
+  transition-duration: 0.1s;
 }
 
 @media (max-width: $breakpoint-md) {
@@ -697,7 +734,20 @@ onUnmounted(() => {
 
   .popup-envelope {
     min-height: 248px;
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 16 / 9;
+  }
+
+  .popup-letter {
+    padding: 1rem 1rem 1.35rem;
+  }
+
+  .popup-title,
+  .popup-body,
+  .popup-time,
+  .popup-signature,
+  .popup-meta {
+    width: min(90%, 460px);
+    max-width: min(90%, 460px);
   }
 
   .popup-title {
@@ -730,6 +780,10 @@ onUnmounted(() => {
   .popup-seal,
   .envelope-face {
     transition: none !important;
+  }
+
+  .popup-envelope.is-open .popup-letter {
+    transform: translateY(0);
   }
 }
 </style>

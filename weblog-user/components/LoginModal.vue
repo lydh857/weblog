@@ -3,7 +3,14 @@
     @update:visible="v => { if (!v) loginModal.close() }" @close="loginModal.close()">
     <template #header>
       <div class="modal-logo">
-        <img src="/brand/logo.png" :alt="`${siteName} logo`" class="modal-logo-img">
+        <img
+          src="/brand/logo.png"
+          :alt="`${siteName} logo`"
+          class="modal-logo-img"
+          width="28"
+          height="28"
+          style="width:28px;height:28px;max-width:28px;display:block;object-fit:cover;"
+        >
         <span>{{ siteName }}</span>
       </div>
     </template>

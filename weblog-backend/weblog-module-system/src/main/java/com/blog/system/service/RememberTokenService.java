@@ -75,7 +75,7 @@ public class RememberTokenService {
     @Transactional
     public User verifyToken(String token, String deviceInfo, String ip) {
         String tokenHash = hashToken(token);
-        RememberToken rememberToken = rememberTokenMapper.selectByToken(tokenHash, token);
+        RememberToken rememberToken = rememberTokenMapper.selectByTokenHash(tokenHash);
 
         if (rememberToken == null) {
             log.warn("Remember Token 不存在");
@@ -137,8 +137,8 @@ public class RememberTokenService {
     @Transactional
     public void invalidateToken(String token) {
         String tokenHash = hashToken(token);
-        rememberTokenMapper.invalidateToken(tokenHash, token);
-        log.info("Remember Token 已失效");
+        int affected = rememberTokenMapper.invalidateTokenByHash(tokenHash);
+        log.info("Remember Token 已失效：affected={}", affected);
     }
 
     /**

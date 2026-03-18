@@ -4,7 +4,14 @@
       <section class="footer-brand">
         <NuxtLink to="/" class="brand-head">
           <span class="brand-mark">
-            <img src="/brand/logo.png" :alt="`${siteName} logo`" class="brand-logo-img">
+            <img
+              src="/brand/logo.png"
+              :alt="`${siteName} logo`"
+              class="brand-logo-img"
+              width="34"
+              height="34"
+              style="width:34px;height:34px;max-width:34px;display:block;object-fit:cover;"
+            >
           </span>
           <strong>{{ siteName }}</strong>
         </NuxtLink>

@@ -1,11 +1,14 @@
 <template>
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
+  <div :style="showStartup ? hiddenAppShellStyle : visibleAppShellStyle">
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+  </div>
   <Transition name="startup-fade">
     <div
       v-if="showStartup"
       class="startup-mask"
+      style="position:fixed;inset:0;z-index:90000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f7f9ff;"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -33,9 +36,23 @@ import StartupCubeLoader from '~/components/StartupCubeLoader.vue'
 const route = useRoute()
 const showStartup = ref(route.path !== '/error')
 let startupTimer: ReturnType<typeof window.setTimeout> | null = null
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const hiddenAppShellStyle = 'opacity:0;visibility:hidden;pointer-events:none;'
+const visibleAppShellStyle = 'opacity:1;visibility:visible;pointer-events:auto;transition:opacity 220ms ease;'
+
+function markStartupDone() {
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  if (runtimeWindow.__weblogStartupDone) {
+    return
+  }
+
+  runtimeWindow.__weblogStartupDone = true
+  window.dispatchEvent(new CustomEvent(STARTUP_DONE_EVENT))
+}
 
 onMounted(() => {
   if (!showStartup.value) {
+    markStartupDone()
     return
   }
 
@@ -43,6 +60,9 @@ onMounted(() => {
   const duration = prefersReducedMotion ? 180 : 920
   startupTimer = window.setTimeout(() => {
     showStartup.value = false
+    window.setTimeout(() => {
+      markStartupDone()
+    }, 220)
   }, duration)
 })
 

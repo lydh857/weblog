@@ -2,6 +2,7 @@ package com.blog.infra.ai.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -16,14 +17,26 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class AiThreadPoolConfig {
 
+  @Value("${blog.ai.async.core-pool-size:2}")
+  private int corePoolSize;
+
+  @Value("${blog.ai.async.max-pool-size:4}")
+  private int maxPoolSize;
+
+  @Value("${blog.ai.async.queue-capacity:50}")
+  private int queueCapacity;
+
+  @Value("${blog.ai.async.keep-alive-seconds:60}")
+  private int keepAliveSeconds;
+
   @Bean("aiExecutor")
   public Executor aiExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(5);
-    executor.setMaxPoolSize(20);
-    executor.setQueueCapacity(100);
+    executor.setCorePoolSize(corePoolSize);
+    executor.setMaxPoolSize(maxPoolSize);
+    executor.setQueueCapacity(queueCapacity);
     executor.setThreadNamePrefix("ai-");
-    executor.setKeepAliveSeconds(60);
+    executor.setKeepAliveSeconds(keepAliveSeconds);
     executor.setWaitForTasksToCompleteOnShutdown(true);
     executor.setAwaitTerminationSeconds(30);
     // 队列满时由调用线程执行，保证不丢失任务

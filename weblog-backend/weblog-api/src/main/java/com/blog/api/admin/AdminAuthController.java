@@ -75,6 +75,7 @@ public class AdminAuthController {
 
     @Operation(summary = "管理员登出")
     @PostMapping("/logout")
+    @RateLimit(key = "admin-logout", capacity = 30, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "LOGOUT", description = "管理员登出")
     public Result<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         authService.logout();
@@ -143,6 +144,7 @@ public class AdminAuthController {
 
     @Operation(summary = "查询所有登录日志", description = "管理端查看所有用户的登录历史")
     @GetMapping("/login-logs")
+    @RateLimit(key = "admin-login-logs", capacity = 30, seconds = 60)
     public Result<com.baomidou.mybatisplus.core.metadata.IPage<LoginLogVO>> getAllLoginLogs(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,

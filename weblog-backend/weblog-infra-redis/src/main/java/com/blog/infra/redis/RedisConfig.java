@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
@@ -82,7 +82,13 @@ public class RedisConfig implements CachingConfigurer {
     private ObjectMapper buildRedisObjectMapper() {
         ObjectMapper om = new ObjectMapper();
         om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance,
+        BasicPolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfSubType("com.blog")
+                .allowIfSubType("java.time")
+                .allowIfSubType("java.util")
+                .allowIfSubType("java.lang")
+                .build();
+        om.activateDefaultTyping(ptv,
                 ObjectMapper.DefaultTyping.NON_FINAL);
         // 让 Redis JSON 序列化支持 LocalDateTime/LocalDate 等 Java 8 时间类型
         om.registerModule(new JavaTimeModule());

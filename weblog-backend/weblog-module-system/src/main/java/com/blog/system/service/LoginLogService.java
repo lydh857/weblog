@@ -83,6 +83,18 @@ public class LoginLogService {
         return voPage;
     }
 
+    /**
+     * 清理指定保留天数之前的登录日志
+     */
+    public int cleanupOldLogs(int retentionDays) {
+        int safeRetentionDays = Math.max(retentionDays, 1);
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(safeRetentionDays);
+        int deleted = loginLogMapper.delete(new LambdaQueryWrapper<LoginLog>()
+                .lt(LoginLog::getCreateTime, cutoff));
+        log.info("清理登录日志完成: retentionDays={}, cutoff={}, deleted={}", safeRetentionDays, cutoff, deleted);
+        return deleted;
+    }
+
     private LoginLogVO toVO(LoginLog log) {
         return LoginLogVO.builder()
                 .id(log.getId())

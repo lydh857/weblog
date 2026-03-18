@@ -48,5 +48,15 @@ blog:
   security:
     referer-enabled: true
     allowed-origins: http://localhost:3000,http://localhost:3001
+    log-cleanup:
+      enabled: true
+      cron: "0 30 4 * * ?"
+      login-log-retention-days: 30
+      audit-log-retention-days: 30
   ai:
     enabled: false
+    async:
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 100
+      keep-alive-seconds: 60

@@ -111,6 +111,11 @@ blog:
     base-url: ${AI_BASE_URL:https://api.openai.com/v1}
     model: ${AI_MODEL:gpt-4o-mini}
     embedding-model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
+    async:
+      core-pool-size: 2
+      max-pool-size: 4
+      queue-capacity: 50
+      keep-alive-seconds: 60
   # 安全配置
   security:
     # HSTS（生产环境 HTTPS 时启用）
@@ -121,6 +126,12 @@ blog:
     referer-enabled: ${REFERER_ENABLED:true}
     # 允许的来源（优先 ALLOWED_ORIGINS，未设置时回退 CORS_ORIGINS）
     allowed-origins: ${ALLOWED_ORIGINS:${CORS_ORIGINS:}}
+    # 安全日志自动清理（登录日志/审计日志）
+    log-cleanup:
+      enabled: true
+      cron: "0 30 4 * * ?"
+      login-log-retention-days: 180
+      audit-log-retention-days: 180
   # 文件上传配置
   upload:
     # 最大文件大小（MB）

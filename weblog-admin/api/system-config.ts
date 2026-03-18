@@ -9,6 +9,11 @@ export interface SystemConfigVO {
   updateTime: string
 }
 
+export interface SecurityLogCleanupResultVO {
+  loginDeleted: number
+  auditDeleted: number
+}
+
 export const systemConfigApi = {
   /** 获取所有配置 */
   list: () => http.get<unknown, { data: SystemConfigVO[] }>('/admin/system-config'),
@@ -20,4 +25,8 @@ export const systemConfigApi = {
   /** 手动刷新排行榜 */
   refreshRanking: () =>
     http.post('/admin/system-config/refresh-ranking'),
+
+  /** 手动清理安全日志 */
+  cleanupSecurityLogs: () =>
+    http.post<unknown, { data: SecurityLogCleanupResultVO }>('/admin/system-config/cleanup-security-logs'),
 }

@@ -11,7 +11,14 @@
       <div class="nav-inner">
         <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
           <span class="logo-mark">
-            <img src="/brand/logo.png" :alt="`${siteName} logo`" class="logo-img">
+            <img
+              src="/brand/logo.png"
+              :alt="`${siteName} logo`"
+              class="logo-img"
+              width="28"
+              height="28"
+              style="width:28px;height:28px;max-width:28px;display:block;object-fit:cover;"
+            >
           </span>
           <span class="logo-text">{{ siteName }}</span>
         </NuxtLink>

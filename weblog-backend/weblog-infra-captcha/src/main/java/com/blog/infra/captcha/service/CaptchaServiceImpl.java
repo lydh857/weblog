@@ -82,7 +82,7 @@ public class CaptchaServiceImpl implements CaptchaService {
                 .build();
         saveToRedis(CAPTCHA_DATA_PREFIX + captchaToken, data, CAPTCHA_EXPIRE_SECONDS);
 
-        log.info("生成验证码，token: {}, IP: {}", captchaToken, clientIp);
+        log.info("生成验证码，IP: {}", clientIp);
 
         return CaptchaGenerateVO.builder()
                 .captchaToken(captchaToken)
@@ -151,7 +151,7 @@ public class CaptchaServiceImpl implements CaptchaService {
                 .build();
         saveToRedis(VERIFY_TOKEN_PREFIX + tokenResult.tokenId(), tokenData, VERIFY_TOKEN_EXPIRE_SECONDS);
 
-        log.info("验证码校验成功，token: {}, IP: {}", request.getCaptchaToken(), clientIp);
+        log.info("验证码校验成功，IP: {}", clientIp);
 
         return CaptchaVerifyVO.builder()
                 .success(true)

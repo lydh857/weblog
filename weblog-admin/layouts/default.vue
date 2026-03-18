@@ -91,6 +91,10 @@
           <el-icon><Setting /></el-icon>
           <template #title>系统配置</template>
         </el-menu-item>
+        <el-menu-item index="/logs">
+          <el-icon><List /></el-icon>
+          <template #title>日志中心</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 

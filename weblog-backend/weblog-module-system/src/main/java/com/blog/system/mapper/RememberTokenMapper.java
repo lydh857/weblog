@@ -17,16 +17,16 @@ import java.time.LocalDateTime;
 public interface RememberTokenMapper extends BaseMapper<RememberToken> {
 
     /**
-     * 根据 Token 查询
+     * 根据哈希 Token 查询
      */
-    @Select("SELECT * FROM t_remember_token WHERE token = #{tokenHash} OR token = #{legacyToken} LIMIT 1")
-    RememberToken selectByToken(@Param("tokenHash") String tokenHash, @Param("legacyToken") String legacyToken);
+    @Select("SELECT * FROM t_remember_token WHERE token = #{tokenHash} LIMIT 1")
+    RememberToken selectByTokenHash(@Param("tokenHash") String tokenHash);
 
     /**
-     * 使 Token 失效
+     * 按哈希 Token 使 Token 失效
      */
-    @Update("UPDATE t_remember_token SET is_valid = 0 WHERE token = #{tokenHash} OR token = #{legacyToken}")
-    int invalidateToken(@Param("tokenHash") String tokenHash, @Param("legacyToken") String legacyToken);
+    @Update("UPDATE t_remember_token SET is_valid = 0 WHERE token = #{tokenHash}")
+    int invalidateTokenByHash(@Param("tokenHash") String tokenHash);
 
     /**
      * 清理过期 Token

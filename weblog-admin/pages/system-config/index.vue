@@ -42,6 +42,12 @@
           <el-form-item label="限流（次/分钟）">
             <el-input-number v-model.number="form.login_rate_limit" :min="1" :max="60" />
           </el-form-item>
+          <el-form-item label="安全日志">
+            <el-button type="warning" plain :loading="cleaningSecurityLogs" @click="handleCleanupSecurityLogs">
+              立即清理安全日志
+            </el-button>
+            <span class="form-tip">手动清理超出保留期的登录日志和审计日志</span>
+          </el-form-item>
         </el-form>
       </el-card>
 
@@ -184,6 +190,7 @@ import { systemConfigApi, type SystemConfigVO } from '~/api/system-config'
 const loading = ref(false)
 const saving = ref(false)
 const refreshingRanking = ref(false)
+const cleaningSecurityLogs = ref(false)
 
 // 数值类型的配置 key
 const numberKeys = new Set([
@@ -249,6 +256,19 @@ async function handleRefreshRanking() {
     ElMessage.error((e as Error).message || '刷新排行榜失败')
   } finally {
     refreshingRanking.value = false
+  }
+}
+
+async function handleCleanupSecurityLogs() {
+  cleaningSecurityLogs.value = true
+  try {
+    const res = await systemConfigApi.cleanupSecurityLogs()
+    const { loginDeleted, auditDeleted } = res.data
+    ElMessage.success(`安全日志清理完成：登录日志 ${loginDeleted} 条，审计日志 ${auditDeleted} 条`)
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '清理安全日志失败')
+  } finally {
+    cleaningSecurityLogs.value = false
   }
 }
 
