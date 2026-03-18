@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedPageLoader v-if="loading" plain :text="''" />
 
     <template v-else-if="posts.length">
       <article v-for="post in posts" :key="post.id" class="post-card" :class="{ selected: selectedIds.has(post.id), managing }" @click="managing && toggleSelect(post.id)">
@@ -106,7 +106,7 @@ function toggleSelectAll() {
 async function confirmUnfavorite() {
   if (!pendingUnfavId.value) return
   try {
-    await interactionApi.toggleFavorite(pendingUnfavId.value)
+    await interactionApi.setFavoriteState(pendingUnfavId.value, false)
     selectedIds.value.delete(pendingUnfavId.value)
     await loadData(currentPage.value)
   } catch {}

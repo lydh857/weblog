@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.security.util.XssUtil;
 import com.blog.system.dto.UpdateProfileRequest;
 import com.blog.system.entity.User;
@@ -34,6 +35,7 @@ public class UserProfileReviewService {
     private final UserMapper userMapper;
     private final UserProfileReviewMapper userProfileReviewMapper;
     private final UserService userService;
+    private final SensitiveWordService sensitiveWordService;
 
     public UserProfileReview getLatestReviewByUserId(Long userId) {
         return userProfileReviewMapper.selectOne(new LambdaQueryWrapper<UserProfileReview>()
@@ -52,6 +54,13 @@ public class UserProfileReviewService {
         String pendingNickname = req.getNickname() != null ? sanitizeNickname(req.getNickname()) : user.getNickname();
         String pendingBio = req.getBio() != null ? sanitizeBio(req.getBio()) : user.getBio();
         String pendingAvatar = req.getAvatar() != null ? sanitizeAvatar(req.getAvatar()) : user.getAvatar();
+
+        if (req.getNickname() != null) {
+            validateSensitiveWord("昵称", pendingNickname);
+        }
+        if (req.getBio() != null) {
+            validateSensitiveWord("简介", pendingBio);
+        }
 
         boolean changed = !Objects.equals(user.getNickname(), pendingNickname)
                 || !Objects.equals(user.getBio(), pendingBio)
@@ -179,5 +188,14 @@ public class UserProfileReviewService {
         }
 
         return uri.toString();
+    }
+
+    private void validateSensitiveWord(String fieldName, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (sensitiveWordService.containsSensitiveWord(value)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + "包含敏感词，请修改后提交");
+        }
     }
 }

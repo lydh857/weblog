@@ -29,7 +29,7 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 public class AdminFriendLinkController {
 
     private final FriendLinkService friendLinkService;
-    private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "dead", "pending", "rejected");
+    private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "rejected");
 
     @Operation(summary = "获取所有友链")
     @GetMapping
@@ -90,7 +90,7 @@ public class AdminFriendLinkController {
         List<Number> ids = (List<Number>) body.get("ids");
         String status = (String) body.get("status");
         if (status != null && !VALID_LINK_STATUSES.contains(status)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: active, inactive, dead");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: active, inactive, broken, pending, rejected");
         }
         if (ids != null && !ids.isEmpty() && status != null) {
             friendLinkService.batchUpdateStatus(

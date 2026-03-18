@@ -4,9 +4,9 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
+      maximum-pool-size: 8
+      minimum-idle: 1
+      connection-timeout: 20000
       idle-timeout: 600000
       max-lifetime: 1800000
 
@@ -27,10 +27,10 @@ spring:
 server:
   tomcat:
     threads:
-      max: 120
-      min-spare: 10
-    accept-count: 100
-    max-connections: 1024
+      max: 80
+      min-spare: 8
+    accept-count: 60
+    max-connections: 512
     connection-timeout: 5s
 
 # 生产环境日志 - 输出到文件，级别 info
@@ -41,8 +41,8 @@ logging:
     com.baomidou.mybatisplus: warn
   file:
     name: /var/log/weblog/application.log
-    max-size: 100MB
-    max-history: 7
+    max-size: 50MB
+    max-history: 5
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
@@ -101,6 +101,18 @@ blog:
   security:
     hsts-enabled: true
     referer-enabled: true
+    sensitive-words:
+      location: ${SENSITIVE_WORDS_LOCATION:classpath:sensitive/sensi_words.txt}
+    attack-alert:
+      enabled: true
+      interval-ms: 300000
+      initial-delay-ms: 60000
+      window-minutes: 5
+      total-failed-threshold: 60
+      per-ip-threshold: 12
+      top-ip-limit: 5
+      suppress-minutes: 10
+      max-alerts-per-hour: 6
     log-cleanup:
       enabled: true
       cron: "0 30 4 * * ?"

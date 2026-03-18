@@ -1,7 +1,16 @@
 <template>
   <Teleport to="body">
     <Transition name="popup-overlay-fade" appear>
-      <div v-if="visible && currentAnn" class="popup-overlay">
+      <div v-if="visible && currentAnn" class="popup-overlay" @click.self="tryClose">
+        <button
+          v-if="currentAnn.isClosable"
+          type="button"
+          class="popup-overlay-close"
+          aria-label="关闭公告弹窗"
+          @click.stop="tryClose"
+        >
+          <Icon name="heroicons:x-mark-20-solid" size="20" />
+        </button>
         <div class="popup-envelope-wrap">
           <div
             class="popup-envelope"
@@ -468,6 +477,30 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
 }
 
+.popup-overlay-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 60;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    background: rgba(15, 23, 42, 0.86);
+    border-color: rgba(148, 163, 184, 0.8);
+  }
+}
+
 .popup-envelope-wrap {
   width: min(620px, 100%);
   display: flex;
@@ -730,6 +763,11 @@ onUnmounted(() => {
   .popup-overlay {
     align-items: flex-end;
     padding: 0.75rem;
+  }
+
+  .popup-overlay-close {
+    top: 12px;
+    right: 12px;
   }
 
   .popup-envelope {

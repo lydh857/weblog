@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.redis.RedisCounterUtil;
 import com.blog.interaction.dto.CreateCommentRequest;
 import com.blog.interaction.entity.Comment;
@@ -64,9 +65,12 @@ public class CommentService {
         comment.setUserId(userId);
         comment.setParentId(req.getParentId() != null ? req.getParentId() : 0L);
         comment.setReplyToUserId(req.getReplyToUserId());
-        String cleanedContent = Jsoup.clean(sensitiveWordService.filter(req.getContent()), Safelist.none()).trim();
+        String cleanedContent = Jsoup.clean(req.getContent(), Safelist.none()).trim();
         if (cleanedContent.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "评论内容不能为空");
+        }
+        if (sensitiveWordService.containsSensitiveWord(cleanedContent)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "评论内容包含敏感词，请修改后提交");
         }
         comment.setContent(cleanedContent);
         comment.setLikeCount(0);

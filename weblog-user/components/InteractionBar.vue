@@ -1,12 +1,12 @@
 <template>
   <div class="interaction-bar">
-    <button class="action-btn" :class="{ active: liked }" @click="handleLike" :disabled="toggling" aria-label="点赞">
+    <button class="action-btn" :class="{ active: liked }" @click="handleLike" aria-label="点赞">
       <Icon :name="liked ? 'heroicons:heart-20-solid' : 'heroicons:heart-20-solid'" size="22"
         :class="{ 'like-active': liked }" />
       <span class="action-count">{{ likeCount }}</span>
       <span class="action-label">点赞</span>
     </button>
-    <button class="action-btn" :class="{ active: favorited }" @click="handleFavorite" :disabled="toggling" aria-label="收藏">
+    <button class="action-btn" :class="{ active: favorited }" @click="handleFavorite" aria-label="收藏">
       <Icon :name="favorited ? 'heroicons:bookmark-20-solid' : 'heroicons:bookmark-20-solid'" size="22"
         :class="{ 'fav-active': favorited }" />
       <span class="action-label">{{ favorited ? '已收藏' : '收藏' }}</span>
@@ -55,14 +55,48 @@ const liked = ref(false)
 const favorited = ref(false)
 const userStore = useUserStore()
 const likeCount = ref(props.likeCount)
-const toggling = ref(false)
 const showPoster = ref(false)
 const shareUrl = computed(() => import.meta.client ? window.location.href : '')
+
+const likeCommitQueue = useDebouncedStateCommit<boolean, { data: { liked: boolean; likeCount: number } }>({
+  delayMs: 600,
+  commitState: (key, state) => interactionApi.setLikeState(Number(key), state),
+  onSuccess: (key, _state, res) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    liked.value = res.data.liked
+    likeCount.value = res.data.likeCount
+    emit('likeCountUpdate', res.data.likeCount)
+  },
+  onError: (key) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    void loadStatus()
+  },
+})
+
+const favoriteCommitQueue = useDebouncedStateCommit<boolean, { data: { favorited: boolean; collectCount: number } }>({
+  delayMs: 600,
+  commitState: (key, state) => interactionApi.setFavoriteState(Number(key), state),
+  onSuccess: (key, _state, res) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    favorited.value = res.data.favorited
+  },
+  onError: (key) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    void loadStatus()
+  },
+})
 
 watch(() => props.likeCount, (v) => { likeCount.value = v })
 
 async function loadStatus() {
-  if (!userStore.isLoggedIn) return
   try {
     const res = await interactionApi.getStatus(props.postId)
     liked.value = res.data.liked
@@ -76,29 +110,30 @@ function handleShare() {
   showPoster.value = true
 }
 
-async function handleLike() {
+function handleLike() {
   if (!userStore.isLoggedIn) { useLoginModal().open(); return }
-  toggling.value = true
-  try {
-    const res = await interactionApi.toggleLike(props.postId)
-    liked.value = res.data.liked
-    likeCount.value = res.data.likeCount
-    emit('likeCountUpdate', res.data.likeCount)
-  } catch { /* ignore */ }
-  finally { toggling.value = false }
+  const nextLiked = !liked.value
+  liked.value = nextLiked
+  likeCount.value = Math.max(0, likeCount.value + (nextLiked ? 1 : -1))
+  emit('likeCountUpdate', likeCount.value)
+  likeCommitQueue.scheduleState(props.postId, nextLiked)
 }
 
-async function handleFavorite() {
+function handleFavorite() {
   if (!userStore.isLoggedIn) { useLoginModal().open(); return }
-  toggling.value = true
-  try {
-    const res = await interactionApi.toggleFavorite(props.postId)
-    favorited.value = res.data.favorited
-  } catch { /* ignore */ }
-  finally { toggling.value = false }
+  const nextFavorited = !favorited.value
+  favorited.value = nextFavorited
+  favoriteCommitQueue.scheduleState(props.postId, nextFavorited)
 }
 
 onMounted(loadStatus)
+watch(() => props.postId, (nextId, prevId) => {
+  if (typeof prevId === 'number' && prevId > 0 && prevId !== nextId) {
+    likeCommitQueue.flushKey(prevId)
+    favoriteCommitQueue.flushKey(prevId)
+  }
+  void loadStatus()
+})
 </script>
 
 <style scoped lang="scss">

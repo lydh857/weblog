@@ -8,7 +8,7 @@
       <p class="page-desc">管理你的资料、收藏和评论记录</p>
     </header>
 
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedPageLoader v-if="loading" plain :text="''" />
 
     <template v-else-if="profile">
       <section class="profile-card">

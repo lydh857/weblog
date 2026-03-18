@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedPageLoader v-if="loading" plain :text="''" />
 
     <template v-else-if="comments.length">
       <div v-for="comment in comments" :key="comment.id" class="comment-card" :class="{ selected: selectedIds.has(comment.id), managing }" @click="managing && toggleSelect(comment.id)">

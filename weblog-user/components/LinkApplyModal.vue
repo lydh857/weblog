@@ -265,8 +265,11 @@ async function handleSubmit() {
     const res = await friendLinkApi.getMyLink()
     myLink.value = res.data
     currentStep.value = 3
-  } catch {
-    // http 拦截器已处理错误提示
+  } catch (error) {
+    const messageText = error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message || '').trim()
+      : ''
+    message.error(messageText || '提交失败，请稍后重试')
   } finally {
     submitting.value = false
   }

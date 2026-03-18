@@ -988,7 +988,11 @@ async function handleSubmit() {
     await refreshMyApplication()
     currentStep.value = 2
     adApplyModal.notifyApplicationChanged()
-  } catch {
+  } catch (error) {
+    const messageText = error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message || '').trim()
+      : ''
+    message.error(messageText || '提交失败，请稍后重试')
   } finally {
     submitting.value = false
   }

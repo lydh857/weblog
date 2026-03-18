@@ -4,7 +4,7 @@
     <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else-if="post">
-      <div class="three-col-layout">
+      <div class="three-col-layout" :key="post.id">
         <!-- 左侧操作栏 -->
         <div class="left-sidebar">
           <div class="left-sidebar-sticky" :style="{ top: stickyTop }">
@@ -206,16 +206,22 @@ import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { buildCategoryPathById } from '~/utils/categoryRoute'
 
+definePageMeta({
+  key: route => String(route.params.slug || route.fullPath),
+})
+
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
 const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
+const detailAsyncKey = computed(() => `post-detail:${slug.value}`)
+
 // sticky top 值：导航栏 60px + 间距 10px + 公告栏 36px（如果有）
 const stickyTop = computed(() => bannerVisible.value ? '106px' : '70px')
 
 const { data: detailData, pending: loading } = await useAsyncData(
-  'post-detail',
+  detailAsyncKey,
   async () => {
     if (!slug.value) return null
     try {
@@ -224,9 +230,6 @@ const { data: detailData, pending: loading } = await useAsyncData(
     } catch {
       return null
     }
-  },
-  {
-    watch: [slug],
   },
 )
 

@@ -46,9 +46,23 @@ public class InteractionController {
     @PostMapping("/like/{postId}")
     @RateLimit(key = "interaction-like-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleLike(@PathVariable Long postId) {
+        validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         boolean liked = likeService.toggleLike(userId, postId);
+        long count = likeService.getLikeCount(postId);
+        return Result.success(Map.of("liked", liked, "likeCount", count));
+    }
+
+    @Operation(summary = "设置文章点赞状态")
+    @PostMapping("/like/{postId}/state")
+    @RateLimit(key = "interaction-like-state", capacity = 90, seconds = 60)
+    public Result<Map<String, Object>> setLikeState(@PathVariable Long postId,
+                                                    @RequestBody LikeStateRequest request) {
+        validatePostId(postId);
+        StpUtil.checkLogin();
+        Long userId = StpUtil.getLoginIdAsLong();
+        boolean liked = likeService.setLikeState(userId, postId, requireState(request != null ? request.getLiked() : null, "liked"));
         long count = likeService.getLikeCount(postId);
         return Result.success(Map.of("liked", liked, "likeCount", count));
     }
@@ -70,9 +84,23 @@ public class InteractionController {
     @PostMapping("/favorite/{postId}")
     @RateLimit(key = "interaction-favorite-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleFavorite(@PathVariable Long postId) {
+        validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         boolean favorited = favoriteService.toggleFavorite(userId, postId);
+        long collectCount = favoriteService.getCollectCount(postId);
+        return Result.success(Map.of("favorited", favorited, "collectCount", collectCount));
+    }
+
+    @Operation(summary = "设置文章收藏状态")
+    @PostMapping("/favorite/{postId}/state")
+    @RateLimit(key = "interaction-favorite-state", capacity = 90, seconds = 60)
+    public Result<Map<String, Object>> setFavoriteState(@PathVariable Long postId,
+                                                        @RequestBody FavoriteStateRequest request) {
+        validatePostId(postId);
+        StpUtil.checkLogin();
+        Long userId = StpUtil.getLoginIdAsLong();
+        boolean favorited = favoriteService.setFavoriteState(userId, postId, requireState(request != null ? request.getFavorited() : null, "favorited"));
         long collectCount = favoriteService.getCollectCount(postId);
         return Result.success(Map.of("favorited", favorited, "collectCount", collectCount));
     }
@@ -142,11 +170,9 @@ public class InteractionController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "单次最多取消" + MAX_BATCH_OPERATE_COUNT + "条收藏");
         }
         for (Long postId : postIds) {
-            if (postId == null || postId <= 0) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "文章ID不合法");
-            }
+            validatePostId(postId);
             if (favoriteService.isFavorited(userId, postId)) {
-                favoriteService.toggleFavorite(userId, postId);
+                favoriteService.setFavoriteState(userId, postId, false);
             }
         }
         return Result.success();
@@ -210,6 +236,7 @@ public class InteractionController {
     @GetMapping("/status/{postId}")
     @RateLimit(key = "interaction-status", capacity = 180, seconds = 60)
     public Result<Map<String, Object>> getInteractionStatus(@PathVariable Long postId) {
+        validatePostId(postId);
         boolean liked = false;
         boolean favorited = false;
         if (StpUtil.isLogin()) {
@@ -224,5 +251,42 @@ public class InteractionController {
                 "favorited", favorited,
                 "likeCount", likeCount,
                 "collectCount", collectCount));
+    }
+
+    private void validatePostId(Long postId) {
+        if (postId == null || postId <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "文章ID不合法");
+        }
+    }
+
+    private boolean requireState(Boolean state, String fieldName) {
+        if (state == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + "不能为空");
+        }
+        return state;
+    }
+
+    public static class LikeStateRequest {
+        private Boolean liked;
+
+        public Boolean getLiked() {
+            return liked;
+        }
+
+        public void setLiked(Boolean liked) {
+            this.liked = liked;
+        }
+    }
+
+    public static class FavoriteStateRequest {
+        private Boolean favorited;
+
+        public Boolean getFavorited() {
+            return favorited;
+        }
+
+        public void setFavorited(Boolean favorited) {
+            this.favorited = favorited;
+        }
     }
 }

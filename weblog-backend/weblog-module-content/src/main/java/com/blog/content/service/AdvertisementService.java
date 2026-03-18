@@ -13,6 +13,7 @@ import com.blog.content.mapper.AdvertisementMapper;
 import com.blog.content.mapper.PostMapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +69,7 @@ public class AdvertisementService {
     private final AdvertisementMapper advertisementMapper;
     private final PostMapper postMapper;
     private final AdPitBindingService adPitBindingService;
+    private final SensitiveWordService sensitiveWordService;
 
     /**
      * 按位置获取有效广告（用户端）
@@ -412,6 +414,9 @@ public class AdvertisementService {
         if (StrUtil.isNotBlank(ad.getMimicContent()) && ad.getMimicContent().trim().length() > MAX_APPLICATION_MIMIC_CONTENT_LENGTH) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "拟态文案长度不能超过" + MAX_APPLICATION_MIMIC_CONTENT_LENGTH + "个字符");
         }
+
+        validateSensitiveWord("广告信息", ad.getAdInfo());
+        validateSensitiveWord("拟态文案", ad.getMimicContent());
     }
 
     private boolean isSafeMediaUrl(String rawUrl) {
@@ -445,6 +450,15 @@ public class AdvertisementService {
             return false;
         }
         return content.matches("(?is).*</?(iframe|object|embed|form|input|button|textarea|select)\\b.*");
+    }
+
+    private void validateSensitiveWord(String fieldName, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (sensitiveWordService.containsSensitiveWord(value)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + "包含敏感词，请修改后提交");
+        }
     }
 
     /**

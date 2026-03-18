@@ -1,6 +1,8 @@
 package com.blog.interaction.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.blog.common.exception.BusinessException;
+import com.blog.common.result.ResultCode;
 import com.blog.infra.redis.RedisCounterUtil;
 import com.blog.interaction.entity.UserLike;
 import com.blog.interaction.mapper.UserLikeMapper;
@@ -10,6 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,31 +43,54 @@ public class LikeService {
 
     /** Redis key: 评论点赞数 */
     private static final String KEY_COMMENT_LIKE = "comment:like:";
+    /** Redis key: 用户对评论的点赞集合 */
+    private static final String KEY_USER_LIKED_COMMENTS = "user:liked:comment:";
     /** Redis key: 有评论点赞变更的评论集合 */
     private static final String KEY_COMMENT_LIKE_DIRTY = "comment:like:dirty";
+    /** Redis key: 用户对目标互动写入冷却 */
+    private static final String KEY_STATE_GUARD = "interaction:state:guard:";
+    /** 同一用户对同一目标的最小写入间隔 */
+    private static final Duration STATE_GUARD_WINDOW = Duration.ofMillis(500);
 
     /**
      * 评论点赞/取消点赞（toggle）
      * @return true=点赞成功, false=取消点赞
      */
     public boolean toggleCommentLike(Long userId, Long commentId) {
-        String userKey = "user:liked:comment:" + userId;
+        String userKey = KEY_USER_LIKED_COMMENTS + userId;
         String commentIdStr = commentId.toString();
+        boolean currentLiked = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(userKey, commentIdStr));
+        return setCommentLikeState(userId, commentId, !currentLiked);
+    }
 
-        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, commentIdStr);
-        if (Boolean.TRUE.equals(isMember)) {
-            redisTemplate.opsForSet().remove(userKey, commentIdStr);
-            RedisCounterUtil.safeDecrement(redisTemplate, KEY_COMMENT_LIKE + commentId);
-            redisTemplate.opsForSet().add(KEY_COMMENT_LIKE_DIRTY, commentIdStr);
-            log.debug("取消评论点赞: userId={}, commentId={}", userId, commentId);
-            return false;
-        } else {
+    /**
+     * 设置评论点赞状态（幂等）
+     * @return true=点赞, false=取消点赞
+     */
+    public boolean setCommentLikeState(Long userId, Long commentId, boolean shouldLike) {
+        guardStateWrite("comment-like", userId, commentId);
+
+        String userKey = KEY_USER_LIKED_COMMENTS + userId;
+        String commentIdStr = commentId.toString();
+        boolean currentLiked = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(userKey, commentIdStr));
+        if (currentLiked == shouldLike) {
+            return currentLiked;
+        }
+
+        ensureCommentLikeCounterLoaded(commentId);
+        if (shouldLike) {
             redisTemplate.opsForSet().add(userKey, commentIdStr);
             redisTemplate.opsForValue().increment(KEY_COMMENT_LIKE + commentId);
             redisTemplate.opsForSet().add(KEY_COMMENT_LIKE_DIRTY, commentIdStr);
             log.debug("评论点赞: userId={}, commentId={}", userId, commentId);
             return true;
         }
+
+        redisTemplate.opsForSet().remove(userKey, commentIdStr);
+        RedisCounterUtil.safeDecrement(redisTemplate, KEY_COMMENT_LIKE + commentId);
+        redisTemplate.opsForSet().add(KEY_COMMENT_LIKE_DIRTY, commentIdStr);
+        log.debug("取消评论点赞: userId={}, commentId={}", userId, commentId);
+        return false;
     }
 
     /**
@@ -90,7 +116,7 @@ public class LikeService {
      */
     public Set<Long> getCommentLikedIds(Long userId, List<Long> commentIds) {
         if (commentIds.isEmpty()) return Set.of();
-        String userKey = "user:liked:comment:" + userId;
+        String userKey = KEY_USER_LIKED_COMMENTS + userId;
         Set<String> members = redisTemplate.opsForSet().members(userKey);
         if (members == null || members.isEmpty()) return Set.of();
         Set<Long> likedSet = members.stream().map(Long::parseLong).collect(Collectors.toSet());
@@ -124,23 +150,26 @@ public class LikeService {
      * @return true=点赞成功, false=取消点赞
      */
     public boolean toggleLike(Long userId, Long postId) {
+        boolean currentLiked = isLiked(userId, postId);
+        return setLikeState(userId, postId, !currentLiked);
+    }
+
+    /**
+     * 设置文章点赞状态（幂等）
+     * @return true=点赞, false=取消点赞
+     */
+    public boolean setLikeState(Long userId, Long postId, boolean shouldLike) {
+        guardStateWrite("post-like", userId, postId);
+
         String userKey = KEY_USER_LIKED_POSTS + userId;
         String postIdStr = postId.toString();
+        boolean currentLiked = resolvePostLikeState(userId, postId, userKey, postIdStr);
+        if (currentLiked == shouldLike) {
+            return currentLiked;
+        }
 
-        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postIdStr);
-        if (Boolean.TRUE.equals(isMember)) {
-            // 取消点赞
-            redisTemplate.opsForSet().remove(userKey, postIdStr);
-            RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_LIKE + postId);
-            redisTemplate.opsForSet().add(KEY_LIKE_DIRTY, postIdStr);
-
-            // MySQL 软删除（按唯一键）
-            userLikeMapper.softDeleteByUnique(userId, "post", postId);
-
-            log.debug("取消点赞: userId={}, postId={}", userId, postId);
-            return false;
-        } else {
-            // 点赞
+        ensurePostLikeCounterLoaded(postId);
+        if (shouldLike) {
             redisTemplate.opsForSet().add(userKey, postIdStr);
             redisTemplate.opsForValue().increment(KEY_POST_LIKE + postId);
             redisTemplate.opsForSet().add(KEY_LIKE_DIRTY, postIdStr);
@@ -151,6 +180,16 @@ public class LikeService {
             log.debug("点赞: userId={}, postId={}", userId, postId);
             return true;
         }
+
+        redisTemplate.opsForSet().remove(userKey, postIdStr);
+        RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_LIKE + postId);
+        redisTemplate.opsForSet().add(KEY_LIKE_DIRTY, postIdStr);
+
+        // MySQL 软删除（按唯一键）
+        userLikeMapper.softDeleteByUnique(userId, "post", postId);
+
+        log.debug("取消点赞: userId={}, postId={}", userId, postId);
+        return false;
     }
 
     /**
@@ -158,16 +197,7 @@ public class LikeService {
      */
     public boolean isLiked(Long userId, Long postId) {
         String userKey = KEY_USER_LIKED_POSTS + userId;
-        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postId.toString());
-        if (isMember != null) {
-            return isMember;
-        }
-        // Redis 无数据时回查 MySQL
-        Long count = userLikeMapper.selectCount(new LambdaQueryWrapper<UserLike>()
-                .eq(UserLike::getUserId, userId)
-                .eq(UserLike::getTargetType, "post")
-                .eq(UserLike::getTargetId, postId));
-        return count > 0;
+        return resolvePostLikeState(userId, postId, userKey, postId.toString());
     }
 
     /**
@@ -207,6 +237,50 @@ public class LikeService {
             log.warn("回填点赞数失败: postId={}, {}", postId, e.getMessage());
             return 0;
         }
+    }
+
+    private void guardStateWrite(String action, Long userId, Long targetId) {
+        String key = KEY_STATE_GUARD + action + ":" + userId + ":" + targetId;
+        Boolean granted = redisTemplate.opsForValue().setIfAbsent(key, "1", STATE_GUARD_WINDOW);
+        if (!Boolean.TRUE.equals(granted)) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "操作过于频繁，请稍后再试");
+        }
+    }
+
+    private void ensurePostLikeCounterLoaded(Long postId) {
+        if (redisTemplate.opsForValue().get(KEY_POST_LIKE + postId) == null) {
+            getLikeCount(postId);
+        }
+    }
+
+    private void ensureCommentLikeCounterLoaded(Long commentId) {
+        if (redisTemplate.opsForValue().get(KEY_COMMENT_LIKE + commentId) == null) {
+            getCommentLikeCount(commentId);
+        }
+    }
+
+    private boolean resolvePostLikeState(Long userId, Long postId, String userKey, String postIdStr) {
+        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postIdStr);
+        if (Boolean.TRUE.equals(isMember)) {
+            return true;
+        }
+        if (Boolean.FALSE.equals(isMember) && Boolean.TRUE.equals(redisTemplate.hasKey(userKey))) {
+            return false;
+        }
+
+        boolean likedInDb = queryPostLikeStateFromDb(userId, postId);
+        if (likedInDb) {
+            redisTemplate.opsForSet().add(userKey, postIdStr);
+        }
+        return likedInDb;
+    }
+
+    private boolean queryPostLikeStateFromDb(Long userId, Long postId) {
+        Long count = userLikeMapper.selectCount(new LambdaQueryWrapper<UserLike>()
+                .eq(UserLike::getUserId, userId)
+                .eq(UserLike::getTargetType, "post")
+                .eq(UserLike::getTargetId, postId));
+        return count != null && count > 0;
     }
 
     /**

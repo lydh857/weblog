@@ -5,6 +5,7 @@ import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.FriendLink;
 import com.blog.content.mapper.FriendLinkMapper;
+import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class FriendLinkService {
     private static final int MAX_REJECT_REASON_LENGTH = 500;
 
     private final FriendLinkMapper friendLinkMapper;
+    private final SensitiveWordService sensitiveWordService;
 
     /**
      * 查询所有友链（管理端）
@@ -80,6 +82,8 @@ public class FriendLinkService {
         url = validateAndCleanUrl(url);
         logo = validateAndCleanOptionalUrl(logo);
         description = sanitizeDescription(description);
+        validateSensitiveWord("网站名称", name);
+        validateSensitiveWord("网站描述", description);
 
         FriendLink link = new FriendLink();
         link.setName(name);
@@ -300,6 +304,8 @@ public class FriendLinkService {
         link.setUrl(validateAndCleanUrl(url));
         link.setLogo(validateAndCleanOptionalUrl(logo));
         link.setDescription(sanitizeDescription(description));
+        validateSensitiveWord("网站名称", link.getName());
+        validateSensitiveWord("网站描述", link.getDescription());
         link.setStatus("pending");
         link.setReason(null);
         friendLinkMapper.updateById(link);
@@ -501,5 +507,14 @@ public class FriendLinkService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "拒绝原因最长" + MAX_REJECT_REASON_LENGTH + "字");
         }
         return cleaned;
+    }
+
+    private void validateSensitiveWord(String fieldName, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (sensitiveWordService.containsSensitiveWord(value)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + "包含敏感词，请修改后提交");
+        }
     }
 }

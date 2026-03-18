@@ -163,9 +163,23 @@ public class CommentController {
     @PostMapping("/like/{commentId}")
     @RateLimit(key = "comment-like-toggle", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> toggleCommentLike(@PathVariable Long commentId) {
+        validateCommentId(commentId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         boolean liked = likeService.toggleCommentLike(userId, commentId);
+        long likeCount = likeService.getCommentLikeCount(commentId);
+        return Result.success(Map.of("liked", liked, "likeCount", likeCount));
+    }
+
+    @Operation(summary = "设置评论点赞状态")
+    @PostMapping("/like/{commentId}/state")
+    @RateLimit(key = "comment-like-state", capacity = 90, seconds = 60)
+    public Result<Map<String, Object>> setCommentLikeState(@PathVariable Long commentId,
+                                                           @RequestBody CommentLikeStateRequest request) {
+        validateCommentId(commentId);
+        StpUtil.checkLogin();
+        Long userId = StpUtil.getLoginIdAsLong();
+        boolean liked = likeService.setCommentLikeState(userId, commentId, requireState(request != null ? request.getLiked() : null));
         long likeCount = likeService.getCommentLikeCount(commentId);
         return Result.success(Map.of("liked", liked, "likeCount", likeCount));
     }
@@ -308,5 +322,30 @@ public class CommentController {
         vo.setStatus(c.getStatus());
         vo.setCreateTime(c.getCreateTime());
         return vo;
+    }
+
+    private void validateCommentId(Long commentId) {
+        if (commentId == null || commentId <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "评论ID不合法");
+        }
+    }
+
+    private boolean requireState(Boolean liked) {
+        if (liked == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "liked不能为空");
+        }
+        return liked;
+    }
+
+    public static class CommentLikeStateRequest {
+        private Boolean liked;
+
+        public Boolean getLiked() {
+            return liked;
+        }
+
+        public void setLiked(Boolean liked) {
+            this.liked = liked;
+        }
     }
 }

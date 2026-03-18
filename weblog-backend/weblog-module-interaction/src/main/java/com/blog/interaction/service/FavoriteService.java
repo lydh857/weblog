@@ -3,6 +3,8 @@ package com.blog.interaction.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.common.exception.BusinessException;
+import com.blog.common.result.ResultCode;
 import com.blog.infra.redis.RedisCounterUtil;
 import com.blog.interaction.entity.UserFavorite;
 import com.blog.interaction.mapper.UserFavoriteMapper;
@@ -12,6 +14,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -33,28 +36,36 @@ public class FavoriteService {
     private static final String KEY_USER_FAVORITES = "user:fav:";
     /** Redis key: 有收藏变更的文章集合 */
     private static final String KEY_COLLECT_DIRTY = "post:collect:dirty";
+    /** Redis key: 用户对目标互动写入冷却 */
+    private static final String KEY_STATE_GUARD = "interaction:state:guard:";
+    /** 同一用户对同一目标的最小写入间隔 */
+    private static final Duration STATE_GUARD_WINDOW = Duration.ofMillis(500);
 
     /**
      * 收藏/取消收藏（toggle）
      * @return true=收藏成功, false=取消收藏
      */
     public boolean toggleFavorite(Long userId, Long postId) {
+        boolean currentFavorited = isFavorited(userId, postId);
+        return setFavoriteState(userId, postId, !currentFavorited);
+    }
+
+    /**
+     * 设置收藏状态（幂等）
+     * @return true=收藏, false=取消收藏
+     */
+    public boolean setFavoriteState(Long userId, Long postId, boolean shouldFavorite) {
+        guardStateWrite("post-favorite", userId, postId);
+
         String userKey = KEY_USER_FAVORITES + userId;
         String postIdStr = postId.toString();
+        boolean currentFavorited = resolveFavoriteState(userId, postId, userKey, postIdStr);
+        if (currentFavorited == shouldFavorite) {
+            return currentFavorited;
+        }
 
-        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postIdStr);
-        if (Boolean.TRUE.equals(isMember)) {
-            // 取消收藏
-            redisTemplate.opsForSet().remove(userKey, postIdStr);
-            RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_COLLECT + postId);
-            redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, postIdStr);
-
-            userFavoriteMapper.softDeleteByUnique(userId, postId);
-
-            log.debug("取消收藏: userId={}, postId={}", userId, postId);
-            return false;
-        } else {
-            // 收藏
+        ensureCollectCounterLoaded(postId);
+        if (shouldFavorite) {
             redisTemplate.opsForSet().add(userKey, postIdStr);
             redisTemplate.opsForValue().increment(KEY_POST_COLLECT + postId);
             redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, postIdStr);
@@ -64,6 +75,15 @@ public class FavoriteService {
             log.debug("收藏: userId={}, postId={}", userId, postId);
             return true;
         }
+
+        redisTemplate.opsForSet().remove(userKey, postIdStr);
+        RedisCounterUtil.safeDecrement(redisTemplate, KEY_POST_COLLECT + postId);
+        redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, postIdStr);
+
+        userFavoriteMapper.softDeleteByUnique(userId, postId);
+
+        log.debug("取消收藏: userId={}, postId={}", userId, postId);
+        return false;
     }
 
     /**
@@ -71,14 +91,7 @@ public class FavoriteService {
      */
     public boolean isFavorited(Long userId, Long postId) {
         String userKey = KEY_USER_FAVORITES + userId;
-        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postId.toString());
-        if (isMember != null && isMember) {
-            return true;
-        }
-        Long count = userFavoriteMapper.selectCount(new LambdaQueryWrapper<UserFavorite>()
-                .eq(UserFavorite::getUserId, userId)
-                .eq(UserFavorite::getPostId, postId));
-        return count > 0;
+        return resolveFavoriteState(userId, postId, userKey, postId.toString());
     }
 
     /**
@@ -153,5 +166,38 @@ public class FavoriteService {
             log.warn("回填收藏数失败: postId={}, {}", postId, e.getMessage());
             return 0;
         }
+    }
+
+    private void guardStateWrite(String action, Long userId, Long targetId) {
+        String key = KEY_STATE_GUARD + action + ":" + userId + ":" + targetId;
+        Boolean granted = redisTemplate.opsForValue().setIfAbsent(key, "1", STATE_GUARD_WINDOW);
+        if (!Boolean.TRUE.equals(granted)) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "操作过于频繁，请稍后再试");
+        }
+    }
+
+    private void ensureCollectCounterLoaded(Long postId) {
+        if (redisTemplate.opsForValue().get(KEY_POST_COLLECT + postId) == null) {
+            getCollectCount(postId);
+        }
+    }
+
+    private boolean resolveFavoriteState(Long userId, Long postId, String userKey, String postIdStr) {
+        Boolean isMember = redisTemplate.opsForSet().isMember(userKey, postIdStr);
+        if (Boolean.TRUE.equals(isMember)) {
+            return true;
+        }
+        if (Boolean.FALSE.equals(isMember) && Boolean.TRUE.equals(redisTemplate.hasKey(userKey))) {
+            return false;
+        }
+
+        Long count = userFavoriteMapper.selectCount(new LambdaQueryWrapper<UserFavorite>()
+                .eq(UserFavorite::getUserId, userId)
+                .eq(UserFavorite::getPostId, postId));
+        boolean favoritedInDb = count != null && count > 0;
+        if (favoritedInDb) {
+            redisTemplate.opsForSet().add(userKey, postIdStr);
+        }
+        return favoritedInDb;
     }
 }

@@ -28,6 +28,10 @@ export interface PageResult<T> {
 }
 
 export const interactionApi = {
+  /** 设置点赞状态（幂等） */
+  setLikeState: (postId: number, liked: boolean) =>
+    http.post<unknown, { data: { liked: boolean; likeCount: number } }>(`/portal/interaction/like/${postId}/state`, { liked }),
+
   /** 点赞/取消点赞 */
   toggleLike: (postId: number) =>
     http.post<unknown, { data: { liked: boolean; likeCount: number } }>(`/portal/interaction/like/${postId}`),
@@ -35,6 +39,10 @@ export const interactionApi = {
   /** 查询是否点赞 */
   isLiked: (postId: number) =>
     http.get<unknown, { data: { liked: boolean; likeCount: number } }>(`/portal/interaction/like/${postId}`),
+
+  /** 设置收藏状态（幂等） */
+  setFavoriteState: (postId: number, favorited: boolean) =>
+    http.post<unknown, { data: { favorited: boolean; collectCount: number } }>(`/portal/interaction/favorite/${postId}/state`, { favorited }),
 
   /** 收藏/取消收藏 */
   toggleFavorite: (postId: number) =>

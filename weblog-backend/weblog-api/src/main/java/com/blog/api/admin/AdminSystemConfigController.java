@@ -31,7 +31,7 @@ public class AdminSystemConfigController {
     @Operation(summary = "获取所有系统配置")
     @GetMapping
     public Result<List<SystemConfig>> list() {
-        return Result.success(systemConfigService.listAll());
+        return Result.success(systemConfigService.listAllForAdminView());
     }
 
     @Operation(summary = "批量更新系统配置")

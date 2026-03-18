@@ -100,6 +100,43 @@ const showPoster = ref(false)
 const displayLikeCount = ref(props.likeCount)
 const displayCollectCount = ref(props.collectCount)
 
+const likeCommitQueue = useDebouncedStateCommit<boolean, { data: { liked: boolean; likeCount: number } }>({
+  delayMs: 600,
+  commitState: (key, state) => interactionApi.setLikeState(Number(key), state),
+  onSuccess: (key, _state, res) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    liked.value = res.data.liked
+    displayLikeCount.value = res.data.likeCount
+    emit('likeToggled', res.data.liked, res.data.likeCount)
+  },
+  onError: (key) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    void loadStatus()
+  },
+})
+
+const favoriteCommitQueue = useDebouncedStateCommit<boolean, { data: { favorited: boolean; collectCount: number } }>({
+  delayMs: 600,
+  commitState: (key, state) => interactionApi.setFavoriteState(Number(key), state),
+  onSuccess: (key, _state, res) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    favorited.value = res.data.favorited
+    displayCollectCount.value = res.data.collectCount
+  },
+  onError: (key) => {
+    if (Number(key) !== props.postId) {
+      return
+    }
+    void loadStatus()
+  },
+})
+
 const shareUrl = computed(() => import.meta.client ? window.location.href : '')
 
 // 外部 props 变化时同步（如父组件更新）
@@ -114,33 +151,32 @@ function formatCount(n: number): string {
 }
 
 async function loadStatus() {
-  if (!userStore.isLoggedIn) return
   try {
     const res = await interactionApi.getStatus(props.postId)
     liked.value = res.data.liked
     favorited.value = res.data.favorited
-  } catch { /* 静默 */ }
-}
-
-async function handleLike() {
-  if (!userStore.isLoggedIn) { useLoginModal().open(); return }
-  triggerPop('like')
-  try {
-    const res = await interactionApi.toggleLike(props.postId)
-    liked.value = res.data.liked
     displayLikeCount.value = res.data.likeCount
-    emit('likeToggled', res.data.liked, res.data.likeCount)
-  } catch { /* 静默 */ }
-}
-
-async function handleFavorite() {
-  if (!userStore.isLoggedIn) { useLoginModal().open(); return }
-  triggerPop('fav')
-  try {
-    const res = await interactionApi.toggleFavorite(props.postId)
-    favorited.value = res.data.favorited
     displayCollectCount.value = res.data.collectCount
   } catch { /* 静默 */ }
+}
+
+function handleLike() {
+  if (!userStore.isLoggedIn) { useLoginModal().open(); return }
+  triggerPop('like')
+  const nextLiked = !liked.value
+  liked.value = nextLiked
+  displayLikeCount.value = Math.max(0, displayLikeCount.value + (nextLiked ? 1 : -1))
+  emit('likeToggled', nextLiked, displayLikeCount.value)
+  likeCommitQueue.scheduleState(props.postId, nextLiked)
+}
+
+function handleFavorite() {
+  if (!userStore.isLoggedIn) { useLoginModal().open(); return }
+  triggerPop('fav')
+  const nextFavorited = !favorited.value
+  favorited.value = nextFavorited
+  displayCollectCount.value = Math.max(0, displayCollectCount.value + (nextFavorited ? 1 : -1))
+  favoriteCommitQueue.scheduleState(props.postId, nextFavorited)
 }
 
 function triggerPop(type: 'like' | 'fav') {
@@ -163,7 +199,13 @@ function navigateNext() {
 }
 
 onMounted(loadStatus)
-watch(() => props.postId, () => { loadStatus() })
+watch(() => props.postId, (nextId, prevId) => {
+  if (typeof prevId === 'number' && prevId > 0 && prevId !== nextId) {
+    likeCommitQueue.flushKey(prevId)
+    favoriteCommitQueue.flushKey(prevId)
+  }
+  void loadStatus()
+})
 </script>
 
 <style scoped lang="scss">
@@ -196,7 +238,12 @@ watch(() => props.postId, () => { loadStatus() })
   cursor: pointer;
   transition: color 0.2s, transform 0.2s, box-shadow 0.2s;
   gap: 1px;
-  &:hover {
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  &:hover:not(:disabled) {
     color: $color-primary;
     transform: scale(1.06);
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -218,7 +265,7 @@ watch(() => props.postId, () => { loadStatus() })
   .dark & {
     background: $color-dark-bg-secondary; color: #64748b;
     box-shadow: 0 1px 6px rgba(0,0,0,0.15);
-    &:hover { color: $color-primary; }
+    &:hover:not(:disabled) { color: $color-primary; }
     &.active { color: #ef4444; }
     &.nav-btn.disabled { &:hover { color: #64748b; } }
   }

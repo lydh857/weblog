@@ -13,6 +13,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Properties;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 邮件发送服务
@@ -201,6 +203,53 @@ public class EmailService {
             sendInitialPassword(toEmail, password);
         } catch (Exception e) {
             log.error("异步初始密码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+        }
+    }
+
+    /**
+     * 发送安全告警邮件（收件人由系统配置 security_alert_emails 指定，逗号分隔）
+     */
+    @Async
+    public void sendSecurityAlertAsync(String subject, String content) {
+        try {
+            String enabled = configService.getValue("security_alert_enabled");
+            if (!"true".equalsIgnoreCase(enabled)) {
+                return;
+            }
+
+            String recipients = configService.getValue("security_alert_emails");
+            if (recipients == null || recipients.isBlank()) {
+                return;
+            }
+
+            List<String> toList = Arrays.stream(recipients.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .filter(com.blog.common.util.ValidateUtil::isValidEmail)
+                    .toList();
+
+            if (toList.isEmpty()) {
+                log.warn("安全告警邮件收件人为空或格式无效");
+                return;
+            }
+
+            String fromName = configService.getValue("mail_from_name");
+            String username = configService.getValue("mail_username");
+            if (fromName == null || fromName.isBlank()) {
+                fromName = "Weblog 安全中心";
+            }
+
+            JavaMailSender mailSender = createMailSender();
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(username, fromName);
+            helper.setTo(toList.toArray(new String[0]));
+            helper.setSubject(subject);
+            helper.setText(content, false);
+            mailSender.send(message);
+            log.warn("安全告警邮件已发送: subject={}, recipients={}", subject, toList);
+        } catch (Exception e) {
+            log.error("发送安全告警邮件失败: subject={}, error={}", subject, e.getMessage(), e);
         }
     }
 }

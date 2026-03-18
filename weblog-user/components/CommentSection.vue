@@ -14,9 +14,9 @@
     <!-- 主评论表单 -->
     <div ref="formRef" class="comment-form">
       <div class="form-avatar">
-        <img v-if="isLoggedIn && userStore.userInfo.avatar" :src="userStore.userInfo.avatar" alt="头像" />
+        <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
         <span v-else class="avatar-ph" :class="{ guest: !isLoggedIn }">
-          <template v-if="isLoggedIn">{{ userStore.userInfo.nickname?.charAt(0) || 'U' }}</template>
+          <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
           <Icon v-else name="heroicons:user-circle-20-solid" size="40" />
         </span>
       </div>
@@ -56,14 +56,6 @@
       </div>
     </div>
 
-    <!-- 审核提示 -->
-    <Transition name="fade">
-      <div v-if="auditTip" class="audit-tip">
-        <Icon name="heroicons:information-circle-20-solid" size="16" />
-        {{ auditTip }}
-      </div>
-    </Transition>
-
     <!-- 评论列表 -->
     <div class="comment-list-wrapper">
       <div v-if="loadingComments && !comments.length" class="loading-state">
@@ -76,8 +68,8 @@
           <div v-for="comment in comments" :key="comment.id" class="comment-item" :class="{ topped: comment.isTop }">
             <div class="comment-main">
               <div class="comment-avatar">
-                <img v-if="comment.avatar" :src="comment.avatar" :alt="comment.nickname" />
-                <span v-else class="avatar-ph">{{ comment.nickname.charAt(0) }}</span>
+                <img v-if="showCommentAvatar(comment)" :src="comment.avatar || ''" :alt="comment.nickname" @error="markAvatarLoadError(comment.id)" />
+                <span v-else class="avatar-ph">{{ getAvatarText(comment.nickname) }}</span>
               </div>
               <div class="comment-body">
                 <div class="comment-header">
@@ -102,9 +94,9 @@
                 <Transition name="reply-form">
                   <div v-if="inlineReplyId === comment.id" class="inline-reply-form">
                     <div class="form-avatar sm">
-                      <img v-if="isLoggedIn && userStore.userInfo.avatar" :src="userStore.userInfo.avatar" alt="头像" />
+                      <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
                       <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
-                        <template v-if="isLoggedIn">{{ userStore.userInfo.nickname?.charAt(0) || 'U' }}</template>
+                        <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
                         <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
                       </span>
                     </div>
@@ -141,8 +133,8 @@
                 <div v-if="getReplyData(comment).list.length" class="replies">
                   <div v-for="reply in getReplyData(comment).list" :key="reply.id" class="reply-item">
                     <div class="comment-avatar sm">
-                      <img v-if="reply.avatar" :src="reply.avatar" :alt="reply.nickname" />
-                      <span v-else class="avatar-ph sm">{{ reply.nickname.charAt(0) }}</span>
+                      <img v-if="showCommentAvatar(reply)" :src="reply.avatar || ''" :alt="reply.nickname" @error="markAvatarLoadError(reply.id)" />
+                      <span v-else class="avatar-ph sm">{{ getAvatarText(reply.nickname) }}</span>
                     </div>
                     <div class="comment-body">
                       <div class="comment-head-line">
@@ -173,9 +165,9 @@
                       <Transition name="reply-form">
                         <div v-if="inlineReplyId === reply.id" class="inline-reply-form">
                           <div class="form-avatar sm">
-                            <img v-if="isLoggedIn && userStore.userInfo.avatar" :src="userStore.userInfo.avatar" alt="头像" />
+                            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
                             <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
-                              <template v-if="isLoggedIn">{{ userStore.userInfo.nickname?.charAt(0) || 'U' }}</template>
+                              <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
                               <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
                             </span>
                           </div>
@@ -265,9 +257,9 @@
       <div v-if="showBottomBar" class="bottom-comment-bar" :style="bottomBarStyle">
         <div class="bottom-bar-inner">
           <div class="form-avatar sm">
-            <img v-if="isLoggedIn && userStore.userInfo.avatar" :src="userStore.userInfo.avatar" alt="头像" />
+            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
             <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
-              <template v-if="isLoggedIn">{{ userStore.userInfo.nickname?.charAt(0) || 'U' }}</template>
+              <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
               <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
             </span>
           </div>
@@ -321,6 +313,9 @@ const userStore = useUserStore()
 const message = useMessage()
 const { lock: lockNavScroll } = useNavScrollLock()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
+const selfAvatarLoadFailed = ref(false)
+const avatarLoadErrorMap = ref<Record<number, boolean>>({})
+const showSelfAvatar = computed(() => isLoggedIn.value && !!userStore.userInfo.avatar && !selfAvatarLoadFailed.value)
 
 type CommentItem = CommentVO
 
@@ -334,7 +329,6 @@ const totalCount = ref(0)
 const newComment = ref('')
 const submitting = ref(false)
 const submitSuccess = ref(false)
-const auditTip = ref('')
 const mainTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const inlineTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const formRef = ref<HTMLElement | null>(null)
@@ -428,6 +422,54 @@ function insertEmoji(emoji: string) {
 function timeAgo(dateStr: string) { return formatRelativeTime(dateStr) }
 function canDelete(comment: CommentVO) { return userStore.userInfo.userId === comment.userId }
 
+function getAvatarText(name: string | null | undefined) {
+  const text = (name || '').trim()
+  return text ? text.charAt(0).toUpperCase() : 'U'
+}
+
+function handleSelfAvatarError() {
+  selfAvatarLoadFailed.value = true
+}
+
+function markAvatarLoadError(commentId: number) {
+  if (avatarLoadErrorMap.value[commentId]) {
+    return
+  }
+  avatarLoadErrorMap.value = {
+    ...avatarLoadErrorMap.value,
+    [commentId]: true,
+  }
+}
+
+function showCommentAvatar(comment: CommentVO) {
+  return !!comment.avatar && !avatarLoadErrorMap.value[comment.id]
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const messageText = String((error as { message?: unknown }).message || '').trim()
+    if (messageText) {
+      return messageText
+    }
+  }
+  return fallback
+}
+
+function showSubmitError(error: unknown, fallback: string) {
+  const messageText = getErrorMessage(error, fallback)
+  message.error(messageText)
+}
+
+watch(() => userStore.userInfo.avatar, () => {
+  selfAvatarLoadFailed.value = false
+})
+
+watch(() => props.postId, (nextId, prevId) => {
+  if (typeof prevId === 'number' && prevId > 0 && prevId !== nextId) {
+    loadComments(1)
+  }
+})
+
 function handleFormFocus() {
   mainFocused.value = true
   if (!isLoggedIn.value) { mainTextareaRef.value?.blur(); useLoginModal().open() }
@@ -461,7 +503,6 @@ async function submitComment(_source: 'main' | 'bottom') {
   if (!isLoggedIn.value) { useLoginModal().open(); return }
   if (!newComment.value.trim()) return
   submitting.value = true
-  auditTip.value = ''
   try {
     const res = await commentApi.create({
       postId: props.postId,
@@ -473,15 +514,15 @@ async function submitComment(_source: 'main' | 'bottom') {
     submitSuccess.value = true
     setTimeout(() => { submitSuccess.value = false }, 1500)
     if (res.data?.status === 'pending') {
-      auditTip.value = '评论已提交，正在等待审核，审核通过后将自动显示。'
-      setTimeout(() => { auditTip.value = '' }, 5000)
       message.info('评论已提交，等待审核')
     } else {
       message.success('评论发表成功')
     }
     replyTo.value = null
     await refreshComments()
-  } catch { /* 静默 */ }
+  } catch (error) {
+    showSubmitError(error, '评论提交失败，请稍后重试')
+  }
   finally { submitting.value = false }
 }
 
@@ -500,8 +541,6 @@ async function submitInlineReply(parent: CommentItem, reply?: CommentItem) {
     inlineComment.value = ''
     inlineReplyId.value = null
     if (res.data?.status === 'pending') {
-      auditTip.value = '评论已提交，正在等待审核，审核通过后将自动显示。'
-      setTimeout(() => { auditTip.value = '' }, 5000)
       message.info('回复已提交，等待审核')
     } else {
       message.success('回复成功')
@@ -517,17 +556,59 @@ async function submitInlineReply(parent: CommentItem, reply?: CommentItem) {
     if (parentComment && replyPageMap.value[parent.id]) {
       parentComment.replyTotal = replyPageMap.value[parent.id].total
     }
-  } catch { /* 静默 */ }
+  } catch (error) {
+    showSubmitError(error, '回复提交失败，请稍后重试')
+  }
   finally { submitting.value = false }
 }
 
-async function handleCommentLike(comment: CommentItem) {
+function applyCommentLikeState(commentId: number, liked: boolean, likeCount: number) {
+  const safeCount = Math.max(0, likeCount)
+
+  for (const item of comments.value) {
+    if (item.id === commentId) {
+      item.liked = liked
+      item.likeCount = safeCount
+    }
+    if (item.replies?.length) {
+      for (const reply of item.replies) {
+        if (reply.id === commentId) {
+          reply.liked = liked
+          reply.likeCount = safeCount
+        }
+      }
+    }
+  }
+
+  for (const pageInfo of Object.values(replyPageMap.value)) {
+    for (const reply of pageInfo.list) {
+      if (reply.id === commentId) {
+        reply.liked = liked
+        reply.likeCount = safeCount
+      }
+    }
+  }
+}
+
+const commentLikeCommitQueue = useDebouncedStateCommit<boolean, { data: { liked: boolean; likeCount: number } }>({
+  delayMs: 600,
+  commitState: (key, state) => commentApi.setLikeState(Number(key), state),
+  onSuccess: (key, _state, res) => {
+    applyCommentLikeState(Number(key), res.data.liked, res.data.likeCount)
+  },
+  onError: (_key, _state, error) => {
+    const messageText = getErrorMessage(error, '点赞操作失败，请稍后重试')
+    message.warning(messageText)
+    void refreshComments()
+  },
+})
+
+function handleCommentLike(comment: CommentItem) {
   if (!isLoggedIn.value) { useLoginModal().open(); return }
-  try {
-    const res = await commentApi.toggleLike(comment.id)
-    comment.liked = res.data.liked
-    comment.likeCount = res.data.likeCount
-  } catch { /* 静默 */ }
+  const nextLiked = !Boolean(comment.liked)
+  const nextLikeCount = (comment.likeCount || 0) + (nextLiked ? 1 : -1)
+  applyCommentLikeState(comment.id, nextLiked, nextLikeCount)
+  commentLikeCommitQueue.scheduleState(comment.id, nextLiked)
 }
 
 // 删除
@@ -565,6 +646,7 @@ async function refreshComments() {
   try {
     const res = await commentApi.listByPost(props.postId, currentPage.value, 10, sortMode.value)
     comments.value = res.data.records
+    avatarLoadErrorMap.value = {}
     currentPage.value = res.data.current
     totalPages.value = res.data.pages
     totalCount.value = res.data.total ?? 0
@@ -610,6 +692,7 @@ async function loadComments(page = 1) {
   try {
     const res = await commentApi.listByPost(props.postId, page, 10, sortMode.value)
     comments.value = res.data.records; currentPage.value = res.data.current; totalPages.value = res.data.pages; totalCount.value = res.data.total ?? 0
+    avatarLoadErrorMap.value = {}
     expandedMap.value = {}; replyPageMap.value = {}
   } catch { /* 静默 */ }
   finally { loadingComments.value = false }
@@ -678,9 +761,9 @@ onUnmounted(() => {
 }
 .form-avatar .avatar-ph {
   display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
-  border-radius: 50%; background: #cbd5e1; color: #fff; font-size: 0.9rem; font-weight: 600;
+  border-radius: 50%; background: $color-primary; color: #fff; font-size: 0.9rem; font-weight: 600;
   &.guest { background: transparent; color: #94a3b8; }
-  .dark & { background: #475569; &.guest { background: transparent; color: #64748b; } }
+  .dark & { background: $color-primary; &.guest { background: transparent; color: #64748b; } }
   &.sm { width: 32px; height: 32px; font-size: 0.8rem; }
 }
 .form-body, .inline-form-body { flex: 1; min-width: 0; }
@@ -762,17 +845,6 @@ onUnmounted(() => {
   .cancel-reply { border: none; background: none; color: $color-text-muted; cursor: pointer; font-size: 1rem; padding: 0 0.25rem; }
 }
 
-/* 审核提示 */
-.audit-tip {
-  display: flex; align-items: center; gap: 0.375rem; padding: 0.625rem 1rem; margin-bottom: 1rem;
-  background: #fffbeb; border: 1px solid #fde68a; border-radius: $radius-md; color: #92400e; font-size: 0.85rem;
-  animation: tipSlideIn 0.3s ease-out;
-  .dark & { background: #422006; border-color: #854d0e; color: #fbbf24; }
-}
-@keyframes tipSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
 /* 刷新不闪烁 */
 .comment-list-wrapper { position: relative; min-height: 100px; }
 .comment-list.refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.15s; }
@@ -830,6 +902,8 @@ onUnmounted(() => {
   display: flex; align-items: center; gap: 0.25rem; border: none; background: none;
   font-size: 0.75rem; color: $color-text-muted; cursor: pointer; padding: 0.25rem 0; transition: color 0.2s;
   &:hover { color: $color-primary; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:disabled:hover { color: $color-text-muted; }
   &.delete:hover { color: #ef4444; }
   &.reply-action.active { color: $color-primary; font-weight: 500; }
   .liked { color: #ef4444; }

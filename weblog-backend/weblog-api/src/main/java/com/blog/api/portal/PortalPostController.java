@@ -68,6 +68,9 @@ public class PortalPostController {
     public Result<Map<String, Object>> detail(@PathVariable String slug, HttpServletRequest request) {
         PostVO post = postService.getBySlug(slug);
 
+        // 互动计数使用 Redis 实时值，避免详情缓存导致计数滞后
+        postService.refreshInteractionCounts(post);
+
         // 记录阅读（设备指纹防刷）
         String ua = request.getHeader("User-Agent");
         String ip = IpUtil.getClientIp(request);

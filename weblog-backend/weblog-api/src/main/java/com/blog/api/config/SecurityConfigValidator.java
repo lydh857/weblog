@@ -6,6 +6,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.Set;
 
 /**
@@ -20,6 +21,11 @@ public class SecurityConfigValidator {
             "change-me",
             "123456",
             "password"
+    );
+
+    private static final Set<String> PROD_FORBIDDEN_PATTERNS = Set.of(
+            "change-this-in-production",
+            "local-dev"
     );
 
     private final Environment environment;
@@ -53,5 +59,19 @@ public class SecurityConfigValidator {
         if (WEAK_SECRETS.contains(normalized.toLowerCase())) {
             throw new IllegalStateException(keyName + " 使用弱密钥，启动已拒绝");
         }
+
+        if (isProdProfile()) {
+            String lower = normalized.toLowerCase();
+            boolean containsForbiddenPattern = PROD_FORBIDDEN_PATTERNS.stream()
+                    .anyMatch(lower::contains);
+            if (containsForbiddenPattern) {
+                throw new IllegalStateException(keyName + " 命中生产禁用模式，启动已拒绝");
+            }
+        }
+    }
+
+    private boolean isProdProfile() {
+        return Arrays.stream(environment.getActiveProfiles())
+                .anyMatch("prod"::equalsIgnoreCase);
     }
 }

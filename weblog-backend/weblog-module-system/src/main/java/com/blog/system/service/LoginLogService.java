@@ -13,6 +13,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 登录日志服务
@@ -93,6 +95,24 @@ public class LoginLogService {
                 .lt(LoginLog::getCreateTime, cutoff));
         log.info("清理登录日志完成: retentionDays={}, cutoff={}, deleted={}", safeRetentionDays, cutoff, deleted);
         return deleted;
+    }
+
+    /**
+     * 统计时间窗口内失败登录次数
+     */
+    public long countFailedLoginsSince(LocalDateTime since) {
+        return loginLogMapper.selectCount(new LambdaQueryWrapper<LoginLog>()
+                .eq(LoginLog::getResult, "failed")
+                .ge(LoginLog::getCreateTime, since));
+    }
+
+    /**
+     * 查询时间窗口内失败次数较高的 IP
+     */
+    public List<Map<String, Object>> listTopFailedIps(LocalDateTime since, int threshold, int limit) {
+        int safeThreshold = Math.max(threshold, 1);
+        int safeLimit = Math.max(limit, 1);
+        return loginLogMapper.selectTopFailedIps(since, safeThreshold, safeLimit);
     }
 
     private LoginLogVO toVO(LoginLog log) {

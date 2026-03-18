@@ -1,7 +1,7 @@
 <template>
   <div
     class="unified-page-loader"
-    :class="{ 'unified-page-loader--compact': compact }"
+    :class="{ 'unified-page-loader--compact': compact, 'unified-page-loader--plain': plain }"
     role="status"
     aria-live="polite"
     aria-busy="true"
@@ -16,9 +16,11 @@
 withDefaults(defineProps<{
   text?: string
   compact?: boolean
+  plain?: boolean
 }>(), {
   text: '加载中...',
   compact: false,
+  plain: false,
 })
 </script>
 
@@ -75,6 +77,18 @@ withDefaults(defineProps<{
   min-height: 88px;
   border-radius: 12px;
   gap: 0;
+}
+
+.unified-page-loader--plain {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  min-height: 160px;
+}
+
+:global(html.dark) .unified-page-loader--plain {
+  border: none;
+  background: transparent;
 }
 
 .unified-page-loader--compact .unified-page-loader__text {

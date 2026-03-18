@@ -817,6 +817,19 @@ public class PostService {
     }
 
     /**
+     * 刷新文章互动计数（实时读取 Redis）
+     */
+    public void refreshInteractionCounts(PostVO post) {
+        if (post == null || post.getId() == null) {
+            return;
+        }
+        Long postId = post.getId();
+        post.setLikeCount(getRedisCount("post:like:" + postId, post.getLikeCount()));
+        post.setCollectCount(getRedisCount("post:collect:" + postId, post.getCollectCount()));
+        post.setCommentCount(getRedisCount("post:comment:" + postId, post.getCommentCount()));
+    }
+
+    /**
      * 获取上一篇文章（比当前文章更早发布的最近一篇）
      */
     public PostVO getPrevPost(Long currentPostId) {
@@ -825,8 +838,11 @@ public class PostService {
 
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Post::getStatus, "published")
-                .lt(Post::getCreateTime, current.getCreateTime())
+                .and(w -> w.lt(Post::getCreateTime, current.getCreateTime())
+                        .or()
+                        .eq(Post::getCreateTime, current.getCreateTime()).lt(Post::getId, currentPostId))
                 .orderByDesc(Post::getCreateTime)
+                .orderByDesc(Post::getId)
                 .last("LIMIT 1");
         Post prev = postMapper.selectOne(wrapper);
         if (prev == null) return null;
@@ -847,8 +863,11 @@ public class PostService {
 
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Post::getStatus, "published")
-                .gt(Post::getCreateTime, current.getCreateTime())
+                .and(w -> w.gt(Post::getCreateTime, current.getCreateTime())
+                        .or()
+                        .eq(Post::getCreateTime, current.getCreateTime()).gt(Post::getId, currentPostId))
                 .orderByAsc(Post::getCreateTime)
+                .orderByAsc(Post::getId)
                 .last("LIMIT 1");
         Post next = postMapper.selectOne(wrapper);
         if (next == null) return null;

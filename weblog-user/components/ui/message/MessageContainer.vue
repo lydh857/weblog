@@ -15,10 +15,10 @@ const { messages, remove } = useMessageStore()
             class="msg-item"
             :class="`msg-${msg.type}`"
           >
-            <Icon v-if="msg.type === 'info'" name="heroicons:information-circle-16-solid" size="18" class="msg-icon" />
-            <Icon v-else-if="msg.type === 'success'" name="heroicons:check-circle-16-solid" size="18" class="msg-icon" />
-            <Icon v-else-if="msg.type === 'warning'" name="heroicons:exclamation-triangle-16-solid" size="18" class="msg-icon" />
-            <Icon v-else name="heroicons:x-circle-16-solid" size="18" class="msg-icon" />
+            <Icon v-if="msg.type === 'info'" name="heroicons:information-circle-20-solid" size="18" class="msg-icon" />
+            <Icon v-else-if="msg.type === 'success'" name="heroicons:check-circle-20-solid" size="18" class="msg-icon" />
+            <Icon v-else-if="msg.type === 'warning'" name="heroicons:exclamation-triangle-20-solid" size="18" class="msg-icon" />
+            <Icon v-else name="heroicons:x-circle-20-solid" size="18" class="msg-icon" />
             <span class="msg-text">{{ msg.content }}</span>
             <button type="button" class="msg-close" aria-label="关闭" @click="remove(msg.id)">&times;</button>
           </div>

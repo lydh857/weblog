@@ -124,6 +124,9 @@ blog:
     sensitive-op-verify-enabled: true
     # 请求来源验证
     referer-enabled: ${REFERER_ENABLED:true}
+    # 敏感词词库位置
+    sensitive-words:
+      location: ${SENSITIVE_WORDS_LOCATION:classpath:sensitive/sensi_words.txt}
     # 允许的来源（优先 ALLOWED_ORIGINS，未设置时回退 CORS_ORIGINS）
     allowed-origins: ${ALLOWED_ORIGINS:${CORS_ORIGINS:}}
     # 安全日志自动清理（登录日志/审计日志）

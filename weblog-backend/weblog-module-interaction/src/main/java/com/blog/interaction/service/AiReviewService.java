@@ -6,6 +6,7 @@ import com.blog.infra.ai.annotation.AiFeature;
 import com.blog.infra.ai.service.AiClientService;
 import com.blog.infra.ai.service.PromptTemplateService;
 import com.blog.infra.ai.service.PromptTemplateService.RenderedPrompt;
+import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.interaction.entity.AiCommentReview;
 import com.blog.interaction.entity.Comment;
 import com.blog.interaction.mapper.AiCommentReviewMapper;

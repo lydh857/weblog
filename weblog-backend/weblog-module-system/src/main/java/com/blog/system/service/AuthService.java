@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 认证服务
@@ -37,6 +38,12 @@ public class AuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     /** 锁定时长（分钟） */
     private static final int LOCK_DURATION_MINUTES = 30;
+    /** 用于等时密码校验的固定 bcrypt 哈希（明文: DummyPass123） */
+    private static final String DUMMY_BCRYPT_HASH = "$2a$10$qEk8cM7W5iYvY2qu7hSD3uTyW7.u/HYxvHdscVnHEivNclDGhA0Qq";
+    /** 失败响应最小延迟（毫秒） */
+    private static final int FAILED_DELAY_MIN_MS = 160;
+    /** 失败响应最大延迟（毫秒） */
+    private static final int FAILED_DELAY_MAX_MS = 280;
 
     /**
      * 用户注册
@@ -76,9 +83,12 @@ public class AuthService {
                 new LambdaQueryWrapper<User>().eq(User::getEmail, req.getEmail()));
 
         if (user == null) {
+            // 执行一次固定哈希校验，降低通过响应时间探测账号存在性的风险
+            verifyAgainstDummyHash(req.getPassword());
             // 记录失败登录
             loginLogService.recordLogin(null, req.getEmail(), "user", "failed", "用户不存在", clientIp, userAgent);
-            throw new BusinessException(ResultCode.USER_NOT_FOUND, "邮箱或密码错误");
+            applyFailureDelay();
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
 
         // 检查账户锁定
@@ -92,6 +102,7 @@ public class AuthService {
             handleFailedLogin(user);
             // 记录失败登录
             loginLogService.recordLogin(user.getId(), user.getEmail(), "user", "failed", "密码错误", clientIp, userAgent);
+            applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
 
@@ -256,13 +267,32 @@ public class AuthService {
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getEmail, req.getEmail()));
         if (user == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND, "邮箱或密码错误");
+            // 执行一次固定哈希校验，降低通过响应时间探测账号存在性的风险
+            verifyAgainstDummyHash(req.getPassword());
+            loginLogService.recordLogin(null, req.getEmail(), "admin", "failed", "用户不存在", clientIp, userAgent);
+            applyFailureDelay();
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
         if (!"admin".equals(user.getRole())) {
             loginLogService.recordLogin(user.getId(), user.getEmail(), "admin", "failed", "非管理员", clientIp, userAgent);
-            throw new BusinessException(ResultCode.ROLE_DENIED, "非管理员账号");
+            applyFailureDelay();
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
         return login(req, clientIp, userAgent);
+    }
+
+    private void verifyAgainstDummyHash(String password) {
+        String raw = password == null ? "" : password;
+        PasswordUtil.matches(raw, DUMMY_BCRYPT_HASH);
+    }
+
+    private void applyFailureDelay() {
+        int delay = ThreadLocalRandom.current().nextInt(FAILED_DELAY_MIN_MS, FAILED_DELAY_MAX_MS + 1);
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void checkAccountLock(User user) {

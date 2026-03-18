@@ -10,8 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,10 @@ public class SystemConfigService {
     private final SystemConfigMapper configMapper;
     private final Map<String, ConfigCacheEntry> valueCache = new ConcurrentHashMap<>();
     private static final long CACHE_TTL_MILLIS = 30_000L;
+    private static final String MASKED_VALUE = "******";
+    private static final Set<String> SENSITIVE_CONFIG_KEYS = Set.of(
+            "mail_password"
+    );
 
     /**
      * 查询所有配置
@@ -33,6 +39,29 @@ public class SystemConfigService {
     public List<SystemConfig> listAll() {
         return configMapper.selectList(
                 new LambdaQueryWrapper<SystemConfig>().orderByAsc(SystemConfig::getId));
+    }
+
+    /**
+     * 查询所有配置（管理端展示视图，敏感值掩码）
+     */
+    public List<SystemConfig> listAllForAdminView() {
+        List<SystemConfig> configs = listAll();
+        List<SystemConfig> result = new ArrayList<>(configs.size());
+        for (SystemConfig config : configs) {
+            SystemConfig safe = new SystemConfig();
+            safe.setId(config.getId());
+            safe.setConfigKey(config.getConfigKey());
+            safe.setDescription(config.getDescription());
+            safe.setCreateTime(config.getCreateTime());
+            safe.setUpdateTime(config.getUpdateTime());
+            if (isSensitiveKey(config.getConfigKey())) {
+                safe.setConfigValue(maskSensitiveValue(config.getConfigValue()));
+            } else {
+                safe.setConfigValue(config.getConfigValue());
+            }
+            result.add(safe);
+        }
+        return result;
     }
 
     /**
@@ -78,6 +107,12 @@ public class SystemConfigService {
                 throw new BusinessException(ResultCode.NOT_FOUND,
                         "配置项不存在: " + entry.getKey());
             }
+
+            // 敏感配置在管理端以掩码形式展示，若前端未修改直接回传掩码则保持原值
+            if (isSensitiveKey(entry.getKey()) && MASKED_VALUE.equals(entry.getValue())) {
+                continue;
+            }
+
             existing.setConfigValue(entry.getValue());
             configMapper.updateById(existing);
             valueCache.remove(entry.getKey());
@@ -112,5 +147,16 @@ public class SystemConfigService {
     }
 
     private record ConfigCacheEntry(String value, long cachedAt) {
+    }
+
+    private boolean isSensitiveKey(String key) {
+        return key != null && SENSITIVE_CONFIG_KEYS.contains(key);
+    }
+
+    private String maskSensitiveValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return MASKED_VALUE;
     }
 }

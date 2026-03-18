@@ -51,6 +51,10 @@ export const commentApi = {
   listByPost: (postId: number, pageNum = 1, pageSize = 10, sort = 'new') =>
     http.get<unknown, { data: CommentPageResult }>(`/portal/comment/post/${postId}`, { params: { pageNum, pageSize, sort } }),
 
+  /** 设置评论点赞状态（幂等） */
+  setLikeState: (commentId: number, liked: boolean) =>
+    http.post<unknown, { data: { liked: boolean; likeCount: number } }>(`/portal/comment/like/${commentId}/state`, { liked }),
+
   /** 评论点赞/取消 */
   toggleLike: (commentId: number) =>
     http.post<unknown, { data: { liked: boolean; likeCount: number } }>(`/portal/comment/like/${commentId}`),
