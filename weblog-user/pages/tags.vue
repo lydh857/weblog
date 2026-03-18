@@ -14,7 +14,7 @@
             class="toggle-btn"
             :class="{ active: viewMode === '3d' }"
             aria-label="3D 视图"
-            @click="viewMode = '3d'"
+            @click="setViewMode('3d')"
           >
             <Icon name="heroicons:globe-alt-20-solid" size="18" />
             <span>3D</span>
@@ -23,7 +23,7 @@
             class="toggle-btn"
             :class="{ active: viewMode === 'flat' }"
             aria-label="平面视图"
-            @click="viewMode = 'flat'"
+            @click="setViewMode('flat')"
           >
             <Icon name="heroicons:squares-2x2-20-solid" size="18" />
             <span>平面</span>
@@ -31,13 +31,12 @@
         </div>
       </div>
 
-      <UnifiedPageLoader v-if="loading" text="加载中..." />
-
-      <template v-else-if="tags.length">
+      <template v-if="tags.length">
         <div
           v-show="viewMode === '3d'"
           ref="cloudRef"
           class="cloud-wrapper"
+          :class="{ 'enter-active': entered }"
           @mouseenter="isInsideCloud = true"
           @mouseleave="isInsideCloud = false"
           @mousedown.prevent="onDragStart"
@@ -58,16 +57,17 @@
           </div>
         </div>
 
-        <div v-show="viewMode === 'flat'" class="flat-tags">
+        <div v-if="viewMode === 'flat'" class="flat-tags" :class="{ 'enter-active': entered, 'is-entering': flatEntering }">
           <NuxtLink
             v-for="(tag, i) in sortedTags"
             :key="tag.id"
             :to="{ path: '/category', query: { tagId: String(tag.id) } }"
-            class="flat-tag"
+            class="flat-tag enter-item"
             :style="{
               '--tag-color': tag.color || getTagColor(i),
               '--tag-bg': (tag.color || getTagColor(i)) + '15',
               '--tag-bg-hover': (tag.color || getTagColor(i)) + '25',
+              '--enter-delay': `${Math.min(i, 18) * 0.03}s`,
             }"
           >
             <Icon name="heroicons:tag-16-solid" size="14" class="flat-tag__icon" />
@@ -77,7 +77,7 @@
         </div>
       </template>
 
-      <div v-else class="empty-state">
+      <div v-else-if="!loading" class="empty-state" :class="{ 'enter-active': entered }">
         <Icon name="heroicons:inbox-20-solid" size="48" />
         <p>暂无标签</p>
       </div>
@@ -98,6 +98,8 @@ const loading = ref(true)
 const tags = ref<TagCloudVO[]>([])
 const cloudRef = ref<HTMLElement | null>(null)
 const viewMode = ref<'3d' | 'flat'>('3d')
+const entered = ref(false)
+const flatEntering = ref(false)
 
 const RADIUS = 210
 const sphereScale = ref(1)
@@ -257,6 +259,22 @@ function onWheel(e: WheelEvent) {
   sphereScale.value = Math.min(1.8, Math.max(0.5, sphereScale.value + d))
 }
 
+function setViewMode(mode: '3d' | 'flat') {
+  if (viewMode.value === mode) return
+
+  if (mode === 'flat') {
+    flatEntering.value = true
+    viewMode.value = 'flat'
+    window.setTimeout(() => {
+      flatEntering.value = false
+    }, 900)
+    return
+  }
+
+  flatEntering.value = false
+  viewMode.value = '3d'
+}
+
 onMounted(async () => {
   try {
     const res = await tagApi.cloud()
@@ -265,6 +283,10 @@ onMounted(async () => {
     tags.value = []
   } finally {
     loading.value = false
+    await nextTick()
+    requestAnimationFrame(() => {
+      entered.value = true
+    })
   }
   rafId = requestAnimationFrame(animateLoop)
 })
@@ -381,6 +403,10 @@ onUnmounted(() => {
   }
 }
 
+.cloud-wrapper.enter-active {
+  animation: tagsPanelEnter 0.36s ease-out both;
+}
+
 .cloud-glow {
   position: absolute;
   width: 320px;
@@ -445,6 +471,13 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+.flat-tags.is-entering .flat-tag.enter-item {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+  animation: tagsItemEnter 0.32s ease-out forwards;
+  animation-delay: var(--enter-delay, 0s);
+}
+
 .flat-tag {
   display: inline-flex;
   align-items: center;
@@ -482,5 +515,41 @@ onUnmounted(() => {
   padding: 4rem;
   color: $color-text-muted;
   p { margin-top: 1rem; }
+}
+
+.empty-state.enter-active {
+  animation: tagsPanelEnter 0.32s ease-out both;
+}
+
+@keyframes tagsPanelEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes tagsItemEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-wrapper.enter-active,
+  .empty-state.enter-active,
+  .flat-tags.is-entering .flat-tag.enter-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 </style>

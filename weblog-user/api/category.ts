@@ -11,5 +11,4 @@ export interface CategoryTreeVO {
 
 export const categoryApi = {
   tree: () => http.get<any, { data: CategoryTreeVO[] }>('/portal/category/tree'),
-  getBySlug: (slug: string) => http.get<any, { data: CategoryTreeVO }>(`/portal/category/slug/${slug}`),
 }

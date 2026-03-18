@@ -35,11 +35,11 @@
             <header class="post-header">
               <h1 class="post-title">{{ post.title }}</h1>
               <div class="post-meta">
-                <NuxtLink v-if="post.categoryName" :to="{ path: '/category', query: { categoryId: post.categoryId } }" class="badge badge-cat">
+                <NuxtLink v-if="post.categoryName" :to="categoryPath" class="badge badge-cat">
                   <Icon name="heroicons:folder-16-solid" size="14" />
                   {{ post.categoryName }}
                 </NuxtLink>
-                <NuxtLink v-if="post.subCategoryName" :to="{ path: '/category', query: { categoryId: post.categoryId, subCategoryId: post.subCategoryId } }" class="badge badge-sub">
+                <NuxtLink v-if="post.subCategoryName" :to="subCategoryPath" class="badge badge-sub">
                   <Icon name="heroicons:folder-open-16-solid" size="14" />
                   {{ post.subCategoryName }}
                 </NuxtLink>
@@ -197,12 +197,14 @@
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
 import { postApi, type PostVO } from '~/api/post'
+import { categoryApi, type CategoryTreeVO } from '~/api/category'
 import { getTagColor } from '~/utils/tagColor'
 import { useDarkMode } from '~/composables/useDarkMode'
 import { accessApi } from '~/api/access'
 import ReadLimitOverlay from '~/components/ReadLimitOverlay.vue'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { buildCategoryPathById } from '~/utils/categoryRoute'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
@@ -227,6 +229,20 @@ const { data: detailData, pending: loading } = await useAsyncData(
     watch: [slug],
   },
 )
+
+const { data: categoryTreeData } = await useAsyncData(
+  'post-category-tree',
+  async () => {
+    try {
+      const res = await categoryApi.tree()
+      return res.data
+    } catch {
+      return [] as CategoryTreeVO[]
+    }
+  },
+)
+
+const categoryTree = computed(() => categoryTreeData.value || [])
 
 const post = ref<PostVO | null>(null)
 const prevPost = ref<{ id: number; title: string; slug: string; coverImage?: string } | null>(null)
@@ -322,6 +338,16 @@ const previewTheme = computed(() => post.value?.previewTheme || 'default')
 const codeTheme = computed(() => post.value?.codeTheme || 'atom')
 const editorTheme = computed(() => isDark.value ? 'dark' : 'light')
 const markdownContent = computed(() => post.value?.content || '')
+
+const categoryPath = computed(() => {
+  if (!post.value) return '/category'
+  return buildCategoryPathById(categoryTree.value, post.value.categoryId, null)
+})
+
+const subCategoryPath = computed(() => {
+  if (!post.value) return '/category'
+  return buildCategoryPathById(categoryTree.value, post.value.categoryId, post.value.subCategoryId)
+})
 
 function formatViewCount(n: number): string {
   if (n >= 100000) return (n / 10000).toFixed(0) + 'w'

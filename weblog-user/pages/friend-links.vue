@@ -14,7 +14,7 @@
       </button>
     </div>
 
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedSkeleton v-if="loading" variant="friend-link" :count="pageSize" />
 
     <template v-else-if="links.length">
       <div class="links-grid">

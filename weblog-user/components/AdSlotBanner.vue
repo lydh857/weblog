@@ -374,6 +374,7 @@ onUnmounted(() => {
   border: 1px solid rgba(148, 163, 184, 0.24);
   background: $color-bg;
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+  transition: box-shadow 0.3s ease;
 }
 
 .ad-slot-banner-wrap {
@@ -648,6 +649,10 @@ onUnmounted(() => {
 
 .ad-slot-banner--home_left .ad-image {
   height: 100%;
+}
+
+.ad-slot-banner--home_left {
+  border: none;
 }
 
 .ad-slot-banner--home_left .ad-slides {

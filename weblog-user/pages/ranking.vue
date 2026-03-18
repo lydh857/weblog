@@ -21,19 +21,18 @@
         </button>
       </div>
 
-      <UnifiedPageLoader v-if="loading && !items.length" text="加载中..." />
-
-      <div v-else-if="!items.length" class="state state--empty">
+      <div v-if="!loading && !items.length" class="state state--empty">
         <Icon name="heroicons:chart-bar-square-20-solid" size="28" />
         <span>暂无排行数据</span>
       </div>
 
-      <div v-else class="list">
+      <div v-else-if="items.length" :key="animKey" class="list ranking-items">
         <NuxtLink
           v-for="(item, idx) in items"
           :key="`${item.post_id}-${idx}`"
           :to="`/post/${item.slug}`"
-          class="item"
+          class="item animate-item"
+          :style="getItemAnimationStyle(idx)"
         >
           <span class="rank" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
           <div class="content">
@@ -53,9 +52,9 @@
       </div>
 
       <div v-if="items.length" class="footer">
-        <button class="more-btn" :disabled="loading || !hasMore" @click="loadMore">
-          <Icon v-if="loading" name="heroicons:arrow-path-20-solid" size="16" class="spin" />
-          {{ loading ? '加载中...' : (hasMore ? '加载更多' : '已加载全部') }}
+        <button class="more-btn" :disabled="loading || loadingMore || !hasMore" @click="loadMore">
+          <Icon v-if="loadingMore" name="heroicons:arrow-path-20-solid" size="16" class="spin" />
+          {{ loadingMore ? '加载中...' : (hasMore ? '加载更多' : '已加载全部') }}
         </button>
       </div>
     </section>
@@ -79,7 +78,10 @@ const limit = 20
 const offset = ref(0)
 const hasMore = ref(true)
 const loading = ref(false)
+const loadingMore = ref(false)
 const items = ref<RankingItem[]>([])
+const animKey = ref(0)
+const animationStartIndex = ref(0)
 
 function formatScore(score: number): string {
   if (score >= 10000) return `${(score / 10000).toFixed(1)}w`
@@ -96,18 +98,38 @@ function getHeatColor(rank: number): string {
   return '#94a3b8'
 }
 
+function getItemAnimationStyle(idx: number): Record<string, string> {
+  const delayIndex = Math.max(0, idx - animationStartIndex.value)
+  return {
+    animationDelay: `${Math.min(delayIndex, 6) * 0.05}s`,
+  }
+}
+
 async function fetchRanking(append = false) {
-  loading.value = true
+  const nextAnimationStartIndex = append ? items.value.length : 0
+  if (append) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+  }
   try {
     const res = await rankingApi.get({ rankType: rankType.value, limit, offset: offset.value })
     const data = res.data || []
+    animationStartIndex.value = nextAnimationStartIndex
     items.value = append ? [...items.value, ...data] : data
     hasMore.value = data.length === limit
+    if (!append) {
+      animKey.value += 1
+    }
   } catch {
     if (!append) items.value = []
     hasMore.value = false
   } finally {
-    loading.value = false
+    if (append) {
+      loadingMore.value = false
+    } else {
+      loading.value = false
+    }
   }
 }
 
@@ -120,7 +142,7 @@ async function switchTab(value: number) {
 }
 
 async function loadMore() {
-  if (!hasMore.value || loading.value) return
+  if (!hasMore.value || loading.value || loadingMore.value) return
   offset.value += limit
   await fetchRanking(true)
 }
@@ -215,6 +237,35 @@ onMounted(() => {
 .list {
   display: grid;
   gap: 0.75rem;
+}
+
+.ranking-items {
+  animation: ranking-fade-in 0.2s ease-in-out;
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.animate-item {
+  opacity: 0;
+  transform: translateX(-5px);
+  animation: ranking-slide-in 0.3s ease-out forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes ranking-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ranking-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .item {
@@ -325,6 +376,16 @@ onMounted(() => {
   }
   .score {
     margin-top: 0.12rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ranking-items,
+  .animate-item,
+  .spin {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 </style>

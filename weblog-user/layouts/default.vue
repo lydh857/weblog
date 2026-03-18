@@ -16,6 +16,15 @@
           <span class="logo-text">{{ siteName }}</span>
         </NuxtLink>
 
+        <HomeNavSearchTicker
+          class="desktop-nav-item home-search-desktop"
+          :class="{ 'animate-nav-item': shouldAnimate }"
+          :style="shouldAnimate ? '--delay: 0.12s' : ''"
+          :items="homeNavRankingItems"
+          :transparent="isHomePage && !isScrolled"
+          @search="goSearch"
+        />
+
         <div class="nav-main">
           <NuxtLink
             v-for="(item, index) in navLinks"
@@ -28,16 +37,6 @@
             <Icon :name="item.icon" size="16" class="nav-link__icon" />
             <span>{{ item.label }}</span>
           </NuxtLink>
-
-          <button
-            class="icon-btn desktop-nav-item"
-            :class="{ 'animate-nav-item': shouldAnimate }"
-            :style="shouldAnimate ? '--delay: 0.75s' : ''"
-            aria-label="搜索"
-            @click="goSearch"
-          >
-            <Icon name="heroicons:magnifying-glass-20-solid" size="16" />
-          </button>
 
           <button
             class="icon-btn desktop-nav-item"
@@ -176,6 +175,7 @@ import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { useSearchModal } from '~/composables/useSearchModal'
 import { useNavScrollLock } from '~/composables/useNavScrollLock'
+import { rankingApi, type RankingItem } from '~/api/ranking'
 
 const { bannerVisible: announcementBarVisible } = useAnnouncementBar()
 
@@ -194,6 +194,7 @@ const message = useMessage()
 const { confirm } = useConfirm()
 const loginModal = useLoginModal()
 const { locked: navScrollLocked } = useNavScrollLock()
+const homeNavRankingItems = ref<RankingItem[]>([])
 let hideUserMenuTimer: ReturnType<typeof setTimeout> | null = null
 
 // ===== 导航栏滚动状态 =====
@@ -310,6 +311,18 @@ function refreshGlobalLeftAdVisibility() {
   globalLeftAdVisible.value = true
 }
 
+async function loadHomeNavRanking() {
+  if (!import.meta.client) return
+  if (homeNavRankingItems.value.length) return
+
+  try {
+    const res = await rankingApi.get({ rankType: 4, limit: 5 })
+    homeNavRankingItems.value = (res.data || []).slice(0, 5)
+  } catch {
+    homeNavRankingItems.value = []
+  }
+}
+
 // 进入首页时，等 DOM 渲染完成后再触发动画，确保用户能看到
 watch(isHomePage, (val) => {
   if (val) {
@@ -351,6 +364,7 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
   refreshGlobalLeftAdVisibility()
+  void loadHomeNavRanking()
 })
 
 onUnmounted(() => {

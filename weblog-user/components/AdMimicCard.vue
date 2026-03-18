@@ -168,10 +168,9 @@ watch(() => props.ad.content, () => {
   background: $color-bg;
   min-width: 0;
   max-width: 100%;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease;
 
   &:hover {
-    transform: translateY(-4px);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
 
     .ad-title {

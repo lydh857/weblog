@@ -10,7 +10,7 @@
       </header>
 
       <!-- 加载态 -->
-      <UnifiedPageLoader v-if="loading" text="加载中..." />
+      <UnifiedSkeleton v-if="loading" variant="topic" :count="pageSize" />
 
       <!-- 专题列表 -->
       <template v-else>

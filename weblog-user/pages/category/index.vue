@@ -31,16 +31,9 @@
     </div>
 
     <!-- 加载骨架屏 -->
-    <div v-if="loading" class="skeleton-grid">
-      <div v-for="i in 4" :key="i" class="skeleton-card">
-        <div class="skeleton-cover" />
-        <div class="skeleton-content">
-          <div class="skeleton-line short" />
-          <div class="skeleton-line" />
-          <div class="skeleton-line long" />
-        </div>
-      </div>
-    </div>
+    <section v-if="loading" class="post-grid">
+      <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
+    </section>
 
     <!-- 分页 -->
     <Pagination
@@ -60,11 +53,23 @@ import { categoryApi, type CategoryTreeVO } from '~/api/category'
 import { tagApi, type TagCloudVO } from '~/api/tag'
 import { postApi, type PostVO } from '~/api/post'
 import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
+import { buildCategoryPathById, findCategoryBySlug } from '~/utils/categoryRoute'
+
+definePageMeta({
+  path: '/category/:slug?',
+  key: 'category-page',
+})
 
 useHead({ title: '分类浏览' })
 
 const route = useRoute()
 const router = useRouter()
+
+function parseNumberParam(value: unknown): number | null {
+  const normalized = Array.isArray(value) ? value[0] : value
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 function normalizeDisplayPageSize(value: number | null | undefined) {
   if (!value || Number.isNaN(value)) return 20
@@ -87,7 +92,7 @@ const posts = ref<PostVO[]>([])
 const listCardAds = ref<AdvertisementVO[]>([])
 const total = ref(0)
 const pageCount = ref(0)
-const loading = ref(false)
+const loading = ref(true)
 
 type CategoryGridItem =
   | { key: string; type: 'post'; post: PostVO }
@@ -122,24 +127,73 @@ const postGridItems = computed<CategoryGridItem[]>(() => {
 /** 从 URL 查询参数初始化筛选状态 */
 function parseQueryParams() {
   const q = route.query
-  filters.categoryId = q.categoryId ? Number(q.categoryId) : null
-  filters.subCategoryId = q.subCategoryId ? Number(q.subCategoryId) : null
-  filters.tagId = q.tagId ? Number(q.tagId) : null
-  filters.sortBy = (['recommended', 'latest', 'hottest'].includes(q.sortBy as string) ? q.sortBy : 'recommended') as 'recommended' | 'latest' | 'hottest'
-  filters.pageSize = normalizeDisplayPageSize(q.pageSize ? Number(q.pageSize) : 20)
-  filters.pageNum = q.pageNum ? Number(q.pageNum) : 1
+  let nextCategoryId = parseNumberParam(q.categoryId)
+  let nextSubCategoryId = parseNumberParam(q.subCategoryId)
+  const nextTagId = parseNumberParam(q.tagId)
+  const nextSortBy = (['recommended', 'latest', 'hottest'].includes(q.sortBy as string) ? q.sortBy : 'recommended') as 'recommended' | 'latest' | 'hottest'
+  const nextPageSize = normalizeDisplayPageSize(parseNumberParam(q.pageSize) ?? 20)
+  const nextPageNum = parseNumberParam(q.pageNum) ?? 1
+
+  const paramSlug = Array.isArray(route.params.slug)
+    ? (route.params.slug[0] || '')
+    : (typeof route.params.slug === 'string' ? route.params.slug : '')
+  const pathSlug = route.path.startsWith('/category/')
+    ? decodeURIComponent(route.path.slice('/category/'.length).split('/')[0] || '')
+    : ''
+  const slugParam = (paramSlug || pathSlug || '').trim()
+  if (slugParam) {
+    const matched = findCategoryBySlug(categories.value, slugParam)
+    if (matched.category) {
+      nextCategoryId = matched.category.id
+      nextSubCategoryId = matched.subCategory?.id ?? null
+    }
+  }
+
+  if (filters.categoryId !== nextCategoryId) filters.categoryId = nextCategoryId
+  if (filters.subCategoryId !== nextSubCategoryId) filters.subCategoryId = nextSubCategoryId
+  if (filters.tagId !== nextTagId) filters.tagId = nextTagId
+  if (filters.sortBy !== nextSortBy) filters.sortBy = nextSortBy
+  if (filters.pageSize !== nextPageSize) filters.pageSize = nextPageSize
+  if (filters.pageNum !== nextPageNum) filters.pageNum = nextPageNum
 }
 
 /** 同步筛选状态到 URL */
-function syncQueryParams() {
+async function syncQueryParams() {
   const query: Record<string, string> = {}
-  if (filters.categoryId !== null) query.categoryId = String(filters.categoryId)
-  if (filters.subCategoryId !== null) query.subCategoryId = String(filters.subCategoryId)
   if (filters.tagId !== null) query.tagId = String(filters.tagId)
   if (filters.sortBy !== 'recommended') query.sortBy = filters.sortBy
   if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
   if (filters.pageNum !== 1) query.pageNum = String(filters.pageNum)
-  router.replace({ query })
+  await router.replace({ query })
+}
+
+function buildSeoQuery(options?: { keepTag?: boolean }): Record<string, string> {
+  const query: Record<string, string> = {}
+  if (options?.keepTag && filters.tagId !== null) query.tagId = String(filters.tagId)
+  if (filters.sortBy !== 'recommended') query.sortBy = filters.sortBy
+  if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
+  if (filters.pageNum !== 1) query.pageNum = String(filters.pageNum)
+  return query
+}
+
+function buildCategoryRouteQuery(
+  query: Record<string, string>,
+  categoryId: number | null,
+  subCategoryId: number | null,
+): { path: string; query: Record<string, string> } {
+  const path = buildCategoryPathById(categories.value, categoryId, subCategoryId)
+  if (path !== '/category') {
+    return { path, query }
+  }
+
+  const fallbackQuery: Record<string, string> = { ...query }
+  if (subCategoryId !== null) {
+    fallbackQuery.subCategoryId = String(subCategoryId)
+  } else if (categoryId !== null) {
+    fallbackQuery.categoryId = String(categoryId)
+  }
+
+  return { path: '/category', query: fallbackQuery }
 }
 
 /** 加载标签（按当前分类筛选） */
@@ -197,62 +251,89 @@ async function fetchListCardAds() {
 }
 
 /** 筛选变更后重置页码并刷新数据 */
-function resetAndFetch() {
+async function resetAndFetch() {
   filters.pageNum = 1
-  syncQueryParams()
-  fetchPosts()
+  await syncQueryParams()
 }
 
-function handleCategoryChange(id: number | null) {
-  filters.categoryId = id
-  filters.subCategoryId = null
-  filters.tagId = null
-  filters.pageNum = 1
-  syncQueryParams()
-  Promise.all([fetchTags(), fetchPosts()])
+async function handleCategoryChange(id: number | null) {
+  const nextCategoryId = id === null ? null : Number(id)
+  if (filters.categoryId === nextCategoryId && filters.subCategoryId === null && filters.tagId === null && filters.pageNum === 1) {
+    return
+  }
+  const targetCategoryId = Number.isFinite(nextCategoryId as number) ? nextCategoryId : null
+  const query: Record<string, string> = {}
+  if (filters.sortBy !== 'recommended') query.sortBy = filters.sortBy
+  if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
+  const target = buildCategoryRouteQuery(query, targetCategoryId, null)
+  await navigateTo(target)
 }
 
-function handleSubCategoryChange(id: number | null) {
-  filters.subCategoryId = id
-  filters.tagId = null
-  filters.pageNum = 1
-  syncQueryParams()
-  Promise.all([fetchTags(), fetchPosts()])
+async function handleSubCategoryChange(id: number | null) {
+  const nextSubCategoryId = id === null ? null : Number(id)
+  if (filters.subCategoryId === nextSubCategoryId && filters.tagId === null && filters.pageNum === 1) {
+    return
+  }
+  const targetSubCategoryId = Number.isFinite(nextSubCategoryId as number) ? nextSubCategoryId : null
+  const query: Record<string, string> = {}
+  if (filters.sortBy !== 'recommended') query.sortBy = filters.sortBy
+  if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
+  const target = buildCategoryRouteQuery(query, filters.categoryId, targetSubCategoryId)
+  await navigateTo(target)
 }
 
 function handleTagChange(id: number | null) {
   filters.tagId = id
-  resetAndFetch()
+  void resetAndFetch()
 }
 
 function handleSortChange(sortBy: 'recommended' | 'latest' | 'hottest') {
   filters.sortBy = sortBy
-  resetAndFetch()
+  void resetAndFetch()
 }
 
 function handlePageSizeChange(size: number) {
   filters.pageSize = normalizeDisplayPageSize(size)
-  resetAndFetch()
+  void resetAndFetch()
 }
 
-function goToPage(page: number) {
+async function goToPage(page: number) {
   filters.pageNum = page
-  syncQueryParams()
-  fetchPosts()
+  await syncQueryParams()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 监听浏览器前进/后退，重新同步查询参数
-watch(() => route.query, () => {
+watch(() => route.fullPath, () => {
   parseQueryParams()
-  fetchPosts()
+  Promise.all([fetchTags(), fetchPosts()])
 })
 
 onMounted(async () => {
   parseQueryParams()
-  const [catRes] = await Promise.all([categoryApi.tree(), fetchTags(), fetchListCardAds()])
+  const [catRes] = await Promise.all([categoryApi.tree(), fetchListCardAds()])
   categories.value = catRes.data
-  await fetchPosts()
+  parseQueryParams()
+
+  const hasLegacyCategoryQuery = Number.isFinite(Number(route.query.categoryId)) || Number.isFinite(Number(route.query.subCategoryId))
+  if (hasLegacyCategoryQuery) {
+    const targetPath = buildCategoryPathById(
+      categories.value,
+      route.query.categoryId ? Number(route.query.categoryId) : null,
+      route.query.subCategoryId ? Number(route.query.subCategoryId) : null,
+    )
+    if (targetPath !== '/category') {
+      const nextQuery: Record<string, string> = {}
+      if (typeof route.query.tagId === 'string') nextQuery.tagId = route.query.tagId
+      if (typeof route.query.sortBy === 'string') nextQuery.sortBy = route.query.sortBy
+      if (typeof route.query.pageSize === 'string') nextQuery.pageSize = route.query.pageSize
+      if (typeof route.query.pageNum === 'string') nextQuery.pageNum = route.query.pageNum
+      await navigateTo({ path: targetPath, query: nextQuery }, { replace: true })
+      return
+    }
+  }
+
+  await Promise.all([fetchTags(), fetchPosts()])
 })
 </script>
 
@@ -284,52 +365,8 @@ onMounted(async () => {
   p { font-size: 0.95rem; }
 }
 
-/* 骨架屏：双列 */
-.skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem;
-}
-
-.skeleton-card {
-  display: flex;
-  height: calc(240px * 9 / 16);
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  overflow: hidden;
-  background: $color-bg;
-  .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; }
-}
-
-.skeleton-cover {
-  flex-shrink: 0;
-  width: 240px;
-  background: $color-bg-secondary;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-  .dark & { background: #1a2332; }
-}
-
-.skeleton-content {
-  flex: 1;
-  padding: $spacing-md $spacing-lg;
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-}
-
-.skeleton-line {
-  height: 14px;
-  border-radius: $radius-sm;
-  background: $color-bg-secondary;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-  &.short { width: 30%; }
-  &.long { width: 80%; }
-  .dark & { background: #1a2332; }
-}
-
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+:deep(.home-load-more-skeleton) {
+  display: contents;
 }
 
 /* 响应式 */
@@ -338,29 +375,8 @@ onMounted(async () => {
     padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
   }
 
-  .post-grid,
-  .skeleton-grid {
+  .post-grid {
     grid-template-columns: 1fr;
-  }
-
-  .skeleton-card {
-    height: calc(180px * 9 / 16);
-  }
-
-  .skeleton-cover {
-    width: 180px;
-  }
-}
-
-@media (max-width: 480px) {
-  .skeleton-card {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .skeleton-cover {
-    width: 100%;
-    height: 160px;
   }
 }
 </style>

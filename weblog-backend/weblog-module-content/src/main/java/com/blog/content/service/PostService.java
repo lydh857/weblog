@@ -725,8 +725,22 @@ public class PostService {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Post::getStatus, "published");
         if (categoryId != null) {
-            wrapper.and(w -> w.eq(Post::getCategoryId, categoryId)
-                    .or().eq(Post::getSubCategoryId, categoryId));
+            List<Long> childCategoryIds = categoryMapper.selectList(
+                            new LambdaQueryWrapper<Category>()
+                                    .eq(Category::getParentId, categoryId)
+                                    .select(Category::getId))
+                    .stream()
+                    .map(Category::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            wrapper.and(w -> {
+                w.eq(Post::getCategoryId, categoryId)
+                        .or().eq(Post::getSubCategoryId, categoryId);
+                if (!childCategoryIds.isEmpty()) {
+                    w.or().in(Post::getSubCategoryId, childCategoryIds);
+                }
+            });
         }
         if (postIds != null) {
             wrapper.in(Post::getId, postIds);

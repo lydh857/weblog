@@ -52,37 +52,27 @@
 
             <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
 
-            <UnifiedPageLoader v-else-if="loading && !posts.length" text="加载中..." />
+            <div v-else-if="loading && !posts.length" class="post-grid">
+              <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
+            </div>
 
             <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
               <template v-for="item in postGridItems" :key="item.key">
                 <ArticleCard
                   v-if="item.type === 'post'"
                   :post="item.post"
-                  :class="{ 'post-card-load-enter': loadingMoreIds.has(item.post.id) }"
+                  class="home-post-card"
                 />
-                <AdMimicCard v-else :ad="item.ad" class="post-card-ad-enter post-grid-ad" />
+                <AdMimicCard v-else :ad="item.ad" class="post-grid-ad" />
               </template>
               <template v-if="loadingMore">
-                <div v-for="i in 4" :key="`post-loading-${i}`" class="post-card-loading-placeholder" aria-hidden="true">
-                  <div class="post-card-loading-placeholder__cover" />
-                  <div class="post-card-loading-placeholder__content">
-                    <div class="post-card-loading-placeholder__title" />
-                    <div class="post-card-loading-placeholder__summary" />
-                    <div class="post-card-loading-placeholder__summary short" />
-                    <div class="post-card-loading-placeholder__meta">
-                      <span class="post-card-loading-placeholder__meta-item" />
-                      <span class="post-card-loading-placeholder__meta-item short" />
-                    </div>
-                  </div>
-                </div>
+                <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
               </template>
             </div>
 
             <!-- 加载更多 -->
-            <div v-if="sectionMounted.post && posts.length" class="load-more-container">
-              <div v-if="loadingMore" class="load-more-loading">加载中...</div>
-              <div v-else-if="noMore" class="no-more">没有更多文章了</div>
+            <div v-if="sectionMounted.post && posts.length && !loadingMore" class="load-more-container">
+              <div v-if="noMore" class="no-more">没有更多文章了</div>
               <button v-else class="load-more-btn" @click="loadMore">
                 <svg class="load-more-icon" viewBox="0 0 24 24" width="18" height="18">
                   <path fill="currentColor" d="M12 4V2.21c0-.45-.54-.67-.85-.35l-2.8 2.79c-.2.2-.2.51 0 .71l2.8 2.79c.31.31.85.09.85-.35V6c3.31 0 6 2.69 6 6 0 .79-.15 1.56-.44 2.25-.15.36-.04.77.23 1.04.51.51 1.37.33 1.64-.34.37-.91.57-1.91.57-2.95 0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-.79.15-1.56.44-2.25.15-.36.04-.77-.23-1.04-.51-.51-1.37-.33-1.64.34C4.2 9.96 4 10.96 4 12c0 4.42 3.58 8 8 8v1.79c0 .45.54.67.85.35l2.8-2.79c.2-.2.2-.51 0-.71l-2.8-2.79c-.31-.31-.85-.09-.85.35V18z" />
@@ -115,7 +105,6 @@ const currentPage = ref(1)
 const pageSize = 19
 const hasLoadedInitialPosts = ref(false)
 const postGridRef = ref<HTMLElement | null>(null)
-const loadingMoreIds = reactive(new Set<number>())
 const LOAD_MORE_SCROLL_TOP_OFFSET = 84
 const LOAD_MORE_MIN_SCROLL_DELTA = 28
 const todaySectionRef = ref<HTMLElement | null>(null)
@@ -245,20 +234,6 @@ async function loadListCardAds() {
   }
 }
 
-function animateLoadMoreCards(postIds: number[]) {
-  if (!postIds.length || !import.meta.client) return
-
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      postIds.forEach(id => loadingMoreIds.add(id))
-
-      setTimeout(() => {
-        postIds.forEach(id => loadingMoreIds.delete(id))
-      }, 820)
-    })
-  })
-}
-
 function maybeScrollToFirstLoadedCard(previousCount: number) {
   if (!import.meta.client) return
 
@@ -312,7 +287,6 @@ async function loadMore() {
     noMore.value = appendedPosts.length < pageSize || nextPage >= res.data.pages
 
     if (appendedPosts.length > 0) {
-      animateLoadMoreCards(appendedPosts.map(post => post.id))
       maybeScrollToFirstLoadedCard(previousCount)
     }
   } catch { /* ignore */ }
@@ -365,22 +339,45 @@ onUnmounted(() => {
 .section-defer-placeholder,
 .post-defer-placeholder {
   border-radius: $radius-lg;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: linear-gradient(
-    120deg,
-    rgba(241, 245, 249, 0.72) 0%,
-    rgba(226, 232, 240, 0.9) 50%,
-    rgba(241, 245, 249, 0.72) 100%
-  );
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(248, 250, 252, 0.92);
 
   .dark & {
-    border-color: rgba(100, 116, 139, 0.24);
-    background: linear-gradient(
-      120deg,
-      rgba(30, 41, 59, 0.78) 0%,
-      rgba(51, 65, 85, 0.92) 50%,
-      rgba(30, 41, 59, 0.78) 100%
-    );
+    border-color: rgba(71, 85, 105, 0.34);
+    background: rgba(15, 23, 42, 0.72);
+  }
+}
+
+.section-defer-placeholder,
+.post-defer-placeholder {
+  position: relative;
+  overflow: hidden;
+}
+
+.section-defer-placeholder::after,
+.post-defer-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.72) 50%, transparent 65%);
+  animation: homeSkeletonSweep 1.35s ease-in-out infinite;
+}
+
+.dark .section-defer-placeholder::after,
+.dark .post-defer-placeholder::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(148, 163, 184, 0.2) 50%, transparent 65%);
+}
+
+@keyframes homeSkeletonSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-defer-placeholder::after,
+  .post-defer-placeholder::after {
+    animation: none;
   }
 }
 
@@ -464,124 +461,21 @@ onUnmounted(() => {
 .home-reveal.is-visible .post-grid > *:nth-child(7) { transition-delay: 340ms; }
 .home-reveal.is-visible .post-grid > *:nth-child(8) { transition-delay: 390ms; }
 
-.post-card-load-enter {
-  animation: postCardLoadEnter 780ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
-  will-change: opacity, transform;
+:deep(.home-load-more-skeleton) {
+  display: contents;
 }
 
-.post-card-ad-enter {
-  animation: postCardLoadEnter 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+:deep(.home-post-card.article-card) {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-@keyframes postCardLoadEnter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 30px, 0) scale(0.985);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+:deep(.home-post-card.article-card:hover) {
+  transform: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
 }
 
-.post-card-loading-placeholder {
-  display: flex;
-  height: calc(240px * 9 / 16);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: $radius-lg;
-  overflow: hidden;
-  background: $color-bg;
-
-  .dark & {
-    background: $color-dark-bg-secondary;
-    border-color: rgba(100, 116, 139, 0.28);
-  }
-}
-
-.post-card-loading-placeholder__cover {
-  width: 240px;
-  flex-shrink: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.14) 0%,
-    rgba(148, 163, 184, 0.28) 50%,
-    rgba(148, 163, 184, 0.14) 100%
-  );
-  background-size: 200% 100%;
-  animation: postLoadingShimmer 1.2s linear infinite;
-
-  .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.2) 0%,
-      rgba(100, 116, 139, 0.34) 50%,
-      rgba(71, 85, 105, 0.2) 100%
-    );
-    background-size: 200% 100%;
-  }
-}
-
-.post-card-loading-placeholder__content {
-  flex: 1;
-  min-width: 0;
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.post-card-loading-placeholder__title {
-  width: 74%;
-  height: 13px;
-  border-radius: 999px;
-  margin-bottom: 0.5rem;
-  background: rgba(148, 163, 184, 0.24);
-
-  .dark & {
-    background: rgba(100, 116, 139, 0.34);
-  }
-}
-
-.post-card-loading-placeholder__summary {
-  width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  margin-bottom: 0.3rem;
-  background: rgba(148, 163, 184, 0.18);
-
-  &.short {
-    width: 84%;
-  }
-
-  .dark & {
-    background: rgba(100, 116, 139, 0.28);
-  }
-}
-
-.post-card-loading-placeholder__meta {
-  margin-top: auto;
-  display: flex;
-  gap: 0.45rem;
-}
-
-.post-card-loading-placeholder__meta-item {
-  width: 70px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.2);
-
-  &.short {
-    width: 50px;
-  }
-
-  .dark & {
-    background: rgba(100, 116, 139, 0.3);
-  }
-}
-
-@keyframes postLoadingShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.dark :deep(.home-post-card.article-card:hover) {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* ===== 加载更多 ===== */
@@ -589,16 +483,6 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 2rem;
-}
-
-.load-more-loading {
-  font-size: 0.86rem;
-  color: $color-text-muted;
-  padding: 0.5rem 0;
-
-  .dark & {
-    color: #64748b;
-  }
 }
 
 .load-more-btn {
@@ -712,13 +596,6 @@ onUnmounted(() => {
     display: none;
   }
 
-  .post-card-loading-placeholder {
-    height: calc(180px * 9 / 16);
-  }
-
-  .post-card-loading-placeholder__cover {
-    width: 180px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -734,20 +611,6 @@ onUnmounted(() => {
     min-height: 220px;
   }
 
-  .post-card-loading-placeholder {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .post-card-loading-placeholder__cover {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-  }
-
-  .post-card-loading-placeholder__content {
-    padding: $spacing-md;
-    min-height: 120px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -759,12 +622,5 @@ onUnmounted(() => {
     transition: none !important;
   }
 
-  .post-card-load-enter {
-    animation: none !important;
-  }
-
-  .post-card-loading-placeholder__cover {
-    animation: none !important;
-  }
 }
 </style>

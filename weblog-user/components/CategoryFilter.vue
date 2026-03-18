@@ -10,6 +10,7 @@
         </span>
         <div class="filter-buttons">
           <button
+            v-memo="[selectedCategoryId === null]"
             class="filter-btn"
             :class="{ active: selectedCategoryId === null }"
             @click="handleCategoryChange(null)"
@@ -35,6 +36,7 @@
         </span>
         <div class="filter-buttons">
           <button
+            v-memo="[selectedSubCategoryId === null]"
             class="filter-btn"
             :class="{ active: selectedSubCategoryId === null }"
             @click="handleSubCategoryChange(null)"
@@ -42,8 +44,8 @@
           <button
             v-for="sub in subCategories"
             :key="sub.id"
-            class="filter-btn filter-slide-item"
-            :class="{ active: selectedSubCategoryId === sub.id, 'slide-in': !subAnimating }"
+            class="filter-btn"
+            :class="{ active: selectedSubCategoryId === sub.id }"
             @click="handleSubCategoryChange(sub.id)"
           >
             <template v-if="sub.parentName">
@@ -70,8 +72,8 @@
           <button
             v-for="tag in filteredTags"
             :key="tag.id"
-            class="filter-btn tag-btn filter-slide-item"
-            :class="{ active: selectedTagId === tag.id, 'slide-in': !tagAnimating }"
+            class="filter-btn tag-btn"
+            :class="{ active: selectedTagId === tag.id }"
             @click="emit('update:selectedTagId', tag.id)"
           >
             {{ tag.name }}
@@ -135,6 +137,7 @@
                 </span>
                 <div class="drawer-buttons">
                   <button
+                    v-memo="[selectedCategoryId === null]"
                     class="filter-btn"
                     :class="{ active: selectedCategoryId === null }"
                     @click="handleCategoryChange(null)"
@@ -159,6 +162,7 @@
                 </span>
                 <div class="drawer-buttons">
                   <button
+                    v-memo="[selectedSubCategoryId === null]"
                     class="filter-btn"
                     :class="{ active: selectedSubCategoryId === null }"
                     @click="handleSubCategoryChange(null)"
@@ -255,6 +259,7 @@
                 </span>
                 <div class="float-buttons">
                   <button
+                    v-memo="[selectedCategoryId === null]"
                     class="filter-btn"
                     :class="{ active: selectedCategoryId === null }"
                     @click="handleCategoryChange(null)"
@@ -279,6 +284,7 @@
                 </span>
                 <div class="float-buttons">
                   <button
+                    v-memo="[selectedSubCategoryId === null]"
                     class="filter-btn"
                     :class="{ active: selectedSubCategoryId === null }"
                     @click="handleSubCategoryChange(null)"
@@ -286,8 +292,8 @@
                   <button
                     v-for="sub in subCategories"
                     :key="sub.id"
-                    class="filter-btn filter-slide-item"
-                    :class="{ active: selectedSubCategoryId === sub.id, 'slide-in': !subAnimating }"
+                    class="filter-btn"
+                    :class="{ active: selectedSubCategoryId === sub.id }"
                     @click="handleSubCategoryChange(sub.id)"
                   >
                     <template v-if="sub.parentName">
@@ -313,8 +319,8 @@
                   <button
                     v-for="tag in filteredTags"
                     :key="tag.id"
-                    class="filter-btn tag-btn filter-slide-item"
-                    :class="{ active: selectedTagId === tag.id, 'slide-in': !tagAnimating }"
+                    class="filter-btn tag-btn"
+                    :class="{ active: selectedTagId === tag.id }"
                     @click="emit('update:selectedTagId', tag.id)"
                   >
                     {{ tag.name }}
@@ -397,10 +403,6 @@ const showFab = ref(false)
 /** 浮动筛选面板展开状态 */
 const floatPanelOpen = ref(false)
 
-/** 二级分类/标签滑入动画状态 */
-const subAnimating = ref(true)
-const tagAnimating = ref(true)
-
 /**
  * 根据选中的一级分类，计算二级分类列表
  * 未选一级分类时，展示所有子分类并带父分类前缀
@@ -437,33 +439,13 @@ const filteredTags = computed(() => {
 
 /** 一级分类切换：联动重置二级分类和标签，触发滑入动画 */
 function handleCategoryChange(id: number | null) {
-  subAnimating.value = true
-  tagAnimating.value = true
   emit('update:selectedCategoryId', id)
-  emit('update:selectedSubCategoryId', null)
-  emit('update:selectedTagId', null)
 }
 
 /** 二级分类切换：联动重置标签，触发标签滑入动画 */
 function handleSubCategoryChange(id: number | null) {
-  tagAnimating.value = true
   emit('update:selectedSubCategoryId', id)
-  emit('update:selectedTagId', null)
 }
-
-/** 监听二级分类数据变化，触发滑入 */
-watch(subCategories, () => {
-  requestAnimationFrame(() => {
-    subAnimating.value = false
-  })
-})
-
-/** 监听标签数据变化，触发滑入 */
-watch(() => props.tags, () => {
-  requestAnimationFrame(() => {
-    tagAnimating.value = false
-  })
-})
 
 /** 筛选面板回到视口时，自动关闭浮动面板 */
 watch(showFab, (val) => {
@@ -598,6 +580,12 @@ onMounted(() => {
   }
 }
 
+.filter-panel .filter-row:nth-child(-n+2) .filter-buttons > .filter-btn:first-child,
+.float-filter-panel .float-row:nth-child(-n+2) .float-buttons > .filter-btn:first-child,
+.drawer-body .drawer-section:nth-child(-n+2) .drawer-buttons > .filter-btn:first-child {
+  transition: none;
+}
+
 /* 文章数量徽章 */
 .badge {
   display: inline-flex;
@@ -625,19 +613,6 @@ onMounted(() => {
 
   .dark & {
     color: #64748b;
-  }
-}
-
-/* ===== 筛选项滑入动画 ===== */
-.filter-slide-item {
-  opacity: 0;
-  transform: translateX(-8px);
-  transition: opacity 0.1s ease-out, transform 0.1s ease-out;
-  will-change: transform, opacity;
-
-  &.slide-in {
-    opacity: 1;
-    transform: translateX(0);
   }
 }
 
