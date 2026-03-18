@@ -1,6 +1,7 @@
 package com.blog.api.portal;
 
 import com.blog.common.result.Result;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +28,7 @@ public class PortalSiteConfigController {
 
     @Operation(summary = "获取站点基础配置")
     @GetMapping
+    @RateLimit(key = "portal-site-config", capacity = 120, seconds = 60)
     public Result<SiteConfigVO> getSiteConfig() {
         SiteConfigVO vo = new SiteConfigVO();
         vo.setSiteName(defaultIfBlank(systemConfigService.getValue("site_name"), DEFAULT_SITE_NAME));

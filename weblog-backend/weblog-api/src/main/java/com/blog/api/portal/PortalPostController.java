@@ -9,6 +9,7 @@ import com.blog.content.service.CategoryService;
 import com.blog.content.service.PostService;
 import com.blog.content.service.TagService;
 import com.blog.interaction.service.ReadCountService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +39,7 @@ public class PortalPostController {
 
     @Operation(summary = "文章列表（分页）")
     @GetMapping
+    @RateLimit(key = "portal-post-list", capacity = 120, seconds = 60)
     public Result<IPage<PostVO>> list(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") int pageSize,
@@ -62,6 +64,7 @@ public class PortalPostController {
 
     @Operation(summary = "文章详情（含上下篇导航、阅读计数）")
     @GetMapping("/{slug}")
+    @RateLimit(key = "portal-post-detail", capacity = 180, seconds = 60)
     public Result<Map<String, Object>> detail(@PathVariable String slug, HttpServletRequest request) {
         PostVO post = postService.getBySlug(slug);
 
@@ -86,6 +89,7 @@ public class PortalPostController {
 
     @Operation(summary = "今日发布文章列表")
     @GetMapping("/today")
+    @RateLimit(key = "portal-post-today", capacity = 60, seconds = 60)
     public Result<List<PostVO>> listTodayPosts(
             @Parameter(description = "最大返回条数，默认8，最大20")
             @RequestParam(defaultValue = "8") int limit) {
@@ -95,6 +99,7 @@ public class PortalPostController {
 
     @Operation(summary = "最近发布文章列表")
     @GetMapping("/recent")
+    @RateLimit(key = "portal-post-recent", capacity = 60, seconds = 60)
     public Result<List<PostVO>> listRecentPosts(
             @Parameter(description = "最大返回条数，默认10，最大20")
             @RequestParam(defaultValue = "10") int limit) {
@@ -104,6 +109,7 @@ public class PortalPostController {
 
     @Operation(summary = "获取相似文章")
     @GetMapping("/{id}/similar")
+    @RateLimit(key = "portal-post-similar", capacity = 90, seconds = 60)
     public Result<List<PostVO>> getSimilarPosts(@PathVariable Long id) {
         return Result.success(postService.getSimilarPosts(id, 6));
     }

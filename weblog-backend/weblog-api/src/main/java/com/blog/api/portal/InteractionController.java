@@ -55,6 +55,7 @@ public class InteractionController {
 
     @Operation(summary = "查询是否点赞")
     @GetMapping("/like/{postId}")
+    @RateLimit(key = "interaction-like-check", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> isLiked(@PathVariable Long postId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -78,6 +79,7 @@ public class InteractionController {
 
     @Operation(summary = "查询是否收藏")
     @GetMapping("/favorite/{postId}")
+    @RateLimit(key = "interaction-favorite-check", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> isFavorited(@PathVariable Long postId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -89,6 +91,7 @@ public class InteractionController {
 
     @Operation(summary = "我点赞的文章列表")
     @GetMapping("/my/likes")
+    @RateLimit(key = "interaction-my-likes", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> myLikes(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
@@ -151,6 +154,7 @@ public class InteractionController {
 
     @Operation(summary = "我收藏的文章列表")
     @GetMapping("/my/favorites")
+    @RateLimit(key = "interaction-my-favorites", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> myFavorites(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
@@ -204,6 +208,7 @@ public class InteractionController {
 
     @Operation(summary = "查询文章互动状态（点赞+收藏）")
     @GetMapping("/status/{postId}")
+    @RateLimit(key = "interaction-status", capacity = 180, seconds = 60)
     public Result<Map<String, Object>> getInteractionStatus(@PathVariable Long postId) {
         boolean liked = false;
         boolean favorited = false;

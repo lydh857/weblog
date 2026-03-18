@@ -3,6 +3,7 @@ package com.blog.api.portal;
 import com.blog.common.result.Result;
 import com.blog.content.entity.Announcement;
 import com.blog.content.service.AnnouncementService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class AnnouncementController {
 
     @Operation(summary = "按类型获取有效公告")
     @GetMapping
+    @RateLimit(key = "portal-announcement-list", capacity = 120, seconds = 60)
     public Result<List<Announcement>> getByType(
             @RequestParam(required = false) String type) {
         if (type != null && !type.isBlank()) {
@@ -33,6 +35,7 @@ public class AnnouncementController {
 
     @Operation(summary = "获取公告详情")
     @GetMapping("/{id}")
+    @RateLimit(key = "portal-announcement-detail", capacity = 120, seconds = 60)
     public Result<Announcement> getById(@PathVariable Long id) {
         return Result.success(announcementService.getActiveById(id));
     }

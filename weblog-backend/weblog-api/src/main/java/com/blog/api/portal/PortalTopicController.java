@@ -9,6 +9,7 @@ import com.blog.content.entity.Topic;
 import com.blog.content.mapper.PostMapper;
 import com.blog.content.mapper.TopicMapper;
 import com.blog.content.service.TopicService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class PortalTopicController {
 
     @Operation(summary = "专题列表（已发布）")
     @GetMapping
+    @RateLimit(key = "portal-topic-list", capacity = 90, seconds = 60)
     public Result<Map<String, Object>> list(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "12") int pageSize) {
@@ -48,6 +50,7 @@ public class PortalTopicController {
 
     @Operation(summary = "专题详情")
     @GetMapping("/{id}")
+    @RateLimit(key = "portal-topic-detail", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> detail(@PathVariable Long id) {
         Topic topic = topicMapper.selectById(id);
         if (topic == null || !Boolean.TRUE.equals(topic.getIsPublish())) {
@@ -64,6 +67,7 @@ public class PortalTopicController {
 
     @Operation(summary = "专题目录树（含文章 slug）")
     @GetMapping("/{id}/catalogs")
+    @RateLimit(key = "portal-topic-catalogs", capacity = 90, seconds = 60)
     public Result<List<Map<String, Object>>> catalogs(@PathVariable Long id) {
         Topic topic = topicMapper.selectById(id);
         if (topic == null || !Boolean.TRUE.equals(topic.getIsPublish())) {

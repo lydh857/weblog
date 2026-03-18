@@ -6,6 +6,7 @@ import com.blog.content.entity.Category;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
 import com.blog.content.service.CategoryService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class PortalCategoryController {
 
     @Operation(summary = "根据slug获取分类信息")
     @GetMapping("/slug/{slug}")
+    @RateLimit(key = "portal-category-slug", capacity = 120, seconds = 60)
     public Result<CategoryTreeVO> getBySlug(@PathVariable String slug) {
         Category cat = categoryService.getBySlug(slug);
         CategoryTreeVO vo = new CategoryTreeVO();
@@ -47,6 +49,7 @@ public class PortalCategoryController {
 
     @Operation(summary = "分类树（含文章数）")
     @GetMapping("/tree")
+    @RateLimit(key = "portal-category-tree", capacity = 120, seconds = 60)
     public Result<List<CategoryTreeVO>> tree() {
         List<Category> all = categoryService.listAll();
 

@@ -1,6 +1,7 @@
 package com.blog.api.portal;
 
 import com.blog.common.result.Result;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.interaction.service.RankingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +25,7 @@ public class RankingController {
 
     @Operation(summary = "查询排行榜")
     @GetMapping
+    @RateLimit(key = "portal-ranking", capacity = 120, seconds = 60)
     public Result<List<Map<String, Object>>> getRanking(
             @Parameter(description = "排行类型：1-日榜 2-周榜 3-月榜 4-总榜")
             @RequestParam(defaultValue = "4") int rankType,

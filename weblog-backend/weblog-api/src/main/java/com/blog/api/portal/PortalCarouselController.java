@@ -3,6 +3,7 @@ package com.blog.api.portal;
 import com.blog.common.result.Result;
 import com.blog.content.dto.CarouselVO;
 import com.blog.content.service.CarouselService;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class PortalCarouselController {
 
   @Operation(summary = "获取启用的轮播列表")
   @GetMapping
+  @RateLimit(key = "portal-carousel-list", capacity = 120, seconds = 60)
   public Result<List<CarouselVO>> list() {
     return Result.success(carouselService.listPortal());
   }

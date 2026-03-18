@@ -63,6 +63,7 @@ public class UserController {
 
     @Operation(summary = "获取个人资料")
     @GetMapping("/profile")
+    @RateLimit(key = "user-profile-get", capacity = 60, seconds = 60)
     public Result<UserProfileVO> getProfile() {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -71,6 +72,7 @@ public class UserController {
 
     @Operation(summary = "提交个人信息审核")
     @PutMapping("/profile")
+    @RateLimit(key = "user-profile-update", capacity = 20, seconds = 60)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交个人信息审核")
     public Result<Void> updateProfile(@Valid @RequestBody UpdateProfileRequest req) {
         StpUtil.checkLogin();

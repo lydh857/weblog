@@ -705,16 +705,18 @@ function validateResetForm(): boolean {
 
 async function handleResetSubmit() {
   if (!validateResetForm()) return
-  resetSubmitting.value = true
-  try {
-    await authApi.forgotPassword({ email: resetForm.email, code: resetForm.code, password: resetForm.password })
-    message.success('密码重置成功，请登录')
-    setTimeout(() => {
-      mode.value = 'password'; form.email = resetForm.email
-      resetForm.email = ''; resetForm.code = ''; resetForm.password = ''; resetForm.confirmPassword = ''
-    }, 1500)
-  } catch (e: any) { message.error(e.message || '重置失败') }
-  finally { resetSubmitting.value = false }
+  openCaptcha(async (verifyToken: string) => {
+    resetSubmitting.value = true
+    try {
+      await authApi.forgotPassword({ email: resetForm.email, code: resetForm.code, password: resetForm.password }, verifyToken)
+      message.success('密码重置成功，请登录')
+      setTimeout(() => {
+        mode.value = 'password'; form.email = resetForm.email
+        resetForm.email = ''; resetForm.code = ''; resetForm.password = ''; resetForm.confirmPassword = ''
+      }, 1500)
+    } catch (e: any) { message.error(e.message || '重置失败') }
+    finally { resetSubmitting.value = false }
+  })
 }
 
 function enterResetMode() {
@@ -873,11 +875,21 @@ async function handleSubmit() {
       })
       return
     } else if (mode.value === 'code') {
-      const res = await authApi.loginByCode({ email: form.email, code: form.code })
-      addRecentEmail(form.email); submitSuccess.value = true; message.success('登录成功')
-      userStore.setUser(res.data); try { localStorage.removeItem(EMAIL_KEY) } catch {}
-      await new Promise(r => setTimeout(r, 400))
-      loginModal.onLoginSuccess()
+      submitting.value = false
+      openCaptcha(async (verifyToken: string) => {
+        submitting.value = true
+        try {
+          const res = await authApi.loginByCode({ email: form.email, code: form.code }, verifyToken)
+          addRecentEmail(form.email); submitSuccess.value = true; message.success('登录成功')
+          userStore.setUser(res.data); try { localStorage.removeItem(EMAIL_KEY) } catch {}
+          await new Promise(r => setTimeout(r, 400))
+          loginModal.onLoginSuccess()
+        } catch (e: any) {
+          if (e.code === ACCOUNT_LOCKED_CODE) { accountLocked.value = true; message.error(e.message || '账号已锁定，请稍后再试') }
+          else message.error(e.message || '操作失败，请稍后重试')
+        } finally { submitting.value = false; submitSuccess.value = false }
+      })
+      return
     } else {
       // 注册需要先通过滑块验证
       submitting.value = false

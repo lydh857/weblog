@@ -79,15 +79,17 @@ public class AuthController {
         return Result.success(loginResponse);
     }
 
-    @Operation(summary = "验证码登录", description = "通过邮箱验证码登录，首次登录自动创建账号")
+    @Operation(summary = "验证码登录", description = "通过邮箱验证码登录，需要滑块验证码，首次登录自动创建账号")
     @PostMapping("/login-by-code")
     @RateLimit(key = "loginByCode", capacity = 5, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGIN", description = "验证码登录")
     public Result<LoginResponse> loginByCode(@Valid @RequestBody CodeLoginRequest req,
-                                             HttpServletRequest request,
-                                             HttpServletResponse response) {
+                                              @RequestHeader(value = "X-Captcha-Token") String verifyToken,
+                                              HttpServletRequest request,
+                                              HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         LoginResponse loginResponse = authService.loginByCode(req.getEmail(), req.getCode(), clientIp, userAgent);
 
         clearRememberCookie(response, request);
@@ -126,6 +128,7 @@ public class AuthController {
 
     @Operation(summary = "用户登出", description = "注销当前登录状态，Token 失效")
     @PostMapping("/logout")
+    @RateLimit(key = "logout", capacity = 30, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGOUT", description = "用户登出")
     public Result<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         authService.logout();
@@ -172,6 +175,7 @@ public class AuthController {
 
     @Operation(summary = "查询我的登录日志", description = "查看当前用户的登录历史")
     @GetMapping("/login-logs")
+    @RateLimit(key = "portal-login-logs", capacity = 30, seconds = 60)
     public Result<com.baomidou.mybatisplus.core.metadata.IPage<LoginLogVO>> getMyLoginLogs(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
@@ -205,10 +209,14 @@ public class AuthController {
         return Result.success();
     }
 
-    @Operation(summary = "忘记密码", description = "通过邮箱验证码重置密码，无需登录")
+    @Operation(summary = "忘记密码", description = "通过邮箱验证码重置密码，无需登录，需滑块验证码")
     @PostMapping("/forgot-password")
     @RateLimit(key = "forgotPassword", capacity = 5, seconds = 60)
-    public Result<Void> forgotPassword(@RequestBody Map<String, String> body) {
+    public Result<Void> forgotPassword(@RequestBody Map<String, String> body,
+                                       @RequestHeader(value = "X-Captcha-Token") String verifyToken,
+                                       HttpServletRequest request) {
+        String clientIp = IpUtil.getClientIp(request);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         String email = normalizeEmailField(body, "email");
         String code = normalizeCodeField(body, "code");
         String password = getRequiredPassword(body, "password");

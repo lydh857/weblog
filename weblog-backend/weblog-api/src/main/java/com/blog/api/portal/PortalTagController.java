@@ -4,6 +4,7 @@ import com.blog.common.result.Result;
 import com.blog.content.mapper.PostTagMapper;
 import com.blog.content.service.TagService;
 import com.blog.content.vo.TagCloudVO;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ public class PortalTagController {
 
     @Operation(summary = "根据slug获取标签信息")
     @GetMapping("/slug/{slug}")
+    @RateLimit(key = "portal-tag-slug", capacity = 120, seconds = 60)
     public Result<TagCloudVO> getBySlug(@PathVariable String slug) {
         com.blog.content.entity.Tag tag = tagService.getBySlug(slug);
         TagCloudVO vo = new TagCloudVO();
@@ -37,6 +39,7 @@ public class PortalTagController {
 
     @Operation(summary = "标签云（含文章数），支持按分类筛选")
     @GetMapping("/cloud")
+    @RateLimit(key = "portal-tag-cloud", capacity = 120, seconds = 60)
     public Result<List<TagCloudVO>> cloud(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long subCategoryId) {

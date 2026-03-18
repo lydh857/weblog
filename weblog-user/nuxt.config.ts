@@ -46,6 +46,16 @@ export default defineNuxtConfig({
 
   // 页面缓存配置（SWR - Stale-While-Revalidate）
   routeRules: {
+    // 基础安全响应头（先以 Report-Only 观察 CSP）
+    '/**': {
+      headers: {
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: http: ws: wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+      },
+    },
     // 首页缓存 10 分钟
     '/': { swr: 600 },
     // 文章页缓存 30 分钟

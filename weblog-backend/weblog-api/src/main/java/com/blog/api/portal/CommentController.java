@@ -59,6 +59,7 @@ public class CommentController {
 
     @Operation(summary = "删除评论（只能删自己的）")
     @DeleteMapping("/{commentId}")
+    @RateLimit(key = "comment-delete", capacity = 30, seconds = 60)
     public Result<Void> delete(@PathVariable Long commentId) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -68,6 +69,7 @@ public class CommentController {
 
     @Operation(summary = "批量删除评论（只能删自己的）")
     @DeleteMapping("/batch")
+    @RateLimit(key = "comment-batch-delete", capacity = 10, seconds = 60)
     public Result<Void> batchDelete(@RequestBody List<Long> commentIds) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -88,6 +90,7 @@ public class CommentController {
 
     @Operation(summary = "文章评论列表（一级+二级回复）")
     @GetMapping("/post/{postId}")
+    @RateLimit(key = "comment-list-post", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> listByPost(
             @PathVariable Long postId,
             @RequestParam(defaultValue = "1") int pageNum,
@@ -169,6 +172,7 @@ public class CommentController {
 
     @Operation(summary = "子评论分页列表")
     @GetMapping("/replies/{parentId}")
+    @RateLimit(key = "comment-list-replies", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> listReplies(
             @PathVariable Long parentId,
             @RequestParam(defaultValue = "1") int pageNum,
@@ -210,6 +214,7 @@ public class CommentController {
 
     @Operation(summary = "我的评论列表")
     @GetMapping("/my")
+    @RateLimit(key = "comment-my-list", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> myComments(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {

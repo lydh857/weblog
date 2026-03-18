@@ -37,7 +37,10 @@ export const authApi = {
       headers: { 'X-Captcha-Token': verifyToken },
     } : undefined)
   },
-  loginByCode: (data: CodeLoginParams) => http.post<any, { data: LoginResult }>('/portal/auth/login-by-code', data),
+  loginByCode: (data: CodeLoginParams, verifyToken: string) =>
+    http.post<any, { data: LoginResult }>('/portal/auth/login-by-code', data, {
+      headers: { 'X-Captcha-Token': verifyToken },
+    }),
   register: async (data: RegisterParams, code: string, verifyToken: string) => {
     return http.post('/portal/auth/register', data, {
       params: { code },
@@ -50,8 +53,10 @@ export const authApi = {
     }),
   checkEmail: (email: string) =>
     http.post('/portal/auth/check-email', { email }),
-  forgotPassword: async (data: { email: string; code: string; password: string }) => {
-    return http.post('/portal/auth/forgot-password', data)
+  forgotPassword: async (data: { email: string; code: string; password: string }, verifyToken: string) => {
+    return http.post('/portal/auth/forgot-password', data, {
+      headers: { 'X-Captcha-Token': verifyToken },
+    })
   },
   logout: () => http.post('/portal/auth/logout'),
   rememberLogin: async () => {

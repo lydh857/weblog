@@ -30,6 +30,7 @@ public class AccessControlController {
 
     @Operation(summary = "检查是否可以阅读文章")
     @GetMapping("/check/{postId}")
+    @RateLimit(key = "access-check", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> checkAccess(@PathVariable Long postId,
                                                     HttpServletRequest request) {
         // 已登录用户不受限制

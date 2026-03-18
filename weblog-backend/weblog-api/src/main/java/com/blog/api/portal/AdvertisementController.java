@@ -60,6 +60,7 @@ public class AdvertisementController {
 
     @Operation(summary = "按位置获取有效广告")
     @GetMapping
+    @RateLimit(key = "ad-list", capacity = 120, seconds = 60)
     public Result<List<Advertisement>> getByPosition(
             @RequestParam(required = false) String slot,
             @RequestParam(required = false) String position) {
@@ -80,6 +81,7 @@ public class AdvertisementController {
 
     @Operation(summary = "查询广告申请入口是否开放")
     @GetMapping("/apply-status")
+    @RateLimit(key = "ad-apply-status", capacity = 60, seconds = 60)
     public Result<Map<String, Object>> getApplyStatus() {
         String val = systemConfigService.getValue(AD_APPLY_SWITCH_KEY);
         return Result.success(Map.of(
@@ -90,6 +92,7 @@ public class AdvertisementController {
 
     @Operation(summary = "查询我的广告申请")
     @GetMapping("/my")
+    @RateLimit(key = "ad-my", capacity = 60, seconds = 60)
     public Result<Advertisement> getMyApplication(@RequestParam(required = false) String position) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();

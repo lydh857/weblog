@@ -30,6 +30,7 @@ public class FriendLinkController {
 
     @Operation(summary = "获取有效友链列表")
     @GetMapping
+    @RateLimit(key = "friend-link-list", capacity = 120, seconds = 60)
     public Result<List<FriendLink>> listActive() {
         return Result.success(friendLinkService.listActive());
     }
@@ -51,6 +52,7 @@ public class FriendLinkController {
 
     @Operation(summary = "查询我的友链申请")
     @GetMapping("/my")
+    @RateLimit(key = "friend-link-my", capacity = 60, seconds = 60)
     public Result<FriendLink> getMyLink() {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
