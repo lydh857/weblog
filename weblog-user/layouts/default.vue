@@ -255,6 +255,17 @@ useHead(() => ({
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)
 const shouldHideNavbarBeforeEnter = ref(false)
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const isStartupDone = ref(false)
+
+function hasStartupDone() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return Boolean(runtimeWindow.__weblogStartupDone)
+}
 
 function triggerHomeNavEnterAnimation() {
   shouldAnimate.value = false
@@ -331,8 +342,8 @@ async function loadHomeNavRanking() {
 }
 
 // 进入首页时，等 DOM 渲染完成后再触发动画，确保用户能看到
-watch(isHomePage, (val) => {
-  if (val) {
+watch([isHomePage, isStartupDone], ([home, startupDone]) => {
+  if (home && startupDone) {
     triggerHomeNavEnterAnimation()
   } else {
     shouldAnimate.value = false
@@ -368,6 +379,11 @@ function handleScroll() {
 }
 
 onMounted(() => {
+  isStartupDone.value = hasStartupDone()
+  if (!isStartupDone.value) {
+    window.addEventListener(STARTUP_DONE_EVENT, handleStartupDone)
+  }
+
   window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
   refreshGlobalLeftAdVisibility()
@@ -375,9 +391,14 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   window.removeEventListener('scroll', handleScroll)
   clearLeftAdHeroWatchers()
 })
+
+function handleStartupDone() {
+  isStartupDone.value = true
+}
 
 onMounted(async () => {
   await userStore.fetchUser()

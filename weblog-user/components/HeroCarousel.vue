@@ -111,8 +111,19 @@ const elapsed = ref(0) // 暂停时已经过的毫秒数
 const loadedImages = reactive(new Set<number>())
 const preloadedSlideIndices = reactive(new Set<number>())
 const hasHeroEntered = ref(false)
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const isStartupDone = ref(false)
 const SLIDE_DURATION = 5000
 const SLIDE_TRANSITION_MS = 850
+
+function hasStartupDone() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return Boolean(runtimeWindow.__weblogStartupDone)
+}
 
 // ===== 计算属性 =====
 const currentSlide = computed(() => slides.value[currentIndex.value] ?? null)
@@ -251,6 +262,7 @@ function handleSlideClick(slide: CarouselVO) {
 
 function triggerHeroEnter() {
   if (hasHeroEntered.value || !import.meta.client) return
+  if (!isStartupDone.value) return
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -281,6 +293,11 @@ function handleImageError(index: number) {
 
 // ===== 生命周期 =====
 onMounted(() => {
+  isStartupDone.value = hasStartupDone()
+  if (!isStartupDone.value) {
+    window.addEventListener(STARTUP_DONE_EVENT, handleStartupDone)
+  }
+
   loadCarousel().then(() => {
     nextTick(() => {
       if (isCurrentSlideImageReady()) {
@@ -296,8 +313,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   stopAutoPlay()
 })
+
+function handleStartupDone() {
+  isStartupDone.value = true
+  if (isCurrentSlideImageReady()) {
+    triggerHeroEnter()
+  }
+}
 </script>
 
 <style lang="scss" scoped>
