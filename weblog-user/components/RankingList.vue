@@ -13,6 +13,11 @@
       </button>
     </div>
 
+    <div v-if="dailyFallbackTip" class="ranking-tip">
+      <Icon name="heroicons:information-circle-16-solid" size="14" />
+      <span>{{ dailyFallbackTip }}</span>
+    </div>
+
     <!-- 内容区域（相对定位容器） -->
     <div class="ranking-body">
       <!-- 加载遮罩（绝对定位覆盖，不销毁列表） -->
@@ -87,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { rankingApi, type RankingItem } from '~/api/ranking'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
 
 interface Props {
   maxItems?: number
@@ -108,6 +113,7 @@ const activeTab = ref(1)
 const items = ref<RankingItem[]>([])
 const loading = ref(false)
 const animKey = ref(0)
+const currentMeta = ref<RankingMeta | null>(null)
 
 /** 格式化热度分数 */
 function formatScore(score: number): string {
@@ -126,6 +132,29 @@ function getHeatColor(rank: number): string {
   return '#d4d4d4'
 }
 
+const dailyFallbackTip = computed(() => {
+  const meta = currentMeta.value
+  if (activeTab.value !== 1 || !meta?.fallbackUsed) {
+    return ''
+  }
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '今日榜暂无数据，已展示最新发布'
+  }
+  if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+    return '今日榜和最新发布均暂无数据'
+  }
+  if (meta.servedRankType === 1 && meta.servedStatDate) {
+    return `今日榜暂无数据，已展示 ${meta.servedStatDate} 的飙升榜`
+  }
+  if (meta.servedRankType === 2) {
+    return '今日榜暂无数据，已展示本周热榜'
+  }
+  if (meta.servedRankType === 4) {
+    return '今日榜暂无数据，已展示最高热度榜'
+  }
+  return '今日榜暂无数据，已自动切换可用榜单'
+})
+
 /** 切换 Tab */
 async function switchTab(rankType: number) {
   activeTab.value = rankType
@@ -136,15 +165,17 @@ async function switchTab(rankType: number) {
 async function loadRanking() {
   loading.value = true
   try {
-    const res = await rankingApi.get({
+    const res = await rankingApi.getSmartWithRecentFallback({
       rankType: activeTab.value,
       limit: props.maxItems,
     })
-    items.value = res.data
+    items.value = res.items
+    currentMeta.value = res.meta
     // 递增 key 强制重新触发入场动画
     animKey.value++
   } catch {
     items.value = []
+    currentMeta.value = null
   } finally {
     loading.value = false
   }
@@ -196,6 +227,19 @@ onMounted(() => {
 
   .dark & {
     border-bottom-color: $color-dark-border;
+  }
+}
+
+.ranking-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: $spacing-sm;
+  font-size: 0.75rem;
+  color: $color-text-muted;
+
+  .dark & {
+    color: #94a3b8;
   }
 }
 

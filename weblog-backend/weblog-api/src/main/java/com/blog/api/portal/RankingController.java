@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * 用户端排行榜接口
@@ -38,5 +39,34 @@ public class RankingController {
         if (limit > 100) limit = 100;
         if (offset < 0) offset = 0;
         return Result.success(rankingService.getRanking(rankType, categoryId, limit, offset));
+    }
+
+    @Operation(summary = "查询智能排行榜（含回退元信息）")
+    @GetMapping("/smart")
+    @RateLimit(key = "portal-ranking-smart", capacity = 120, seconds = 60)
+    public Result<Map<String, Object>> getRankingSmart(
+            @Parameter(description = "排行类型：1-日榜 2-周榜 3-月榜 4-总榜")
+            @RequestParam(defaultValue = "4") int rankType,
+            @Parameter(description = "分类ID（不传=总榜）")
+            @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "返回条数")
+            @RequestParam(defaultValue = "20") int limit,
+            @Parameter(description = "偏移量")
+            @RequestParam(defaultValue = "0") int offset) {
+        if (limit > 100) limit = 100;
+        if (offset < 0) offset = 0;
+
+        RankingService.RankingQueryResult result = rankingService.getRankingSmart(rankType, categoryId, limit, offset);
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("requestedRankType", result.requestedRankType());
+        meta.put("servedRankType", result.servedRankType());
+        meta.put("servedStatDate", result.servedStatDate() == null ? null : result.servedStatDate().toString());
+        meta.put("fallbackUsed", result.fallbackUsed());
+        meta.put("fallbackReason", result.fallbackReason());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("items", result.items());
+        data.put("meta", meta);
+        return Result.success(data);
     }
 }

@@ -17,10 +17,10 @@
       <div class="ranking-card ranking-card--tall">
         <div class="card-head">
           <NuxtLink to="/ranking?tab=1" class="card-title-link">
-            今日飙升
+            {{ dailyBoardTitle }}
             <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
           </NuxtLink>
-          <span class="card-subtitle">今日热度飙升</span>
+          <span class="card-subtitle">{{ dailyBoardSubtitle }}</span>
         </div>
         <div v-if="dailyBoard.loading">
           <div class="hero-card hero-card--skeleton" aria-hidden="true">
@@ -215,17 +215,18 @@
 </template>
 
 <script setup lang="ts">
-import { rankingApi, type RankingItem } from '~/api/ranking'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
 
 interface Board {
   items: RankingItem[]
   loading: boolean
+  meta: RankingMeta | null
 }
 
-const totalBoard = reactive<Board>({ items: [], loading: true })
-const weekBoard = reactive<Board>({ items: [], loading: true })
-const dailyBoard = reactive<Board>({ items: [], loading: true })
-const monthBoard = reactive<Board>({ items: [], loading: true })
+const totalBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const weekBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const dailyBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const monthBoard = reactive<Board>({ items: [], loading: true, meta: null })
 
 const hasData = computed(() =>
   totalBoard.loading || weekBoard.loading || dailyBoard.loading || monthBoard.loading
@@ -249,12 +250,81 @@ function getHeatColor(rank: number): string {
   return '#d4d4d4'
 }
 
+function getLocalDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function resolveDailyBoardTitle(meta: RankingMeta | null): string {
+  if (!meta || !meta.fallbackUsed) {
+    return '今日飙升'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '最新发布'
+  }
+
+  if (meta.servedRankType === 1) {
+    const servedDate = meta.servedStatDate
+    if (!servedDate) {
+      return '近期飙升'
+    }
+    const yesterday = getLocalDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000))
+    return servedDate === yesterday ? '昨日飙升' : '近期飙升'
+  }
+
+  if (meta.servedRankType === 2) {
+    return '本周热榜'
+  }
+
+  if (meta.servedRankType === 4) {
+    return '最高热度'
+  }
+
+  return '今日飙升'
+}
+
+function resolveDailyBoardSubtitle(meta: RankingMeta | null): string {
+  if (!meta || !meta.fallbackUsed) {
+    return '今日热度飙升'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '今日数据不足，展示最新发布'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+    return '暂无可展示内容'
+  }
+
+  if (meta.servedRankType === 1 && meta.servedStatDate) {
+    return `数据日期 ${meta.servedStatDate}`
+  }
+
+  if (meta.servedRankType === 2) {
+    return '今日数据不足，展示本周热度'
+  }
+
+  if (meta.servedRankType === 4) {
+    return '今日数据不足，展示综合热度'
+  }
+
+  return '暂无今日数据，已智能回退'
+}
+
+const dailyBoardTitle = computed(() => resolveDailyBoardTitle(dailyBoard.meta))
+const dailyBoardSubtitle = computed(() => resolveDailyBoardSubtitle(dailyBoard.meta))
+
 async function loadBoard(board: Board, rankType: number, limit: number) {
   try {
-    const res = await rankingApi.get({ rankType, limit })
-    board.items = res.data || []
+    const res = await rankingApi.getSmartWithRecentFallback({ rankType, limit })
+    board.items = res.items
+    board.meta = res.meta
   } catch {
     board.items = []
+    board.meta = null
   } finally {
     board.loading = false
   }

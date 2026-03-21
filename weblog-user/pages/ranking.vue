@@ -21,6 +21,11 @@
         </button>
       </div>
 
+      <div v-if="fallbackNotice" class="state state--hint">
+        <Icon name="heroicons:information-circle-16-solid" size="16" />
+        <span>{{ fallbackNotice }}</span>
+      </div>
+
       <div v-if="!loading && !items.length" class="state state--empty">
         <Icon name="heroicons:chart-bar-square-20-solid" size="28" />
         <span>暂无排行数据</span>
@@ -62,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { rankingApi, type RankingItem } from '~/api/ranking'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
 
 useHead({ title: '排行榜 - Weblog' })
 
@@ -82,6 +87,31 @@ const loadingMore = ref(false)
 const items = ref<RankingItem[]>([])
 const animKey = ref(0)
 const animationStartIndex = ref(0)
+const rankingMeta = ref<RankingMeta | null>(null)
+const rankingSource = ref<'ranking' | 'recent'>('ranking')
+
+const fallbackNotice = computed(() => {
+  const meta = rankingMeta.value
+  if (rankType.value !== 1 || !meta?.fallbackUsed) {
+    return ''
+  }
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '今日飙升暂无数据，已展示最新发布'
+  }
+  if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+    return '今日飙升与最新发布均暂无数据'
+  }
+  if (meta.servedRankType === 1 && meta.servedStatDate) {
+    return `今日飙升暂无数据，已展示 ${meta.servedStatDate} 的飙升榜`
+  }
+  if (meta.servedRankType === 2) {
+    return '今日飙升暂无数据，已自动回退到本周热榜'
+  }
+  if (meta.servedRankType === 4) {
+    return '今日飙升暂无数据，已自动回退到总热度榜'
+  }
+  return '今日飙升暂无数据，已自动回退到可用榜单'
+})
 
 function formatScore(score: number): string {
   if (score >= 10000) return `${(score / 10000).toFixed(1)}w`
@@ -113,8 +143,21 @@ async function fetchRanking(append = false) {
     loading.value = true
   }
   try {
-    const res = await rankingApi.get({ rankType: rankType.value, limit, offset: offset.value })
-    const data = res.data || []
+    const res = await rankingApi.getSmartWithRecentFallback({ rankType: rankType.value, limit, offset: offset.value })
+    const data = res.items || []
+    rankingMeta.value = res.meta || null
+    rankingSource.value = res.source
+
+    if (res.source === 'recent') {
+      if (!append) {
+        animationStartIndex.value = 0
+        items.value = data
+        animKey.value += 1
+      }
+      hasMore.value = false
+      return
+    }
+
     animationStartIndex.value = nextAnimationStartIndex
     items.value = append ? [...items.value, ...data] : data
     hasMore.value = data.length === limit
@@ -123,6 +166,8 @@ async function fetchRanking(append = false) {
     }
   } catch {
     if (!append) items.value = []
+    rankingMeta.value = null
+    rankingSource.value = 'ranking'
     hasMore.value = false
   } finally {
     if (append) {
@@ -136,12 +181,15 @@ async function fetchRanking(append = false) {
 async function switchTab(value: number) {
   if (rankType.value === value) return
   rankType.value = value
+  rankingMeta.value = null
+  rankingSource.value = 'ranking'
   offset.value = 0
   hasMore.value = true
   await fetchRanking(false)
 }
 
 async function loadMore() {
+  if (rankingSource.value === 'recent') return
   if (!hasMore.value || loading.value || loadingMore.value) return
   offset.value += limit
   await fetchRanking(true)
@@ -224,14 +272,26 @@ onMounted(() => {
 }
 
 .state {
-  min-height: 250px;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
   color: $color-text-muted;
-  border: 1px dashed rgba(148, 163, 184, 0.5);
   border-radius: 12px;
+}
+
+.state--hint {
+  justify-content: flex-start;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.05);
+  font-size: 0.82rem;
+}
+
+.state--empty {
+  min-height: 250px;
+  justify-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
 }
 
 .list {
