@@ -54,6 +54,7 @@ import { tagApi, type TagCloudVO } from '~/api/tag'
 import { postApi, type PostVO } from '~/api/post'
 import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
 import { buildCategoryPathById, findCategoryBySlug } from '~/utils/categoryRoute'
+import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
 
 definePageMeta({
   path: '/category/:slug?',
@@ -295,11 +296,13 @@ function handleSortChange(sortBy: 'recommended' | 'latest' | 'hottest') {
 function handlePageSizeChange(size: number) {
   filters.pageSize = normalizeDisplayPageSize(size)
   void resetAndFetch()
+  scrollToTopOnMobilePagination()
 }
 
 async function goToPage(page: number) {
   filters.pageNum = page
   await syncQueryParams()
+  if (scrollToTopOnMobilePagination()) return
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 

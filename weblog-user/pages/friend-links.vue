@@ -37,7 +37,7 @@
         </a>
       </div>
 
-      <Pagination :total="links.length" :current-page="currentPage" :page-size="pageSize" @update:current-page="currentPage = $event" />
+      <Pagination :total="links.length" :current-page="currentPage" :page-size="pageSize" @update:current-page="handlePageChange" />
     </template>
 
     <div v-else class="empty-state">
@@ -54,6 +54,7 @@ import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { normalizeSafeHref } from '~/utils/urlSafety'
+import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
 
 useHead({
   title: '友情链接',
@@ -126,6 +127,11 @@ async function fetchMyStatus() {
 function handleApplyClick() {
   if (!isLoggedIn.value) { loginModal.open(); return }
   showModal.value = true
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+  scrollToTopOnMobilePagination()
 }
 
 function refreshData() {

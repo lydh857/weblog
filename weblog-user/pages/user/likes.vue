@@ -69,6 +69,7 @@ import { interactionApi, type MyPostItem } from '~/api/interaction'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { formatRelativeTime } from '~/utils/format'
+import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
 import Pagination from '~/components/Pagination.vue'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
 
@@ -123,8 +124,18 @@ async function confirmBatchUnfavorite() {
   } catch {}
 }
 
-function handlePageChange(page: number) { selectedIds.value = new Set(); loadData(page) }
-function handleSizeChange(size: number) { pageSize.value = size; selectedIds.value = new Set(); loadData(1) }
+function handlePageChange(page: number) {
+  selectedIds.value = new Set()
+  loadData(page)
+  scrollToTopOnMobilePagination()
+}
+
+function handleSizeChange(size: number) {
+  pageSize.value = size
+  selectedIds.value = new Set()
+  loadData(1)
+  scrollToTopOnMobilePagination()
+}
 
 async function loadData(page = 1) {
   if (!userStore.isLoggedIn) { useLoginModal().open(); navigateTo('/'); return }

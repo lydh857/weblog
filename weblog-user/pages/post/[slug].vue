@@ -156,7 +156,7 @@
 
       <!-- 移动端 TOC 按钮 -->
       <button v-if="hasToc" class="toc-fab" @click="tocVisible = !tocVisible" aria-label="目录">
-        <Icon name="heroicons:list-bullet-20-solid" size="22" />
+        <Icon name="heroicons:list-bullet-20-solid" size="20" />
       </button>
 
       <!-- 移动端 TOC 面板 -->
@@ -732,19 +732,30 @@ onUnmounted(() => {
   @media (max-width: 1100px) {
     display: flex;
     position: fixed;
-    right: 1rem;
-    bottom: 1.5rem;
-    width: 44px;
-    height: 44px;
+    right: 40px;
+    bottom: 128px;
+    width: 46px;
+    height: 46px;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: none;
-    background: $color-primary;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.4);
     color: #fff;
-    box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    z-index: 100;
+    z-index: 998;
+    transition: background 0.3s, transform 0.3s;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.6);
+      transform: translateY(-1px);
+    }
+  }
+
+  @media (max-width: 768px) {
+    right: 20px;
+    bottom: 96px;
   }
 }
 .toc-mobile-overlay {

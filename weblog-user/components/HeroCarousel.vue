@@ -612,6 +612,8 @@ function handleStartupDone() {
   position: relative;
   width: 10px;
   height: 10px;
+  min-width: 10px;
+  min-height: 10px;
   border: none;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.4);
@@ -622,6 +624,7 @@ function handleStartupDone() {
 
   &.active {
     width: 36px;
+    min-width: 36px;
     background: rgba(255, 255, 255, 0.3);
   }
 
@@ -686,7 +689,21 @@ function handleStartupDone() {
   }
 
   .carousel-indicators {
-    bottom: 50px;
+    bottom: 36px;
+    gap: 0.35rem;
+  }
+
+  .indicator-dot {
+    width: 7px;
+    height: 7px;
+    min-width: 7px;
+    min-height: 7px;
+    border-radius: 4px;
+
+    &.active {
+      width: 24px;
+      min-width: 24px;
+    }
   }
 }
 
@@ -694,6 +711,23 @@ function handleStartupDone() {
 @media (max-width: 480px) {
   .carousel-particles {
     display: none;
+  }
+
+  .carousel-indicators {
+    bottom: 28px;
+    gap: 0.28rem;
+  }
+
+  .indicator-dot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    min-height: 6px;
+
+    &.active {
+      width: 20px;
+      min-width: 20px;
+    }
   }
 
   .carousel-title {

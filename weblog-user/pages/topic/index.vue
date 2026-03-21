@@ -70,6 +70,7 @@
 
 <script setup lang="ts">
 import { topicApi, type TopicItem } from '~/api/topic'
+import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
 
 useHead({ title: '专题' })
 
@@ -92,6 +93,7 @@ async function fetchTopics() {
 function handlePageChange(page: number) {
   currentPage.value = page
   fetchTopics()
+  if (scrollToTopOnMobilePagination()) return
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -99,6 +101,7 @@ function handleSizeChange(size: number) {
   pageSize.value = size
   currentPage.value = 1
   fetchTopics()
+  scrollToTopOnMobilePagination()
 }
 
 function formatDate(dateStr: string) {

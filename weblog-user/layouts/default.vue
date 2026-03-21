@@ -3,7 +3,7 @@
     <header
       class="navbar"
       :class="{
-        'navbar--transparent': isHomePage && !isScrolled,
+        'navbar--transparent': isNavbarTransparent,
         'navbar--hidden': isNavHidden,
         'navbar--pre-enter': shouldHideNavbarBeforeEnter
       }"
@@ -15,9 +15,8 @@
               src="/brand/logo.png"
               :alt="`${siteName} logo`"
               class="logo-img"
-              width="28"
-              height="28"
-              style="width:28px;height:28px;max-width:28px;display:block;object-fit:cover;"
+              width="34"
+              height="34"
             >
           </span>
           <span class="logo-text">{{ siteName }}</span>
@@ -121,41 +120,59 @@
           </div>
         </div>
         <!-- 移动端菜单按钮 -->
-        <button class="mobile-menu-btn" aria-label="菜单" @click="mobileMenuOpen = !mobileMenuOpen">
+        <button class="mobile-menu-btn" aria-label="菜单" @click="toggleMobileMenu">
           <Icon :name="mobileMenuOpen ? 'heroicons:x-mark-20-solid' : 'heroicons:bars-3-20-solid'" size="24" />
         </button>
       </div>
-      <!-- 移动端菜单 -->
-      <div v-if="mobileMenuOpen" class="mobile-menu" @click="mobileMenuOpen = false">
-        <NuxtLink v-for="item in navLinks" :key="`mobile-${item.to}`" :to="item.to" class="mobile-link">
-          <Icon :name="item.icon" size="16" class="mobile-link__icon" />
-          <span>{{ item.label }}</span>
-        </NuxtLink>
-        <button class="mobile-link" @click="searchModal.open()">
-          <Icon name="heroicons:magnifying-glass-20-solid" size="16" class="mobile-link__icon" />
-          <span>搜索</span>
-        </button>
-        <button class="mobile-link" @click="openAnnouncementCenter">
-          <Icon name="heroicons:bell-20-solid" size="16" class="mobile-link__icon" />
-          <span>公告</span>
-          <span v-if="unreadAnnouncementCount > 0" class="mobile-notice-dot" aria-hidden="true" />
-        </button>
-        <template v-if="showLoggedIn">
-          <NuxtLink to="/user" class="mobile-link">
-            <Icon name="heroicons:user-circle-16-solid" size="16" class="mobile-link__icon" />
-            <span>个人中心</span>
-          </NuxtLink>
-          <button class="mobile-link logout-link" @click="handleLogout">
-            <Icon name="heroicons:arrow-right-start-on-rectangle-16-solid" size="16" class="mobile-link__icon" />
-            <span>退出登录</span>
-          </button>
-        </template>
-        <button v-else class="mobile-link" @click="openLogin">
-          <Icon name="heroicons:user-16-solid" size="16" class="mobile-link__icon" />
-          <span>登录</span>
-        </button>
-      </div>
     </header>
+    <Transition name="mobile-drawer-fade">
+      <div v-if="mobileMenuOpen" class="mobile-drawer-backdrop" aria-hidden="true" @click="closeMobileMenu" />
+    </Transition>
+    <Transition name="mobile-drawer-slide">
+      <aside v-if="mobileMenuOpen" class="mobile-drawer" aria-label="移动端导航抽屉">
+        <div class="mobile-drawer__header">
+          <span class="mobile-drawer__title">导航菜单</span>
+          <button class="mobile-drawer__close" type="button" aria-label="关闭菜单" @click="closeMobileMenu">
+            <Icon name="heroicons:x-mark-20-solid" size="22" />
+          </button>
+        </div>
+        <div class="mobile-menu">
+          <NuxtLink
+            v-for="item in navLinks"
+            :key="`mobile-${item.to}`"
+            :to="item.to"
+            class="mobile-link"
+            @click="closeMobileMenu"
+          >
+            <Icon :name="item.icon" size="16" class="mobile-link__icon" />
+            <span>{{ item.label }}</span>
+          </NuxtLink>
+          <button class="mobile-link" @click="goSearch">
+            <Icon name="heroicons:magnifying-glass-20-solid" size="16" class="mobile-link__icon" />
+            <span>搜索</span>
+          </button>
+          <button class="mobile-link" @click="openAnnouncementCenter">
+            <Icon name="heroicons:bell-20-solid" size="16" class="mobile-link__icon" />
+            <span>公告</span>
+            <span v-if="unreadAnnouncementCount > 0" class="mobile-notice-dot" aria-hidden="true" />
+          </button>
+          <template v-if="showLoggedIn">
+            <NuxtLink to="/user" class="mobile-link" @click="closeMobileMenu">
+              <Icon name="heroicons:user-circle-16-solid" size="16" class="mobile-link__icon" />
+              <span>个人中心</span>
+            </NuxtLink>
+            <button class="mobile-link logout-link" @click="handleLogout">
+              <Icon name="heroicons:arrow-right-start-on-rectangle-16-solid" size="16" class="mobile-link__icon" />
+              <span>退出登录</span>
+            </button>
+          </template>
+          <button v-else class="mobile-link" @click="openLogin">
+            <Icon name="heroicons:user-16-solid" size="16" class="mobile-link__icon" />
+            <span>登录</span>
+          </button>
+        </div>
+      </aside>
+    </Transition>
     <!-- 搜索模态框 -->
     <SearchModal v-model:visible="searchModal.isVisible.value" />
     <AnnouncementCenter
@@ -209,9 +226,11 @@ const isScrolled = ref(false)
 const isNavHidden = ref(false)
 const lastScrollY = ref(0)
 const isHomePage = computed(() => route.path === '/')
+const isNavbarTransparent = computed(() => (isHomePage.value && !isScrolled.value) || forceHomeNavbarTransparent.value)
 const globalLeftAdVisible = ref(false)
 let leftAdHeroObserver: IntersectionObserver | null = null
 let leftAdHeroRetryTimer: ReturnType<typeof setTimeout> | null = null
+let forceHomeNavbarTimer: ReturnType<typeof setTimeout> | null = null
 let leftAdHeroRetryCount = 0
 const LEFT_AD_HERO_RETRY_MAX = 30
 
@@ -257,6 +276,8 @@ const shouldAnimate = ref(false)
 const shouldHideNavbarBeforeEnter = ref(false)
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const isStartupDone = ref(false)
+const NAV_MOBILE_BREAKPOINT = 768
+const forceHomeNavbarTransparent = ref(false)
 
 function hasStartupDone() {
   if (!import.meta.client) {
@@ -269,9 +290,11 @@ function hasStartupDone() {
 
 function triggerHomeNavEnterAnimation() {
   shouldAnimate.value = false
-  shouldHideNavbarBeforeEnter.value = true
 
   if (!import.meta.client) return
+
+  const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
+  shouldHideNavbarBeforeEnter.value = !isMobileViewport
 
   nextTick(() => {
     requestAnimationFrame(() => {
@@ -351,10 +374,37 @@ watch([isHomePage, isStartupDone], ([home, startupDone]) => {
   }
 }, { immediate: true })
 
-watch(() => route.path, () => {
+watch(() => route.path, (path, oldPath) => {
   if (!import.meta.client) return
+
+  const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
+  const isEnterHomeOnMobile = path === '/' && oldPath && oldPath !== '/' && isMobileViewport
+
+  if (isEnterHomeOnMobile) {
+    forceHomeNavbarTransparent.value = true
+    isScrolled.value = false
+    isNavHidden.value = false
+    lastScrollY.value = 0
+    window.scrollTo({ top: 0, behavior: 'auto' })
+
+    if (forceHomeNavbarTimer) {
+      clearTimeout(forceHomeNavbarTimer)
+      forceHomeNavbarTimer = null
+    }
+
+    forceHomeNavbarTimer = setTimeout(() => {
+      forceHomeNavbarTransparent.value = false
+      forceHomeNavbarTimer = null
+      handleScroll()
+    }, 240)
+  }
+
   nextTick(() => {
+    handleScroll()
     refreshGlobalLeftAdVisibility()
+    requestAnimationFrame(() => {
+      handleScroll()
+    })
   })
 }, { immediate: true })
 
@@ -378,6 +428,13 @@ function handleScroll() {
   lastScrollY.value = scrollY
 }
 
+function handleWindowResize() {
+  if (!import.meta.client) return
+  if (window.innerWidth > 768) {
+    closeMobileMenu()
+  }
+}
+
 onMounted(() => {
   isStartupDone.value = hasStartupDone()
   if (!isStartupDone.value) {
@@ -385,6 +442,7 @@ onMounted(() => {
   }
 
   window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('resize', handleWindowResize, { passive: true })
   handleScroll()
   refreshGlobalLeftAdVisibility()
   void loadHomeNavRanking()
@@ -393,6 +451,11 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', handleWindowResize)
+  if (forceHomeNavbarTimer) {
+    clearTimeout(forceHomeNavbarTimer)
+    forceHomeNavbarTimer = null
+  }
   clearLeftAdHeroWatchers()
 })
 
@@ -470,6 +533,12 @@ const displayNickname = computed(() => {
 
 watch(() => route.fullPath, () => {
   closeUserMenu()
+  closeMobileMenu()
+})
+
+watch(mobileMenuOpen, (open) => {
+  if (!import.meta.client) return
+  document.body.style.overflow = open ? 'hidden' : ''
 })
 
 watch(showLoggedIn, (val) => {
@@ -484,12 +553,21 @@ function onAvatarError() {
   avatarLoadFailed.value = true
 }
 
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
+
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
 function goSearch() {
+  closeMobileMenu()
   searchModal.open()
 }
 
 function openAnnouncementCenter() {
-  mobileMenuOpen.value = false
+  closeMobileMenu()
   announcementCenterVisible.value = true
 }
 
@@ -498,10 +576,12 @@ function handleAnnouncementUnreadChange(count: number) {
 }
 
 function openLogin() {
+  closeMobileMenu()
   loginModal.open()
 }
 
 async function handleLogout() {
+  closeMobileMenu()
   const ok = await confirm({ title: '退出登录', message: '确定要退出登录吗？', type: 'warning', confirmText: '退出' })
   if (!ok) return
 
@@ -523,6 +603,11 @@ async function handleLogout() {
     await navigateTo('/')
   }
 }
+
+onUnmounted(() => {
+  if (!import.meta.client) return
+  document.body.style.overflow = ''
+})
 </script>
 
 <style lang="scss">
@@ -603,6 +688,12 @@ async function handleLogout() {
   }
 }
 
+@media (max-width: $breakpoint-md) {
+  .navbar {
+    transition: transform 0.3s ease, opacity 0.24s ease;
+  }
+}
+
 .nav-inner {
   max-width: var(--layout-max-width);
   margin: 0 auto;
@@ -621,24 +712,24 @@ async function handleLogout() {
   margin-left: auto;
 
   @media (max-width: $breakpoint-md) {
-    margin-left: 0;
+    display: none;
   }
 }
 
-/* ===== Logo 艺术字体（通过 nuxt.config.ts head 预加载） ===== */
+/* ===== Logo 样式 ===== */
 
 .nav-logo {
   text-decoration: none;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
+  gap: 0.52rem;
 }
 
 .logo-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   overflow: hidden;
   display: inline-flex;
   align-items: center;
@@ -653,11 +744,22 @@ async function handleLogout() {
 }
 
 .logo-text {
-  font-family: 'Pacifico', cursive;
-  font-size: 1.6rem;
+  font-family: inherit;
+  font-size: 1.2rem;
+  font-weight: 800;
   color: $color-primary;
-  letter-spacing: 1px;
+  letter-spacing: 0.02em;
+  line-height: 1;
   transition: color 0.2s;
+}
+
+@media (max-width: $breakpoint-md) {
+  .nav-logo { gap: 0.4rem; }
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
 }
 
 
@@ -878,13 +980,78 @@ async function handleLogout() {
   @media (max-width: $breakpoint-md) { display: flex; }
 }
 
-.mobile-menu {
-  display: none;
+.mobile-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-modal) + 11);
+  width: min(82vw, 320px);
+  background: rgba(255, 255, 255, 0.98);
+  border-left: 1px solid $color-border;
+  box-shadow: -8px 0 28px rgba(15, 23, 42, 0.2);
+  display: flex;
   flex-direction: column;
-  padding: 0.5rem 1.5rem 1rem;
-  border-top: 1px solid $color-border;
-  .dark & { border-top-color: $color-dark-border; }
-  @media (max-width: $breakpoint-md) { display: flex; }
+
+  .dark & {
+    background: rgba(15, 23, 42, 0.98);
+    border-left-color: $color-dark-border;
+  }
+
+  @media (min-width: calc(#{$breakpoint-md} + 1px)) {
+    display: none;
+  }
+}
+
+.mobile-drawer__header {
+  min-height: 60px;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.9rem 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid $color-border;
+
+  .dark & {
+    border-bottom-color: $color-dark-border;
+  }
+}
+
+.mobile-drawer__title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: $color-text;
+
+  .dark & {
+    color: $color-dark-text;
+  }
+}
+
+.mobile-drawer__close {
+  border: none;
+  background: none;
+  color: $color-text-muted;
+  padding: 0.35rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+
+  .dark & {
+    color: #94a3b8;
+  }
+}
+
+.mobile-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 1rem max(1rem, env(safe-area-inset-bottom));
+  overflow-y: auto;
 }
 
 .mobile-link {
@@ -905,6 +1072,26 @@ async function handleLogout() {
   .dark & { color: $color-dark-text; border-bottom-color: $color-dark-border; }
   &:last-child { border-bottom: none; }
   &.logout-link { color: #ef4444; }
+}
+
+.mobile-drawer-fade-enter-active,
+.mobile-drawer-fade-leave-active {
+  transition: opacity 220ms ease;
+}
+
+.mobile-drawer-fade-enter-from,
+.mobile-drawer-fade-leave-to {
+  opacity: 0;
+}
+
+.mobile-drawer-slide-enter-active,
+.mobile-drawer-slide-leave-active {
+  transition: transform 260ms ease;
+}
+
+.mobile-drawer-slide-enter-from,
+.mobile-drawer-slide-leave-to {
+  transform: translateX(100%);
 }
 
 .mobile-link__icon {

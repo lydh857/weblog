@@ -1,5 +1,19 @@
 <template>
   <div ref="filterRef" class="category-filter">
+    <!-- 移动端筛选入口（参考案例） -->
+    <div ref="filterToggleContainerRef" class="filter-toggle-container mobile-only">
+      <button class="filter-toggle-btn" @click="openDrawer">
+        <Icon name="heroicons:funnel-20-solid" size="16" />
+        筛选
+      </button>
+      <div class="active-filters" aria-live="polite">
+        <span v-if="activeFilterSummary.parent" class="active-filter-tag">{{ activeFilterSummary.parent }}</span>
+        <span v-if="activeFilterSummary.child" class="active-filter-tag">{{ activeFilterSummary.child }}</span>
+        <span v-if="activeFilterSummary.tag" class="active-filter-tag">{{ activeFilterSummary.tag }}</span>
+        <span v-if="activeFilterSummary.sort" class="active-filter-tag">{{ activeFilterSummary.sort }}</span>
+      </div>
+    </div>
+
     <!-- 桌面端筛选面板 -->
     <div class="filter-panel desktop-filter">
       <!-- 一级分类 -->
@@ -120,11 +134,11 @@
     <!-- 移动端筛选抽屉 -->
     <Teleport to="body">
       <Transition name="drawer">
-        <div v-if="drawerVisible" class="filter-drawer-overlay" @click.self="drawerVisible = false">
+        <div v-if="drawerVisible" class="filter-drawer-overlay" @click.self="closeDrawer">
           <div class="filter-drawer">
             <div class="drawer-header">
               <span class="drawer-title">筛选条件</span>
-              <button class="drawer-close" @click="drawerVisible = false">
+              <button class="drawer-close" @click="closeDrawer">
                 <Icon name="heroicons:x-mark-16-solid" size="20" />
               </button>
             </div>
@@ -232,7 +246,7 @@
               </div>
             </div>
             <div class="drawer-footer">
-              <button class="drawer-confirm" @click="drawerVisible = false">确定</button>
+              <button class="drawer-confirm" @click="closeDrawer">确定</button>
             </div>
           </div>
         </div>
@@ -242,7 +256,7 @@
     <!-- 浮动筛选按钮 + 弹出面板（筛选面板离开视口后显示） -->
     <Teleport to="body">
       <Transition name="fab">
-        <div v-if="showFab" class="float-filter-widget">
+        <div v-if="showFab && !isMobile" class="float-filter-widget">
           <!-- 浮动按钮：筛选/关闭切换 -->
           <button class="float-filter-btn" @click="floatPanelOpen = !floatPanelOpen">
             <Icon :name="floatPanelOpen ? 'heroicons:x-mark-20-solid' : 'heroicons:funnel-20-solid'" size="20" />
@@ -357,6 +371,20 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 移动端固定筛选按钮（参考案例） -->
+    <Teleport to="body">
+      <Transition name="fab">
+        <button
+          v-if="showFab && isMobile && !drawerVisible"
+          class="category-filter-fixed-btn"
+          aria-label="打开筛选器"
+          @click="openDrawer"
+        >
+          <Icon name="heroicons:funnel-20-solid" size="20" />
+        </button>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -394,14 +422,41 @@ const emit = defineEmits<{
 /** 移动端抽屉可见状态 */
 const drawerVisible = ref(false)
 
+/** 当前是否移动端 */
+const isMobile = ref(false)
+
 /** 筛选面板 DOM 引用 */
 const filterRef = ref<HTMLElement | null>(null)
+
+/** 移动端筛选入口容器 */
+const filterToggleContainerRef = ref<HTMLElement | null>(null)
 
 /** 悬浮按钮显示状态 */
 const showFab = ref(false)
 
 /** 浮动筛选面板展开状态 */
 const floatPanelOpen = ref(false)
+
+let ticking = false
+
+const sortLabelMap: Record<Props['sortBy'], string> = {
+  recommended: '推荐',
+  latest: '最新',
+  hottest: '最热',
+}
+
+const activeFilterSummary = computed(() => {
+  const parent = props.categories.find(item => item.id === props.selectedCategoryId)?.name || ''
+  const child = subCategories.value.find(item => item.id === props.selectedSubCategoryId)?.name || ''
+  const tag = props.tags.find(item => item.id === props.selectedTagId)?.name || ''
+  const sort = props.sortBy !== 'recommended' ? sortLabelMap[props.sortBy] : ''
+  return {
+    parent,
+    child,
+    tag,
+    sort,
+  }
+})
 
 /**
  * 根据选中的一级分类，计算二级分类列表
@@ -447,28 +502,62 @@ function handleSubCategoryChange(id: number | null) {
   emit('update:selectedSubCategoryId', id)
 }
 
+function openDrawer() {
+  drawerVisible.value = true
+  floatPanelOpen.value = false
+}
+
+function closeDrawer() {
+  drawerVisible.value = false
+}
+
+function syncMobileState() {
+  if (!import.meta.client) return
+  isMobile.value = window.innerWidth <= 768
+}
+
 /** 筛选面板回到视口时，自动关闭浮动面板 */
 watch(showFab, (val) => {
-  if (!val) floatPanelOpen.value = false
+  if (!val || isMobile.value) floatPanelOpen.value = false
+})
+
+watch(drawerVisible, (visible) => {
+  if (!import.meta.client) return
+  document.body.style.overflow = visible ? 'hidden' : ''
 })
 
 /** 监听滚动，判断筛选面板是否滚出视口 */
-onMounted(() => {
-  let ticking = false
-  const handleScroll = () => {
-    if (ticking) return
-    ticking = true
-    requestAnimationFrame(() => {
-      if (filterRef.value) {
-        showFab.value = filterRef.value.getBoundingClientRect().bottom < 0
-      }
-      ticking = false
-    })
-  }
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  onUnmounted(() => {
-    window.removeEventListener('scroll', handleScroll)
+const handleScroll = () => {
+  if (!import.meta.client || ticking) return
+  ticking = true
+  requestAnimationFrame(() => {
+    const target = isMobile.value ? filterToggleContainerRef.value : filterRef.value
+    if (target) {
+      showFab.value = target.getBoundingClientRect().bottom <= 0
+    }
+    ticking = false
   })
+}
+
+const handleResize = () => {
+  syncMobileState()
+  handleScroll()
+  if (!isMobile.value) {
+    closeDrawer()
+  }
+}
+
+onMounted(() => {
+  syncMobileState()
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('resize', handleResize, { passive: true })
+  handleScroll()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', handleResize)
+  document.body.style.overflow = ''
 })
 </script>
 
@@ -484,6 +573,73 @@ onMounted(() => {
   .dark & {
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
+  }
+}
+
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.filter-toggle-container {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid $color-border;
+  border-radius: 0.5rem;
+  background: $color-bg;
+  color: $color-text-muted;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+    color: #cbd5e1;
+  }
+}
+
+.active-filters {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+  justify-content: flex-end;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.active-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  max-width: 110px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .dark & {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
   }
 }
 
@@ -618,7 +774,25 @@ onMounted(() => {
 
 /* ===== 移动端隐藏桌面筛选面板 ===== */
 @media (max-width: $breakpoint-md) {
+  .desktop-only,
   .desktop-filter {
+    display: none;
+  }
+
+  .mobile-only,
+  .filter-toggle-container {
+    display: flex;
+  }
+
+  .active-filters {
+    max-width: 72%;
+  }
+
+  .active-filter-tag {
+    max-width: 86px;
+  }
+
+  .float-filter-widget {
     display: none;
   }
 }
@@ -627,19 +801,21 @@ onMounted(() => {
 .filter-drawer-overlay {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  z-index: calc(var(--z-modal) + 20);
+  background: rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(2px);
 }
 
 .filter-drawer {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  max-height: 80vh;
+  height: 86dvh;
+  max-height: 86dvh;
   background: $color-bg;
-  border-radius: 0 0 $radius-lg $radius-lg;
+  border-radius: 0 0 1rem 1rem;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -649,11 +825,19 @@ onMounted(() => {
   }
 }
 
+@supports not (height: 1dvh) {
+  .filter-drawer {
+    height: 86vh;
+    max-height: 86vh;
+  }
+}
+
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md $spacing-lg;
+  min-height: 56px;
+  padding: max(0.8rem, env(safe-area-inset-top)) 1rem 0.7rem;
   border-bottom: 1px solid $color-border;
 
   .dark & {
@@ -662,8 +846,8 @@ onMounted(() => {
 }
 
 .drawer-title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: $color-text;
 
   .dark & {
@@ -675,10 +859,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: none;
-  border-radius: 50%;
+  border-radius: 0.55rem;
   background: transparent;
   color: $color-text-muted;
   cursor: pointer;
@@ -699,14 +883,26 @@ onMounted(() => {
 .drawer-body {
   flex: 1;
   overflow-y: auto;
-  padding: $spacing-md $spacing-lg;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  padding: 0.5rem 1rem;
 }
 
 .drawer-section {
-  margin-bottom: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid $color-border;
+
+  .dark & {
+    border-bottom-color: $color-dark-border;
+  }
 
   &:last-child {
-    margin-bottom: 0;
+    border-bottom: none;
   }
 }
 
@@ -714,10 +910,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: $color-text-muted;
-  margin-bottom: $spacing-sm;
+  margin-bottom: 0;
 
   .icon {
     color: $color-primary;
@@ -731,11 +927,24 @@ onMounted(() => {
 .drawer-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: $spacing-xs;
+  gap: 0.35rem;
+}
+
+.drawer-body .filter-btn {
+  min-height: 28px;
+  padding: 0.22rem 0.58rem;
+  border-radius: 0.45rem;
+  font-size: 0.75rem;
+}
+
+.drawer-body .badge {
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.64rem;
 }
 
 .drawer-footer {
-  padding: $spacing-md $spacing-lg;
+  padding: 0.8rem 1rem max(0.8rem, env(safe-area-inset-bottom));
   border-top: 1px solid $color-border;
 
   .dark & {
@@ -745,13 +954,13 @@ onMounted(() => {
 
 .drawer-confirm {
   width: 100%;
-  padding: 0.6rem;
+  height: 38px;
   border: none;
-  border-radius: $radius-md;
+  border-radius: 0.55rem;
   background: $color-primary;
   color: #fff;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.84rem;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
 
@@ -765,7 +974,31 @@ onMounted(() => {
   position: fixed;
   right: 2rem;
   bottom: 200px;
-  z-index: 900;
+  z-index: 980;
+}
+
+.category-filter-fixed-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 100px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 998;
+  transition: background 0.2s, transform 0.2s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.62);
+    transform: scale(1.04);
+  }
 }
 
 .float-filter-btn {

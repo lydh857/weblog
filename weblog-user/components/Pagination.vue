@@ -1,14 +1,16 @@
 <template>
   <div v-if="totalPages > 1" class="pagination">
     <!-- 总条数 & 页码信息 -->
-    <span class="pagination-info">共{{ total }}条</span>
-    <span class="pagination-sep">|</span>
-    <span class="pagination-info">{{ currentPage }}/{{ totalPages }}</span>
+    <div class="pagination-meta">
+      <span class="pagination-info">{{ totalLabel }}</span>
+      <span v-if="!isUltraCompact" class="pagination-sep">|</span>
+      <span class="pagination-info">{{ currentPage }}/{{ totalPages }}</span>
+    </div>
 
     <!-- 每页条数选择 -->
     <div class="page-size-selector">
       <button ref="sizeTriggerRef" class="size-trigger" @click="sizeDropdownOpen = !sizeDropdownOpen" @blur="closeSizeDropdown">
-        {{ pageSize }}条/页
+        {{ pageSizeLabel }}
         <svg class="size-arrow" :class="{ open: sizeDropdownOpen }" viewBox="0 0 24 24" width="12" height="12">
           <path fill="currentColor" d="M7 10l5 5 5-5z" />
         </svg>
@@ -29,31 +31,39 @@
       </Teleport>
     </div>
 
-    <!-- 上一页 -->
-    <button class="page-btn nav-btn" :disabled="currentPage <= 1" title="上一页" @click="changePage(currentPage - 1)">
-      <Icon name="heroicons:chevron-left-16-solid" size="16" />
-    </button>
+    <div class="pagination-controls">
+      <!-- 上一页 -->
+      <button class="page-btn nav-btn" :disabled="currentPage <= 1" title="上一页" @click="changePage(currentPage - 1)">
+        <Icon name="heroicons:chevron-left-16-solid" :size="navIconSize" />
+      </button>
 
-    <!-- 页码列表 -->
-    <div class="page-list">
-      <template v-for="(item, idx) in displayedPages" :key="idx">
-        <!-- 省略号 -->
-        <div
-          v-if="typeof item === 'object'"
-          class="page-ellipsis"
-          @mouseenter="openEllipsis(idx, $event, item.pages)"
-          @mouseleave="onEllipsisLeave"
-        >
-          <span>...</span>
-        </div>
-        <!-- 普通页码 -->
-        <button
-          v-else
-          class="page-btn"
-          :class="{ active: item === currentPage }"
-          @click="changePage(item)"
-        >{{ item }}</button>
-      </template>
+      <!-- 页码列表 -->
+      <div class="page-list">
+        <template v-for="(item, idx) in displayedPages" :key="idx">
+          <!-- 省略号 -->
+          <div
+            v-if="typeof item === 'object'"
+            class="page-ellipsis"
+            @click="toggleEllipsis($event, item.pages)"
+            @mouseenter="openEllipsis($event, item.pages)"
+            @mouseleave="onEllipsisLeave"
+          >
+            <span>...</span>
+          </div>
+          <!-- 普通页码 -->
+          <button
+            v-else
+            class="page-btn"
+            :class="{ active: item === currentPage }"
+            @click="changePage(item)"
+          >{{ item }}</button>
+        </template>
+      </div>
+
+      <!-- 下一页 -->
+      <button class="page-btn nav-btn" :disabled="currentPage >= totalPages" title="下一页" @click="changePage(currentPage + 1)">
+        <Icon name="heroicons:chevron-right-16-solid" :size="navIconSize" />
+      </button>
     </div>
 
     <!-- 省略号悬浮弹窗 -->
@@ -75,11 +85,6 @@
         </div>
       </Transition>
     </Teleport>
-
-    <!-- 下一页 -->
-    <button class="page-btn nav-btn" :disabled="currentPage >= totalPages" title="下一页" @click="changePage(currentPage + 1)">
-      <Icon name="heroicons:chevron-right-16-solid" size="16" />
-    </button>
 
     <!-- 跳转 -->
     <div class="page-jump">
@@ -115,6 +120,14 @@ const emit = defineEmits<{
   'update:pageSize': [size: number]
 }>()
 
+type CompactMode = 'normal' | 'compact' | 'ultra'
+
+const compactMode = ref<CompactMode>('normal')
+const isUltraCompact = computed(() => compactMode.value === 'ultra')
+const totalLabel = computed(() => (isUltraCompact.value ? `${props.total}条` : `共${props.total}条`))
+const pageSizeLabel = computed(() => (isUltraCompact.value ? `${props.pageSize}/页` : `${props.pageSize}条/页`))
+const navIconSize = computed(() => (isUltraCompact.value ? '14' : '16'))
+
 const totalPages = computed(() => {
   if (props.pageCount && props.pageCount > 0) {
     return props.pageCount
@@ -129,8 +142,8 @@ type PageItem = number | EllipsisItem
 const displayedPages = computed<PageItem[]>(() => {
   const t = totalPages.value
   const c = props.currentPage
-  const MAX = 7
-  const SIDE = 2
+  const MAX = compactMode.value === 'ultra' ? 3 : (compactMode.value === 'compact' ? 5 : 7)
+  const SIDE = compactMode.value === 'ultra' ? 0 : (compactMode.value === 'compact' ? 1 : 2)
 
   if (t <= MAX) return Array.from({ length: t }, (_, i) => i + 1)
 
@@ -197,7 +210,7 @@ let ellipsisHover = false
 const ellipsisDropdownHover = ref(false)
 let ellipsisTimer: ReturnType<typeof setTimeout> | null = null
 
-function openEllipsis(idx: number, e: MouseEvent, pages: number[]) {
+function openEllipsis(e: MouseEvent, pages: number[]) {
   if (ellipsisTimer) { clearTimeout(ellipsisTimer); ellipsisTimer = null }
   ellipsisHover = true
   ellipsisPages.value = pages
@@ -232,6 +245,21 @@ function handleEllipsisClick(page: number) {
   changePage(page)
 }
 
+function toggleEllipsis(e: MouseEvent, pages: number[]) {
+  if (
+    ellipsisPages.value.length === pages.length
+    && ellipsisPages.value.every((p, index) => p === pages[index])
+  ) {
+    ellipsisPages.value = []
+    ellipsisHover = false
+    ellipsisDropdownHover.value = false
+    return
+  }
+
+  openEllipsis(e, pages)
+  ellipsisDropdownHover.value = true
+}
+
 // ===== 跳转 =====
 const jumpInput = ref('')
 function onJumpInput(e: Event) {
@@ -245,8 +273,35 @@ function handleJump() {
   jumpInput.value = ''
 }
 
+function syncCompactMode() {
+  if (!import.meta.client) return
+  const width = window.innerWidth
+
+  if (width <= 360) {
+    compactMode.value = 'ultra'
+    return
+  }
+
+  if (width <= 640) {
+    compactMode.value = 'compact'
+    return
+  }
+
+  compactMode.value = 'normal'
+}
+
+onMounted(() => {
+  syncCompactMode()
+  if (import.meta.client) {
+    window.addEventListener('resize', syncCompactMode, { passive: true })
+  }
+})
+
 onUnmounted(() => {
   if (ellipsisTimer) clearTimeout(ellipsisTimer)
+  if (import.meta.client) {
+    window.removeEventListener('resize', syncCompactMode)
+  }
 })
 </script>
 
@@ -274,7 +329,21 @@ onUnmounted(() => {
 .pagination-info {
   font-size: 0.8rem;
   color: $color-text-muted;
+  white-space: nowrap;
   .dark & { color: #64748b; }
+}
+
+.pagination-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .pagination-sep {
@@ -537,20 +606,49 @@ onUnmounted(() => {
 /* 响应式 */
 @media (max-width: 640px) {
   .pagination {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
     width: 100%;
-    gap: 0.375rem;
-    padding: 0.5rem;
+    gap: 0.5rem;
+    padding: 0.6rem;
+    border-radius: $radius-md;
+  }
+
+  .pagination-meta {
+    order: 1;
+    gap: 0.3rem;
+    overflow: hidden;
+  }
+
+  .page-size-selector {
+    order: 2;
+    margin: 0;
+    justify-self: end;
+  }
+
+  .pagination-controls {
+    order: 3;
+    grid-column: 1 / -1;
+    justify-content: center;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .page-list {
+    gap: 0.2rem;
   }
 
   .page-btn {
-    min-width: 32px;
-    height: 32px;
+    min-width: 34px;
+    height: 34px;
+    font-size: 0.8rem;
+    border-radius: 10px;
   }
 
   .page-ellipsis {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
   }
 
   .page-jump {
@@ -560,6 +658,153 @@ onUnmounted(() => {
   .pagination-info,
   .pagination-sep {
     font-size: 0.75rem;
+  }
+
+  .size-trigger {
+    height: 32px;
+    padding: 0 0.45rem;
+    border-radius: 9px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .pagination {
+    gap: 0.45rem;
+    padding: 0.55rem 0.5rem;
+  }
+
+  .pagination-meta {
+    gap: 0.24rem;
+  }
+
+  .pagination-info,
+  .pagination-sep {
+    font-size: 0.72rem;
+  }
+
+  .pagination-controls {
+    gap: 0.2rem;
+  }
+
+  .page-list {
+    gap: 0.16rem;
+  }
+
+  .page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 0.2rem;
+    font-size: 0.76rem;
+  }
+
+  .page-ellipsis {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .size-trigger {
+    height: 30px;
+    padding: 0 0.4rem;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .pagination {
+    gap: 0.4rem;
+    padding: 0.5rem 0.45rem;
+  }
+
+  .pagination-meta {
+    gap: 0.2rem;
+  }
+
+  .pagination-controls {
+    gap: 0.16rem;
+  }
+
+  .page-list {
+    gap: 0.12rem;
+  }
+
+  .page-btn {
+    min-width: 31px;
+    height: 31px;
+    font-size: 0.74rem;
+    border-radius: 9px;
+  }
+
+  .page-ellipsis {
+    width: 31px;
+    height: 31px;
+    font-size: 0.74rem;
+  }
+
+  .size-trigger {
+    height: 29px;
+    padding: 0 0.36rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .pagination {
+    gap: 0.34rem;
+    padding: 0.48rem 0.4rem;
+  }
+
+  .pagination-info:first-child {
+    max-width: 3.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pagination-controls {
+    gap: 0.14rem;
+  }
+
+  .page-btn {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 0.15rem;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+
+  .page-ellipsis {
+    width: 30px;
+    height: 30px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 640px) {
+  .pagination .page-btn,
+  .pagination .page-ellipsis,
+  .pagination .size-trigger {
+    min-width: 34px;
+    min-height: 34px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 430px) {
+  .pagination .page-btn,
+  .pagination .page-ellipsis,
+  .pagination .size-trigger {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 360px) {
+  .pagination .page-btn,
+  .pagination .page-ellipsis,
+  .pagination .size-trigger {
+    min-width: 30px;
+    min-height: 30px;
   }
 }
 </style>

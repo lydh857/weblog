@@ -3,14 +3,11 @@ export default defineNuxtConfig({
   // SSR 模式
   ssr: true,
 
-  // 预加载 Google Fonts，避免 FOUT
+  // 站点全局 head
   app: {
     head: {
       link: [
         { rel: 'icon', type: 'image/png', href: '/brand/logo.png' },
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Pacifico&display=block' },
       ],
     },
   },

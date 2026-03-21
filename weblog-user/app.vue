@@ -15,7 +15,6 @@
       aria-label="页面加载中"
     >
       <StartupCubeLoader />
-      <p class="startup-text">正在加载页面...</p>
     </div>
   </Transition>
   <MessageContainer />
@@ -97,18 +96,6 @@ useLazyImages()
     radial-gradient(circle at 20% 16%, rgba(91, 141, 239, 0.24), transparent 42%),
     radial-gradient(circle at 82% 22%, rgba(91, 141, 239, 0.18), transparent 46%),
     #0f1728;
-}
-
-.startup-text {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  color: #4e6ea8;
-}
-
-:global(html.dark) .startup-text {
-  color: #aac5f7;
 }
 
 .startup-fade-enter-active,
