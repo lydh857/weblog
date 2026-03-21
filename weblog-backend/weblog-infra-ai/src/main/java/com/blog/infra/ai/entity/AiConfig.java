@@ -35,9 +35,6 @@ public class AiConfig implements Serializable {
   /** 对话模型名称 */
   private String model;
 
-  /** Embedding 模型名称 */
-  private String embeddingModel;
-
   // ===== 运行时参数（修改后立即生效） =====
 
   /** 单次最大 token 数 */
@@ -59,9 +56,6 @@ public class AiConfig implements Serializable {
 
   /** 评论审核开关 */
   private Boolean featureCommentReview;
-
-  /** 语义推荐开关 */
-  private Boolean featureRecommend;
 
   /** AI 问答开关 */
   private Boolean featureChat;

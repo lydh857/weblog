@@ -157,7 +157,6 @@ public class AdminAiController {
     vo.setApiKey(maskApiKey(aiProperties.getApiKey()));
     vo.setBaseUrl(aiProperties.getBaseUrl());
     vo.setModel(aiProperties.getModel());
-    vo.setEmbeddingModel(aiProperties.getEmbeddingModel());
     // 运行时参数（来自 AiProperties 内存缓存，DB 加载）
     vo.setMaxTokens(aiProperties.getMaxTokens());
     vo.setTimeout(aiProperties.getTimeout());
@@ -168,7 +167,6 @@ public class AdminAiController {
     features.setWriting(ft.isWriting());
     features.setMeta(ft.isMeta());
     features.setCommentReview(ft.isCommentReview());
-    features.setRecommend(ft.isRecommend());
     features.setChat(ft.isChat());
     vo.setFeatures(features);
 
@@ -189,7 +187,6 @@ public class AdminAiController {
     config.setApiKey(apiKey != null && apiKey.contains("****") ? null : apiKey);
     config.setBaseUrl(req.getBaseUrl());
     config.setModel(req.getModel());
-    config.setEmbeddingModel(req.getEmbeddingModel());
     config.setMaxTokens(req.getMaxTokens());
     config.setTimeout(req.getTimeout());
     config.setMonthlyTokenLimit(req.getMonthlyTokenLimit());
@@ -198,7 +195,6 @@ public class AdminAiController {
       config.setFeatureWriting(f.getWriting());
       config.setFeatureMeta(f.getMeta());
       config.setFeatureCommentReview(f.getCommentReview());
-      config.setFeatureRecommend(f.getRecommend());
       config.setFeatureChat(f.getChat());
     }
 

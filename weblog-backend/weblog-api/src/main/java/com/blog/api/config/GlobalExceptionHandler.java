@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器
@@ -63,6 +64,13 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .orElse("参数绑定失败");
         return Result.fail(400, message);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result<Void> handleNoResourceFoundException(NoResourceFoundException e) {
+        log.warn("静态资源不存在: {}", e.getResourcePath());
+        return Result.fail(404, "资源不存在");
     }
 
     @ExceptionHandler(Exception.class)

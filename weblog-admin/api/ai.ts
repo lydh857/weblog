@@ -77,7 +77,6 @@ export interface AiConfig {
   apiKey: string
   baseUrl: string
   model: string
-  embeddingModel: string
   maxTokens: number
   timeout: number
   monthlyTokenLimit: number
@@ -88,7 +87,6 @@ export interface FeatureToggle {
   writing: boolean
   meta: boolean
   commentReview: boolean
-  recommend: boolean
   chat: boolean
 }
 
@@ -98,7 +96,6 @@ export interface AiConfigUpdate {
   apiKey?: string
   baseUrl?: string
   model?: string
-  embeddingModel?: string
   maxTokens?: number
   timeout?: number
   monthlyTokenLimit?: number

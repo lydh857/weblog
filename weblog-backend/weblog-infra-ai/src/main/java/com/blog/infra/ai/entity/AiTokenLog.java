@@ -13,7 +13,7 @@ import lombok.EqualsAndHashCode;
 @TableName("t_ai_token_log")
 public class AiTokenLog extends BaseEntityNoDelete {
 
-    /** 功能标识（writing/meta/review/chat/recommend） */
+    /** 功能标识（writing/meta/review/chat） */
     private String feature;
 
     /** 输入 token 数 */

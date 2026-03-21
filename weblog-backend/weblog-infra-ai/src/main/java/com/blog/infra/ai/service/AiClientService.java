@@ -9,13 +9,8 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.document.MetadataMode;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.OpenAiEmbeddingModel;
-import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -32,7 +27,7 @@ import java.util.function.Consumer;
 /**
  * AI 客户端封装
  * <p>
- * ChatModel 和 EmbeddingModel 支持运行时热重载：
+ * ChatModel 支持运行时热重载：
  * 启动时通过 Spring 自动注入（可能为 null），后续可通过 reconfigure() 动态创建。
  * 使用 volatile 保证多线程可见性。
  */
@@ -41,7 +36,6 @@ import java.util.function.Consumer;
 public class AiClientService {
 
   private volatile ChatModel chatModel;
-  private volatile EmbeddingModel embeddingModel;
   private final TokenMeterService tokenMeter;
   private final ApplicationContext applicationContext;
   private final Executor aiExecutor;
@@ -49,12 +43,10 @@ public class AiClientService {
   @Autowired
   public AiClientService(
       @Autowired(required = false) ChatModel chatModel,
-      @Autowired(required = false) EmbeddingModel embeddingModel,
       TokenMeterService tokenMeter,
       ApplicationContext applicationContext,
       @org.springframework.beans.factory.annotation.Qualifier("aiExecutor") Executor aiExecutor) {
     this.chatModel = chatModel;
-    this.embeddingModel = embeddingModel;
     this.tokenMeter = tokenMeter;
     this.applicationContext = applicationContext;
     this.aiExecutor = aiExecutor;
@@ -68,18 +60,17 @@ public class AiClientService {
   }
 
   /**
-   * 运行时热重载 ChatModel 和 EmbeddingModel
+   * 运行时热重载 ChatModel
    * <p>
-   * 根据新的连接参数创建 OpenAiApi、OpenAiChatModel、OpenAiEmbeddingModel 实例，
+   * 根据新的连接参数创建 OpenAiApi、OpenAiChatModel 实例，
    * 替换当前引用。使用 volatile 保证对其他线程立即可见。
    *
-   * @param apiKey             API Key
-   * @param baseUrl            API Base URL
-   * @param model              对话模型名称
-   * @param embeddingModelName Embedding 模型名称（可为 null，表示不启用 Embedding）
+   * @param apiKey  API Key
+   * @param baseUrl API Base URL
+   * @param model   对话模型名称
    */
-  public void reconfigure(String apiKey, String baseUrl, String model, String embeddingModelName) {
-    log.info("热重载 AI 模型: baseUrl={}, model={}, embeddingModel={}", baseUrl, model, embeddingModelName);
+  public void reconfigure(String apiKey, String baseUrl, String model) {
+    log.info("热重载 AI 模型: baseUrl={}, model={}", baseUrl, model);
 
     // 构建 OpenAiApi
     OpenAiApi openAiApi = OpenAiApi.builder()
@@ -96,16 +87,7 @@ public class AiClientService {
         .defaultOptions(chatOptions)
         .build();
 
-    // 构建 EmbeddingModel（如果配置了 Embedding 模型名称）
-    if (embeddingModelName != null && !embeddingModelName.isBlank()) {
-      OpenAiEmbeddingOptions embeddingOptions = OpenAiEmbeddingOptions.builder()
-          .model(embeddingModelName)
-          .build();
-      this.embeddingModel = new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED, embeddingOptions);
-    }
-
-    log.info("AI 模型热重载完成: chatModel={}, embeddingModel={}",
-        this.chatModel != null, this.embeddingModel != null);
+    log.info("AI 模型热重载完成: chatModel={}", this.chatModel != null);
   }
 
   /**
@@ -116,18 +98,10 @@ public class AiClientService {
   }
 
   /**
-   * 检查 Embedding 模型是否可用
-   */
-  public boolean isEmbeddingAvailable() {
-    return embeddingModel != null;
-  }
-
-  /**
    * 关闭 AI 模型，释放资源（AI 全局开关关闭时调用）
    */
   public void shutdown() {
     this.chatModel = null;
-    this.embeddingModel = null;
     log.info("AI 模型已关闭");
   }
 
@@ -262,24 +236,6 @@ public class AiClientService {
     return emitter;
   }
 
-  /**
-   * Embedding 向量生成
-   */
-  public float[] embed(String feature, String text) {
-    EmbeddingModel em = requireEmbeddingModel();
-
-    EmbeddingResponse response = em.embedForResponse(List.of(text));
-    float[] embedding = response.getResult().getOutput();
-
-    // 记录 token 用量（Embedding 只有输入 token）
-    var usage = response.getMetadata().getUsage();
-    tokenMeter.record(feature,
-      (int) usage.getPromptTokens(),
-      (int) usage.getCompletionTokens());
-
-    return embedding;
-  }
-
   // ========== 内部方法 ==========
 
   /**
@@ -352,14 +308,4 @@ public class AiClientService {
     return cm;
   }
 
-  /**
-   * 获取 EmbeddingModel，不可用时抛异常
-   */
-  private EmbeddingModel requireEmbeddingModel() {
-    EmbeddingModel em = this.embeddingModel;
-    if (em == null) {
-      throw new BusinessException(ResultCode.AI_DISABLED, "AI Embedding 模型未配置，请先在管理后台配置 API Key 并开启 AI");
-    }
-    return em;
-  }
 }

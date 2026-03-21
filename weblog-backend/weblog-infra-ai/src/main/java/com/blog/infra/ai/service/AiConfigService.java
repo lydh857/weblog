@@ -67,8 +67,7 @@ public class AiConfigService {
           getAiClientService().reconfigure(
             aiProperties.getApiKey(),
             aiProperties.getBaseUrl(),
-            aiProperties.getModel(),
-            aiProperties.getEmbeddingModel()
+            aiProperties.getModel()
           );
         } catch (Exception e) {
           log.error("启动时热重载 AI 模型失败", e);
@@ -99,7 +98,6 @@ public class AiConfigService {
       case "writing" -> f.isWriting();
       case "meta" -> f.isMeta();
       case "commentReview" -> f.isCommentReview();
-      case "recommend" -> f.isRecommend();
       case "chat" -> f.isChat();
       default -> {
         log.warn("未知的 AI 功能标识: {}", feature);
@@ -137,8 +135,7 @@ public class AiConfigService {
         getAiClientService().reconfigure(
           aiProperties.getApiKey(),
           aiProperties.getBaseUrl(),
-          aiProperties.getModel(),
-          aiProperties.getEmbeddingModel()
+          aiProperties.getModel()
         );
         log.info("AI 配置更新后热重载模型成功");
       } catch (Exception e) {
@@ -215,7 +212,6 @@ public class AiConfigService {
     if (update.getApiKey() != null && !update.getApiKey().equals(aiProperties.getApiKey())) return true;
     if (update.getBaseUrl() != null && !update.getBaseUrl().equals(aiProperties.getBaseUrl())) return true;
     if (update.getModel() != null && !update.getModel().equals(aiProperties.getModel())) return true;
-    if (update.getEmbeddingModel() != null && !update.getEmbeddingModel().equals(aiProperties.getEmbeddingModel())) return true;
     return false;
   }
 
@@ -235,7 +231,6 @@ public class AiConfigService {
     if (config.getApiKey() != null) aiProperties.setApiKey(config.getApiKey());
     if (config.getBaseUrl() != null) aiProperties.setBaseUrl(config.getBaseUrl());
     if (config.getModel() != null) aiProperties.setModel(config.getModel());
-    if (config.getEmbeddingModel() != null) aiProperties.setEmbeddingModel(config.getEmbeddingModel());
     if (config.getMaxTokens() != null) aiProperties.setMaxTokens(config.getMaxTokens());
     if (config.getTimeout() != null) aiProperties.setTimeout(config.getTimeout());
     if (config.getMonthlyTokenLimit() != null) aiProperties.setMonthlyTokenLimit(config.getMonthlyTokenLimit());
@@ -244,7 +239,6 @@ public class AiConfigService {
     if (config.getFeatureWriting() != null) features.setWriting(config.getFeatureWriting());
     if (config.getFeatureMeta() != null) features.setMeta(config.getFeatureMeta());
     if (config.getFeatureCommentReview() != null) features.setCommentReview(config.getFeatureCommentReview());
-    if (config.getFeatureRecommend() != null) features.setRecommend(config.getFeatureRecommend());
     if (config.getFeatureChat() != null) features.setChat(config.getFeatureChat());
   }
 }

@@ -315,7 +315,6 @@ const aiFeatureNameMap: Record<string, string> = {
   meta: '元信息生成',
   commentReview: '评论审核',
   review: '评论审核',
-  recommend: '语义推荐',
   chat: 'AI 问答',
 }
 

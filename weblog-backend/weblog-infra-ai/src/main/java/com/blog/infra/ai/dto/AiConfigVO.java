@@ -14,7 +14,6 @@ public class AiConfigVO {
   private String apiKey;
   private String baseUrl;
   private String model;
-  private String embeddingModel;
   private int maxTokens;
   private int timeout;
   private long monthlyTokenLimit;
@@ -25,7 +24,6 @@ public class AiConfigVO {
     private boolean writing;
     private boolean meta;
     private boolean commentReview;
-    private boolean recommend;
     private boolean chat;
   }
 }

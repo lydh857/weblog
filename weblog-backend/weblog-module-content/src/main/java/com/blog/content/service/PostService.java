@@ -45,8 +45,6 @@ public class PostService {
     private final PostIndexService postIndexService;
     private final TagService tagService;
     private final CategoryService categoryService;
-    private final AiRecommendService aiRecommendService;
-    private final PostEmbeddingMapper postEmbeddingMapper;
     private final StringRedisTemplate redisTemplate;
 
     /** CDN 刷新服务（OSS 未启用时为 null） */
@@ -135,11 +133,6 @@ public class PostService {
         if ("published".equals(post.getStatus())) {
             postIndexService.indexPost(post.getId(), post.getSlug(), post.getTitle(), migratedContent,
                     post.getSummary(), post.getCategoryId(), post.getAuthorId());
-            try {
-                aiRecommendService.generateEmbedding(post.getId(), migratedContent);
-            } catch (Exception e) {
-                log.warn("触发 Embedding 生成失败，不影响文章发布: {}", e.getMessage());
-            }
         }
 
         return getById(post.getId());
@@ -212,13 +205,6 @@ public class PostService {
         if ("published".equals(post.getStatus())) {
             postIndexService.indexPost(id, post.getSlug(), post.getTitle(), migratedContent,
                     post.getSummary(), post.getCategoryId(), post.getAuthorId());
-
-            // 异步生成 Embedding（不阻塞文章更新）
-            try {
-                aiRecommendService.generateEmbedding(id, migratedContent);
-            } catch (Exception e) {
-                log.warn("触发 Embedding 生成失败，不影响文章更新: {}", e.getMessage());
-            }
         } else {
             postIndexService.deleteIndex(id);
         }
@@ -283,10 +269,6 @@ public class PostService {
         }
         postMapper.deleteById(id);
         postIndexService.deleteIndex(id);
-        // 清理 Embedding 向量
-        postEmbeddingMapper.delete(
-            new LambdaQueryWrapper<PostEmbedding>().eq(PostEmbedding::getPostId, id));
-        aiRecommendService.evictCache(id);
         // 刷新 CDN 缓存
         if (cdnService != null && "published".equals(post.getStatus())) {
             cdnService.refreshPost(post.getSlug());
@@ -565,9 +547,6 @@ public class PostService {
             if (!isAdmin && !post.getAuthorId().equals(operatorId)) continue;
             postMapper.deleteById(id);
             postIndexService.deleteIndex(id);
-            postEmbeddingMapper.delete(
-                new LambdaQueryWrapper<PostEmbedding>().eq(PostEmbedding::getPostId, id));
-            aiRecommendService.evictCache(id);
             if (cdnService != null && "published".equals(post.getStatus())) {
                 cdnService.refreshPost(post.getSlug());
             }
@@ -1225,9 +1204,6 @@ public class PostService {
             if (deleted > 0) {
                 postContentMapper.deleteById(id);
                 postTagMapper.delete(new LambdaQueryWrapper<PostTag>().eq(PostTag::getPostId, id));
-                postEmbeddingMapper.delete(
-                    new LambdaQueryWrapper<PostEmbedding>().eq(PostEmbedding::getPostId, id));
-                aiRecommendService.evictCache(id);
                 count++;
             }
         }

@@ -13,7 +13,6 @@ public class AiConfigUpdateVO {
   private String apiKey;
   private String baseUrl;
   private String model;
-  private String embeddingModel;
   private Integer maxTokens;
   private Integer timeout;
   private Long monthlyTokenLimit;
@@ -24,7 +23,6 @@ public class AiConfigUpdateVO {
     private Boolean writing;
     private Boolean meta;
     private Boolean commentReview;
-    private Boolean recommend;
     private Boolean chat;
   }
 }

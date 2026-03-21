@@ -38,9 +38,6 @@
               <el-form-item label="模型名称">
                 <el-input v-model="configForm.model" placeholder="gpt-4o-mini" />
               </el-form-item>
-              <el-form-item label="Embedding 模型">
-                <el-input v-model="configForm.embeddingModel" placeholder="text-embedding-3-small" />
-              </el-form-item>
               <el-form-item label="最大 Token">
                 <el-input-number v-model="configForm.maxTokens" :min="100" :max="128000" :step="100" />
               </el-form-item>
@@ -67,9 +64,6 @@
               </el-form-item>
               <el-form-item label="评论 AI 审核">
                 <el-switch v-model="configForm.features.commentReview" />
-              </el-form-item>
-              <el-form-item label="语义推荐">
-                <el-switch v-model="configForm.features.recommend" />
               </el-form-item>
               <el-form-item label="AI 问答">
                 <el-switch v-model="configForm.features.chat" />
@@ -159,7 +153,6 @@ const configForm = reactive<AiConfig>({
   apiKey: '',
   baseUrl: '',
   model: '',
-  embeddingModel: '',
   maxTokens: 4096,
   timeout: 30,
   monthlyTokenLimit: 0,
@@ -167,7 +160,6 @@ const configForm = reactive<AiConfig>({
     writing: true,
     meta: true,
     commentReview: true,
-    recommend: true,
     chat: true,
   },
 })
