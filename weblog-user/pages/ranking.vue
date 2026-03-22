@@ -8,7 +8,13 @@
       <p class="page-desc">每小时更新一次，按热度综合排序</p>
     </header>
 
-    <section class="ranking-panel">
+    <section
+      class="ranking-panel"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @touchcancel="handleTouchCancel"
+    >
       <div class="tabs">
         <button
           v-for="tab in tabs"
@@ -89,6 +95,12 @@ const animKey = ref(0)
 const animationStartIndex = ref(0)
 const rankingMeta = ref<RankingMeta | null>(null)
 const rankingSource = ref<'ranking' | 'recent'>('ranking')
+let touchTracking = false
+let touchStartX = 0
+let touchStartY = 0
+let touchDeltaX = 0
+let touchDeltaY = 0
+const SWIPE_TRIGGER_X = 32
 
 const fallbackNotice = computed(() => {
   const meta = rankingMeta.value
@@ -188,6 +200,88 @@ async function switchTab(value: number) {
   await fetchRanking(false)
 }
 
+function switchTabByOffset(offsetValue: number) {
+  const currentIndex = tabs.findIndex(tab => tab.value === rankType.value)
+  if (currentIndex === -1) {
+    return
+  }
+
+  const nextIndex = currentIndex + offsetValue
+  if (nextIndex < 0 || nextIndex >= tabs.length) {
+    return
+  }
+
+  const targetTab = tabs[nextIndex]
+  if (!targetTab) {
+    return
+  }
+
+  void switchTab(targetTab.value)
+}
+
+function resetTouchState() {
+  touchTracking = false
+  touchStartX = 0
+  touchStartY = 0
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchTracking = true
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!touchTracking) {
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchDeltaX = touch.clientX - touchStartX
+  touchDeltaY = touch.clientY - touchStartY
+}
+
+function handleTouchEnd() {
+  if (!touchTracking) {
+    return
+  }
+
+  const absX = Math.abs(touchDeltaX)
+  const absY = Math.abs(touchDeltaY)
+  const isHorizontalSwipe = absX >= SWIPE_TRIGGER_X && absX > absY * 1.15
+
+  if (isHorizontalSwipe) {
+    if (touchDeltaX < 0) {
+      switchTabByOffset(1)
+    } else {
+      switchTabByOffset(-1)
+    }
+  }
+
+  resetTouchState()
+}
+
+function handleTouchCancel() {
+  if (!touchTracking) {
+    return
+  }
+
+  resetTouchState()
+}
+
 async function loadMore() {
   if (rankingSource.value === 'recent') return
   if (!hasMore.value || loading.value || loadingMore.value) return
@@ -238,6 +332,7 @@ onMounted(() => {
   background: $color-bg;
   padding: 0.9rem;
   box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+  touch-action: pan-y;
   .dark & {
     border-color: $color-dark-border;
     background: $color-dark-bg-secondary;

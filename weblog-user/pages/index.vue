@@ -8,7 +8,7 @@
       <div
         ref="todaySectionRef"
         class="home-reveal"
-        style="--reveal-delay: 0ms"
+        style="--reveal-delay: 40ms"
         :class="{ 'is-visible': sectionVisible.today }"
       >
         <TodayPostGrid />
@@ -18,7 +18,7 @@
       <div
         ref="hotSectionRef"
         class="home-reveal"
-        style="--reveal-delay: 70ms"
+        style="--reveal-delay: 130ms"
         :class="{ 'is-visible': sectionVisible.hot }"
       >
         <LazyHotPostGrid v-if="sectionMounted.hot" />
@@ -29,7 +29,7 @@
       <div
         ref="rankingSectionRef"
         class="home-reveal"
-        style="--reveal-delay: 120ms"
+        style="--reveal-delay: 200ms"
         :class="{ 'is-visible': sectionVisible.ranking }"
       >
         <LazyHomeRankingSection v-if="sectionMounted.ranking" />
@@ -40,7 +40,7 @@
       <section
         ref="postSectionRef"
         class="post-section home-reveal"
-        style="--reveal-delay: 160ms"
+        style="--reveal-delay: 280ms"
         :class="{ 'is-visible': sectionVisible.post }"
       >
             <div class="section-header">
@@ -107,12 +107,21 @@ const hasLoadedInitialPosts = ref(false)
 const postGridRef = ref<HTMLElement | null>(null)
 const LOAD_MORE_SCROLL_TOP_OFFSET = 84
 const LOAD_MORE_MIN_SCROLL_DELTA = 28
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const HOME_REVEAL_BOOTSTRAP_DELAY = 140
 const todaySectionRef = ref<HTMLElement | null>(null)
 const hotSectionRef = ref<HTMLElement | null>(null)
 const rankingSectionRef = ref<HTMLElement | null>(null)
 const postSectionRef = ref<HTMLElement | null>(null)
 
 type HomeSectionKey = 'today' | 'hot' | 'ranking' | 'post'
+
+const sectionRevealDelays: Record<HomeSectionKey, number> = {
+  today: 90,
+  hot: 180,
+  ranking: 270,
+  post: 360,
+}
 
 const sectionVisible = reactive<Record<HomeSectionKey, boolean>>({
   today: false,
@@ -128,8 +137,13 @@ const sectionMounted = reactive<Record<HomeSectionKey, boolean>>({
   post: false
 })
 
+const isStartupDone = ref(false)
+const hasStartedHomeReveal = ref(false)
+
 let sectionObserver: IntersectionObserver | null = null
+let startupRevealTimer: ReturnType<typeof setTimeout> | null = null
 const sectionTargetMap = new Map<Element, HomeSectionKey>()
+const sectionRevealTimerMap = new Map<HomeSectionKey, ReturnType<typeof setTimeout>>()
 const listCardAds = ref<AdvertisementVO[]>([])
 type PostGridItem =
   | { key: string; type: 'post'; post: PostVO }
@@ -186,6 +200,64 @@ function ensureSectionMounted(key: HomeSectionKey) {
   }
 }
 
+function hasStartupDone() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return Boolean(runtimeWindow.__weblogStartupDone)
+}
+
+function clearSectionRevealTimers() {
+  sectionRevealTimerMap.forEach((timer) => {
+    clearTimeout(timer)
+  })
+  sectionRevealTimerMap.clear()
+}
+
+function scheduleSectionReveal(key: HomeSectionKey) {
+  if (sectionVisible[key] || sectionRevealTimerMap.has(key)) {
+    return
+  }
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const delay = prefersReducedMotion ? 0 : sectionRevealDelays[key]
+  const timer = window.setTimeout(() => {
+    sectionRevealTimerMap.delete(key)
+    markSectionVisible(key)
+    ensureSectionMounted(key)
+  }, delay)
+
+  sectionRevealTimerMap.set(key, timer)
+}
+
+function startHomeReveal() {
+  if (!import.meta.client || hasStartedHomeReveal.value) {
+    return
+  }
+
+  hasStartedHomeReveal.value = true
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const delay = prefersReducedMotion ? 0 : HOME_REVEAL_BOOTSTRAP_DELAY
+
+  startupRevealTimer = window.setTimeout(() => {
+    startupRevealTimer = null
+    nextTick(() => {
+      initSectionObserver()
+    })
+  }, delay)
+}
+
+function handleStartupDone() {
+  if (isStartupDone.value) {
+    return
+  }
+
+  isStartupDone.value = true
+  startHomeReveal()
+}
+
 function initSectionObserver() {
   if (!import.meta.client) return
 
@@ -197,13 +269,12 @@ function initSectionObserver() {
       if (!entry.isIntersecting) return
       const key = sectionTargetMap.get(entry.target)
       if (!key) return
-      markSectionVisible(key)
-      ensureSectionMounted(key)
+      scheduleSectionReveal(key)
       sectionObserver?.unobserve(entry.target)
     })
   }, {
-    threshold: 0.16,
-    rootMargin: '0px 0px 20% 0px'
+    threshold: 0.2,
+    rootMargin: '0px'
   })
 
   const sections: Array<[HomeSectionKey, HTMLElement | null]> = [
@@ -220,8 +291,7 @@ function initSectionObserver() {
   })
 
   requestAnimationFrame(() => {
-    markSectionVisible('today')
-    ensureSectionMounted('today')
+    scheduleSectionReveal('today')
   })
 }
 
@@ -294,15 +364,34 @@ async function loadMore() {
 }
 
 onMounted(() => {
-  nextTick(() => {
-    initSectionObserver()
-  })
   loadListCardAds()
+
+  if (!import.meta.client) {
+    return
+  }
+
+  isStartupDone.value = hasStartupDone()
+  if (isStartupDone.value) {
+    startHomeReveal()
+    return
+  }
+
+  window.addEventListener(STARTUP_DONE_EVENT, handleStartupDone)
 })
 
 onUnmounted(() => {
+  if (import.meta.client) {
+    window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
+  }
+
+  if (startupRevealTimer) {
+    clearTimeout(startupRevealTimer)
+    startupRevealTimer = null
+  }
+
   sectionObserver?.disconnect()
   sectionTargetMap.clear()
+  clearSectionRevealTimers()
 })
 </script>
 

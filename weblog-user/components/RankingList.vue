@@ -19,7 +19,13 @@
     </div>
 
     <!-- 内容区域（相对定位容器） -->
-    <div class="ranking-body">
+    <div
+      class="ranking-body"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @touchcancel="handleTouchCancel"
+    >
       <!-- 加载遮罩（绝对定位覆盖，不销毁列表） -->
       <Transition name="loading-fade">
         <div v-if="loading" class="ranking-loading-overlay">
@@ -114,6 +120,12 @@ const items = ref<RankingItem[]>([])
 const loading = ref(false)
 const animKey = ref(0)
 const currentMeta = ref<RankingMeta | null>(null)
+let touchTracking = false
+let touchStartX = 0
+let touchStartY = 0
+let touchDeltaX = 0
+let touchDeltaY = 0
+const SWIPE_TRIGGER_X = 32
 
 /** 格式化热度分数 */
 function formatScore(score: number): string {
@@ -157,8 +169,93 @@ const dailyFallbackTip = computed(() => {
 
 /** 切换 Tab */
 async function switchTab(rankType: number) {
+  if (activeTab.value === rankType) {
+    return
+  }
   activeTab.value = rankType
   await loadRanking()
+}
+
+function switchTabByOffset(offset: number) {
+  const currentIndex = tabs.findIndex(tab => tab.rankType === activeTab.value)
+  if (currentIndex === -1) {
+    return
+  }
+
+  const nextIndex = currentIndex + offset
+  if (nextIndex < 0 || nextIndex >= tabs.length) {
+    return
+  }
+
+  const targetTab = tabs[nextIndex]
+  if (!targetTab) {
+    return
+  }
+
+  void switchTab(targetTab.rankType)
+}
+
+function resetTouchState() {
+  touchTracking = false
+  touchStartX = 0
+  touchStartY = 0
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchTracking = true
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!touchTracking) {
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchDeltaX = touch.clientX - touchStartX
+  touchDeltaY = touch.clientY - touchStartY
+}
+
+function handleTouchEnd() {
+  if (!touchTracking) {
+    return
+  }
+
+  const absX = Math.abs(touchDeltaX)
+  const absY = Math.abs(touchDeltaY)
+  const isHorizontalSwipe = absX >= SWIPE_TRIGGER_X && absX > absY * 1.15
+
+  if (isHorizontalSwipe) {
+    if (touchDeltaX < 0) {
+      switchTabByOffset(1)
+    } else {
+      switchTabByOffset(-1)
+    }
+  }
+
+  resetTouchState()
+}
+
+function handleTouchCancel() {
+  if (!touchTracking) {
+    return
+  }
+
+  resetTouchState()
 }
 
 /** 加载排行数据 */
@@ -462,6 +559,7 @@ onMounted(() => {
 .ranking-body {
   position: relative;
   min-height: 120px;
+  touch-action: pan-y;
 }
 
 /* ===== 加载遮罩（绝对定位覆盖） ===== */

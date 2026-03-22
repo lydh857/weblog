@@ -612,6 +612,17 @@ onUnmounted(() => {
 
 /* 文章内容（MdPreview 适配） */
 .post-content {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+
+  :deep(.md-editor-code),
+  :deep(.md-editor-code-head),
+  :deep(.md-editor-copy-button),
+  :deep(.md-editor-collapse-tips) {
+    z-index: 1 !important;
+  }
+
   :deep(.md-editor) {
     border: none;
     background: transparent;

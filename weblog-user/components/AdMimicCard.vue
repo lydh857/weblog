@@ -17,19 +17,20 @@
         v-bind="linkAttributes"
         @click="handleCardClick"
       >
-        <div class="ad-cover-wrap" :class="{ 'is-broken': imageLoadFailed }">
+        <div class="ad-cover-wrap" :class="{ 'is-broken': shouldShowFallback }">
           <img
+            v-if="hasCoverImage"
             :src="ad.content"
             :alt="ad.title"
             class="ad-cover"
             :class="{ 'is-error': imageLoadFailed }"
             @error="handleImageError"
           >
-          <div v-if="imageLoadFailed" class="ad-cover-fallback">
+          <div v-if="shouldShowFallback" class="ad-cover-fallback">
             <Icon name="heroicons:photo-16-solid" size="16" />
-            <span>广告图片加载失败</span>
+            <span>{{ fallbackText }}</span>
           </div>
-          <span v-if="ad.adInfo && !imageLoadFailed" class="ad-cover-info">{{ ad.adInfo }}</span>
+          <span v-if="ad.adInfo && !shouldShowFallback" class="ad-cover-info">{{ ad.adInfo }}</span>
         </div>
         <div class="ad-content">
           <div class="ad-tags">
@@ -65,12 +66,15 @@ const linkAttributes = computed<Record<string, string>>(() => {
   }
 })
 const adSummary = computed(() => props.ad.mimicContent || '品牌推广')
+const hasCoverImage = computed(() => Boolean(props.ad.content && props.ad.content.trim().length > 0))
 const { applyEnabled, loadAdApplyConfig } = useAdApplyConfig()
 const userStore = useUserStore()
 const loginModal = useLoginModal()
 const adApplyModal = useAdApplyModal()
 const myApplication = ref<AdvertisementVO | null>(null)
 const imageLoadFailed = ref(false)
+const shouldShowFallback = computed(() => !hasCoverImage.value || imageLoadFailed.value)
+const fallbackText = computed(() => (hasCoverImage.value ? '广告图片加载失败' : '广告素材待更新'))
 const applyButtonLabel = computed(() => {
   const status = myApplication.value?.status
   if (status === 'active') return '查看推广'
@@ -89,6 +93,7 @@ function handleCardClick() {
 }
 
 function handleImageError() {
+  if (!hasCoverImage.value) return
   imageLoadFailed.value = true
 }
 
@@ -250,6 +255,14 @@ watch(() => props.ad.content, () => {
   }
 }
 
+.ad-cover-wrap.is-broken {
+  background: linear-gradient(180deg, #eef2f7, #e2e8f0);
+
+  .dark & {
+    background: linear-gradient(180deg, #1f2937, #111827);
+  }
+}
+
 .ad-cover {
   width: 100%;
   height: 100%;
@@ -389,54 +402,122 @@ watch(() => props.ad.content, () => {
 }
 
 @media (max-width: $breakpoint-md) {
-  .ad-mimic-link {
-    height: calc(180px * 9 / 16);
-  }
-
-  .ad-mimic-link {
-    width: 100%;
-  }
-
-  .ad-cover-wrap {
-    width: 180px;
-  }
-
-  .ad-content {
-    padding: 0.375rem 0.5rem;
-  }
-
-  .ad-title {
-    font-size: 0.85rem;
-  }
-
-  .ad-summary {
-    font-size: 0.75rem;
-  }
-
-}
-
-@media (max-width: 480px) {
   .ad-mimic-card {
     height: auto;
   }
 
   .ad-mimic-link {
     flex-direction: column;
+    width: 100%;
+    height: auto;
   }
 
   .ad-cover-wrap {
     width: 100%;
     height: auto;
+    aspect-ratio: 16 / 9;
+    min-height: 136px;
     border-radius: $radius-lg $radius-lg 0 0;
   }
 
   .ad-cover {
+    width: 100%;
+    height: 100%;
     aspect-ratio: 16 / 9;
   }
 
+  .ad-action-float {
+    left: 0.62rem;
+    top: 0.62rem;
+  }
+
+  .ad-apply-btn {
+    min-height: 38px;
+    min-width: auto;
+    padding: 0 0.86rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    border-color: rgba(59, 130, 246, 0.42);
+    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+  }
+
+  .ad-cover-fallback {
+    padding-top: 3.4rem;
+    font-size: 0.74rem;
+  }
+
   .ad-content {
-    padding: $spacing-md;
+    padding: 0.68rem 0.72rem 0.76rem;
     border-radius: 0 0 $radius-lg $radius-lg;
+  }
+
+  .ad-tags {
+    margin-bottom: 0.34rem;
+  }
+
+  .ad-tag {
+    font-size: 0.68rem;
+    padding: 0.08rem 0.46rem;
+  }
+
+  .ad-title {
+    font-size: 0.92rem;
+    margin-bottom: 0.28rem;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .ad-summary {
+    font-size: 0.8rem;
+    margin-bottom: 0;
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .ad-apply-btn {
+    min-height: 38px;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-action-float {
+    left: 0.56rem;
+    top: 0.56rem;
+  }
+
+  .ad-apply-btn {
+    min-height: 36px;
+    padding: 0 0.78rem;
+    font-size: 0.84rem;
+  }
+
+  .ad-cover-fallback {
+    padding-top: 3rem;
+    gap: 0.3rem;
+  }
+
+  .ad-cover-fallback span {
+    font-size: 0.72rem;
+  }
+
+  .ad-content {
+    padding: 0.58rem 0.62rem 0.66rem;
+  }
+
+  .ad-title {
+    font-size: 0.88rem;
+  }
+
+  .ad-summary {
+    font-size: 0.76rem;
   }
 }
 

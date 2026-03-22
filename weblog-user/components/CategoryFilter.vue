@@ -972,8 +972,8 @@ onUnmounted(() => {
 /* ===== 浮动筛选组件 ===== */
 .float-filter-widget {
   position: fixed;
-  right: 2rem;
-  bottom: 200px;
+  right: 40px;
+  bottom: 132px;
   z-index: 980;
 }
 
@@ -1002,22 +1002,22 @@ onUnmounted(() => {
 }
 
 .float-filter-btn {
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: $color-primary;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 0.3s, transform 0.3s;
 
   &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+    background: rgba(0, 0, 0, 0.6);
+    transform: translateY(-1px);
   }
 }
 

@@ -560,6 +560,40 @@ onUnmounted(() => {
 
 /* ===== 响应式 ===== */
 @media (max-width: $breakpoint-md) {
+  .section-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .header-right {
+    gap: 0.5rem;
+  }
+
+  .scroll-arrows,
+  .header-right-skeleton {
+    gap: 0.3rem;
+  }
+
+  .sk-circle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .sk-pill {
+    width: 108px;
+    height: 36px;
+  }
+
+  .scroll-arrow {
+    width: 38px;
+    height: 38px;
+
+    &.view-more-arrow {
+      min-width: 108px;
+      padding: 0 0.78rem;
+      font-size: 0.8rem;
+    }
+  }
+
   .grid-card {
     width: 240px;
     height: 160px;
@@ -576,6 +610,17 @@ onUnmounted(() => {
 
   .view-more {
     display: none;
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .scroll-arrow {
+    min-width: 38px;
+    min-height: 38px;
+
+    &.view-more-arrow {
+      min-height: 38px;
+    }
   }
 }
 

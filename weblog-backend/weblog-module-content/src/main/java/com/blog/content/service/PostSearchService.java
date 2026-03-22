@@ -1,6 +1,8 @@
 package com.blog.content.service;
 
+import com.blog.content.dto.SearchHitMeta;
 import com.blog.content.dto.SearchResult;
+import com.blog.content.mapper.PostMapper;
 import com.blog.infra.lucene.LuceneIndexManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 文章全文检索服务
@@ -27,6 +32,7 @@ public class PostSearchService {
 
     private final LuceneIndexManager indexManager;
     private final Analyzer analyzer;
+    private final PostMapper postMapper;
 
     /**
      * 全文搜索（标题+内容+摘要）
@@ -109,6 +115,7 @@ public class PostSearchService {
                 hits.add(hit);
             }
 
+            enrichSearchHitMeta(hits);
             result.setHits(hits);
         } catch (ParseException e) {
             log.warn("搜索关键词解析失败: {}", keyword, e);
@@ -129,5 +136,49 @@ public class PostSearchService {
     private String truncate(String text, int maxLen) {
         if (text.length() <= maxLen) return text;
         return text.substring(0, maxLen) + "...";
+    }
+
+    private void enrichSearchHitMeta(List<SearchResult.SearchHit> hits) {
+        if (hits == null || hits.isEmpty()) {
+            return;
+        }
+
+        List<Long> ids = hits.stream()
+                .map(SearchResult.SearchHit::getId)
+                .filter(id -> id != null && id > 0)
+                .toList();
+
+        if (ids.isEmpty()) {
+            return;
+        }
+
+        List<SearchHitMeta> metaList = postMapper.selectSearchHitMetaByIds(ids);
+        if (metaList == null || metaList.isEmpty()) {
+            return;
+        }
+
+        Map<Long, SearchHitMeta> metaById = metaList.stream()
+                .filter(meta -> meta.getId() != null)
+                .collect(Collectors.toMap(SearchHitMeta::getId, Function.identity(), (first, second) -> first));
+
+        for (SearchResult.SearchHit hit : hits) {
+            if (hit.getId() == null) {
+                continue;
+            }
+
+            SearchHitMeta meta = metaById.get(hit.getId());
+            if (meta == null) {
+                continue;
+            }
+
+            hit.setCategoryName(meta.getCategoryName());
+            hit.setSubCategoryName(meta.getSubCategoryName());
+            hit.setAuthorNickname(meta.getAuthorNickname());
+            hit.setViewCount(meta.getViewCount());
+            hit.setLikeCount(meta.getLikeCount());
+            hit.setCollectCount(meta.getCollectCount());
+            hit.setCommentCount(meta.getCommentCount());
+            hit.setCreateTime(meta.getCreateTime());
+        }
     }
 }

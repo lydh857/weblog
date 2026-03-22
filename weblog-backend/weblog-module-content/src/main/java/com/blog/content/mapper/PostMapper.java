@@ -3,12 +3,15 @@ package com.blog.content.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.content.dto.SearchHitMeta;
 import com.blog.content.entity.Post;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Delete;
+
+import java.util.List;
 
 /**
  * 文章 Mapper
@@ -56,5 +59,27 @@ public interface PostMapper extends BaseMapper<Post> {
     /** 查询所有未删除文章的 id、title、cover_image（用于引用来源检测） */
     @Select("SELECT id, title, cover_image FROM t_post WHERE is_deleted = 0")
     java.util.List<java.util.Map<String, Object>> selectActivePostSummaries();
+
+    @Select("<script>" +
+            "SELECT p.id AS id, " +
+            "p.view_count AS viewCount, " +
+            "p.like_count AS likeCount, " +
+            "p.collect_count AS collectCount, " +
+            "p.comment_count AS commentCount, " +
+            "p.create_time AS createTime, " +
+            "c.name AS categoryName, " +
+            "sc.name AS subCategoryName, " +
+            "u.nickname AS authorNickname " +
+            "FROM t_post p " +
+            "LEFT JOIN t_category c ON c.id = p.category_id " +
+            "LEFT JOIN t_category sc ON sc.id = p.sub_category_id " +
+            "LEFT JOIN t_user u ON u.id = p.author_id AND u.is_deleted = 0 " +
+            "WHERE p.is_deleted = 0 " +
+            "AND p.status = 'published' " +
+            "AND (p.is_disabled = 0 OR p.is_disabled IS NULL) " +
+            "AND p.id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    List<SearchHitMeta> selectSearchHitMetaByIds(@Param("ids") List<Long> ids);
 
 }

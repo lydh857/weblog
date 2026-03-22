@@ -752,6 +752,50 @@ onUnmounted(() => {
   .dark & { border-color: $color-dark-border; color: #94a3b8; &.active { background: $color-primary; color: #fff; border-color: $color-primary; } }
 }
 
+@media (max-width: $breakpoint-md) {
+  .section-header {
+    margin-bottom: 0.9rem;
+  }
+
+  .section-title {
+    gap: 0.35rem;
+    font-size: 0.98rem;
+  }
+
+  .sort-tabs {
+    gap: 0.18rem;
+    padding: 0.12rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.26);
+
+    .dark & {
+      background: rgba(30, 41, 59, 0.74);
+      border-color: rgba(100, 116, 139, 0.42);
+    }
+  }
+
+  .sort-tab {
+    min-height: 32px;
+    min-width: 52px;
+    padding: 0.2rem 0.64rem;
+    line-height: 1;
+    font-size: 0.76rem;
+    border-color: transparent;
+  }
+
+  .sort-tab.active {
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.24);
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .sort-tab {
+    min-height: 32px;
+    min-width: 52px;
+  }
+}
+
 /* 评论表单 */
 .comment-form { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
 .form-avatar {

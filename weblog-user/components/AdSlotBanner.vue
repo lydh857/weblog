@@ -17,11 +17,17 @@
           aria-label="关闭广告"
           @click="handleClose"
         >
-          <Icon name="heroicons:x-mark-16-solid" size="14" />
+          <Icon name="heroicons:x-mark-16-solid" size="16" />
         </button>
 
-        <div class="ad-slide-window">
-          <div class="ad-slides">
+        <div
+          class="ad-slide-window"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+          @touchcancel="handleTouchCancel"
+        >
+          <div class="ad-slides" :style="slidesStyle">
             <div
               v-for="(ad, index) in ads"
               :key="`ad-${ad.id}`"
@@ -125,6 +131,10 @@ interface BannerAd extends AdvertisementVO {
   safeLinkUrl: string | null
 }
 
+const emit = defineEmits<{
+  closed: []
+}>()
+
 const props = withDefaults(defineProps<{
   adSlot: string
   visible?: boolean
@@ -147,6 +157,13 @@ const slideStartTime = ref(0)
 const elapsed = ref(0)
 const slideTransitionMs = 820
 const failedImageIds = ref<Set<number>>(new Set())
+const imageRatioMap = ref<Record<number, number>>({})
+let touchTracking = false
+let touchStartX = 0
+let touchStartY = 0
+let touchDeltaX = 0
+let touchDeltaY = 0
+const SWIPE_TRIGGER_X = 32
 
 const currentAd = computed(() => ads.value[currentIndex.value] || null)
 const currentRotateDurationMs = computed(() => {
@@ -179,6 +196,16 @@ const applyButtonLabel = computed(() => {
 })
 const bannerTransitionName = computed(() => {
   return props.adSlot === 'home_left' ? 'ad-fade-left' : 'ad-fade-slide'
+})
+const slidesStyle = computed(() => {
+  if (props.adSlot !== 'home_left') return undefined
+  const current = currentAd.value
+  if (!current || current.type !== 'image') return undefined
+  const ratio = imageRatioMap.value[current.id]
+  if (!ratio || !Number.isFinite(ratio) || ratio <= 0) return undefined
+  return {
+    '--home-left-aspect-ratio': `${ratio}`
+  }
 })
 
 function sanitize(html: string) {
@@ -264,6 +291,7 @@ function handleClose() {
   closed.value = true
   showBanner.value = false
   clearRotateTimer()
+  emit('closed')
 }
 
 function handleMouseEnter() {
@@ -300,6 +328,87 @@ function handleApplyClick() {
     return
   }
   adApplyModal.open(props.adSlot, { step: 2, pitAdId })
+}
+
+function resetTouchState() {
+  touchTracking = false
+  touchStartX = 0
+  touchStartY = 0
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchStart(event: TouchEvent) {
+  if (ads.value.length <= 1) return
+
+  const touch = event.touches[0]
+  if (!touch) return
+
+  touchTracking = true
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  touchDeltaX = 0
+  touchDeltaY = 0
+  pauseRotate()
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!touchTracking) return
+  const touch = event.touches[0]
+  if (!touch) return
+
+  touchDeltaX = touch.clientX - touchStartX
+  touchDeltaY = touch.clientY - touchStartY
+}
+
+function handleTouchEnd() {
+  if (!touchTracking) return
+
+  const absX = Math.abs(touchDeltaX)
+  const absY = Math.abs(touchDeltaY)
+  const isHorizontalSwipe = absX >= SWIPE_TRIGGER_X && absX > absY * 1.15
+
+  if (isHorizontalSwipe) {
+    if (touchDeltaX < 0) {
+      goTo(currentIndex.value + 1)
+    } else {
+      goTo(currentIndex.value - 1)
+    }
+    resetTouchState()
+    return
+  }
+
+  resetTouchState()
+  resumeRotate()
+}
+
+function handleTouchCancel() {
+  if (!touchTracking) return
+  resetTouchState()
+  resumeRotate()
+}
+
+function collectImageRatios() {
+  if (!import.meta.client) return
+
+  for (const ad of ads.value) {
+    if (ad.type !== 'image') continue
+    if (!ad.content || imageRatioMap.value[ad.id]) continue
+
+    const img = new Image()
+    img.decoding = 'async'
+    img.onload = () => {
+      if (!img.naturalWidth || !img.naturalHeight) return
+      const ratio = img.naturalWidth / img.naturalHeight
+      if (!Number.isFinite(ratio) || ratio <= 0) return
+
+      imageRatioMap.value = {
+        ...imageRatioMap.value,
+        [ad.id]: ratio
+      }
+    }
+    img.src = ad.content
+  }
 }
 
 async function loadMyApplicationStatus() {
@@ -344,12 +453,15 @@ onMounted(async () => {
   try {
     const res = await advertisementApi.getBySlot(props.adSlot)
     failedImageIds.value = new Set()
+    imageRatioMap.value = {}
     ads.value = (res.data || []).map(item => ({
       ...item,
       safeLinkUrl: normalizeSafeHref(item.linkUrl)
     }))
+    collectImageRatios()
   } catch {
     ads.value = []
+    imageRatioMap.value = {}
   } finally {
     loaded.value = true
     if (!closed.value && props.visible && ads.value.length > 0) {
@@ -386,6 +498,7 @@ onUnmounted(() => {
 .ad-slide-window {
   overflow: hidden;
   position: relative;
+  touch-action: pan-y;
 }
 
 .ad-slides {
@@ -537,12 +650,12 @@ onUnmounted(() => {
   z-index: 2;
   width: 24px;
   height: 24px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(15, 23, 42, 0.56);
   color: #fff;
   cursor: pointer;
   opacity: 0;
@@ -574,7 +687,7 @@ onUnmounted(() => {
   background: rgba(239, 246, 255, 0.95);
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
   cursor: pointer;
-  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
 
   &:hover {
     border-color: rgba(37, 99, 235, 0.56);
@@ -649,14 +762,21 @@ onUnmounted(() => {
 
 .ad-slot-banner--home_left .ad-image {
   height: 100%;
+  object-fit: contain;
+  background: rgba(15, 23, 42, 0.12);
 }
 
 .ad-slot-banner--home_left {
   border: none;
 }
 
+.ad-slot-banner--home_left .ad-image-wrap::after {
+  display: none;
+}
+
 .ad-slot-banner--home_left .ad-slides {
-  aspect-ratio: 5 / 8;
+  min-height: 0;
+  aspect-ratio: var(--home-left-aspect-ratio, 5 / 8);
 }
 
 .ad-slot-banner--post_top .ad-slides,
@@ -673,6 +793,130 @@ onUnmounted(() => {
 .ad-slot-banner--post_top .ad-image,
 .ad-slot-banner--post_bottom .ad-image {
   height: 100%;
+}
+
+@media (max-width: $breakpoint-md) {
+  .ad-slot-banner--post_top .ad-close,
+  .ad-slot-banner--post_bottom .ad-close,
+  .ad-slot-banner--home_left .ad-close {
+    width: 40px;
+    height: 40px;
+    right: 0.62rem;
+    top: 0.62rem;
+    min-width: 40px;
+    min-height: 40px;
+    background: rgba(30, 41, 59, 0.62);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+  }
+
+  .ad-slot-banner--post_top .ad-action-float,
+  .ad-slot-banner--post_bottom .ad-action-float,
+  .ad-slot-banner--home_left .ad-action-float {
+    left: 0.62rem;
+    top: 0.62rem;
+  }
+
+  .ad-slot-banner--post_top .ad-action-float,
+  .ad-slot-banner--post_bottom .ad-action-float {
+    max-width: calc(100% - 5.1rem);
+  }
+
+  .ad-slot-banner--post_top .ad-apply-btn,
+  .ad-slot-banner--post_bottom .ad-apply-btn,
+  .ad-slot-banner--home_left .ad-apply-btn {
+    min-height: 40px;
+    min-width: auto;
+    padding: 0 0.88rem;
+    font-size: 0.96rem;
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    background: rgba(239, 246, 255, 0.96);
+    border-color: rgba(59, 130, 246, 0.42);
+    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+  }
+
+  .ad-slot-banner--post_top .ad-image-fallback,
+  .ad-slot-banner--post_bottom .ad-image-fallback {
+    padding-top: 3rem;
+  }
+
+  .ad-slot-banner--post_top .ad-image-fallback span,
+  .ad-slot-banner--post_bottom .ad-image-fallback span {
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  .ad-slot-banner--post_top .ad-badge,
+  .ad-slot-banner--post_bottom .ad-badge {
+    left: 0.56rem;
+    bottom: 0.5rem;
+    font-size: 0.6rem;
+  }
+
+  .ad-slot-banner--home_left .ad-image-fallback {
+    padding-top: 4.4rem;
+    gap: 0.35rem;
+  }
+
+  .ad-slot-banner--home_left .ad-image-fallback span {
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .ad-slot-banner--home_left .ad-badge {
+    top: auto;
+    left: 0.62rem;
+    bottom: 0.68rem;
+    font-size: 0.62rem;
+  }
+
+  .ad-indicators .indicator-dot {
+    min-width: 10px !important;
+    min-height: 10px !important;
+    width: 10px;
+    height: 10px;
+    padding: 0 !important;
+  }
+
+  .ad-indicators .indicator-dot.active {
+    min-width: 26px !important;
+    width: 26px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .ad-slot-banner--post_top .ad-close,
+  .ad-slot-banner--post_bottom .ad-close,
+  .ad-slot-banner--home_left .ad-close {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .ad-slot-banner--post_top .ad-apply-btn,
+  .ad-slot-banner--post_bottom .ad-apply-btn,
+  .ad-slot-banner--home_left .ad-apply-btn {
+    min-height: 40px;
+    min-width: auto;
+  }
+
+  .ad-indicators .indicator-dot {
+    min-width: 10px !important;
+    min-height: 10px !important;
+    width: 10px;
+    height: 10px;
+    padding: 0 !important;
+  }
+
+  .ad-indicators .indicator-dot.active {
+    min-width: 26px !important;
+    width: 26px;
+  }
 }
 
 .ad-fade-slide-enter-active,

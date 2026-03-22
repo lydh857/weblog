@@ -8,9 +8,6 @@
         @keydown="handleKeydown"
       >
         <div class="search-modal" role="dialog" aria-modal="true" aria-label="搜索">
-          <button class="modal-close-btn" aria-label="关闭搜索" @click="close">
-            <Icon name="heroicons:x-mark-20-solid" size="18" />
-          </button>
           <!-- 顶部搜索输入框 -->
           <div class="search-header">
             <div class="search-input-wrapper">
@@ -24,16 +21,34 @@
                 autocomplete="off"
                 @input="handleInput"
               />
-              <button v-if="keyword" class="clear-btn" aria-label="清空搜索" @click="clearKeyword">
+              <button
+                type="button"
+                class="clear-btn"
+                :class="{ 'clear-btn--visible': hasKeyword }"
+                :aria-hidden="!hasKeyword"
+                :tabindex="hasKeyword ? 0 : -1"
+                aria-label="清空搜索"
+                @click="clearKeyword"
+              >
                 <Icon name="heroicons:x-circle-20-solid" size="18" />
               </button>
             </div>
+            <button class="modal-close-btn" aria-label="关闭搜索" @click="close">
+              <Icon name="heroicons:x-mark-20-solid" size="18" />
+            </button>
           </div>
 
           <!-- 搜索内容区域 -->
-          <div class="search-body">
+          <div
+            class="search-body"
+            :class="{
+              'search-body--ranking': !hasKeyword,
+              'search-body--results': hasKeyword,
+            }"
+            @click="handleSearchBodyClick"
+          >
             <!-- 无关键词：搜索历史 + 排行榜 -->
-            <template v-if="!keyword.trim()">
+            <template v-if="!hasKeyword">
               <!-- 搜索历史 -->
               <div v-if="history.length > 0" class="history-section">
                 <div class="section-header">
@@ -48,7 +63,12 @@
                     v-for="(item, index) in history"
                     :key="index"
                     class="history-tag"
-                    @click="searchFromHistory(item)"
+                    :class="{ 'history-tag--removable': historyLongPressIndex === index }"
+                    @click="handleHistoryTagClick(item, index, $event)"
+                    @touchstart.passive="handleHistoryTouchStart($event, index)"
+                    @touchmove.passive="handleHistoryTouchMove"
+                    @touchend="handleHistoryTouchEnd"
+                    @touchcancel="handleHistoryTouchCancel"
                   >
                     {{ item }}
                     <button
@@ -109,8 +129,32 @@
                       v-html="sanitizeHtml(item.highlightContent || item.summary)"
                     />
                     <div class="result-meta">
-                      <Icon name="heroicons:document-text-16-solid" size="12" />
-                      <span>文章</span>
+                      <span v-if="formatCategoryPath(item)" class="meta-item">
+                        <Icon name="heroicons:folder-16-solid" size="12" />
+                        <span>{{ formatCategoryPath(item) }}</span>
+                      </span>
+                      <span v-if="item.createTime" class="meta-item">
+                        <Icon name="heroicons:calendar-days-16-solid" size="12" />
+                        <span>{{ formatDate(item.createTime) }}</span>
+                      </span>
+                    </div>
+                    <div v-if="hasStats(item)" class="result-stats">
+                      <span v-if="item.viewCount != null" class="stat-item">
+                        <Icon name="heroicons:eye-16-solid" size="12" />
+                        <span>{{ formatCount(item.viewCount) }}</span>
+                      </span>
+                      <span v-if="item.likeCount != null" class="stat-item">
+                        <Icon name="heroicons:heart-16-solid" size="12" />
+                        <span>{{ formatCount(item.likeCount) }}</span>
+                      </span>
+                      <span v-if="item.collectCount != null" class="stat-item">
+                        <Icon name="heroicons:bookmark-16-solid" size="12" />
+                        <span>{{ formatCount(item.collectCount) }}</span>
+                      </span>
+                      <span v-if="item.commentCount != null" class="stat-item">
+                        <Icon name="heroicons:chat-bubble-left-16-solid" size="12" />
+                        <span>{{ formatCount(item.commentCount) }}</span>
+                      </span>
                     </div>
                   </div>
                 </a>
@@ -126,7 +170,7 @@
           </div>
 
           <!-- 底部快捷键提示 -->
-          <div class="search-footer">
+          <div v-if="showShortcutHints && !isCoarsePointer" class="search-footer">
             <div class="shortcut-hints">
               <span class="hint">
                 <kbd>↑</kbd><kbd>↓</kbd> 选择
@@ -167,12 +211,22 @@ const keyword = ref('')
 const results = ref<SearchHit[]>([])
 const searching = ref(false)
 const activeIndex = ref(-1)
+const hasKeyword = computed(() => keyword.value.trim().length > 0)
+const showShortcutHints = computed(() => hasKeyword.value && !searching.value && results.value.length > 0)
 
 // ===== 搜索历史（localStorage 持久化） =====
 const HISTORY_KEY = 'weblog_search_history'
 const MAX_HISTORY = 10
+const LONG_PRESS_DURATION = 420
+const LONG_PRESS_MOVE_TOLERANCE = 10
 
 const history = ref<string[]>([])
+const historyLongPressIndex = ref<number | null>(null)
+const suppressHistoryClick = ref(false)
+const isCoarsePointer = ref(false)
+let historyLongPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressStartX = 0
+let longPressStartY = 0
 
 /** 从 localStorage 读取搜索历史 */
 function loadHistory() {
@@ -211,19 +265,111 @@ function addToHistory(kw: string) {
 /** 删除单条历史 */
 function removeHistory(index: number) {
   history.value.splice(index, 1)
+  if (historyLongPressIndex.value === index) {
+    historyLongPressIndex.value = null
+  } else if (historyLongPressIndex.value != null && historyLongPressIndex.value > index) {
+    historyLongPressIndex.value -= 1
+  }
+  suppressHistoryClick.value = false
   saveHistory()
 }
 
 /** 清空全部历史 */
 function clearAllHistory() {
   history.value = []
+  historyLongPressIndex.value = null
+  suppressHistoryClick.value = false
   saveHistory()
 }
 
 /** 从历史记录搜索 */
 function searchFromHistory(kw: string) {
   keyword.value = kw
+  historyLongPressIndex.value = null
+  suppressHistoryClick.value = false
   doSearch()
+}
+
+function clearHistoryLongPressTimer() {
+  if (historyLongPressTimer) {
+    clearTimeout(historyLongPressTimer)
+    historyLongPressTimer = null
+  }
+}
+
+function handleHistoryTagClick(kw: string, index: number, event: MouseEvent) {
+  if (suppressHistoryClick.value) {
+    suppressHistoryClick.value = false
+    event.preventDefault()
+    return
+  }
+
+  if (historyLongPressIndex.value != null && historyLongPressIndex.value !== index) {
+    historyLongPressIndex.value = null
+  }
+
+  searchFromHistory(kw)
+}
+
+function handleHistoryTouchStart(event: TouchEvent, index: number) {
+  if (!isCoarsePointer.value) {
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  clearHistoryLongPressTimer()
+  suppressHistoryClick.value = false
+  longPressStartX = touch.clientX
+  longPressStartY = touch.clientY
+
+  historyLongPressTimer = setTimeout(() => {
+    historyLongPressIndex.value = index
+    suppressHistoryClick.value = true
+    historyLongPressTimer = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleHistoryTouchMove(event: TouchEvent) {
+  if (!historyLongPressTimer) {
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  const deltaX = Math.abs(touch.clientX - longPressStartX)
+  const deltaY = Math.abs(touch.clientY - longPressStartY)
+  if (deltaX > LONG_PRESS_MOVE_TOLERANCE || deltaY > LONG_PRESS_MOVE_TOLERANCE) {
+    clearHistoryLongPressTimer()
+  }
+}
+
+function handleHistoryTouchEnd() {
+  clearHistoryLongPressTimer()
+}
+
+function handleHistoryTouchCancel() {
+  clearHistoryLongPressTimer()
+}
+
+function handleSearchBodyClick(event: MouseEvent) {
+  if (historyLongPressIndex.value == null) {
+    return
+  }
+
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.history-tag')) {
+    return
+  }
+
+  historyLongPressIndex.value = null
+  suppressHistoryClick.value = false
 }
 
 // ===== 搜索逻辑 =====
@@ -274,7 +420,7 @@ function handleKeydown(e: KeyboardEvent) {
   }
 
   // 仅在有搜索结果时处理上下键和回车
-  if (!keyword.value.trim() || results.value.length === 0) return
+  if (!hasKeyword.value || results.value.length === 0) return
 
   if (e.key === 'ArrowDown') {
     e.preventDefault()
@@ -302,6 +448,51 @@ function scrollActiveIntoView() {
   })
 }
 
+function formatCount(value: number): string {
+  if (value >= 10000) {
+    return `${(value / 10000).toFixed(1)}w`
+  }
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}k`
+  }
+  return String(value)
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) {
+    return dateStr
+  }
+
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function hasStats(item: SearchHit): boolean {
+  return item.viewCount != null
+    || item.likeCount != null
+    || item.collectCount != null
+    || item.commentCount != null
+}
+
+function formatCategoryPath(item: SearchHit): string {
+  if (item.categoryName && item.subCategoryName) {
+    return `${item.categoryName} / ${item.subCategoryName}`
+  }
+  if (item.subCategoryName) {
+    return item.subCategoryName
+  }
+  if (item.categoryName) {
+    return item.categoryName
+  }
+  if (item.categoryId != null) {
+    return `分类 #${item.categoryId}`
+  }
+  return ''
+}
+
 // ===== 结果点击 =====
 function handleResultClick(item: SearchHit) {
   addToHistory(keyword.value.trim())
@@ -312,6 +503,12 @@ function handleResultClick(item: SearchHit) {
 function close() {
   emit('update:visible', false)
 }
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    isCoarsePointer.value = window.matchMedia('(pointer: coarse)').matches
+  }
+})
 
 // ===== 监听显示状态 =====
 let locked = false
@@ -330,6 +527,9 @@ watch(() => props.visible, (val) => {
     keyword.value = ''
     results.value = []
     activeIndex.value = -1
+    historyLongPressIndex.value = null
+    suppressHistoryClick.value = false
+    clearHistoryLongPressTimer()
     if (locked) {
       unlockScroll()
       locked = false
@@ -339,6 +539,7 @@ watch(() => props.visible, (val) => {
 
 // 组件卸载时确保恢复滚动
 onUnmounted(() => {
+  clearHistoryLongPressTimer()
   if (locked) {
     unlockScroll()
     locked = false
@@ -407,13 +608,11 @@ onUnmounted(() => {
 }
 
 .modal-close-btn {
-  position: absolute;
-  top: 0.72rem;
-  right: 0.72rem;
-  width: 30px;
-  height: 30px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   border: 1px solid $color-border;
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(248, 250, 252, 0.95);
   color: $color-text-muted;
   display: inline-flex;
@@ -445,7 +644,8 @@ onUnmounted(() => {
 .search-header {
   display: flex;
   align-items: center;
-  padding: 0.8rem 3rem 0.8rem 0.8rem;
+  gap: $spacing-sm;
+  padding: 0.8rem;
   border-bottom: 1px solid $color-border;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(248, 250, 252, 0.58));
 
@@ -460,9 +660,11 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+  box-sizing: border-box;
   border: 1px solid $color-border;
-  border-radius: 10px;
-  padding: 0.42rem 0.6rem;
+  border-radius: 12px;
+  height: 40px;
+  padding: 0 0.65rem;
   background: rgba(255, 255, 255, 0.9);
   .dark & {
     border-color: $color-dark-border;
@@ -481,12 +683,13 @@ onUnmounted(() => {
 
 .search-input {
   flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   color: $color-text;
-  line-height: 1.5;
+  line-height: 1.4;
 
   &::placeholder {
     color: $color-text-muted;
@@ -503,6 +706,8 @@ onUnmounted(() => {
 
 .clear-btn {
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -510,9 +715,11 @@ onUnmounted(() => {
   background: transparent;
   color: $color-text-muted;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0;
   border-radius: $radius-sm;
-  transition: color 0.2s;
+  opacity: 0;
+  pointer-events: none;
+  transition: color 0.2s, opacity 0.18s;
 
   &:hover {
     color: $color-text;
@@ -527,11 +734,58 @@ onUnmounted(() => {
   }
 }
 
+.clear-btn--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ===== 搜索内容区域 ===== */
 .search-body {
   flex: 1;
-  overflow-y: scroll;
+  min-height: 0;
   padding: $spacing-md;
+}
+
+.search-body--results {
+  overflow-y: auto;
+}
+
+.search-body--ranking {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+  overflow: hidden;
+}
+
+.search-body--ranking .history-section {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.search-body--ranking .ranking-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-body--ranking .ranking-section :deep(.ranking-list) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-body--ranking .ranking-section :deep(.ranking-list .ranking-tabs),
+.search-body--ranking .ranking-section :deep(.ranking-list .ranking-tip) {
+  flex-shrink: 0;
+}
+
+.search-body--ranking .ranking-section :deep(.ranking-list .ranking-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 /* ===== 搜索历史 ===== */
@@ -602,6 +856,9 @@ onUnmounted(() => {
   border: 1px solid $color-border;
   border-radius: 999px;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 
   &:hover {
@@ -632,6 +889,8 @@ onUnmounted(() => {
   justify-content: center;
   width: 16px;
   height: 16px;
+  min-width: 16px;
+  min-height: 16px;
   border: none;
   background: $color-bg-secondary;
   border-radius: 50%;
@@ -639,6 +898,7 @@ onUnmounted(() => {
   cursor: pointer;
   padding: 0;
   opacity: 0;
+  pointer-events: none;
   transition: color 0.2s, opacity 0.15s, background 0.2s;
   box-shadow: 0 0 0 1px $color-border;
 
@@ -663,6 +923,12 @@ onUnmounted(() => {
 
 .history-tag:hover .tag-remove {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.history-tag--removable .tag-remove {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* ===== 排行榜区块 ===== */
@@ -751,7 +1017,8 @@ onUnmounted(() => {
 .result-meta {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.65rem;
   margin-top: 0.375rem;
   font-size: 0.75rem;
   color: $color-text-muted;
@@ -759,6 +1026,34 @@ onUnmounted(() => {
   .dark & {
     color: #64748b;
   }
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  line-height: 1;
+}
+
+.result-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.65rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: $color-text-muted;
+
+  .dark & {
+    color: #64748b;
+  }
+}
+
+.stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  line-height: 1;
 }
 
 /* ===== 搜索加载骨架屏 ===== */
@@ -916,6 +1211,39 @@ onUnmounted(() => {
     max-width: 100%;
     max-height: 100vh;
     border-radius: 0;
+  }
+
+  .search-header {
+    padding: 0.7rem;
+    gap: 0.5rem;
+  }
+
+  .search-input-wrapper {
+    height: 42px;
+  }
+
+  .modal-close-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .search-footer {
+    border-top: none;
+  }
+
+  .tag-remove {
+    top: -7px;
+    right: -7px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .tag-remove :deep(svg) {
+    width: 11px;
+    height: 11px;
   }
 
   .shortcut-hints {

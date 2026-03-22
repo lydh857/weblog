@@ -14,7 +14,7 @@
     <!-- 三栏布局：左=今日飙升 | 中=本周热榜+月度精选 | 右=最高热度 -->
     <div class="ranking-grid">
       <!-- 左栏：今日飙升（大榜，第1名大封面） -->
-      <div class="ranking-card ranking-card--tall">
+      <div class="ranking-card ranking-card--tall ranking-card--daily">
         <div class="card-head">
           <NuxtLink to="/ranking?tab=1" class="card-title-link">
             {{ dailyBoardTitle }}
@@ -86,61 +86,59 @@
       </div>
 
       <!-- 中栏：本周热榜 + 月度精选 -->
-      <div class="ranking-col">
-        <!-- 本周热榜 -->
-        <div class="ranking-card">
-          <div class="card-head">
-            <NuxtLink to="/ranking?tab=2" class="card-title-link">
-              本周热榜
-              <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
-            </NuxtLink>
-            <span class="card-subtitle">本周热度排行</span>
-          </div>
-          <div v-if="weekBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
-            <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
-              <span class="sk-num sk-shimmer" />
-              <span class="sk-text sk-shimmer" />
-              <span class="sk-heat sk-shimmer" />
-            </div>
-          </div>
-          <div v-else-if="weekBoard.items.length" class="card-list">
-            <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
-              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
-              <span class="rank-title">{{ item.title }}</span>
-              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
-            </NuxtLink>
-          </div>
-          <div v-else class="card-empty">暂无数据</div>
+      <div class="ranking-card ranking-card--week">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=2" class="card-title-link">
+            本周热榜
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">本周热度排行</span>
         </div>
-        <!-- 月度精选 -->
-        <div class="ranking-card">
-          <div class="card-head">
-            <NuxtLink to="/ranking?tab=3" class="card-title-link">
-              月度精选
-              <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
-            </NuxtLink>
-            <span class="card-subtitle">本月口碑佳作</span>
+        <div v-if="weekBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+          <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+            <span class="sk-num sk-shimmer" />
+            <span class="sk-text sk-shimmer" />
+            <span class="sk-heat sk-shimmer" />
           </div>
-          <div v-if="monthBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
-            <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
-              <span class="sk-num sk-shimmer" />
-              <span class="sk-text sk-shimmer" />
-              <span class="sk-heat sk-shimmer" />
-            </div>
-          </div>
-          <div v-else-if="monthBoard.items.length" class="card-list">
-            <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
-              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
-              <span class="rank-title">{{ item.title }}</span>
-              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
-            </NuxtLink>
-          </div>
-          <div v-else class="card-empty">暂无数据</div>
         </div>
+        <div v-else-if="weekBoard.items.length" class="card-list">
+          <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+            <span class="rank-title">{{ item.title }}</span>
+            <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+          </NuxtLink>
+        </div>
+        <div v-else class="card-empty">暂无数据</div>
+      </div>
+
+      <!-- 月度精选 -->
+      <div class="ranking-card ranking-card--month">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=3" class="card-title-link">
+            月度精选
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">本月口碑佳作</span>
+        </div>
+        <div v-if="monthBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+          <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+            <span class="sk-num sk-shimmer" />
+            <span class="sk-text sk-shimmer" />
+            <span class="sk-heat sk-shimmer" />
+          </div>
+        </div>
+        <div v-else-if="monthBoard.items.length" class="card-list">
+          <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+            <span class="rank-title">{{ item.title }}</span>
+            <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+          </NuxtLink>
+        </div>
+        <div v-else class="card-empty">暂无数据</div>
       </div>
 
       <!-- 右栏：最高热度（大榜，第1名大封面） -->
-      <div class="ranking-card ranking-card--tall">
+      <div class="ranking-card ranking-card--tall ranking-card--total">
         <div class="card-head">
           <NuxtLink to="/ranking?tab=4" class="card-title-link">
             最高热度
@@ -396,24 +394,38 @@ onMounted(() => {
 .ranking-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
+  grid-template-areas:
+    'daily week total'
+    'daily month total';
   gap: $spacing-md;
   align-items: stretch;
 }
 
-.ranking-col {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-md;
+.ranking-card--daily {
+  grid-area: daily;
+}
+
+.ranking-card--week {
+  grid-area: week;
+}
+
+.ranking-card--month {
+  grid-area: month;
+}
+
+.ranking-card--total {
+  grid-area: total;
 }
 
 /* 中栏小榜等分高度 */
-.ranking-col > .ranking-card {
-  flex: 1;
+.ranking-card--week,
+.ranking-card--month {
   display: flex;
   flex-direction: column;
 }
 
-.ranking-col > .ranking-card > .card-list {
+.ranking-card--week > .card-list,
+.ranking-card--month > .card-list {
   flex: 1;
 }
 
@@ -801,11 +813,29 @@ onMounted(() => {
 @media (max-width: $breakpoint-lg) {
   .ranking-grid {
     grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'daily week'
+      'month total';
   }
 }
 
 @media (max-width: $breakpoint-md) {
   .section-desc { display: none; }
-  .ranking-grid { grid-template-columns: 1fr; }
+  .ranking-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(16rem, calc(100% - 3rem)));
+    grid-template-areas:
+      'daily week total'
+      'daily month total';
+    gap: $spacing-sm;
+    overflow-x: auto;
+    padding: 0 0.5rem 2px 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 </style>

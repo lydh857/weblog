@@ -1,6 +1,7 @@
 <template>
   <div class="layout" :class="{ dark: isDark }">
     <header
+      v-if="shouldRenderNavbar"
       class="navbar"
       :class="{
         'navbar--transparent': isNavbarTransparent,
@@ -184,8 +185,8 @@
       <slot />
     </main>
     <Transition name="left-ad-float-fade">
-      <aside v-if="globalLeftAdVisible" class="global-left-ad">
-        <AdSlotBanner ad-slot="home_left" :visible="globalLeftAdVisible" :force-rotate="true" />
+      <aside v-if="shouldShowGlobalLeftAd" class="global-left-ad" :class="{ 'is-scrolling-hidden': isGlobalLeftAdScrollingHidden }">
+        <AdSlotBanner ad-slot="home_left" :visible="globalLeftAdVisible" :force-rotate="true" @closed="handleGlobalLeftAdClosed" />
       </aside>
     </Transition>
     <AnnouncementPopup />
@@ -228,11 +229,16 @@ const lastScrollY = ref(0)
 const isHomePage = computed(() => route.path === '/')
 const isNavbarTransparent = computed(() => (isHomePage.value && !isScrolled.value) || forceHomeNavbarTransparent.value)
 const globalLeftAdVisible = ref(false)
+const globalLeftAdDismissed = ref(false)
+const isGlobalLeftAdScrollingHidden = ref(false)
+const shouldShowGlobalLeftAd = computed(() => globalLeftAdVisible.value && !globalLeftAdDismissed.value)
 let leftAdHeroObserver: IntersectionObserver | null = null
 let leftAdHeroRetryTimer: ReturnType<typeof setTimeout> | null = null
 let forceHomeNavbarTimer: ReturnType<typeof setTimeout> | null = null
+let leftAdMobileScrollTimer: ReturnType<typeof setTimeout> | null = null
 let leftAdHeroRetryCount = 0
 const LEFT_AD_HERO_RETRY_MAX = 30
+const LEFT_AD_MOBILE_HIDE_DELAY = 180
 
 interface NavLinkItem {
   to: string
@@ -273,11 +279,24 @@ useHead(() => ({
 
 // ===== 首页入场动画 =====
 const shouldAnimate = ref(false)
-const shouldHideNavbarBeforeEnter = ref(false)
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const isStartupDone = ref(false)
 const NAV_MOBILE_BREAKPOINT = 768
 const forceHomeNavbarTransparent = ref(false)
+const shouldRenderNavbar = computed(() => !isHomePage.value || isStartupDone.value)
+let navEnterRafId: number | null = null
+let navRevealRafId: number | null = null
+
+function resolveInitialNavbarHiddenState() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return route.path === '/' && !runtimeWindow.__weblogStartupDone
+}
+
+const shouldHideNavbarBeforeEnter = ref(resolveInitialNavbarHiddenState())
 
 function hasStartupDone() {
   if (!import.meta.client) {
@@ -288,18 +307,37 @@ function hasStartupDone() {
   return Boolean(runtimeWindow.__weblogStartupDone)
 }
 
-function triggerHomeNavEnterAnimation() {
-  shouldAnimate.value = false
-
+function clearNavEnterAnimationFrames() {
   if (!import.meta.client) return
 
-  const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
-  shouldHideNavbarBeforeEnter.value = !isMobileViewport
+  if (navEnterRafId !== null) {
+    window.cancelAnimationFrame(navEnterRafId)
+    navEnterRafId = null
+  }
+
+  if (navRevealRafId !== null) {
+    window.cancelAnimationFrame(navRevealRafId)
+    navRevealRafId = null
+  }
+}
+
+function triggerHomeNavEnterAnimation() {
+  if (!import.meta.client) return
+  if (!shouldRenderNavbar.value) return
+
+  clearNavEnterAnimationFrames()
+  shouldAnimate.value = false
+  shouldHideNavbarBeforeEnter.value = true
 
   nextTick(() => {
-    requestAnimationFrame(() => {
-      shouldHideNavbarBeforeEnter.value = false
+    navEnterRafId = window.requestAnimationFrame(() => {
+      navEnterRafId = null
       shouldAnimate.value = true
+
+      navRevealRafId = window.requestAnimationFrame(() => {
+        navRevealRafId = null
+        shouldHideNavbarBeforeEnter.value = false
+      })
     })
   })
 }
@@ -343,6 +381,12 @@ function observeHomeHeroForLeftAd() {
 function refreshGlobalLeftAdVisibility() {
   if (!import.meta.client) return
 
+  if (globalLeftAdDismissed.value) {
+    globalLeftAdVisible.value = false
+    isGlobalLeftAdScrollingHidden.value = false
+    return
+  }
+
   clearLeftAdHeroWatchers()
   if (route.path === '/') {
     observeHomeHeroForLeftAd()
@@ -350,6 +394,40 @@ function refreshGlobalLeftAdVisibility() {
   }
 
   globalLeftAdVisible.value = true
+}
+
+function clearLeftAdMobileScrollTimer() {
+  if (!leftAdMobileScrollTimer) return
+  clearTimeout(leftAdMobileScrollTimer)
+  leftAdMobileScrollTimer = null
+}
+
+function syncGlobalLeftAdScrollState() {
+  if (!import.meta.client) return
+
+  const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
+  const canAnimateVisibility = isMobileViewport && shouldShowGlobalLeftAd.value
+
+  if (!canAnimateVisibility) {
+    isGlobalLeftAdScrollingHidden.value = false
+    clearLeftAdMobileScrollTimer()
+    return
+  }
+
+  isGlobalLeftAdScrollingHidden.value = true
+  clearLeftAdMobileScrollTimer()
+  leftAdMobileScrollTimer = setTimeout(() => {
+    isGlobalLeftAdScrollingHidden.value = false
+    leftAdMobileScrollTimer = null
+  }, LEFT_AD_MOBILE_HIDE_DELAY)
+}
+
+function handleGlobalLeftAdClosed() {
+  globalLeftAdDismissed.value = true
+  globalLeftAdVisible.value = false
+  isGlobalLeftAdScrollingHidden.value = false
+  clearLeftAdMobileScrollTimer()
+  clearLeftAdHeroWatchers()
 }
 
 async function loadHomeNavRanking() {
@@ -368,16 +446,29 @@ async function loadHomeNavRanking() {
 watch([isHomePage, isStartupDone], ([home, startupDone]) => {
   if (home && startupDone) {
     triggerHomeNavEnterAnimation()
-  } else {
-    shouldAnimate.value = false
-    shouldHideNavbarBeforeEnter.value = false
+    return
   }
-}, { immediate: true })
+
+  clearNavEnterAnimationFrames()
+  shouldAnimate.value = false
+
+  if (home && !startupDone && import.meta.client) {
+    shouldHideNavbarBeforeEnter.value = true
+    return
+  }
+
+  shouldHideNavbarBeforeEnter.value = false
+}, { immediate: true, flush: 'sync' })
 
 watch(() => route.path, (path, oldPath) => {
   if (!import.meta.client) return
 
   const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
+  isGlobalLeftAdScrollingHidden.value = false
+  clearLeftAdMobileScrollTimer()
+  if (isMobileViewport) {
+    isNavHidden.value = false
+  }
   const isEnterHomeOnMobile = path === '/' && oldPath && oldPath !== '/' && isMobileViewport
 
   if (isEnterHomeOnMobile) {
@@ -408,24 +499,42 @@ watch(() => route.path, (path, oldPath) => {
   })
 }, { immediate: true })
 
+watch(shouldShowGlobalLeftAd, (visible) => {
+  if (visible) return
+  isGlobalLeftAdScrollingHidden.value = false
+  clearLeftAdMobileScrollTimer()
+})
+
 function handleScroll() {
-  const scrollY = window.scrollY
+  const scrollY = Math.max(window.scrollY, 0)
+  const topVisibleThreshold = window.innerWidth <= NAV_MOBILE_BREAKPOINT ? 6 : 2
   isScrolled.value = scrollY > 20
 
   // 评论区 DOM 操作期间跳过方向判断，只同步 lastScrollY
   if (navScrollLocked.value) {
     lastScrollY.value = scrollY
+    syncGlobalLeftAdScrollState()
     return
   }
 
   const heroEl = document.querySelector('.hero-carousel')
   const heroBottom = heroEl ? heroEl.getBoundingClientRect().height : 0
-  if (scrollY > heroBottom) {
+  const hideStartY = Math.max(heroBottom, 80)
+
+  if (scrollY <= topVisibleThreshold) {
+    isNavHidden.value = false
+    lastScrollY.value = 0
+    syncGlobalLeftAdScrollState()
+    return
+  }
+
+  if (scrollY > hideStartY) {
     isNavHidden.value = scrollY > lastScrollY.value
   } else {
     isNavHidden.value = false
   }
   lastScrollY.value = scrollY
+  syncGlobalLeftAdScrollState()
 }
 
 function handleWindowResize() {
@@ -449,9 +558,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  clearNavEnterAnimationFrames()
   window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('resize', handleWindowResize)
+  clearLeftAdMobileScrollTimer()
   if (forceHomeNavbarTimer) {
     clearTimeout(forceHomeNavbarTimer)
     forceHomeNavbarTimer = null
@@ -654,8 +765,9 @@ onUnmounted(() => {
     .dark & {
       background: transparent;
       border-bottom-color: transparent;
+      .nav-logo .logo-text { color: rgba(255, 255, 255, 0.88); }
     }
-    .nav-logo .logo-text { color: #fff; }
+    .nav-logo .logo-text { color: rgba(255, 255, 255, 0.88); }
     .nav-link,
     .login-btn {
       color: rgba(255, 255, 255, 0.88);
@@ -685,6 +797,7 @@ onUnmounted(() => {
     opacity: 0;
     transform: translateY(-100%);
     pointer-events: none;
+    transition: none;
   }
 }
 
@@ -747,10 +860,14 @@ onUnmounted(() => {
   font-family: inherit;
   font-size: 1.2rem;
   font-weight: 800;
-  color: $color-primary;
+  color: #000;
   letter-spacing: 0.02em;
   line-height: 1;
   transition: color 0.2s;
+
+  .dark & {
+    color: #fff;
+  }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -1114,6 +1231,14 @@ onUnmounted(() => {
   width: 140px;
   transform: translateY(-50%);
   z-index: 55;
+  transition: opacity 220ms ease, transform 260ms ease;
+  will-change: opacity, transform;
+}
+
+.global-left-ad.is-scrolling-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-12px, -50%, 0);
 }
 
 .left-ad-float-fade-enter-active,
@@ -1137,7 +1262,7 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1540px) {
+@media (max-width: 1540px) and (min-width: 769px) {
   .global-left-ad {
     display: none;
   }
@@ -1145,7 +1270,17 @@ onUnmounted(() => {
 
 @media (max-width: $breakpoint-md) {
   .global-left-ad {
-    display: none;
+    display: block;
+    top: 50%;
+    bottom: auto;
+    left: calc(8px + env(safe-area-inset-left));
+    width: clamp(164px, 44vw, 210px);
+    transform: translate3d(0, -50%, 0);
+    z-index: 56;
+  }
+
+  .global-left-ad.is-scrolling-hidden {
+    transform: translate3d(-12px, -50%, 0);
   }
 }
 

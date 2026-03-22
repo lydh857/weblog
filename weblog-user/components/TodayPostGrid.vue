@@ -448,6 +448,25 @@ onUnmounted(() => {
 
 /* ===== 响应式 ===== */
 @media (max-width: $breakpoint-md) {
+  .section-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .scroll-arrows,
+  .scroll-arrows-skeleton {
+    gap: 0.3rem;
+  }
+
+  .sk-circle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .scroll-arrow {
+    width: 38px;
+    height: 38px;
+  }
+
   .grid-card {
     width: 240px;
     height: 160px;
@@ -460,6 +479,13 @@ onUnmounted(() => {
 
   .section-desc {
     display: none;
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .scroll-arrow {
+    min-width: 38px;
+    min-height: 38px;
   }
 }
 

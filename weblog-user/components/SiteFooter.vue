@@ -218,26 +218,113 @@ function openSearchModal() {
 
 @media (max-width: $breakpoint-md) {
   .footer-shell {
+    width: min(1200px, calc(100% - 1.1rem));
     grid-template-columns: 1fr;
-    gap: 1.4rem;
-    padding: 1.6rem 0 1.1rem;
+    gap: 0.9rem;
+    padding: 1.1rem 0 0.72rem;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .footer-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .brand-head {
+    gap: 0.48rem;
+    justify-content: center;
+
+    strong {
+      font-size: 1.05rem;
+    }
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
   }
 
   .brand-slogan {
     max-width: none;
+    margin-top: 0.52rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    text-align: center;
   }
 
   .footer-links {
     grid-template-columns: 1fr;
-    gap: 0.85rem;
+    gap: 0.5rem;
+    width: 100%;
   }
 
   .link-group {
-    padding-top: 0.8rem;
-    border-top: 1px dashed rgba(148, 163, 184, 0.34);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    column-gap: 0.42rem;
+    row-gap: 0.36rem;
+    padding-top: 0.52rem;
+    border-top: 1px dashed rgba(148, 163, 184, 0.3);
+    text-align: center;
+
+    h4 {
+      flex: 0 0 100%;
+      margin: 0 0 0.16rem;
+      font-size: 0.86rem;
+      text-align: center;
+    }
+
+    a,
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      margin-bottom: 0;
+      padding: 0.22rem 0.56rem;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      font-size: 0.78rem;
+      line-height: 1.2;
+      transition: color 0.2s ease;
+
+      &:hover {
+        transform: none;
+        background: transparent;
+      }
+
+      .dark & {
+        background: transparent;
+      }
+    }
+
+    .tips {
+      flex: 0 0 100%;
+      margin-top: 0.22rem;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      text-align: center;
+    }
 
     .dark & {
-      border-top-color: rgba(100, 116, 139, 0.34);
+      border-top-color: rgba(100, 116, 139, 0.32);
+    }
+  }
+
+  .footer-bottom {
+    width: min(1200px, calc(100% - 1.1rem));
+    padding: 0.62rem 0 calc(0.85rem + env(safe-area-inset-bottom));
+
+    p {
+      margin: 0.14rem 0;
+      font-size: 0.72rem;
+      line-height: 1.4;
     }
   }
 }

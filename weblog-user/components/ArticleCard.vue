@@ -445,16 +445,26 @@ function handleImageError(e: Event) {
   }
 
   .top-ribbon {
-    width: 180px;
-    height: 120px;
+    top: 0;
+    left: 0;
+    width: 96px;
+    height: 96px;
+
+    &::before,
+    &::after {
+      display: none;
+    }
 
     .ribbon-text {
-      top: 8px;
-      left: -26px;
+      top: 9px;
+      left: -22px;
       font-size: 8px;
-      width: 76px;
-      height: 16px;
-      line-height: 16px;
+      width: 82px;
+      height: 17px;
+      line-height: 17px;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
+      padding-bottom: 0;
+      backface-visibility: hidden;
     }
   }
 }
@@ -498,6 +508,21 @@ function handleImageError(e: Event) {
 
   .meta-left {
     gap: 0.5rem;
+  }
+
+  .top-ribbon {
+    width: 90px;
+    height: 90px;
+
+    .ribbon-text {
+      top: 9px;
+      left: -22px;
+      width: 80px;
+      height: 18px;
+      line-height: 18px;
+      font-size: 9px;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+    }
   }
 }
 </style>

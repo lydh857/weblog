@@ -3,6 +3,7 @@ package com.blog.content.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -31,6 +32,14 @@ public class SearchResult {
         private String highlightContent;
         private Long categoryId;
         private Long authorId;
+        private String categoryName;
+        private String subCategoryName;
+        private String authorNickname;
+        private Integer viewCount;
+        private Integer likeCount;
+        private Integer collectCount;
+        private Integer commentCount;
+        private LocalDateTime createTime;
     }
 
 }

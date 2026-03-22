@@ -9,6 +9,14 @@ export interface SearchHit {
   highlightContent: string
   categoryId: number
   authorId: number
+  categoryName?: string | null
+  subCategoryName?: string | null
+  authorNickname?: string | null
+  viewCount?: number | null
+  likeCount?: number | null
+  collectCount?: number | null
+  commentCount?: number | null
+  createTime?: string | null
 }
 
 export interface SearchResult {
