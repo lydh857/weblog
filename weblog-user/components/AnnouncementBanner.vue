@@ -149,21 +149,19 @@ onUnmounted(() => stopAutoPlay())
     transform: translateY(calc(var(--layout-navbar-height, 60px) * -1));
   }
 
-  @media (min-width: 1025px) {
-    &.transparent {
-      background: rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(8px);
-      border-bottom-color: rgba(255, 255, 255, 0.1);
+  &.transparent {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
 
-      .ann-icon { color: rgba(255, 255, 255, 0.9); }
-      .ann-link { color: rgba(255, 255, 255, 0.9); &:hover { color: #fff; } }
-      .ann-title { color: #fff; }
-      .ann-sep { color: rgba(255, 255, 255, 0.5); }
-      .ann-summary { color: rgba(255, 255, 255, 0.8); }
-      .ann-nav-btn { color: rgba(255, 255, 255, 0.7); &:hover { background: rgba(255, 255, 255, 0.1); } }
-      .ann-count { color: rgba(255, 255, 255, 0.6); }
-      .ann-close { color: rgba(255, 255, 255, 0.6); &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; } }
-    }
+    .ann-icon { color: rgba(255, 255, 255, 0.9); }
+    .ann-link { color: rgba(255, 255, 255, 0.9); &:hover { color: #fff; } }
+    .ann-title { color: #fff; }
+    .ann-sep { color: rgba(255, 255, 255, 0.5); }
+    .ann-summary { color: rgba(255, 255, 255, 0.8); }
+    .ann-nav-btn { color: rgba(255, 255, 255, 0.7); &:hover { background: rgba(255, 255, 255, 0.1); } }
+    .ann-count { color: rgba(255, 255, 255, 0.6); }
+    .ann-close { color: rgba(255, 255, 255, 0.6); &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; } }
   }
 
   .dark & {

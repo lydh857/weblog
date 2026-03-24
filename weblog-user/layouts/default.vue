@@ -536,13 +536,21 @@ function handleScroll() {
     return
   }
 
-  const heroEl = document.querySelector('.hero-carousel')
-  const heroBottom = heroEl ? heroEl.getBoundingClientRect().height : 0
-  const hideStartY = Math.max(heroBottom, 80)
+  const heroEl = document.querySelector<HTMLElement>('.hero-carousel')
+  const heroRect = heroEl?.getBoundingClientRect()
+  const hideStartY = Math.max(heroRect?.height ?? 0, 80)
+  const hasPassedHero = heroRect ? heroRect.bottom <= 0 : scrollY > hideStartY
 
   if (scrollY <= topVisibleThreshold) {
     isNavHidden.value = false
     lastScrollY.value = 0
+    syncGlobalLeftAdScrollState()
+    return
+  }
+
+  if (isHomePage.value) {
+    isNavHidden.value = hasPassedHero
+    lastScrollY.value = scrollY
     syncGlobalLeftAdScrollState()
     return
   }
