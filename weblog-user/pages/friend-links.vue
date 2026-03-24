@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="friend-links-page">
     <div class="page-header">
-      <div class="header-text">
+      <div class="page-title-row">
         <h1 class="page-title">
           <Icon name="heroicons:link-20-solid" size="22" />
           友情链接
@@ -27,7 +27,16 @@
           class="link-card"
           @click="handleLinkClick($event, link.url)"
         >
-          <img v-if="link.logo && !logoErrors[link.id]" :src="link.logo" :alt="link.name" class="link-logo" loading="lazy" @error="onLogoError(link.id)" />
+          <img
+            v-if="link.logo && !logoErrors[link.id]"
+            :src="link.logo"
+            :alt="link.name"
+            class="link-logo"
+            :class="{ 'link-logo--loaded': loadedLogoIds.has(link.id) }"
+            loading="lazy"
+            @load="onLogoLoad(link.id)"
+            @error="onLogoError(link.id)"
+          />
           <div v-else class="link-logo-placeholder">{{ link.name.charAt(0) }}</div>
           <div class="link-info">
             <span class="link-name">{{ link.name }}</span>
@@ -80,6 +89,8 @@ const pagedLinks = computed(() => {
 })
 
 const logoErrors = reactive<Record<number, boolean>>({})
+const loadedLogoIds = reactive(new Set<number>())
+function onLogoLoad(id: number) { loadedLogoIds.add(id) }
 function onLogoError(id: number) { logoErrors[id] = true }
 
 function getSafeHref(rawUrl: string | null | undefined) {
@@ -153,10 +164,17 @@ onMounted(() => {
 
 .page-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.72rem;
   margin-bottom: var(--layout-page-header-margin-bottom);
+}
+
+.page-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.62rem;
+  min-width: 0;
 }
 
 .page-title {
@@ -173,10 +191,11 @@ onMounted(() => {
 }
 
 .page-desc {
-  margin: var(--layout-page-desc-margin-top) 0 0;
+  margin: 0;
   font-size: 0.92rem;
   line-height: 1.4;
   color: $color-text-muted;
+  white-space: nowrap;
   .dark & { color: #94a3b8; }
 }
 
@@ -249,6 +268,20 @@ onMounted(() => {
   border-radius: 12px;
   object-fit: cover;
   flex-shrink: 0;
+  opacity: 0;
+  transform: scale(1.03);
+  filter: blur(2px);
+  transition: opacity 0.28s ease, transform 0.35s ease, filter 0.28s ease;
+}
+
+.link-logo--loaded {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+}
+
+.link-card:hover .link-logo--loaded {
+  transform: scale(1.05);
 }
 
 .link-logo-placeholder {
@@ -263,6 +296,23 @@ onMounted(() => {
   font-size: 1.25rem;
   font-weight: 700;
   flex-shrink: 0;
+  opacity: 0;
+  transform: scale(1.03);
+  filter: blur(2px);
+  animation: link-logo-fade-in 0.28s ease forwards;
+  transition: transform 0.35s ease;
+}
+
+.link-card:hover .link-logo-placeholder {
+  transform: scale(1.05);
+}
+
+@keyframes link-logo-fade-in {
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
 }
 
 .link-info {
@@ -322,9 +372,14 @@ onMounted(() => {
 }
 
 @media (max-width: $breakpoint-md) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .page-title-row {
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.22rem 0.5rem;
+  }
+
+  .page-desc {
+    white-space: normal;
   }
 
   .apply-btn {

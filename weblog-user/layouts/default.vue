@@ -389,6 +389,7 @@ function refreshGlobalLeftAdVisibility() {
 
   clearLeftAdHeroWatchers()
   if (route.path === '/') {
+    globalLeftAdVisible.value = false
     observeHomeHeroForLeftAd()
     return
   }
@@ -464,6 +465,9 @@ watch(() => route.path, (path, oldPath) => {
   if (!import.meta.client) return
 
   const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
+  if (path === '/') {
+    globalLeftAdVisible.value = false
+  }
   isGlobalLeftAdScrollingHidden.value = false
   clearLeftAdMobileScrollTimer()
   if (isMobileViewport) {
@@ -803,6 +807,7 @@ onUnmounted(() => {
 
 @media (max-width: $breakpoint-md) {
   .navbar {
+    padding-right: 0;
     transition: transform 0.3s ease, opacity 0.24s ease;
   }
 }
@@ -810,7 +815,7 @@ onUnmounted(() => {
 .nav-inner {
   max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 var(--layout-page-padding-x);
   height: 60px;
   display: flex;
   align-items: center;
@@ -1087,11 +1092,11 @@ onUnmounted(() => {
   background: none;
   color: $color-text;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.5rem 0 0.5rem 0.5rem;
   min-width: 44px;
   min-height: 34px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   margin-left: auto;
   .dark & { color: $color-dark-text; }
   @media (max-width: $breakpoint-md) { display: flex; }
@@ -1101,8 +1106,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-modal) + 10);
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(2px);
+  background: rgba(15, 23, 42, 0.26);
 }
 
 .mobile-drawer {
@@ -1112,14 +1116,14 @@ onUnmounted(() => {
   bottom: 0;
   z-index: calc(var(--z-modal) + 11);
   width: min(82vw, 320px);
-  background: rgba(255, 255, 255, 0.98);
+  background: #fff;
   border-left: 1px solid $color-border;
-  box-shadow: -8px 0 28px rgba(15, 23, 42, 0.2);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
 
   .dark & {
-    background: rgba(15, 23, 42, 0.98);
+    background: #0f172a;
     border-left-color: $color-dark-border;
   }
 
@@ -1130,7 +1134,7 @@ onUnmounted(() => {
 
 .mobile-drawer__header {
   min-height: 60px;
-  padding: max(0.75rem, env(safe-area-inset-top)) 0.9rem 0.75rem 1rem;
+  padding: max(0.72rem, env(safe-area-inset-top)) var(--layout-page-padding-x) 0.72rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1142,8 +1146,9 @@ onUnmounted(() => {
 }
 
 .mobile-drawer__title {
-  font-size: 0.96rem;
+  font-size: 1rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   color: $color-text;
 
   .dark & {
@@ -1154,41 +1159,96 @@ onUnmounted(() => {
 .mobile-drawer__close {
   border: none;
   background: none;
-  color: $color-text-muted;
-  padding: 0.35rem;
-  border-radius: 0.5rem;
+  color: #64748b;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.16s ease, color 0.16s ease;
+
+  &:hover {
+    background: rgba(100, 116, 139, 0.12);
+    color: #475569;
+  }
 
   .dark & {
     color: #94a3b8;
+
+    &:hover {
+      background: rgba(148, 163, 184, 0.16);
+      color: #cbd5e1;
+    }
   }
 }
 
 .mobile-menu {
   display: flex;
   flex-direction: column;
-  padding: 0.35rem 1rem max(1rem, env(safe-area-inset-bottom));
+  gap: 0.26rem;
+  padding: 0.5rem var(--layout-page-padding-x) max(0.9rem, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 
 .mobile-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0;
-  font-size: 0.95rem;
+  gap: 0.6rem;
+  padding: 0.72rem 0.72rem;
+  font-size: 1rem;
   font-weight: 500;
   color: $color-text;
   text-decoration: none;
   border: none;
-  border-bottom: 1px solid $color-border;
+  border: 1px solid transparent;
+  border-radius: 10px;
   background: none;
   text-align: left;
   cursor: pointer;
   width: 100%;
-  .dark & { color: $color-dark-text; border-bottom-color: $color-dark-border; }
-  &:last-child { border-bottom: none; }
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+
+  &:hover {
+    background: rgba(100, 116, 139, 0.08);
+  }
+
+  .dark & {
+    color: $color-dark-text;
+
+    &:hover {
+      background: rgba(148, 163, 184, 0.14);
+    }
+  }
+
   &.logout-link { color: #ef4444; }
+
+  &.router-link-active,
+  &.router-link-exact-active {
+    color: $color-primary;
+    font-weight: 700;
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.24);
+
+    .mobile-link__icon {
+      color: $color-primary;
+      opacity: 1;
+    }
+
+    .dark & {
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.22);
+      border-color: rgba(147, 197, 253, 0.32);
+
+      .mobile-link__icon {
+        color: #93c5fd;
+      }
+    }
+  }
 }
 
 .mobile-drawer-fade-enter-active,
@@ -1213,7 +1273,12 @@ onUnmounted(() => {
 
 .mobile-link__icon {
   flex-shrink: 0;
-  opacity: 0.92;
+  opacity: 0.82;
+  color: #475569;
+
+  .dark & {
+    color: #cbd5e1;
+  }
 }
 
 .mobile-notice-dot {
@@ -1262,9 +1327,25 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1540px) and (min-width: 769px) {
+@media (max-width: 1540px) and (min-width: 1201px) {
   .global-left-ad {
     display: none;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  .global-left-ad {
+    display: block;
+    top: 50%;
+    bottom: auto;
+    left: calc(8px + env(safe-area-inset-left));
+    width: clamp(154px, 24vw, 210px);
+    transform: translate3d(0, -50%, 0);
+    z-index: 56;
+  }
+
+  .global-left-ad.is-scrolling-hidden {
+    transform: translate3d(-10px, -50%, 0);
   }
 }
 

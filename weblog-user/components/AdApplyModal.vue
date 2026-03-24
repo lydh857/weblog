@@ -14,18 +14,29 @@
           </header>
 
           <div class="stepper">
-            <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
-              <div class="step-dot">1</div>
+            <div class="step" :class="{ active: currentStep >= 1, completed: currentStep > 1 }">
+              <div class="step-dot">
+                <Icon v-if="currentStep > 1" name="heroicons:check-16-solid" size="14" />
+                <span v-else>1</span>
+              </div>
+              <span class="step-label">申请须知</span>
+            </div>
+            <div class="step-line" />
+            <div class="step" :class="{ active: currentStep >= 2, completed: currentStep > 2 }">
+              <div class="step-dot">
+                <Icon v-if="currentStep > 2" name="heroicons:check-16-solid" size="14" />
+                <span v-else>2</span>
+              </div>
               <span class="step-label">填写申请</span>
             </div>
             <div class="step-line" />
-            <div class="step" :class="{ active: currentStep === 2 }">
-              <div class="step-dot">2</div>
+            <div class="step" :class="{ active: currentStep >= 3 }">
+              <div class="step-dot"><span>3</span></div>
               <span class="step-label">申请状态</span>
             </div>
           </div>
 
-          <div class="modal-body">
+          <div class="modal-body" :class="{ 'modal-body--dense': currentStep === 2 && form.position === 'post_list_card' }">
             <section v-if="currentStep === 1" class="step-content">
               <div v-if="configLoading" class="loading-text">正在加载申请配置...</div>
               <template v-else>
@@ -41,10 +52,26 @@
                 <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
                 <div v-else-if="myApplication && !canResubmitApplication" class="notice notice-info">
                   你已提交过广告申请，当前不支持修改申请内容。
-                  <button class="inline-btn" type="button" @click="currentStep = 2">查看申请状态</button>
+                  <button class="inline-btn" type="button" @click="currentStep = 3">查看申请状态</button>
                 </div>
                 <div v-else-if="!hasAvailablePit && !canResubmitApplication" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
+                <div v-else class="step-actions">
+                  <button class="action-btn primary" type="button" @click="currentStep = 2">
+                    {{ canResubmitApplication ? '去修改申请' : '我已了解，下一步' }}
+                  </button>
+                </div>
+              </template>
+            </section>
 
+            <section v-if="currentStep === 2" class="step-content">
+              <div v-if="configLoading" class="loading-text">正在加载申请配置...</div>
+              <template v-else>
+                <div v-if="!isLoggedIn" class="notice notice-warning">
+                  登录后可提交广告申请。
+                  <button class="inline-btn" type="button" @click="openLogin">去登录</button>
+                </div>
+                <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
+                <div v-else-if="!hasAvailablePit && !canResubmitApplication" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
                 <form v-else class="apply-form" @submit.prevent="handleSubmit">
                   <div v-if="canResubmitApplication" class="notice notice-warning">
                     {{ resubmitNoticeText }}
@@ -52,7 +79,7 @@
                       v-if="myApplication?.status === 'rejected'"
                       class="inline-btn"
                       type="button"
-                      @click="currentStep = 2"
+                      @click="currentStep = 3"
                     >
                       查看拒绝原因
                     </button>
@@ -85,7 +112,7 @@
                       </div>
                     </section>
 
-                    <section class="form-panel">
+                    <section class="form-panel" :class="{ 'form-panel--dense': form.position === 'post_list_card' }">
                       <div class="form-grid">
                         <div class="form-item">
                           <label>投放位置 <span class="required">*</span></label>
@@ -154,18 +181,21 @@
                       <div class="form-grid">
                         <div class="form-item">
                           <label>开始日期 <span class="required">*</span></label>
-                          <div class="datetime-proxy">
-                            <input :value="startDateDisplay" class="datetime-display-input" type="text" readonly>
-                            <input
-                              v-model="form.startDate"
-                              class="datetime-native-input"
-                              type="datetime-local"
-                              step="60"
-                              @change="handleStartDateChange"
+                          <div class="datetime-picker-wrap">
+                            <button
+                              ref="startDateTriggerRef"
+                              class="datetime-proxy"
+                              :class="{ open: startDatePickerOpen }"
+                              type="button"
+                              @click="toggleStartDatePicker"
                             >
-                            <span class="datetime-icon">
-                              <Icon name="heroicons:calendar-days-20-solid" size="18" />
-                            </span>
+                              <span class="datetime-display-input" :class="{ placeholder: !startDateDisplay }">
+                                {{ startDateDisplay || '请选择开始时间' }}
+                              </span>
+                              <span class="datetime-icon">
+                                <Icon name="heroicons:calendar-days-20-solid" size="18" />
+                              </span>
+                            </button>
                           </div>
                           <div class="date-preset-row">
                             <button
@@ -181,10 +211,10 @@
                           </div>
                         </div>
 
-                        <div class="form-item">
+                        <div class="form-item form-item--readonly">
                           <label>结束日期（自动计算）</label>
                           <p class="date-hint date-hint-before">结束日期会随开始日期和时效自动更新。</p>
-                          <input :value="endDateDisplay" type="text" readonly>
+                          <input :value="endDateDisplay" class="readonly-field" type="text" readonly aria-readonly="true">
                         </div>
                       </div>
 
@@ -199,13 +229,19 @@
                         </div>
                       </div>
 
-                      <div v-if="form.position === 'post_list_card'" class="form-item">
-                        <label>拟态文案</label>
-                        <textarea v-model="form.mimicContent" rows="2" maxlength="120" placeholder="用于文章列表拟态卡，不填则默认“品牌推广”" />
+                      <div v-if="form.position === 'post_list_card'" class="form-grid form-grid--post-card">
+                        <div class="form-item">
+                          <label>广告标题 <span class="required">*</span></label>
+                          <input v-model="form.title" type="text" maxlength="100" placeholder="用于文章拟态卡展示标题">
+                        </div>
+                        <div class="form-item">
+                          <label>拟态文案</label>
+                          <textarea v-model="form.mimicContent" rows="2" maxlength="120" placeholder="用于文章列表拟态卡，不填则默认“品牌推广”" />
+                        </div>
                       </div>
 
                       <div class="step-actions step-actions--form-panel">
-                        <button class="action-btn" type="button" @click="closeModal">取消</button>
+                        <button class="action-btn" type="button" @click="currentStep = 1">上一步</button>
                         <button class="action-btn primary" type="submit" :disabled="submitting || !selectedRule">
                           {{ submitting ? '提交中...' : '提交投放申请' }}
                         </button>
@@ -213,7 +249,7 @@
                           v-if="myApplication"
                           class="action-btn"
                           type="button"
-                          @click="currentStep = 2"
+                          @click="currentStep = 3"
                         >
                           查看当前申请
                         </button>
@@ -224,7 +260,7 @@
               </template>
             </section>
 
-            <section v-if="currentStep === 2" class="step-content">
+            <section v-if="currentStep === 3" class="step-content">
               <div v-if="statusLoading" class="loading-text">正在获取申请状态...</div>
               <template v-else>
                 <div v-if="!isLoggedIn" class="notice notice-warning">请先登录查看申请状态。</div>
@@ -266,7 +302,7 @@
                       v-if="canResubmitApplication"
                       class="action-btn primary"
                       type="button"
-                      @click="currentStep = 1"
+                      @click="currentStep = 2"
                     >
                       去修改
                     </button>
@@ -278,6 +314,150 @@
         </section>
       </div>
     </Transition>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="startDatePickerOpen"
+      class="datetime-picker-shell"
+      :class="{ 'datetime-picker-shell--drawer': pickerDrawerMode }"
+      @mousedown.stop.prevent="closeStartDatePicker"
+    >
+      <div
+        ref="startDatePickerRef"
+        class="datetime-picker-panel"
+        :class="{ 'datetime-picker-panel--drawer': pickerDrawerMode }"
+        :style="pickerPanelStyle"
+        @mousedown.stop="handleDatePickerPanelMouseDown"
+      >
+        <div v-if="pickerDrawerMode" class="picker-drawer-handle" />
+        <div class="picker-header">
+          <button class="picker-nav-btn" type="button" @click="movePickerMonth(-1)">
+            <Icon name="heroicons:chevron-left-16-solid" size="16" />
+          </button>
+          <button ref="pickerMonthTriggerRef" class="picker-month-trigger" type="button" @click="togglePickerYmPanel">
+            {{ pickerMonthLabel }}
+            <Icon name="heroicons:chevron-down-16-solid" size="14" />
+          </button>
+          <button class="picker-nav-btn" type="button" @click="movePickerMonth(1)">
+            <Icon name="heroicons:chevron-right-16-solid" size="16" />
+          </button>
+        </div>
+        <div class="picker-main">
+          <section class="picker-calendar-main">
+            <div class="picker-weekdays">
+              <span v-for="weekday in pickerWeekdays" :key="weekday">{{ weekday }}</span>
+            </div>
+            <div class="picker-days">
+              <button
+                v-for="cell in pickerCalendarCells"
+                :key="cell.dateKey"
+                class="picker-day-btn"
+                :class="{
+                  muted: !cell.inCurrentMonth,
+                  active: cell.dateKey === pickerSelectedDateKey,
+                  today: cell.dateKey === todayDateKey,
+                }"
+                type="button"
+                @click="selectPickerDate(cell.dateKey)"
+              >
+                {{ cell.day }}
+              </button>
+            </div>
+          </section>
+          <section class="picker-time-side">
+            <section class="picker-time-column">
+              <span class="picker-time-label">小时</span>
+              <div ref="pickerHourListRef" class="picker-time-list" role="listbox" aria-label="小时选择">
+                <button
+                  v-for="hour in pickerHourOptions"
+                  :key="hour"
+                :data-value="hour"
+                class="picker-time-option"
+                :class="{ active: hour === pickerSelectedHour }"
+                type="button"
+                tabindex="-1"
+                @mousedown.prevent
+                @click="selectPickerHour(hour)"
+              >
+                  {{ formatTwoDigit(hour) }}
+                </button>
+              </div>
+            </section>
+            <section class="picker-time-column">
+              <span class="picker-time-label">分钟</span>
+              <div ref="pickerMinuteListRef" class="picker-time-list" role="listbox" aria-label="分钟选择">
+                <button
+                  v-for="minute in pickerMinuteOptions"
+                  :key="minute"
+                :data-value="minute"
+                class="picker-time-option"
+                :class="{ active: minute === pickerSelectedMinute }"
+                type="button"
+                tabindex="-1"
+                @mousedown.prevent
+                @click="selectPickerMinute(minute)"
+              >
+                  {{ formatTwoDigit(minute) }}
+                </button>
+              </div>
+            </section>
+          </section>
+        </div>
+        <div class="picker-actions">
+          <button class="picker-action-btn" type="button" @click="applyPickerNow">此时</button>
+          <button class="picker-action-btn primary" type="button" @click="closeStartDatePicker">完成</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="startDatePickerOpen && pickerYmPanelOpen"
+      ref="pickerYmPopupRef"
+      class="picker-ym-popup"
+      :class="{ 'picker-ym-popup--drawer': pickerYmDrawerMode }"
+      :style="pickerYmPopupStyle"
+      @mousedown.self="pickerYmPanelOpen = false"
+    >
+      <div class="picker-ym-popup-body">
+        <section class="picker-ym-column">
+          <span class="picker-time-label">年份</span>
+          <div ref="pickerYearListRef" class="picker-time-list" role="listbox" aria-label="年份选择">
+            <button
+              v-for="year in pickerYearOptions"
+              :key="year"
+              :data-value="year"
+              class="picker-time-option"
+              :class="{ active: year === pickerViewDate.getFullYear() }"
+              type="button"
+              tabindex="-1"
+              @mousedown.prevent
+              @click="selectPickerYear(year)"
+            >
+              {{ year }}
+            </button>
+          </div>
+        </section>
+        <section class="picker-ym-column">
+          <span class="picker-time-label">月份</span>
+          <div ref="pickerMonthListRef" class="picker-time-list" role="listbox" aria-label="月份选择">
+            <button
+              v-for="month in pickerMonthOptions"
+              :key="month"
+              :data-value="month"
+              class="picker-time-option"
+              :class="{ active: month === pickerViewDate.getMonth() + 1 }"
+              type="button"
+              tabindex="-1"
+              @mousedown.prevent
+              @click="selectPickerMonth(month)"
+            >
+              {{ formatTwoDigit(month) }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
   </Teleport>
 
   <AdImageCropper
@@ -308,7 +488,21 @@ interface AdApplyFormState {
   content: string
   linkUrl: string
   adInfo: string
+  title: string
   mimicContent: string
+}
+
+interface PickerCalendarCell {
+  dateKey: string
+  day: number
+  inCurrentMonth: boolean
+}
+
+interface ViewportMetrics {
+  width: number
+  height: number
+  offsetLeft: number
+  offsetTop: number
 }
 
 const adApplyModal = useAdApplyModal()
@@ -332,11 +526,48 @@ const myApplication = ref<AdvertisementVO | null>(null)
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const lockedByModal = ref(false)
 const imageInputRef = ref<HTMLInputElement | null>(null)
+const startDateTriggerRef = ref<HTMLElement | null>(null)
+const pickerMonthTriggerRef = ref<HTMLElement | null>(null)
+const startDatePickerRef = ref<HTMLElement | null>(null)
+const pickerYmPopupRef = ref<HTMLElement | null>(null)
 const positionSelectRef = ref<HTMLElement | null>(null)
 const positionSelectOpen = ref(false)
+const startDatePickerOpen = ref(false)
+const pickerViewDate = ref(new Date())
+const pickerSelectedDateKey = ref('')
+const pickerSelectedHour = ref(0)
+const pickerSelectedMinute = ref(0)
+const pickerYmPanelOpen = ref(false)
+const pickerDrawerMode = ref(false)
+const pickerYmDrawerMode = ref(false)
+const pickerHourListRef = ref<HTMLElement | null>(null)
+const pickerMinuteListRef = ref<HTMLElement | null>(null)
+const pickerYearListRef = ref<HTMLElement | null>(null)
+const pickerMonthListRef = ref<HTMLElement | null>(null)
 const cropperVisible = ref(false)
 const cropperImageSrc = ref('')
 const pendingImageFile = ref<File | null>(null)
+
+const pickerPanelPosition = reactive({ top: 0, left: 0 })
+const pickerYmPopupPosition = reactive({ top: 0, left: 0 })
+
+const pickerPanelStyle = computed(() => {
+  if (pickerDrawerMode.value) return undefined
+  return {
+    top: `${pickerPanelPosition.top}px`,
+    left: `${pickerPanelPosition.left}px`,
+  }
+})
+
+const pickerYmPopupStyle = computed(() => {
+  if (pickerYmDrawerMode.value) return undefined
+  return {
+    top: `${pickerYmPopupPosition.top}px`,
+    left: `${pickerYmPopupPosition.left}px`,
+  }
+})
+
+let pickerPositionRaf = 0
 
 const form = reactive<AdApplyFormState>({
   type: 'image',
@@ -348,6 +579,7 @@ const form = reactive<AdApplyFormState>({
   content: '',
   linkUrl: '',
   adInfo: '',
+  title: '',
   mimicContent: '',
 })
 
@@ -429,6 +661,42 @@ const endDateDisplay = computed(() => {
 const startDateDisplay = computed(() => {
   if (!form.startDate) return ''
   return formatDateTimeDisplay(form.startDate)
+})
+
+const pickerWeekdays = ['一', '二', '三', '四', '五', '六', '日']
+const pickerHourOptions = Array.from({ length: 24 }, (_, index) => index)
+const pickerMinuteOptions = Array.from({ length: 60 }, (_, index) => index)
+const pickerMonthOptions = Array.from({ length: 12 }, (_, index) => index + 1)
+
+const pickerYearOptions = computed(() => {
+  const center = pickerViewDate.value.getFullYear()
+  return Array.from({ length: 61 }, (_, index) => center - 30 + index)
+})
+
+const todayDateKey = computed(() => toDateOnlyKey(new Date()))
+
+const pickerMonthLabel = computed(() => {
+  const year = pickerViewDate.value.getFullYear()
+  const month = pickerViewDate.value.getMonth() + 1
+  return `${year}年${formatTwoDigit(month)}月`
+})
+
+const pickerCalendarCells = computed<PickerCalendarCell[]>(() => {
+  const year = pickerViewDate.value.getFullYear()
+  const month = pickerViewDate.value.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const offset = (firstDay.getDay() + 6) % 7
+  const start = new Date(year, month, 1 - offset)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const current = new Date(start)
+    current.setDate(start.getDate() + index)
+    return {
+      dateKey: toDateOnlyKey(current),
+      day: current.getDate(),
+      inCurrentMonth: current.getMonth() === month,
+    }
+  })
 })
 
 const positionSelectOptions = computed(() => {
@@ -513,8 +781,26 @@ function getNextMonthFirstDate() {
 }
 
 function formatDateTimeInput(date: Date) {
-  const pad = (num: number) => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return `${date.getFullYear()}-${formatTwoDigit(date.getMonth() + 1)}-${formatTwoDigit(date.getDate())}T${formatTwoDigit(date.getHours())}:${formatTwoDigit(date.getMinutes())}`
+}
+
+function formatTwoDigit(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function toDateOnlyKey(date: Date) {
+  return `${date.getFullYear()}-${formatTwoDigit(date.getMonth() + 1)}-${formatTwoDigit(date.getDate())}`
+}
+
+function parseDateOnlyKey(value: string): Date | null {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!matched) return null
+  const year = Number(matched[1])
+  const month = Number(matched[2]) - 1
+  const day = Number(matched[3])
+  const date = new Date(year, month, day)
+  if (Number.isNaN(date.getTime())) return null
+  return date
 }
 
 function formatDateTimeDisplay(value: string) {
@@ -751,11 +1037,17 @@ function applyStartDatePreset(startDate: string) {
   form.startDate = startDate
   if (form.durationDays > 0) {
     form.endDate = addDays(form.startDate, form.durationDays)
+    if (startDatePickerOpen.value) {
+      syncPickerFromStartDate()
+    }
     return
   }
   if (currentPositionRules.value.length > 0) {
     form.durationDays = currentPositionRules.value[0].durationDays
     form.endDate = addDays(form.startDate, form.durationDays)
+  }
+  if (startDatePickerOpen.value) {
+    syncPickerFromStartDate()
   }
 }
 
@@ -779,6 +1071,286 @@ function handleStartDateChange() {
   }
 }
 
+function syncPickerFromStartDate() {
+  const parsed = parseDateInput(form.startDate) || new Date()
+  parsed.setSeconds(0, 0)
+  pickerViewDate.value = new Date(parsed.getFullYear(), parsed.getMonth(), 1)
+  pickerSelectedDateKey.value = toDateOnlyKey(parsed)
+  pickerSelectedHour.value = parsed.getHours()
+  pickerSelectedMinute.value = parsed.getMinutes()
+}
+
+function scrollPickerListToSelected(listRef: HTMLElement | null, selectedValue: number) {
+  if (!listRef) return
+  const selected = listRef.querySelector<HTMLElement>(`[data-value="${selectedValue}"]`)
+  if (!selected) return
+  selected.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' })
+
+  const listRect = listRef.getBoundingClientRect()
+  const selectedRect = selected.getBoundingClientRect()
+  const currentCenter = selectedRect.top + selectedRect.height / 2
+  const targetCenter = listRect.top + listRect.height / 2
+  const delta = currentCenter - targetCenter
+
+  if (Math.abs(delta) > 1) {
+    const maxScrollTop = Math.max(0, listRef.scrollHeight - listRef.clientHeight)
+    const nextTop = Math.min(maxScrollTop, Math.max(0, listRef.scrollTop + delta))
+    listRef.scrollTop = nextTop
+  }
+}
+
+function blurActivePickerOption() {
+  const activeElement = document.activeElement
+  if (activeElement instanceof HTMLElement && activeElement.classList.contains('picker-time-option')) {
+    activeElement.blur()
+  }
+}
+
+function syncPickerListScrollAfterRender(callback: () => void) {
+  nextTick(() => {
+    callback()
+    requestAnimationFrame(() => {
+      blurActivePickerOption()
+      callback()
+      requestAnimationFrame(() => {
+        callback()
+      })
+    })
+  })
+}
+
+function syncPickerTimeListScroll() {
+  syncPickerListScrollAfterRender(() => {
+    scrollPickerListToSelected(pickerHourListRef.value, pickerSelectedHour.value)
+    scrollPickerListToSelected(pickerMinuteListRef.value, pickerSelectedMinute.value)
+  })
+}
+
+function syncPickerYmListScroll() {
+  syncPickerListScrollAfterRender(() => {
+    scrollPickerListToSelected(pickerYearListRef.value, pickerViewDate.value.getFullYear())
+    scrollPickerListToSelected(pickerMonthListRef.value, pickerViewDate.value.getMonth() + 1)
+  })
+}
+
+function clampValue(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function syncPickerYmViewportMode() {
+  const isMobileViewport = window.matchMedia('(max-width: 768px)').matches
+  pickerDrawerMode.value = isMobileViewport
+  pickerYmDrawerMode.value = isMobileViewport
+}
+
+function getViewportMetrics(): ViewportMetrics {
+  const visualViewport = window.visualViewport
+  if (!visualViewport) {
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      offsetLeft: 0,
+      offsetTop: 0,
+    }
+  }
+
+  return {
+    width: Math.max(0, visualViewport.width),
+    height: Math.max(0, visualViewport.height),
+    offsetLeft: visualViewport.offsetLeft,
+    offsetTop: visualViewport.offsetTop,
+  }
+}
+
+function updateStartDatePickerPosition() {
+  if (!startDatePickerOpen.value) return
+  syncPickerYmViewportMode()
+  if (pickerDrawerMode.value) return
+  const trigger = startDateTriggerRef.value
+  const panel = startDatePickerRef.value
+  if (!trigger || !panel) return
+
+  const viewport = getViewportMetrics()
+  const triggerRect = trigger.getBoundingClientRect()
+  const panelRect = panel.getBoundingClientRect()
+  const panelWidth = panelRect.width || 700
+  const panelHeight = panelRect.height || 500
+  const edgePadding = 8
+  const offset = 8
+
+  const minLeft = viewport.offsetLeft + edgePadding
+  const maxLeft = Math.max(minLeft, viewport.offsetLeft + viewport.width - panelWidth - edgePadding)
+  const left = clampValue(triggerRect.left, minLeft, maxLeft)
+
+  let top = triggerRect.bottom + offset
+  const viewportBottom = viewport.offsetTop + viewport.height
+  if (top + panelHeight + edgePadding > viewportBottom) {
+    top = triggerRect.top - panelHeight - offset
+  }
+  const minTop = viewport.offsetTop + edgePadding
+  const maxTop = Math.max(minTop, viewportBottom - panelHeight - edgePadding)
+
+  pickerPanelPosition.left = Math.round(left)
+  pickerPanelPosition.top = Math.round(clampValue(top, minTop, maxTop))
+}
+
+function updatePickerYmPopupPosition() {
+  if (!startDatePickerOpen.value || !pickerYmPanelOpen.value) return
+  syncPickerYmViewportMode()
+  if (pickerYmDrawerMode.value) return
+
+  const trigger = pickerMonthTriggerRef.value
+  const popup = pickerYmPopupRef.value
+  if (!trigger || !popup) return
+
+  const viewport = getViewportMetrics()
+  const triggerRect = trigger.getBoundingClientRect()
+  const popupRect = popup.getBoundingClientRect()
+  const popupWidth = popupRect.width || 340
+  const popupHeight = popupRect.height || 300
+  const edgePadding = 8
+  const offset = 8
+
+  const minLeft = viewport.offsetLeft + edgePadding
+  const maxLeft = Math.max(minLeft, viewport.offsetLeft + viewport.width - popupWidth - edgePadding)
+  const centerByTrigger = triggerRect.left + (triggerRect.width - popupWidth) / 2
+  const left = clampValue(centerByTrigger, minLeft, maxLeft)
+
+  let top = triggerRect.bottom + offset
+  const minTop = viewport.offsetTop + edgePadding
+  const viewportBottom = viewport.offsetTop + viewport.height
+  if (top + popupHeight + edgePadding > viewportBottom) {
+    top = triggerRect.top - popupHeight - offset
+  }
+  const maxTop = Math.max(minTop, viewportBottom - popupHeight - edgePadding)
+
+  pickerYmPopupPosition.left = Math.round(left)
+  pickerYmPopupPosition.top = Math.round(clampValue(top, minTop, maxTop))
+}
+
+function syncFloatingPickerPosition() {
+  nextTick(() => {
+    updateStartDatePickerPosition()
+    if (pickerYmPanelOpen.value) {
+      updatePickerYmPopupPosition()
+    }
+  })
+}
+
+function handleFloatingPanelViewportChange() {
+  if (!startDatePickerOpen.value) return
+  syncPickerYmViewportMode()
+  if (pickerPositionRaf) {
+    cancelAnimationFrame(pickerPositionRaf)
+  }
+  pickerPositionRaf = requestAnimationFrame(() => {
+    pickerPositionRaf = 0
+    updateStartDatePickerPosition()
+    if (pickerYmPanelOpen.value) {
+      updatePickerYmPopupPosition()
+    }
+  })
+}
+
+function buildPickerStartDate() {
+  if (!pickerSelectedDateKey.value) return ''
+  return `${pickerSelectedDateKey.value}T${formatTwoDigit(pickerSelectedHour.value)}:${formatTwoDigit(pickerSelectedMinute.value)}`
+}
+
+function applyPickerValueToForm() {
+  const next = buildPickerStartDate()
+  if (!next) return
+  form.startDate = next
+  handleStartDateChange()
+}
+
+function openStartDatePicker() {
+  syncPickerYmViewportMode()
+  syncPickerFromStartDate()
+  startDatePickerOpen.value = true
+  pickerYmPanelOpen.value = false
+  syncFloatingPickerPosition()
+  syncPickerTimeListScroll()
+}
+
+function closeStartDatePicker() {
+  startDatePickerOpen.value = false
+  pickerYmPanelOpen.value = false
+}
+
+function toggleStartDatePicker() {
+  if (startDatePickerOpen.value) {
+    closeStartDatePicker()
+    return
+  }
+  openStartDatePicker()
+}
+
+function movePickerMonth(offset: number) {
+  const base = pickerViewDate.value
+  pickerViewDate.value = new Date(base.getFullYear(), base.getMonth() + offset, 1)
+  if (pickerYmPanelOpen.value) {
+    syncPickerYmListScroll()
+    nextTick(updatePickerYmPopupPosition)
+  }
+}
+
+function togglePickerYmPanel() {
+  syncPickerYmViewportMode()
+  pickerYmPanelOpen.value = !pickerYmPanelOpen.value
+  if (pickerYmPanelOpen.value) {
+    syncFloatingPickerPosition()
+    syncPickerYmListScroll()
+    nextTick(updatePickerYmPopupPosition)
+  }
+}
+
+function selectPickerYear(year: number) {
+  if (!Number.isInteger(year)) return
+  if (year === pickerViewDate.value.getFullYear()) return
+  const month = pickerViewDate.value.getMonth()
+  pickerViewDate.value = new Date(year, month, 1)
+  syncPickerYmListScroll()
+}
+
+function selectPickerMonth(month: number) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return
+  const year = pickerViewDate.value.getFullYear()
+  pickerViewDate.value = new Date(year, month - 1, 1)
+  pickerYmPanelOpen.value = false
+}
+
+function selectPickerDate(dateKey: string) {
+  const parsed = parseDateOnlyKey(dateKey)
+  if (!parsed) return
+  pickerSelectedDateKey.value = toDateOnlyKey(parsed)
+  applyPickerValueToForm()
+}
+
+function selectPickerHour(hour: number) {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return
+  pickerSelectedHour.value = hour
+  applyPickerValueToForm()
+  syncPickerTimeListScroll()
+}
+
+function selectPickerMinute(minute: number) {
+  if (!Number.isInteger(minute) || minute < 0 || minute > 59) return
+  pickerSelectedMinute.value = minute
+  applyPickerValueToForm()
+  syncPickerTimeListScroll()
+}
+
+function applyPickerNow() {
+  const now = new Date()
+  now.setSeconds(0, 0)
+  form.startDate = formatDateTimeInput(now)
+  handleStartDateChange()
+  syncPickerFromStartDate()
+  pickerYmPanelOpen.value = false
+  syncPickerTimeListScroll()
+}
+
 function closeSelectMenus() {
   positionSelectOpen.value = false
 }
@@ -797,8 +1369,33 @@ function handleSelectOutsideClick(event: MouseEvent) {
   const target = event.target as Node | null
   if (!target) return
   const clickedPosition = positionSelectRef.value?.contains(target)
-  if (clickedPosition) return
-  closeSelectMenus()
+  if (!clickedPosition) {
+    closeSelectMenus()
+  }
+
+  const clickedYmPopup = pickerYmPopupRef.value?.contains(target)
+  const clickedYmTrigger = pickerMonthTriggerRef.value?.contains(target)
+  if (pickerYmPanelOpen.value && !clickedYmPopup && !clickedYmTrigger) {
+    pickerYmPanelOpen.value = false
+    return
+  }
+
+  const clickedDateTrigger = startDateTriggerRef.value?.contains(target)
+  const clickedDatePanel = startDatePickerRef.value?.contains(target)
+  if (!clickedDateTrigger && !clickedDatePanel && !clickedYmPopup) {
+    closeStartDatePicker()
+  }
+}
+
+function handleDatePickerPanelMouseDown(event: MouseEvent) {
+  if (!pickerYmPanelOpen.value) return
+  const target = event.target as Node | null
+  if (!target) return
+  const clickedYmPopup = pickerYmPopupRef.value?.contains(target)
+  const clickedYmTrigger = pickerMonthTriggerRef.value?.contains(target)
+  if (!clickedYmPopup && !clickedYmTrigger) {
+    pickerYmPanelOpen.value = false
+  }
 }
 
 function resetImageState() {
@@ -864,6 +1461,7 @@ function syncFormFromApplication(ad: AdvertisementVO) {
   form.content = ad.content || ''
   form.linkUrl = ad.linkUrl || ''
   form.adInfo = ad.adInfo || ''
+  form.title = ad.title || ''
   form.mimicContent = ad.mimicContent || ''
   form.startDate = ad.startTime ? formatDateTimeInput(new Date(ad.startTime.replace(' ', 'T'))) : getCurrentDateTime()
   form.endDate = ad.endTime ? formatDateTimeInput(new Date(ad.endTime.replace(' ', 'T'))) : ''
@@ -919,6 +1517,16 @@ function validateForm(): string | null {
     }
   }
 
+  if (form.position === 'post_list_card') {
+    const adTitle = form.title.trim()
+    if (!adTitle) {
+      return '请输入广告标题'
+    }
+    if (adTitle.length > 100) {
+      return '广告标题长度不能超过100个字符'
+    }
+  }
+
   return null
 }
 
@@ -933,7 +1541,7 @@ async function handleSubmit() {
   }
   if (myApplication.value && !canResubmitApplication.value) {
     message.warning('已提交申请，当前不支持修改')
-    currentStep.value = 2
+    currentStep.value = 3
     return
   }
 
@@ -972,6 +1580,7 @@ async function handleSubmit() {
     }
 
     await advertisementApi.apply({
+      title: form.position === 'post_list_card' ? form.title.trim() : undefined,
       type: 'image',
       position: form.position,
       pitAdId: form.pitAdId || undefined,
@@ -986,7 +1595,7 @@ async function handleSubmit() {
 
     message.success('广告投放申请已提交')
     await refreshMyApplication()
-    currentStep.value = 2
+    currentStep.value = 3
     adApplyModal.notifyApplicationChanged()
   } catch (error) {
     const messageText = error && typeof error === 'object' && 'message' in error
@@ -999,6 +1608,8 @@ async function handleSubmit() {
 }
 
 async function initWhenOpen() {
+  closeSelectMenus()
+  closeStartDatePicker()
   form.startDate = getCurrentDateTime()
 
   await loadAdApplyConfig(true)
@@ -1017,16 +1628,21 @@ async function initWhenOpen() {
   }
 
   await refreshMyApplication()
+  const preferredStep = adApplyModal.preferredStep.value
+
   if (myApplication.value) {
     syncFormFromApplication(myApplication.value)
-    currentStep.value = 2
+    if (preferredStep === 2 && canResubmitApplication.value) {
+      currentStep.value = 2
+      return
+    }
+    currentStep.value = 3
     return
   } else {
     ensurePitSelectedForPosition()
   }
 
-  const preferredStep = adApplyModal.preferredStep.value
-  if (preferredStep === 3 && myApplication.value) {
+  if (preferredStep === 2) {
     currentStep.value = 2
     return
   }
@@ -1041,6 +1657,14 @@ function handleEscClose(event: KeyboardEvent) {
     closeSelectMenus()
     return
   }
+  if (pickerYmPanelOpen.value) {
+    pickerYmPanelOpen.value = false
+    return
+  }
+  if (startDatePickerOpen.value) {
+    closeStartDatePicker()
+    return
+  }
   closeModal()
 }
 
@@ -1049,6 +1673,9 @@ watch(() => form.position, async () => {
   ensureDurationSelected()
   if (!visible.value || !isLoggedIn.value) return
   await refreshMyApplication()
+  if (startDatePickerOpen.value) {
+    syncFloatingPickerPosition()
+  }
 })
 
 watch(() => pitOptions.value, () => {
@@ -1057,6 +1684,17 @@ watch(() => pitOptions.value, () => {
   }
   ensurePitSelectedForPosition()
 }, { deep: true })
+
+watch(() => form.startDate, () => {
+  if (!startDatePickerOpen.value) return
+  syncPickerFromStartDate()
+  syncPickerTimeListScroll()
+  if (pickerYmPanelOpen.value) {
+    syncPickerYmListScroll()
+    nextTick(updatePickerYmPopupPosition)
+  }
+  syncFloatingPickerPosition()
+})
 
 watch(isLoggedIn, async loggedIn => {
   if (!visible.value) return
@@ -1095,16 +1733,31 @@ watch(() => visible.value, async opened => {
     unlockScroll()
     lockedByModal.value = false
   }
+  closeSelectMenus()
+  closeStartDatePicker()
 })
 
 onMounted(() => {
+  syncPickerYmViewportMode()
   document.addEventListener('keydown', handleEscClose)
   document.addEventListener('mousedown', handleSelectOutsideClick)
+  window.addEventListener('resize', handleFloatingPanelViewportChange)
+  window.addEventListener('scroll', handleFloatingPanelViewportChange, true)
+  window.visualViewport?.addEventListener('resize', handleFloatingPanelViewportChange)
+  window.visualViewport?.addEventListener('scroll', handleFloatingPanelViewportChange)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscClose)
   document.removeEventListener('mousedown', handleSelectOutsideClick)
+  window.removeEventListener('resize', handleFloatingPanelViewportChange)
+  window.removeEventListener('scroll', handleFloatingPanelViewportChange, true)
+  window.visualViewport?.removeEventListener('resize', handleFloatingPanelViewportChange)
+  window.visualViewport?.removeEventListener('scroll', handleFloatingPanelViewportChange)
+  if (pickerPositionRaf) {
+    cancelAnimationFrame(pickerPositionRaf)
+    pickerPositionRaf = 0
+  }
   if (lockedByModal.value) {
     unlockScroll()
     lockedByModal.value = false
@@ -1142,14 +1795,17 @@ onUnmounted(() => {
   --flat-text: #0f172a;
   --flat-text-muted: #64748b;
   --flat-primary: #2563eb;
+  --flat-primary-soft: rgba(37, 99, 235, 0.12);
 
   width: min(1120px, 100%);
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - 1rem);
   border-radius: 12px;
   border: 1px solid var(--flat-border);
   background: var(--flat-surface);
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 
   .dark & {
     --flat-surface: #111827;
@@ -1158,6 +1814,7 @@ onUnmounted(() => {
     --flat-text: #e5e7eb;
     --flat-text-muted: #94a3b8;
     --flat-primary: #60a5fa;
+    --flat-primary-soft: rgba(96, 165, 250, 0.22);
 
     border-color: var(--flat-border);
     background: var(--flat-surface);
@@ -1264,9 +1921,31 @@ onUnmounted(() => {
 }
 
 .modal-body {
-  max-height: calc(100vh - 10.5rem);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 1.05rem 1.2rem 1.2rem;
+  padding: 0.94rem 1rem 1rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.42) transparent;
+}
+
+.modal-body--dense {
+  padding-bottom: 0.74rem;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.42);
+  border-radius: 999px;
 }
 
 .step-content {
@@ -1333,7 +2012,7 @@ onUnmounted(() => {
 .apply-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.86rem;
 }
 
 .apply-layout {
@@ -1348,7 +2027,7 @@ onUnmounted(() => {
   border: 1px solid var(--flat-border);
   border-radius: 10px;
   background: var(--flat-surface-subtle);
-  padding: 0.76rem;
+  padding: 0.68rem;
 }
 
 .preview-panel-title {
@@ -1360,7 +2039,23 @@ onUnmounted(() => {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.68rem;
+}
+
+.form-grid--post-card {
+  margin-top: 0.08rem;
+}
+
+.form-panel--dense {
+  padding: 0.62rem;
+}
+
+.form-panel--dense .form-grid {
+  gap: 0.58rem;
+}
+
+.form-panel--dense .date-preset-row {
+  margin-top: 0.42rem;
 }
 
 .form-item {
@@ -1386,6 +2081,7 @@ onUnmounted(() => {
     border-radius: 8px;
     padding: 0.6rem 0.76rem;
     font-size: 0.88rem;
+    font-family: inherit;
     background: var(--flat-surface);
     color: var(--flat-text);
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -1403,7 +2099,39 @@ onUnmounted(() => {
 
   textarea {
     resize: vertical;
+    line-height: 1.45;
+
+    &::placeholder {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: 1.45;
+    }
   }
+}
+
+.form-item--readonly {
+  label {
+    color: var(--flat-text-muted);
+  }
+
+  .date-hint {
+    color: rgba(100, 116, 139, 0.86);
+  }
+}
+
+.readonly-field {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.04));
+  border-color: rgba(148, 163, 184, 0.45);
+  color: var(--flat-text-muted);
+  cursor: not-allowed;
+  user-select: text;
+}
+
+.readonly-field:focus,
+.readonly-field:focus-visible {
+  outline: none;
+  border-color: rgba(148, 163, 184, 0.45);
+  box-shadow: none;
 }
 
 .custom-select {
@@ -1458,6 +2186,8 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 0.2rem;
   box-shadow: none;
+  max-height: min(280px, 48vh);
+  overflow: auto;
 }
 
 .custom-select-option {
@@ -1576,24 +2306,36 @@ onUnmounted(() => {
 
 .date-preset-btn {
   border: 1px solid var(--flat-border);
-  border-radius: 999px;
-  background: var(--flat-surface-subtle);
+  border-radius: 6px;
+  background: var(--flat-surface);
   color: var(--flat-text-muted);
-  font-size: 0.76rem;
-  padding: 0.24rem 0.58rem;
+  font-size: 0.75rem;
+  padding: 0.32rem 0.62rem;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, transform 0.12s ease;
 
   &:hover {
     border-color: var(--flat-primary);
     color: var(--flat-primary);
+    background: var(--flat-primary-soft);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--flat-primary);
+    box-shadow: 0 0 0 2px var(--flat-primary-soft);
+  }
+
+  &:active {
+    transform: translateY(1px);
   }
 
   &.active {
     border-color: var(--flat-primary);
-    color: var(--flat-primary);
-    background: rgba(37, 99, 235, 0.12);
+    color: var(--flat-surface);
+    background: var(--flat-primary);
     font-weight: 600;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
   }
 }
 
@@ -1608,30 +2350,54 @@ onUnmounted(() => {
   margin: 0 0 0.45rem;
 }
 
-.datetime-proxy {
+.datetime-picker-wrap {
   position: relative;
-  border-radius: 10px;
+}
+
+.datetime-proxy {
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 0;
+  border: 1px solid var(--flat-border);
+  border-radius: 8px;
+  background: var(--flat-surface);
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--flat-primary);
+    background: var(--flat-primary-soft);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--flat-primary-soft);
+  }
+
+  &.open {
+    border-color: var(--flat-primary);
+    box-shadow: 0 0 0 2px var(--flat-primary-soft);
+    background: var(--flat-primary-soft);
+  }
 }
 
 .datetime-display-input {
-  width: 100%;
+  flex: 1;
   font-variant-numeric: tabular-nums;
   min-height: 40px;
-  padding-right: 2.6rem;
-  border-radius: 10px;
-  background: var(--flat-surface);
-  cursor: pointer;
-}
+  display: inline-flex;
+  align-items: center;
+  padding: 0.58rem 2.6rem 0.58rem 0.76rem;
+  color: var(--flat-text);
 
-.datetime-native-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  z-index: 2;
+  &.placeholder {
+    color: var(--flat-text-muted);
+  }
 }
 
 .datetime-icon {
@@ -1641,26 +2407,381 @@ onUnmounted(() => {
   transform: translateY(-50%);
   color: var(--flat-text-muted);
   pointer-events: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: var(--flat-surface-subtle);
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.datetime-display-input {
+.datetime-proxy:hover .datetime-icon,
+.datetime-proxy:focus-visible .datetime-icon,
+.datetime-proxy.open .datetime-icon {
+  color: var(--flat-primary);
+}
+
+.datetime-picker-shell {
+  --picker-surface: #ffffff;
+  --picker-surface-subtle: #f8fafc;
+  --picker-border: #dbe3ee;
+  --picker-text: #0f172a;
+  --picker-text-muted: #64748b;
+  --picker-primary: #2563eb;
+  --picker-primary-soft: rgba(37, 99, 235, 0.12);
+
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 119);
+  background: transparent;
+  overflow: visible;
+  isolation: isolate;
   pointer-events: none;
 }
 
-.datetime-proxy:focus-within .datetime-display-input {
-  border-color: var(--flat-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+.datetime-picker-shell--drawer {
+  background: rgba(15, 23, 42, 0.38);
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  padding-top: 18dvh;
 }
 
-.datetime-proxy:hover .datetime-display-input {
-  border-color: var(--flat-primary);
+:global(html.dark) .datetime-picker-shell {
+  --picker-surface: #111827;
+  --picker-surface-subtle: #1f2937;
+  --picker-border: #334155;
+  --picker-text: #e5e7eb;
+  --picker-text-muted: #94a3b8;
+  --picker-primary: #60a5fa;
+  --picker-primary-soft: rgba(96, 165, 250, 0.22);
+}
+
+.datetime-picker-panel {
+  position: absolute;
+  z-index: calc(var(--z-modal) + 120);
+  width: min(520px, calc(100vw - 12px));
+  max-height: calc(100dvh - 12px);
+  border: 1px solid var(--picker-border);
+  border-radius: 10px;
+  background: var(--picker-surface);
+  background-color: var(--picker-surface);
+  background-image: none;
+  background-clip: padding-box;
+  isolation: isolate;
+  color: var(--picker-text);
+  opacity: 1;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+  padding: 0.56rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+}
+
+.datetime-picker-panel--drawer {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(82dvh, 720px);
+  margin-top: auto;
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.28);
+  padding: 0.56rem 0.88rem calc(0.9rem + env(safe-area-inset-bottom));
+}
+
+.picker-drawer-handle {
+  width: 48px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.5);
+  margin: 0 auto 0.72rem;
+}
+
+.picker-ym-popup {
+  --picker-surface: #ffffff;
+  --picker-surface-subtle: #f8fafc;
+  --picker-border: #dbe3ee;
+  --picker-text: #0f172a;
+  --picker-text-muted: #64748b;
+  --picker-primary: #2563eb;
+  --picker-primary-soft: rgba(37, 99, 235, 0.12);
+
+  position: fixed;
+  z-index: calc(var(--z-modal) + 122);
+  width: min(332px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  border: 1px solid var(--picker-border);
+  border-radius: 10px;
+  background: var(--picker-surface);
+  background-color: var(--picker-surface);
+  background-image: none;
+  background-clip: padding-box;
+  isolation: isolate;
+  color: var(--picker-text);
+  opacity: 1;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+:global(html.dark) .picker-ym-popup {
+  --picker-surface: #111827;
+  --picker-surface-subtle: #1f2937;
+  --picker-border: #334155;
+  --picker-text: #e5e7eb;
+  --picker-text-muted: #94a3b8;
+  --picker-primary: #60a5fa;
+  --picker-primary-soft: rgba(96, 165, 250, 0.22);
+}
+
+.picker-ym-popup--drawer {
+  width: 100%;
+}
+
+.picker-ym-popup-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.32rem;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.picker-nav-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--picker-border);
+  border-radius: 8px;
+  background: var(--picker-surface);
+  color: var(--picker-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--picker-primary);
+    color: var(--picker-primary);
+    background: var(--picker-primary-soft);
+  }
+}
+
+.picker-month-trigger {
+  border: 1px solid var(--picker-border);
+  border-radius: 8px;
+  background: var(--picker-surface);
+  color: var(--picker-text);
+  min-height: 30px;
+  padding: 0 0.56rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.26rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--picker-primary);
+    color: var(--picker-primary);
+    background: var(--picker-primary-soft);
+  }
+}
+
+.picker-ym-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.picker-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(154px, 0.5fr);
+  gap: 0.36rem;
+  align-items: start;
+}
+
+.picker-calendar-main {
+  min-width: 0;
+}
+
+.picker-time-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.34rem;
+  min-width: 0;
+}
+
+.picker-weekdays,
+.picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.22rem;
+}
+
+.picker-weekdays {
+  margin-bottom: 0.18rem;
+
+  span {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--picker-text-muted);
+    font-weight: 600;
+    padding: 0.18rem 0;
+  }
+}
+
+.picker-day-btn {
+  min-height: 28px;
+  border: 1px solid var(--picker-border);
+  border-radius: 8px;
+  background: var(--picker-surface-subtle);
+  color: var(--picker-text);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease;
+
+  &:hover {
+    border-color: var(--picker-primary);
+    color: var(--picker-primary);
+    background: var(--picker-primary-soft);
+  }
+
+  &.muted {
+    color: rgba(100, 116, 139, 0.7);
+  }
+
+  &.today {
+    border-color: rgba(37, 99, 235, 0.45);
+  }
+
+  &.active {
+    border-color: var(--picker-primary);
+    background: var(--picker-primary);
+    color: var(--picker-surface);
+    font-weight: 700;
+  }
+}
+
+.picker-time-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.picker-time-label {
+  font-size: 0.72rem;
+  color: var(--picker-text-muted);
+  font-weight: 600;
+}
+
+.picker-time-list {
+  height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--picker-border);
+  border-radius: 8px;
+  background: var(--picker-surface-subtle);
+  padding: 0.14rem;
+  scrollbar-gutter: stable;
+  scroll-padding-block: calc(50% - 14px);
+}
+
+.picker-time-side .picker-time-list {
+  height: 220px;
+}
+
+.picker-ym-popup .picker-time-list {
+  height: 176px;
+}
+
+.picker-time-option {
+  width: 100%;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--picker-surface);
+  color: var(--picker-text);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  transition: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    border-color: var(--picker-primary);
+    color: var(--picker-primary);
+    background: var(--picker-primary-soft);
+  }
+
+  &.active {
+    border-color: var(--picker-primary);
+    background: var(--picker-primary);
+    color: var(--picker-surface);
+    font-weight: 700;
+  }
+}
+
+.picker-time-option:focus,
+.picker-time-option:focus-visible,
+.picker-time-option:active {
+  outline: none;
+  box-shadow: none;
+}
+
+.picker-time-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.picker-time-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.picker-time-list::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+}
+
+.picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.36rem;
+  margin-top: 0.48rem;
+}
+
+.picker-action-btn {
+  min-width: 58px;
+  min-height: 30px;
+  border: 1px solid var(--picker-border);
+  border-radius: 8px;
+  background: var(--picker-surface);
+  color: var(--picker-text);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--picker-primary);
+    color: var(--picker-primary);
+  }
+
+  &.primary {
+    border-color: var(--picker-primary);
+    background: var(--picker-primary);
+    color: var(--picker-surface);
+  }
 }
 
 .image-upload-box {
@@ -1881,7 +3002,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   margin-top: 0.4rem;
   padding-top: 0.2rem;
-  border-top: 1px solid var(--flat-border);
+  border-top: none;
 }
 
 .action-btn {
@@ -1919,14 +3040,75 @@ onUnmounted(() => {
 }
 
 @media (max-width: $breakpoint-md) {
+  .ad-apply-overlay {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
   .ad-apply-modal {
     width: 100%;
-    max-height: calc(100vh - 1rem);
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .modal-header {
+    padding: max(0.86rem, env(safe-area-inset-top)) 0.88rem 0.66rem;
+    gap: 0.72rem;
+
+    h3 {
+      font-size: 1rem;
+      line-height: 1.28;
+    }
+
+    p {
+      margin-top: 0.22rem;
+      font-size: 0.75rem;
+      line-height: 1.45;
+    }
+  }
+
+  .close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .stepper {
+    padding: 0.68rem 0.88rem;
+  }
+
+  .step {
+    gap: 0.3rem;
+  }
+
+  .step-dot {
+    width: 24px;
+    height: 24px;
+    font-size: 0.74rem;
+  }
+
+  .step-label {
+    font-size: 0.72rem;
+  }
+
+  .step-line {
+    margin: 0 0.56rem 1rem;
   }
 
   .modal-body {
-    max-height: calc(100vh - 9.8rem);
-    padding: 0.92rem 0.88rem 1rem;
+    padding: 0.86rem 0.88rem calc(0.92rem + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    scrollbar-gutter: auto;
+  }
+
+  .apply-form {
+    gap: 0.86rem;
   }
 
   .form-grid {
@@ -1942,6 +3124,131 @@ onUnmounted(() => {
     padding: 0.62rem;
   }
 
+  .form-item {
+    label {
+      margin-bottom: 0.38rem;
+      font-size: 0.86rem;
+    }
+
+    input,
+    textarea,
+    select {
+      min-height: 44px;
+      font-size: 0.92rem;
+      padding: 0.66rem 0.78rem;
+    }
+
+    textarea {
+      min-height: 94px;
+    }
+  }
+
+  .custom-select-trigger,
+  .datetime-display-input {
+    min-height: 44px;
+    font-size: 0.92rem;
+  }
+
+  .datetime-picker-panel {
+    width: calc(100vw - 12px);
+    max-height: calc(100dvh - 8px);
+    padding: 0.56rem;
+  }
+
+  .datetime-picker-shell--drawer {
+    padding-top: 12dvh;
+  }
+
+  .datetime-picker-panel--drawer {
+    width: 100%;
+    max-height: min(84dvh, 760px);
+    border-radius: 18px 18px 0 0;
+    padding: 0.52rem 0.78rem calc(0.86rem + env(safe-area-inset-bottom));
+  }
+
+  .picker-drawer-handle {
+    margin-bottom: 0.64rem;
+  }
+
+  .picker-ym-popup {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100vw;
+    max-width: 100vw;
+    max-height: min(68dvh, 560px);
+    border-radius: 14px 14px 0 0;
+    border-bottom: none;
+    padding: 0.64rem 0.88rem calc(0.82rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -16px 30px rgba(15, 23, 42, 0.28);
+  }
+
+  .picker-ym-popup-body {
+    gap: 0.42rem;
+  }
+
+  .picker-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.58rem;
+  }
+
+  .picker-month-trigger {
+    min-height: 32px;
+    font-size: 0.8rem;
+    padding: 0 0.46rem;
+  }
+
+  .picker-time-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem;
+  }
+
+  .picker-day-btn {
+    min-height: 34px;
+    font-size: 0.82rem;
+  }
+
+  .picker-time-side .picker-time-list {
+    height: min(28dvh, 224px);
+  }
+
+  .picker-ym-popup .picker-time-list {
+    height: min(34dvh, 228px);
+  }
+
+  .picker-time-option {
+    min-height: 32px;
+    font-size: 0.84rem;
+  }
+
+  .picker-actions {
+    justify-content: stretch;
+  }
+
+  .picker-action-btn {
+    flex: 1;
+    min-height: 38px;
+    font-size: 0.82rem;
+  }
+
+  .duration-options,
+  .pit-options,
+  .date-preset-row {
+    gap: 0.5rem;
+  }
+
+  .duration-chip,
+  .pit-chip,
+  .date-preset-btn {
+    min-height: 36px;
+    padding: 0.34rem 0.74rem;
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .preview-card {
     grid-template-columns: 1fr;
   }
@@ -1952,14 +3259,24 @@ onUnmounted(() => {
 
   .preview-row {
     border-bottom-style: solid;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.16rem;
+
+    strong {
+      text-align: left;
+    }
   }
 
   .step-actions--form-panel {
+    position: static;
+    bottom: auto;
     justify-content: stretch;
-    margin-top: 0.9rem;
-    padding-top: 0;
+    margin-top: 0.7rem;
+    padding: 0.56rem 0 calc(0.2rem + env(safe-area-inset-bottom));
     border-top: none;
-    background: transparent;
+    background: var(--flat-surface-subtle);
+    z-index: auto;
   }
 
   .image-preview-shell.slot-home_left {
@@ -1972,11 +3289,30 @@ onUnmounted(() => {
   }
 
   .step-actions {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-top: 0;
+  }
+
+  .step-actions .action-btn.primary {
+    order: -1;
   }
 
   .action-btn {
     width: 100%;
+    min-height: 44px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .modal-header p {
+    display: none;
+  }
+
+  .step-label {
+    font-size: 0.7rem;
   }
 }
 </style>

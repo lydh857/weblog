@@ -349,10 +349,13 @@ onMounted(() => {
   font-size: 0.85rem;
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
+  -webkit-tap-highlight-color: transparent;
 
-  &:hover {
-    color: $color-primary;
-    background: rgba(59, 130, 246, 0.06);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      color: $color-primary;
+      background: rgba(59, 130, 246, 0.06);
+    }
   }
 
   &.active {
@@ -364,9 +367,11 @@ onMounted(() => {
   .dark & {
     color: #94a3b8;
 
-    &:hover {
-      color: $color-primary;
-      background: rgba(59, 130, 246, 0.15);
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        color: $color-primary;
+        background: rgba(59, 130, 246, 0.15);
+      }
     }
 
     &.active {

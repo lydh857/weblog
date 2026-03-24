@@ -1,11 +1,13 @@
 <template>
   <div class="ranking-page">
     <header class="page-header">
-      <h1 class="page-title">
-        <Icon name="heroicons:trophy-20-solid" size="22" />
-        排行榜
-      </h1>
-      <p class="page-desc">每小时更新一次，按热度综合排序</p>
+      <div class="page-title-row">
+        <h1 class="page-title">
+          <Icon name="heroicons:trophy-20-solid" size="22" />
+          排行榜
+        </h1>
+        <p class="page-desc">每小时更新一次，按热度综合排序</p>
+      </div>
     </header>
 
     <section
@@ -228,6 +230,12 @@ function resetTouchState() {
 }
 
 function handleTouchStart(event: TouchEvent) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.tabs')) {
+    resetTouchState()
+    return
+  }
+
   const touch = event.touches[0]
   if (!touch) {
     return
@@ -305,6 +313,13 @@ onMounted(() => {
   margin-bottom: var(--layout-page-header-margin-bottom);
 }
 
+.page-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.62rem;
+  min-width: 0;
+}
+
 .page-title {
   display: flex;
   align-items: center;
@@ -319,10 +334,11 @@ onMounted(() => {
 }
 
 .page-desc {
-  margin-top: var(--layout-page-desc-margin-top);
+  margin: 0;
   font-size: 0.92rem;
   line-height: 1.4;
   color: $color-text-muted;
+  white-space: nowrap;
   .dark & { color: #94a3b8; }
 }
 
@@ -332,7 +348,6 @@ onMounted(() => {
   background: $color-bg;
   padding: 0.9rem;
   box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
-  touch-action: pan-y;
   .dark & {
     border-color: $color-dark-border;
     background: $color-dark-bg-secondary;
@@ -357,7 +372,12 @@ onMounted(() => {
   font-size: 0.86rem;
   font-weight: 600;
   transition: all 0.2s;
-  &:hover { border-color: $color-primary; color: $color-primary; }
+  -webkit-tap-highlight-color: transparent;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover { border-color: $color-primary; color: $color-primary; }
+  }
+
   &.active {
     border-color: $color-primary;
     color: #fff;
@@ -452,7 +472,7 @@ onMounted(() => {
   background: rgba(148, 163, 184, 0.14);
   &.rank-1 { color: #fff; background: linear-gradient(135deg, #f59e0b, #d97706); }
   &.rank-2 { color: #fff; background: linear-gradient(135deg, #94a3b8, #64748b); }
-  &.rank-3 { color: #fff; background: linear-gradient(135deg, #f97316, #ea580c); }
+  &.rank-3 { color: #fff; background: linear-gradient(135deg, #d97706, #b45309); }
 }
 
 .content {
@@ -522,13 +542,45 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: $breakpoint-md) {
+  .page-title-row {
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.22rem 0.5rem;
+  }
+
+  .page-desc {
+    white-space: normal;
+  }
+
   .ranking-panel {
     padding: 0.7rem;
     border-radius: 14px;
   }
+
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    padding-bottom: 2px;
+    margin-bottom: 0.85rem;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .item {
     align-items: flex-start;
   }
+
   .score {
     margin-top: 0.12rem;
   }

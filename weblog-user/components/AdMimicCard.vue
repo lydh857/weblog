@@ -104,7 +104,7 @@ function handleApplyClick() {
 
   if (!userStore.isLoggedIn) {
     loginModal.open('code', () => {
-      adApplyModal.open('post_list_card', { step: 2, pitAdId })
+      adApplyModal.open('post_list_card', { step: 1, pitAdId })
     })
     return
   }
@@ -115,10 +115,10 @@ function handleApplyClick() {
     return
   }
   if (status === 'expired') {
-    adApplyModal.open('post_list_card', { step: 2, pitAdId })
+    adApplyModal.open('post_list_card', { step: 1, pitAdId })
     return
   }
-  adApplyModal.open('post_list_card', { step: 2, pitAdId })
+  adApplyModal.open('post_list_card', { step: 1, pitAdId })
 }
 
 async function loadMyApplicationStatus() {
@@ -401,15 +401,159 @@ watch(() => props.ad.content, () => {
   pointer-events: auto;
 }
 
+@media (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
+  .ad-mimic-link {
+    height: calc(200px * 9 / 16);
+  }
+
+  .ad-cover-wrap {
+    width: 200px;
+  }
+
+  .ad-cover {
+    width: 200px;
+    height: calc(200px * 9 / 16);
+  }
+
+  .ad-action-float {
+    left: 0.52rem;
+    top: 0.52rem;
+  }
+
+  .ad-apply-btn {
+    min-height: 34px;
+    min-width: auto;
+    padding: 0 0.68rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .ad-cover-fallback {
+    padding: 0.64rem;
+    font-size: 0.66rem;
+    gap: 0.24rem;
+  }
+
+  .ad-content {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .ad-tags {
+    margin-bottom: 0.2rem;
+  }
+
+  .ad-tag {
+    font-size: 0.62rem;
+  }
+
+  .ad-title {
+    font-size: 0.86rem;
+    margin-bottom: 0.18rem;
+  }
+
+  .ad-summary {
+    font-size: 0.74rem;
+  }
+}
+
 @media (max-width: $breakpoint-md) {
-  .ad-mimic-card {
+  .ad-mimic-link {
+    flex-direction: row;
+    width: 100%;
+    height: calc(180px * 9 / 16);
+  }
+
+  .ad-cover-wrap {
+    width: 180px;
+    height: calc(180px * 9 / 16);
+    aspect-ratio: auto;
+    min-height: 0;
+    border-radius: $radius-lg 0 0 $radius-lg;
+  }
+
+  .ad-cover {
+    width: 180px;
+    height: calc(180px * 9 / 16);
+    aspect-ratio: auto;
+  }
+
+  .ad-action-float {
+    left: 0.52rem;
+    top: 0.52rem;
+  }
+
+  .ad-apply-btn {
+    min-height: 34px;
+    min-width: auto;
+    padding: 0 0.68rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    border-color: rgba(59, 130, 246, 0.42);
+    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+  }
+
+  .ad-cover-fallback {
+    padding: 0.64rem;
+    font-size: 0.66rem;
+    gap: 0.24rem;
+  }
+
+  .ad-content {
+    padding: 0.375rem 0.5rem;
+    border-radius: 0 $radius-lg $radius-lg 0;
+  }
+
+  .ad-tags {
+    margin-bottom: 0.25rem;
+  }
+
+  .ad-tag {
+    font-size: 0.65rem;
+    padding: 0.05rem 0.4rem;
+  }
+
+  .ad-title {
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .ad-summary {
+    font-size: 0.75rem;
+    margin-bottom: auto;
+  }
+}
+
+@media (pointer: coarse) and (max-width: $breakpoint-md) {
+  .ad-apply-btn {
+    min-height: 38px;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-mimic-link {
+    flex-direction: column;
     height: auto;
   }
 
-  .ad-mimic-link {
-    flex-direction: column;
-    width: 100%;
-    height: auto;
+  .ad-action-float {
+    left: 0.56rem;
+    top: 0.56rem;
   }
 
   .ad-cover-wrap {
@@ -426,73 +570,6 @@ watch(() => props.ad.content, () => {
     aspect-ratio: 16 / 9;
   }
 
-  .ad-action-float {
-    left: 0.62rem;
-    top: 0.62rem;
-  }
-
-  .ad-apply-btn {
-    min-height: 38px;
-    min-width: auto;
-    padding: 0 0.86rem;
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    border-color: rgba(59, 130, 246, 0.42);
-    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
-  }
-
-  .ad-cover-fallback {
-    padding-top: 3.4rem;
-    font-size: 0.74rem;
-  }
-
-  .ad-content {
-    padding: 0.68rem 0.72rem 0.76rem;
-    border-radius: 0 0 $radius-lg $radius-lg;
-  }
-
-  .ad-tags {
-    margin-bottom: 0.34rem;
-  }
-
-  .ad-tag {
-    font-size: 0.68rem;
-    padding: 0.08rem 0.46rem;
-  }
-
-  .ad-title {
-    font-size: 0.92rem;
-    margin-bottom: 0.28rem;
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-  }
-
-  .ad-summary {
-    font-size: 0.8rem;
-    margin-bottom: 0;
-  }
-}
-
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
-  .ad-apply-btn {
-    min-height: 38px;
-    min-width: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .ad-action-float {
-    left: 0.56rem;
-    top: 0.56rem;
-  }
-
   .ad-apply-btn {
     min-height: 36px;
     padding: 0 0.78rem;
@@ -500,7 +577,7 @@ watch(() => props.ad.content, () => {
   }
 
   .ad-cover-fallback {
-    padding-top: 3rem;
+    padding-top: 3.2rem;
     gap: 0.3rem;
   }
 
@@ -509,15 +586,21 @@ watch(() => props.ad.content, () => {
   }
 
   .ad-content {
-    padding: 0.58rem 0.62rem 0.66rem;
+    padding: $spacing-md;
+    border-radius: 0 0 $radius-lg $radius-lg;
   }
 
   .ad-title {
-    font-size: 0.88rem;
+    font-size: 0.9rem;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .ad-summary {
-    font-size: 0.76rem;
+    font-size: 0.78rem;
+    margin-bottom: 0;
   }
 }
 

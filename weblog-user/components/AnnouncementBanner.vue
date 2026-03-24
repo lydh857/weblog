@@ -168,12 +168,16 @@ onUnmounted(() => stopAutoPlay())
     background: linear-gradient(135deg, #1e293b 0%, #1e3a5f 100%);
     border-bottom-color: rgba(59, 130, 246, 0.2);
   }
+
+  @media (max-width: $breakpoint-md) {
+    padding-right: 0;
+  }
 }
 
 .announcement-bar-inner {
   max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 var(--layout-page-padding-x);
   height: 36px;
   display: flex;
   align-items: center;
@@ -307,6 +311,17 @@ onUnmounted(() => stopAutoPlay())
       background: rgba(255, 255, 255, 0.1);
       color: #e2e8f0;
     }
+  }
+
+  @media (max-width: $breakpoint-md) {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    flex: 0 0 24px;
+    padding: 0;
+    margin-right: 0;
+    justify-content: center;
   }
 }
 

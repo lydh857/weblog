@@ -2,11 +2,13 @@
   <div class="topic-list-bg">
     <div class="topic-list-page">
       <header class="page-header">
-        <h1 class="page-title">
-          <Icon name="heroicons:book-open-20-solid" size="22" />
-          专题
-        </h1>
-        <p class="page-desc">聚合系列主题内容，按专题高效阅读</p>
+        <div class="page-title-row">
+          <h1 class="page-title">
+            <Icon name="heroicons:book-open-20-solid" size="22" />
+            专题
+          </h1>
+          <p class="page-desc">聚合系列主题内容，按专题高效阅读</p>
+        </div>
       </header>
 
       <!-- 加载态 -->
@@ -129,6 +131,13 @@ onMounted(() => fetchTopics())
   margin-bottom: var(--layout-page-header-margin-bottom);
 }
 
+.page-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.62rem;
+  min-width: 0;
+}
+
 .page-title {
   display: flex;
   align-items: center;
@@ -143,11 +152,24 @@ onMounted(() => fetchTopics())
 }
 
 .page-desc {
-  margin-top: var(--layout-page-desc-margin-top);
+  margin: 0;
   font-size: 0.92rem;
   line-height: 1.4;
   color: $color-text-muted;
+  white-space: nowrap;
   .dark & { color: #94a3b8; }
+}
+
+@media (max-width: $breakpoint-md) {
+  .page-title-row {
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.22rem 0.5rem;
+  }
+
+  .page-desc {
+    white-space: normal;
+  }
 }
 
 .topic-grid {

@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 const visible = ref(false)
 const preferredPosition = ref('home_left')
-const preferredStep = ref<1 | 2 | 3>(2)
+const preferredStep = ref<1 | 2 | 3>(1)
 const preferredPitAdId = ref<number | null>(null)
 const applicationVersion = ref(0)
 
@@ -14,7 +14,7 @@ export function useAdApplyModal() {
     if (options?.step) {
       preferredStep.value = options.step
     } else {
-      preferredStep.value = 2
+      preferredStep.value = 1
     }
 
     if (typeof options?.pitAdId === 'number' && Number.isFinite(options.pitAdId) && options.pitAdId > 0) {

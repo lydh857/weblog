@@ -71,11 +71,10 @@ function toggleAllNodes() {
 
 <style scoped lang="scss">
 .topic-sidebar-wrapper {
-  width: 260px;
+  width: 100%;
+  min-width: 0;
   flex-shrink: 0;
   position: relative;
-  transition: width 0.3s ease;
-  &.collapsed { width: 40px; }
 }
 
 .sidebar-toggle-btn {

@@ -55,6 +55,7 @@ public class AdvertisementController {
     private static final List<String> POSITION_ORDER = List.of("home_left", "post_top", "post_bottom", "post_list_card");
     private static final List<Integer> DEFAULT_DURATION_DAYS = List.of(7, 30, 90, 180);
     private static final int MAX_PIT_COUNT = 7;
+    private static final int MAX_APPLICATION_TITLE_LENGTH = 100;
     private static final BigDecimal PIT_PRICE_STEP = new BigDecimal("0.08");
     private static final BigDecimal MIN_PIT_PRICE_FACTOR = new BigDecimal("0.52");
 
@@ -127,7 +128,7 @@ public class AdvertisementController {
         validateApplicationByRules(ad, rules, resolvedPit.getPitIndex());
 
         User currentUser = userMapper.selectById(userId);
-        ad.setTitle(buildApplyTitle(currentUser, ad.getPosition(), ad.getType()));
+        ad.setTitle(resolveApplyTitle(currentUser, ad));
 
         // 安全过滤：如果是code类型广告，保留结构并清理危险脚本
         if ("code".equals(ad.getType()) && ad.getContent() != null) {
@@ -159,6 +160,20 @@ public class AdvertisementController {
         String safePosition = (position == null || position.isBlank()) ? "unknown" : position.trim();
         String safeType = (type == null || type.isBlank()) ? "image" : type.trim();
         return prefix + "-" + safePosition + "-" + safeType;
+    }
+
+    private String resolveApplyTitle(User user, Advertisement ad) {
+        if (ad == null) {
+            return buildApplyTitle(user, null, null);
+        }
+
+        String position = ad.getPosition() == null ? "" : ad.getPosition().trim();
+        String customTitle = ad.getTitle() == null ? "" : ad.getTitle().trim();
+        if ("post_list_card".equals(position) && !customTitle.isEmpty()) {
+            return customTitle;
+        }
+
+        return buildApplyTitle(user, ad.getPosition(), ad.getType());
     }
 
     private void clearReviewReason(Long adId) {
@@ -752,8 +767,10 @@ public class AdvertisementController {
     private void validateApplicationByRules(Advertisement ad, List<PriceRule> rules, Integer pitIndex) {
         String position = ad.getPosition() == null ? null : ad.getPosition().trim();
         String type = ad.getType() == null ? null : ad.getType().trim();
+        String title = ad.getTitle() == null ? null : ad.getTitle().trim();
         ad.setPosition(position);
         ad.setType(type);
+        ad.setTitle(title);
 
         if (position == null || !SUPPORTED_POSITIONS.contains(position)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "广告位置不合法");
@@ -763,6 +780,15 @@ public class AdvertisementController {
         }
         if ("code".equals(type) && "post_list_card".equals(position)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "代码广告不支持文章列表拟态卡位");
+        }
+
+        if ("post_list_card".equals(position)) {
+            if (title == null || title.isBlank()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "文章拟态卡广告标题不能为空");
+            }
+            if (title.length() > MAX_APPLICATION_TITLE_LENGTH) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "广告标题长度不能超过" + MAX_APPLICATION_TITLE_LENGTH + "个字符");
+            }
         }
 
         if (ad.getStartTime() == null || ad.getEndTime() == null) {

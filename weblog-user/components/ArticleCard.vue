@@ -412,6 +412,64 @@ function handleImageError(e: Event) {
 
 /* ===== 响应式 ===== */
 
+@media (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
+  .article-card {
+    height: calc(200px * 9 / 16);
+  }
+
+  .card-cover {
+    width: 200px;
+
+    img {
+      width: 200px;
+      height: calc(200px * 9 / 16);
+    }
+  }
+
+  .cover-placeholder {
+    width: 200px;
+    height: calc(200px * 9 / 16);
+  }
+
+  .card-content {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .card-categories {
+    margin-bottom: 0.2rem;
+  }
+
+  .category-tag {
+    font-size: 0.62rem;
+  }
+
+  .card-title {
+    font-size: 0.86rem;
+    margin-bottom: 0.18rem;
+  }
+
+  .card-summary {
+    font-size: 0.74rem;
+  }
+
+  .card-meta {
+    gap: 0.32rem;
+    padding-top: 0.32rem;
+  }
+
+  .meta-left {
+    gap: 0.5rem;
+  }
+
+  .meta-item {
+    font-size: 0.66rem;
+  }
+
+  .author-name {
+    font-size: 0.7rem;
+  }
+}
+
 /* 移动端：封面图缩小 */
 @media (max-width: $breakpoint-md) {
   .article-card {

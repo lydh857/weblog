@@ -2,12 +2,14 @@
   <div class="tags-page-bg">
     <div class="tags-page">
       <div class="page-header">
-        <div>
+        <div class="page-title-wrap">
           <h1 class="page-title">
-            <Icon name="heroicons:tag-20-solid" size="22" />
-            标签云
+            <span class="page-title-main">
+              <Icon name="heroicons:tag-20-solid" size="22" />
+              <span>标签云</span>
+            </span>
+            <span class="title-count-inline">共 {{ tags.length }} 个标签</span>
           </h1>
-          <p class="page-desc">共 {{ tags.length }} 个标签</p>
         </div>
         <div v-if="tags.length" class="view-toggle">
           <button
@@ -34,27 +36,41 @@
       <template v-if="tags.length">
         <div
           v-show="viewMode === '3d'"
-          ref="cloudRef"
-          class="cloud-wrapper"
+          class="cloud-stage"
           :class="{ 'enter-active': entered }"
-          @mouseenter="isInsideCloud = true"
-          @mouseleave="isInsideCloud = false"
-          @mousedown.prevent="onDragStart"
-          @wheel.prevent="onWheel"
         >
-          <div class="cloud-glow" />
-          <div class="cloud-scene">
-            <NuxtLink
-              v-for="tag in renderedTags"
-              :key="tag.id"
-              :to="{ path: '/category', query: { tagId: String(tag.id) } }"
-              class="cloud-tag"
-              :style="tag.style"
-            >
-              {{ tag.name }}
-              <sup class="tag-sup">{{ tag.postCount }}</sup>
-            </NuxtLink>
+          <div
+            ref="cloudRef"
+            class="cloud-wrapper"
+            @mouseenter="onCloudMouseMove"
+            @mousemove="onCloudMouseMove"
+            @mouseleave="onCloudMouseLeave"
+            @mousedown.prevent="onDragStart"
+            @touchstart="onTouchStart"
+            @touchmove="onTouchMove"
+            @touchend="onTouchEnd"
+            @touchcancel="onTouchCancel"
+            @wheel.prevent="onWheel"
+          >
+            <div class="cloud-glow" />
+            <div class="cloud-scene">
+              <NuxtLink
+                v-for="tag in renderedTags"
+                :key="tag.id"
+                :to="{ path: '/category', query: { tagId: String(tag.id) } }"
+                class="cloud-tag"
+                :style="tag.style"
+              >
+                {{ tag.name }}
+                <sup class="tag-sup">{{ tag.postCount }}</sup>
+              </NuxtLink>
+            </div>
           </div>
+        </div>
+
+        <div v-show="viewMode === '3d'" class="cloud-gesture-tip" aria-hidden="true">
+          <span>单指拖动旋转 · 双指缩放</span>
+          <span class="cloud-scale-chip">{{ Math.round(sphereScale * 100) }}%</span>
         </div>
 
         <div v-if="viewMode === 'flat'" class="flat-tags" :class="{ 'enter-active': entered, 'is-entering': flatEntering }">
@@ -101,12 +117,25 @@ const viewMode = ref<'3d' | 'flat'>('3d')
 const entered = ref(false)
 const flatEntering = ref(false)
 
-const RADIUS = 210
+const DESKTOP_RADIUS = 210
+const DESKTOP_MIN_SPHERE_SCALE = 0.5
+const DESKTOP_MAX_SPHERE_SCALE = 1.8
+const DESKTOP_DEFAULT_SPHERE_SCALE = 0.86
+const MOBILE_MIN_SPHERE_SCALE = 0.66
+const MOBILE_MAX_SPHERE_SCALE = 1.28
+const MOBILE_DEFAULT_SPHERE_SCALE = 0.8
+const VIEWPORT_MOBILE_BREAKPOINT = 768
+const DESKTOP_HOVER_PAUSE_RADIUS_RATIO = 0.96
+const MOUSE_ROTATE_SPEED = 0.28
+const TOUCH_ROTATE_SPEED = 0.34
 const sphereScale = ref(1)
 const rotateX = ref(0)
 const rotateY = ref(0)
+const cloudStageSide = ref(0)
 const isInsideCloud = ref(false)
 const isDragging = ref(false)
+const isMobileViewport = ref(false)
+let touchMode: 'none' | 'drag' | 'pinch' = 'none'
 
 let dragStartX = 0
 let dragStartY = 0
@@ -115,10 +144,14 @@ let dragStartRY = 0
 let dragLatestX = 0
 let dragLatestY = 0
 let dragRafId = 0
+let dragRotateSpeed = MOUSE_ROTATE_SPEED
+let pinchStartDistance = 0
+let pinchStartScale = 1
 
 let rafId = 0
 let autoAngle = 0
 let lastTime = 0
+let viewportMediaQuery: MediaQueryList | null = null
 
 function animateLoop(time: number) {
   if (lastTime) {
@@ -177,7 +210,7 @@ const sphereTags = computed<TagSphere[]>(() => {
 })
 
 const renderedTags = computed(() => {
-  const r = RADIUS * sphereScale.value
+  const r = getSphereRadius() * sphereScale.value
   const rx = (rotateX.value * Math.PI) / 180
   const ry = (rotateY.value * Math.PI) / 180
   const cosRx = Math.cos(rx)
@@ -202,7 +235,7 @@ const renderedTags = computed(() => {
     return {
       ...tag,
       style: {
-        transform: `translate3d(${x1}px, ${y1}px, ${z2}px) scale(${scale})`,
+        transform: `translate(-50%, -50%) translate3d(${x1}px, ${y1}px, ${z2}px) scale(${scale})`,
         opacity,
         fontSize: tag.fontSize + 'px',
         color: tag.colorStr,
@@ -217,14 +250,165 @@ const renderedTags = computed(() => {
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => b.postCount - a.postCount))
 
-function onDragStart(e: MouseEvent) {
+if (import.meta.client) {
+  isMobileViewport.value = window.innerWidth <= VIEWPORT_MOBILE_BREAKPOINT
+  sphereScale.value = isMobileViewport.value ? MOBILE_DEFAULT_SPHERE_SCALE : DESKTOP_DEFAULT_SPHERE_SCALE
+}
+
+function getSphereScaleRange() {
+  if (isMobileViewport.value) {
+    return {
+      min: MOBILE_MIN_SPHERE_SCALE,
+      max: MOBILE_MAX_SPHERE_SCALE,
+    }
+  }
+
+  return {
+    min: DESKTOP_MIN_SPHERE_SCALE,
+    max: DESKTOP_MAX_SPHERE_SCALE,
+  }
+}
+
+function getSphereRadius() {
+  const stageSide = cloudStageSide.value
+
+  if (stageSide > 0) {
+    if (isMobileViewport.value) {
+      return Math.round(Math.min(240, Math.max(96, stageSide * 0.44)))
+    }
+
+    return Math.round(Math.min(330, Math.max(136, stageSide * 0.42)))
+  }
+
+  return isMobileViewport.value ? 160 : DESKTOP_RADIUS
+}
+
+function handleViewportChange(event: MediaQueryListEvent) {
+  const wasMobileViewport = isMobileViewport.value
+  isMobileViewport.value = event.matches
+
+  if (wasMobileViewport !== isMobileViewport.value) {
+    sphereScale.value = isMobileViewport.value ? MOBILE_DEFAULT_SPHERE_SCALE : DESKTOP_DEFAULT_SPHERE_SCALE
+  }
+
+  if (isMobileViewport.value) {
+    isInsideCloud.value = false
+  }
+
+  clampSphereScale(sphereScale.value)
+  updateCloudStageSize()
+}
+
+function updateCloudStageSize() {
+  if (!import.meta.client) return
+  if (!cloudRef.value) return
+
+  const side = Math.min(cloudRef.value.clientWidth, cloudRef.value.clientHeight)
+  if (!Number.isFinite(side) || side <= 0) return
+  cloudStageSide.value = side
+}
+
+function onCloudMouseMove(event: MouseEvent) {
+  if (isMobileViewport.value) {
+    isInsideCloud.value = false
+    return
+  }
+
+  const cloudElement = cloudRef.value
+  if (!cloudElement) return
+
+  const rect = cloudElement.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const distance = Math.hypot(event.clientX - centerX, event.clientY - centerY)
+  const pauseRadius = Math.max(96, getSphereRadius() * sphereScale.value * DESKTOP_HOVER_PAUSE_RADIUS_RATIO)
+
+  isInsideCloud.value = distance <= pauseRadius
+}
+
+function onCloudMouseLeave() {
+  isInsideCloud.value = false
+}
+
+function handleWindowResize() {
+  updateCloudStageSize()
+}
+
+function clampSphereScale(nextScale: number) {
+  const range = getSphereScaleRange()
+  sphereScale.value = Math.min(range.max, Math.max(range.min, nextScale))
+}
+
+function beginDrag(clientX: number, clientY: number, speed: number) {
   isDragging.value = true
-  dragStartX = e.clientX
-  dragStartY = e.clientY
-  dragLatestX = e.clientX
-  dragLatestY = e.clientY
+  dragStartX = clientX
+  dragStartY = clientY
+  dragLatestX = clientX
+  dragLatestY = clientY
   dragStartRX = rotateX.value
   dragStartRY = rotateY.value
+  dragRotateSpeed = speed
+}
+
+function scheduleDragRotate() {
+  if (dragRafId) return
+
+  dragRafId = requestAnimationFrame(() => {
+    dragRafId = 0
+    rotateY.value = dragStartRY + (dragLatestX - dragStartX) * dragRotateSpeed
+    rotateX.value = dragStartRX - (dragLatestY - dragStartY) * dragRotateSpeed
+    autoAngle = rotateY.value
+  })
+}
+
+function finishDrag() {
+  if (dragRafId) {
+    cancelAnimationFrame(dragRafId)
+    dragRafId = 0
+  }
+
+  isDragging.value = false
+  autoAngle = rotateY.value
+}
+
+function getTouchDistance(touches: TouchList) {
+  if (touches.length < 2) return 0
+  const first = touches[0]
+  const second = touches[1]
+  const dx = first.clientX - second.clientX
+  const dy = first.clientY - second.clientY
+  return Math.hypot(dx, dy)
+}
+
+function beginTouchDrag(touch: Touch) {
+  touchMode = 'drag'
+  beginDrag(touch.clientX, touch.clientY, TOUCH_ROTATE_SPEED)
+}
+
+function beginPinch(touches: TouchList) {
+  const distance = getTouchDistance(touches)
+  if (!distance) return
+
+  touchMode = 'pinch'
+  pinchStartDistance = distance
+  pinchStartScale = sphereScale.value
+  isDragging.value = true
+
+  if (dragRafId) {
+    cancelAnimationFrame(dragRafId)
+    dragRafId = 0
+  }
+}
+
+function endTouchInteraction() {
+  touchMode = 'none'
+  pinchStartDistance = 0
+  pinchStartScale = sphereScale.value
+  finishDrag()
+}
+
+function onDragStart(e: MouseEvent) {
+  beginDrag(e.clientX, e.clientY, MOUSE_ROTATE_SPEED)
   window.addEventListener('mousemove', onDragMove)
   window.addEventListener('mouseup', onDragEnd)
 }
@@ -234,29 +418,73 @@ function onDragMove(e: MouseEvent) {
   dragLatestX = e.clientX
   dragLatestY = e.clientY
 
-  if (dragRafId) return
-  dragRafId = requestAnimationFrame(() => {
-    dragRafId = 0
-    rotateY.value = dragStartRY + (dragLatestX - dragStartX) * 0.28
-    rotateX.value = dragStartRX - (dragLatestY - dragStartY) * 0.28
-    autoAngle = rotateY.value
-  })
+  scheduleDragRotate()
 }
 
 function onDragEnd() {
-  if (dragRafId) {
-    cancelAnimationFrame(dragRafId)
-    dragRafId = 0
-  }
-  isDragging.value = false
-  autoAngle = rotateY.value
+  finishDrag()
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
 }
 
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length >= 2) {
+    beginPinch(e.touches)
+    return
+  }
+
+  const touch = e.touches[0]
+  if (!touch) return
+  beginTouchDrag(touch)
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (touchMode === 'pinch') {
+    if (e.touches.length < 2 || !pinchStartDistance) return
+    const distance = getTouchDistance(e.touches)
+    if (!distance) return
+    const ratio = distance / pinchStartDistance
+    clampSphereScale(pinchStartScale * ratio)
+    return
+  }
+
+  if (touchMode === 'drag') {
+    if (e.touches.length >= 2) {
+      beginPinch(e.touches)
+      return
+    }
+
+    const touch = e.touches[0]
+    if (!touch) return
+    dragLatestX = touch.clientX
+    dragLatestY = touch.clientY
+    scheduleDragRotate()
+  }
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (e.touches.length >= 2) {
+    beginPinch(e.touches)
+    return
+  }
+
+  if (e.touches.length === 1) {
+    const touch = e.touches[0]
+    if (!touch) return
+    beginTouchDrag(touch)
+    return
+  }
+
+  endTouchInteraction()
+}
+
+function onTouchCancel() {
+  endTouchInteraction()
+}
+
 function onWheel(e: WheelEvent) {
   const d = e.deltaY > 0 ? -0.06 : 0.06
-  sphereScale.value = Math.min(1.8, Math.max(0.5, sphereScale.value + d))
+  clampSphereScale(sphereScale.value + d)
 }
 
 function setViewMode(mode: '3d' | 'flat') {
@@ -273,9 +501,20 @@ function setViewMode(mode: '3d' | 'flat') {
 
   flatEntering.value = false
   viewMode.value = '3d'
+  nextTick(() => {
+    updateCloudStageSize()
+  })
 }
 
 onMounted(async () => {
+  if (import.meta.client) {
+    viewportMediaQuery = window.matchMedia(`(max-width: ${VIEWPORT_MOBILE_BREAKPOINT}px)`)
+    isMobileViewport.value = viewportMediaQuery.matches
+    clampSphereScale(sphereScale.value)
+    viewportMediaQuery.addEventListener('change', handleViewportChange)
+    window.addEventListener('resize', handleWindowResize)
+  }
+
   try {
     const res = await tagApi.cloud()
     tags.value = res.data
@@ -284,8 +523,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
     await nextTick()
+    updateCloudStageSize()
     requestAnimationFrame(() => {
       entered.value = true
+      updateCloudStageSize()
     })
   }
   rafId = requestAnimationFrame(animateLoop)
@@ -293,10 +534,17 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cancelAnimationFrame(rafId)
-  if (dragRafId) {
-    cancelAnimationFrame(dragRafId)
-    dragRafId = 0
+  endTouchInteraction()
+
+  if (viewportMediaQuery) {
+    viewportMediaQuery.removeEventListener('change', handleViewportChange)
+    viewportMediaQuery = null
   }
+
+  if (import.meta.client) {
+    window.removeEventListener('resize', handleWindowResize)
+  }
+
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
 })
@@ -326,10 +574,15 @@ onUnmounted(() => {
   }
 }
 
+.page-title-wrap {
+  position: relative;
+}
+
 .page-title {
   display: flex;
-  align-items: center;
-  gap: var(--layout-page-title-gap);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.22rem 0.62rem;
   font-size: var(--layout-page-title-size);
   font-weight: 700;
   line-height: 1.2;
@@ -339,12 +592,31 @@ onUnmounted(() => {
   .dark & { color: $color-dark-text; }
 }
 
-.page-desc {
-  margin-top: var(--layout-page-desc-margin-top);
+.page-title-main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--layout-page-title-gap);
+  min-height: 2rem;
+}
+
+.title-count-inline {
+  display: inline-flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  margin: 0;
   font-size: 0.92rem;
+  font-weight: 400;
   line-height: 1.4;
   color: $color-text-muted;
-  .dark & { color: #94a3b8; }
+  white-space: nowrap;
+
+  @media (max-width: $breakpoint-md) {
+    white-space: normal;
+  }
+
+  .dark & {
+    color: #94a3b8;
+  }
 }
 
 .view-toggle {
@@ -353,12 +625,18 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.04);
   border-radius: 10px;
   padding: 3px;
+
+  @media (max-width: $breakpoint-md) {
+    width: 100%;
+  }
+
   .dark & { background: rgba(255, 255, 255, 0.06); }
 }
 
 .toggle-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 6px 14px;
   border: none;
@@ -369,6 +647,13 @@ onUnmounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+
+  @media (max-width: $breakpoint-md) {
+    flex: 1;
+    min-height: 36px;
+    font-size: 0.86rem;
+  }
+
   .dark & { color: #94a3b8; }
   &:hover {
     color: $color-text;
@@ -385,32 +670,55 @@ onUnmounted(() => {
   }
 }
 
+.cloud-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  height: auto;
+  min-height: 360px;
+  max-height: calc(100dvh - 250px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+
+  @media (max-width: $breakpoint-md) {
+    width: 100%;
+    aspect-ratio: auto;
+    height: clamp(300px, calc(100vw - (var(--layout-page-padding-x) * 2)), 620px);
+    min-height: 280px;
+    max-height: calc(100dvh - 208px);
+    border-radius: 0;
+  }
+}
+
+.cloud-stage.enter-active {
+  animation: tagsPanelEnter 0.36s ease-out both;
+}
+
 .cloud-wrapper {
   position: relative;
-  max-width: 560px;
-  height: 520px;
-  margin: 0 auto 2rem;
+  width: 100%;
+  height: 100%;
   perspective: 900px;
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   &:active { cursor: grabbing; }
-  @media (max-width: $breakpoint-md) {
-    max-width: 380px;
-    height: 380px;
-  }
-}
-
-.cloud-wrapper.enter-active {
-  animation: tagsPanelEnter 0.36s ease-out both;
 }
 
 .cloud-glow {
   position: absolute;
-  width: 320px;
-  height: 320px;
+  width: min(62%, 620px);
+  height: min(62%, 620px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
   pointer-events: none;
@@ -427,13 +735,62 @@ onUnmounted(() => {
 
 .cloud-scene {
   position: relative;
-  width: 420px;
-  height: 420px;
+  width: 94%;
+  height: 94%;
+  margin: 0 auto;
   transform-style: preserve-3d;
+
   @media (max-width: $breakpoint-md) {
-    width: 320px;
-    height: 320px;
+    width: 96%;
+    height: 96%;
   }
+}
+
+.cloud-gesture-tip {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.52rem auto 0.08rem;
+  color: $color-text-muted;
+  font-size: 0.76rem;
+  line-height: 1;
+
+  .dark & {
+    color: #94a3b8;
+  }
+
+  @media (max-width: $breakpoint-md) {
+    display: inline-flex;
+    position: static;
+    transform: none;
+    margin-top: 0.58rem;
+    padding: 0.34rem 0.58rem;
+    border-radius: 999px;
+    background: rgba(241, 245, 249, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(4px);
+    z-index: 3;
+    white-space: nowrap;
+
+    .dark & {
+      background: rgba(15, 23, 42, 0.78);
+      border-color: rgba(100, 116, 139, 0.42);
+    }
+  }
+}
+
+.cloud-scale-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.8rem;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  color: $color-primary;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .cloud-tag {
@@ -469,6 +826,10 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+
+  @media (max-width: $breakpoint-md) {
+    gap: 8px;
+  }
 }
 
 .flat-tags.is-entering .flat-tag.enter-item {
@@ -492,6 +853,12 @@ onUnmounted(() => {
   border: 1px solid transparent;
   transition: all 0.2s;
   cursor: pointer;
+
+  @media (max-width: $breakpoint-md) {
+    padding: 6px 12px;
+    font-size: 0.84rem;
+  }
+
   &:hover {
     background: var(--tag-bg-hover);
     border-color: var(--tag-color);
@@ -544,7 +911,7 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cloud-wrapper.enter-active,
+  .cloud-stage.enter-active,
   .empty-state.enter-active,
   .flat-tags.is-entering .flat-tag.enter-item {
     animation: none !important;
