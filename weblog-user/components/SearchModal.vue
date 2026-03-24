@@ -11,19 +11,18 @@
           <!-- 顶部搜索输入框 -->
           <div class="search-header">
             <div class="search-input-wrapper">
-              <Icon name="heroicons:magnifying-glass-20-solid" size="20" class="search-icon" />
               <input
                 ref="searchInputRef"
                 v-model="keyword"
                 type="text"
                 class="search-input"
-                placeholder="搜索文章..."
+                :placeholder="inputPlaceholderText"
                 autocomplete="off"
                 @input="handleInput"
               />
               <button
                 type="button"
-                class="clear-btn"
+                class="clear-btn touch-target"
                 :class="{ 'clear-btn--visible': hasKeyword }"
                 :aria-hidden="!hasKeyword"
                 :tabindex="hasKeyword ? 0 : -1"
@@ -32,8 +31,16 @@
               >
                 <Icon name="heroicons:x-circle-20-solid" size="18" />
               </button>
+              <button
+                type="button"
+                class="search-submit-btn touch-target"
+                aria-label="搜索"
+                @click="handleSearchSubmit"
+              >
+                <Icon name="heroicons:magnifying-glass-20-solid" size="18" />
+              </button>
             </div>
-            <button class="modal-close-btn" aria-label="关闭搜索" @click="close">
+            <button class="modal-close-btn touch-target" aria-label="关闭搜索" @click="close">
               <Icon name="heroicons:x-mark-20-solid" size="18" />
             </button>
           </div>
@@ -161,10 +168,16 @@
               </div>
 
               <!-- 无结果 -->
-              <div v-else class="search-empty">
+              <div v-else-if="shouldShowEmpty" class="search-empty">
                 <Icon name="heroicons:magnifying-glass-16-solid" size="40" />
                 <p>未找到相关文章</p>
                 <span>换个关键词试试</span>
+              </div>
+
+              <!-- 已输入，等待手动搜索 -->
+              <div v-else class="search-pending">
+                <Icon name="heroicons:magnifying-glass-16-solid" size="34" />
+                <p>点击右侧搜索图标或按回车开始搜索</p>
               </div>
             </template>
           </div>
@@ -193,6 +206,7 @@
 import { searchApi, type SearchHit } from '~/api/search'
 import { sanitizeHtml } from '~/utils/xss'
 import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
+import { useSearchModal } from '~/composables/useSearchModal'
 
 // ===== Props / Emits =====
 interface Props {
@@ -204,6 +218,7 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const searchModal = useSearchModal()
 
 // ===== 状态 =====
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -213,6 +228,10 @@ const searching = ref(false)
 const activeIndex = ref(-1)
 const hasKeyword = computed(() => keyword.value.trim().length > 0)
 const showShortcutHints = computed(() => hasKeyword.value && !searching.value && results.value.length > 0)
+const hasSearched = ref(false)
+const shouldShowEmpty = computed(() => hasKeyword.value && hasSearched.value && !searching.value && results.value.length === 0)
+const DEFAULT_SEARCH_PLACEHOLDER = '搜索文章...'
+const inputPlaceholderText = ref(DEFAULT_SEARCH_PLACEHOLDER)
 
 // ===== 搜索历史（localStorage 持久化） =====
 const HISTORY_KEY = 'weblog_search_history'
@@ -373,25 +392,36 @@ function handleSearchBodyClick(event: MouseEvent) {
 }
 
 // ===== 搜索逻辑 =====
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-
-/** 输入事件处理（防抖） */
+/** 输入事件处理（取消自动搜索） */
 function handleInput() {
   activeIndex.value = -1
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    doSearch()
-  }, 300)
+  hasSearched.value = false
+  if (!keyword.value.trim()) {
+    results.value = []
+  }
+}
+
+function handleSearchSubmit() {
+  if (!keyword.value.trim()) {
+    const placeholderKeyword = inputPlaceholderText.value.trim()
+    if (!placeholderKeyword || placeholderKeyword === DEFAULT_SEARCH_PLACEHOLDER) {
+      return
+    }
+    keyword.value = placeholderKeyword
+  }
+  void doSearch()
 }
 
 /** 执行搜索 */
 async function doSearch() {
   const kw = keyword.value.trim()
   if (!kw) {
+    hasSearched.value = false
     results.value = []
     return
   }
 
+  hasSearched.value = true
   searching.value = true
   try {
     const res = await searchApi.search({ keyword: kw, pageSize: 20 })
@@ -407,6 +437,7 @@ async function doSearch() {
 /** 清空关键词 */
 function clearKeyword() {
   keyword.value = ''
+  hasSearched.value = false
   results.value = []
   activeIndex.value = -1
   searchInputRef.value?.focus()
@@ -419,7 +450,13 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
-  // 仅在有搜索结果时处理上下键和回车
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    handleSearchSubmit()
+    return
+  }
+
+  // 仅在有搜索结果时处理上下键
   if (!hasKeyword.value || results.value.length === 0) return
 
   if (e.key === 'ArrowDown') {
@@ -432,11 +469,6 @@ function handleKeydown(e: KeyboardEvent) {
       ? results.value.length - 1
       : activeIndex.value - 1
     scrollActiveIntoView()
-  } else if (e.key === 'Enter') {
-    e.preventDefault()
-    if (activeIndex.value >= 0 && activeIndex.value < results.value.length) {
-      handleResultClick(results.value[activeIndex.value])
-    }
   }
 }
 
@@ -501,6 +533,7 @@ function handleResultClick(item: SearchHit) {
 
 // ===== 关闭模态框 =====
 function close() {
+  searchModal.close()
   emit('update:visible', false)
 }
 
@@ -516,15 +549,23 @@ let locked = false
 watch(() => props.visible, (val) => {
   if (val) {
     loadHistory()
+    keyword.value = searchModal.initialKeyword.value
+    inputPlaceholderText.value = searchModal.inputPlaceholder.value || DEFAULT_SEARCH_PLACEHOLDER
     nextTick(() => {
       searchInputRef.value?.focus()
     })
+    if (searchModal.autoSearchOnOpen.value && keyword.value.trim()) {
+      void doSearch()
+      searchModal.autoSearchOnOpen.value = false
+    }
     if (!locked) {
       lockScroll()
       locked = true
     }
   } else {
     keyword.value = ''
+    hasSearched.value = false
+    inputPlaceholderText.value = DEFAULT_SEARCH_PLACEHOLDER
     results.value = []
     activeIndex.value = -1
     historyLongPressIndex.value = null
@@ -609,11 +650,13 @@ onUnmounted(() => {
 
 .modal-close-btn {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border: 1px solid $color-border;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(148, 163, 184, 0.44);
   border-radius: 12px;
-  background: rgba(248, 250, 252, 0.95);
+  background: rgba(248, 250, 252, 0.96);
   color: $color-text-muted;
   display: inline-flex;
   align-items: center;
@@ -659,12 +702,12 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
+  gap: 0.12rem;
   box-sizing: border-box;
   border: 1px solid $color-border;
   border-radius: 12px;
-  height: 40px;
-  padding: 0 0.65rem;
+  height: 48px;
+  padding: 0 0.42rem;
   background: rgba(255, 255, 255, 0.9);
   .dark & {
     border-color: $color-dark-border;
@@ -672,12 +715,36 @@ onUnmounted(() => {
   }
 }
 
-.search-icon {
+.search-submit-btn {
   flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.1);
   color: $color-text-muted;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+
+  &:hover {
+    color: $color-primary;
+    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.14);
+  }
 
   .dark & {
     color: #64748b;
+
+    &:hover {
+      color: #93c5fd;
+      border-color: rgba(96, 165, 250, 0.34);
+      background: rgba(59, 130, 246, 0.28);
+    }
   }
 }
 
@@ -706,23 +773,27 @@ onUnmounted(() => {
 
 .clear-btn {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  background: rgba(148, 163, 184, 0.1);
   color: $color-text-muted;
   cursor: pointer;
   padding: 0;
-  border-radius: $radius-sm;
+  border-radius: 12px;
   opacity: 0;
   pointer-events: none;
-  transition: color 0.2s, opacity 0.18s;
+  transition: color 0.2s, opacity 0.18s, background 0.18s, border-color 0.18s;
 
   &:hover {
     color: $color-text;
+    border-color: rgba(100, 116, 139, 0.26);
+    background: rgba(148, 163, 184, 0.16);
   }
 
   .dark & {
@@ -730,6 +801,8 @@ onUnmounted(() => {
 
     &:hover {
       color: $color-dark-text;
+      border-color: rgba(148, 163, 184, 0.28);
+      background: rgba(100, 116, 139, 0.24);
     }
   }
 }
@@ -1153,6 +1226,26 @@ onUnmounted(() => {
   }
 }
 
+.search-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl * 2;
+  color: $color-text-muted;
+  gap: $spacing-sm;
+
+  p {
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .dark & {
+    color: #64748b;
+  }
+}
+
 /* ===== 底部快捷键提示 ===== */
 .search-footer {
   padding: $spacing-sm $spacing-md;
@@ -1218,14 +1311,13 @@ onUnmounted(() => {
     gap: 0.5rem;
   }
 
-  .search-input-wrapper {
-    height: 42px;
+  .search-input {
+    font-size: 1rem;
   }
 
-  .modal-close-btn {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
+  .search-empty,
+  .search-pending {
+    padding: 2.5rem 1rem;
   }
 
   .search-footer {

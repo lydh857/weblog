@@ -59,7 +59,7 @@ onUnmounted(() => {
           <div v-if="title || showClose" class="modal-header">
             <h3 v-if="title" class="modal-title">{{ title }}</h3>
             <slot name="header" />
-            <button v-if="showClose" type="button" class="modal-close" @click="close" aria-label="关闭">&times;</button>
+            <button v-if="showClose" type="button" class="modal-close touch-target" @click="close" aria-label="关闭">&times;</button>
           </div>
           <div class="modal-body"><slot /></div>
           <div v-if="$slots.footer" class="modal-footer"><slot name="footer" /></div>
@@ -91,8 +91,9 @@ onUnmounted(() => {
 }
 .modal-close {
   background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer;
-  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; transition: all 0.2s; flex-shrink: 0;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; transition: all 0.2s; flex-shrink: 0;
   &:hover { color: #64748b; background: rgba(0,0,0,0.05); }
   .dark & { color: #64748b; &:hover { color: #94a3b8; background: rgba(255,255,255,0.08); } }
 }

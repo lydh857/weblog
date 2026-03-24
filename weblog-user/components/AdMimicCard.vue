@@ -538,7 +538,7 @@ watch(() => props.ad.content, () => {
   }
 }
 
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
+@media (max-width: $breakpoint-md) {
   .ad-apply-btn {
     min-height: 38px;
     min-width: auto;

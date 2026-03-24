@@ -9,8 +9,8 @@
         'navbar--pre-enter': shouldHideNavbarBeforeEnter
       }"
     >
-      <div class="nav-inner">
-        <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
+        <div class="nav-inner">
+          <NuxtLink to="/" class="nav-logo" :class="{ 'animate-nav-item': shouldAnimate }" :style="shouldAnimate ? '--delay: 0.05s' : ''">
           <span class="logo-mark">
             <img
               src="/brand/logo.png"
@@ -20,8 +20,17 @@
               height="34"
             >
           </span>
-          <span class="logo-text">{{ siteName }}</span>
-        </NuxtLink>
+            <span class="logo-text">{{ siteName }}</span>
+          </NuxtLink>
+
+          <HomeNavSearchTicker
+            class="mobile-search-ticker"
+            :items="homeNavRankingItems"
+            :mobile="true"
+            :transparent="isHomePage && !isScrolled"
+            @placeholder-search="openSearchWithPlaceholder"
+            @direct-search="openSearchWithDirectKeyword"
+          />
 
         <HomeNavSearchTicker
           class="desktop-nav-item home-search-desktop"
@@ -29,7 +38,8 @@
           :style="shouldAnimate ? '--delay: 0.12s' : ''"
           :items="homeNavRankingItems"
           :transparent="isHomePage && !isScrolled"
-          @search="goSearch"
+          @placeholder-search="openSearchWithPlaceholder"
+          @direct-search="openSearchWithDirectKeyword"
         />
 
         <div class="nav-main">
@@ -121,7 +131,7 @@
           </div>
         </div>
         <!-- 移动端菜单按钮 -->
-        <button class="mobile-menu-btn" aria-label="菜单" @click="toggleMobileMenu">
+        <button class="mobile-menu-btn touch-target" aria-label="菜单" @click="toggleMobileMenu">
           <Icon :name="mobileMenuOpen ? 'heroicons:x-mark-20-solid' : 'heroicons:bars-3-20-solid'" size="24" />
         </button>
       </div>
@@ -282,6 +292,7 @@ const shouldAnimate = ref(false)
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const isStartupDone = ref(false)
 const NAV_MOBILE_BREAKPOINT = 768
+const NAV_TOGGLE_SCROLL_DELTA = 8
 const forceHomeNavbarTransparent = ref(false)
 const shouldRenderNavbar = computed(() => !isHomePage.value || isStartupDone.value)
 let navEnterRafId: number | null = null
@@ -510,6 +521,10 @@ watch(shouldShowGlobalLeftAd, (visible) => {
 })
 
 function handleScroll() {
+  if (document.body.style.position === 'fixed') {
+    return
+  }
+
   const scrollY = Math.max(window.scrollY, 0)
   const topVisibleThreshold = window.innerWidth <= NAV_MOBILE_BREAKPOINT ? 6 : 2
   isScrolled.value = scrollY > 20
@@ -533,7 +548,10 @@ function handleScroll() {
   }
 
   if (scrollY > hideStartY) {
-    isNavHidden.value = scrollY > lastScrollY.value
+    const delta = scrollY - lastScrollY.value
+    if (Math.abs(delta) >= NAV_TOGGLE_SCROLL_DELTA) {
+      isNavHidden.value = delta > 0
+    }
   } else {
     isNavHidden.value = false
   }
@@ -677,8 +695,28 @@ function toggleMobileMenu() {
 }
 
 function goSearch() {
+  openSearchDefault()
+}
+
+function openSearchDefault() {
   closeMobileMenu()
   searchModal.open()
+}
+
+function openSearchWithPlaceholder(title: string) {
+  closeMobileMenu()
+  const placeholder = title.trim() || '搜索文章...'
+  searchModal.open({ placeholder })
+}
+
+function openSearchWithDirectKeyword(title: string) {
+  closeMobileMenu()
+  const keyword = title.trim()
+  searchModal.open({
+    keyword,
+    placeholder: keyword || '搜索文章...',
+    autoSearch: Boolean(keyword),
+  })
 }
 
 function openAnnouncementCenter() {
@@ -726,6 +764,11 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss">
+.layout {
+  --layout-navbar-height: 60px;
+  --layout-announcement-height: 36px;
+}
+
 /* ===== 导航栏入场动画 ===== */
 .animate-nav-item {
   opacity: 0;
@@ -816,10 +859,26 @@ onUnmounted(() => {
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 0 var(--layout-page-padding-x);
-  height: 60px;
+  height: var(--layout-navbar-height);
   display: flex;
   align-items: center;
   gap: 0.2rem;
+}
+
+.mobile-search-ticker {
+  display: none;
+}
+
+@media (max-width: $breakpoint-md) {
+  .mobile-search-ticker {
+    display: flex;
+    flex: 0 1 188px;
+    min-width: 122px;
+    max-width: 188px;
+    margin-left: 0;
+    margin-right: 0.42rem;
+    padding: 0;
+  }
 }
 
 .nav-main {
@@ -877,10 +936,19 @@ onUnmounted(() => {
 
 @media (max-width: $breakpoint-md) {
   .nav-logo { gap: 0.4rem; }
+  .nav-logo { margin-right: 0.12rem; }
   .logo-mark {
     width: 30px;
     height: 30px;
     border-radius: 9px;
+  }
+
+  .logo-text {
+    font-size: 0.98rem;
+  }
+
+  .nav-inner {
+    gap: 0;
   }
 }
 
@@ -1092,9 +1160,9 @@ onUnmounted(() => {
   background: none;
   color: $color-text;
   cursor: pointer;
-  padding: 0.5rem 0 0.5rem 0.5rem;
-  min-width: 44px;
-  min-height: 34px;
+  padding: 0.32rem 0 0.32rem 0.26rem;
+  min-width: 38px;
+  min-height: 32px;
   align-items: center;
   justify-content: flex-end;
   margin-left: auto;
@@ -1318,12 +1386,12 @@ onUnmounted(() => {
 }
 
 .main-content {
-  min-height: calc(100vh - 60px - 60px);
-  padding-top: 60px;
+  min-height: calc(100vh - var(--layout-navbar-height) - 60px);
+  padding-top: var(--layout-navbar-height);
   background: #f5f5f5;
 
   &.has-announcement {
-    padding-top: 96px; /* 60px 导航栏 + 36px 公告栏 */
+    padding-top: calc(var(--layout-navbar-height) + var(--layout-announcement-height));
   }
 }
 
@@ -1350,6 +1418,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: $breakpoint-md) {
+  .layout {
+    --layout-navbar-height: 56px;
+  }
+
   .global-left-ad {
     display: block;
     top: 50%;
@@ -1362,6 +1434,15 @@ onUnmounted(() => {
 
   .global-left-ad.is-scrolling-hidden {
     transform: translate3d(-12px, -50%, 0);
+  }
+
+  .main-content {
+    min-height: calc(100vh - var(--layout-navbar-height) - 60px);
+    padding-top: var(--layout-navbar-height);
+
+    &.has-announcement {
+      padding-top: calc(var(--layout-navbar-height) + var(--layout-announcement-height));
+    }
   }
 }
 

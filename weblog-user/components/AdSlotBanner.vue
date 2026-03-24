@@ -835,7 +835,7 @@ onUnmounted(() => {
   }
 }
 
-@media (pointer: coarse) and (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
+@media (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
   .ad-slot-banner--home_left .ad-indicators {
     bottom: 0.52rem;
     gap: 0.28rem;
@@ -965,35 +965,6 @@ onUnmounted(() => {
     left: 0.62rem;
     bottom: 0.68rem;
     font-size: 0.62rem;
-  }
-
-  .ad-indicators .indicator-dot {
-    min-width: 10px !important;
-    min-height: 10px !important;
-    width: 10px;
-    height: 10px;
-    padding: 0 !important;
-  }
-
-  .ad-indicators .indicator-dot.active {
-    min-width: 26px !important;
-    width: 26px;
-  }
-}
-
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
-  .ad-slot-banner--post_top .ad-close,
-  .ad-slot-banner--post_bottom .ad-close,
-  .ad-slot-banner--home_left .ad-close {
-    min-width: 40px;
-    min-height: 40px;
-  }
-
-  .ad-slot-banner--post_top .ad-apply-btn,
-  .ad-slot-banner--post_bottom .ad-apply-btn,
-  .ad-slot-banner--home_left .ad-apply-btn {
-    min-height: 40px;
-    min-width: auto;
   }
 
   .ad-indicators .indicator-dot {

@@ -1,16 +1,23 @@
 <template>
-  <div class="home-nav-search" :class="{ 'is-transparent': transparent }">
-    <button type="button" class="search-trigger" aria-label="打开搜索" @click="$emit('search')">
+  <div class="home-nav-search" :class="{ 'is-transparent': transparent, 'home-nav-search--mobile': mobile }">
+    <button type="button" class="search-trigger" aria-label="搜索当前标题" @click="emitDirectSearch">
       <Icon name="heroicons:magnifying-glass-20-solid" size="16" class="search-trigger__icon" />
-      <span class="search-trigger__text">搜索文章</span>
     </button>
 
-    <div class="ticker-panel" @mouseenter="pauseTicker" @mouseleave="resumeTicker" @focusin="pauseTicker" @focusout="resumeTicker">
+    <button
+      type="button"
+      class="ticker-panel"
+      :title="currentItem?.title || '打开搜索'"
+      @click="emitPlaceholderSearch"
+      @mouseenter="pauseTicker"
+      @mouseleave="resumeTicker"
+      @focusin="pauseTicker"
+      @focusout="resumeTicker"
+    >
       <div v-if="displayItems.length" class="ticker-viewport">
         <Transition name="ticker-roll" mode="out-in">
-          <NuxtLink
+          <span
             :key="currentItem.post_id"
-            :to="`/post/${currentItem.slug}`"
             class="ticker-link"
             :title="currentItem.title"
           >
@@ -18,12 +25,12 @@
             <span class="ticker-fire" aria-hidden="true">
               <Icon name="heroicons:fire-16-solid" size="14" />
             </span>
-          </NuxtLink>
+          </span>
         </Transition>
       </div>
 
       <div v-else class="ticker-placeholder">热榜更新中</div>
-    </div>
+    </button>
   </div>
 </template>
 
@@ -33,17 +40,20 @@ import type { RankingItem } from '~/api/ranking'
 interface Props {
   items: RankingItem[]
   transparent?: boolean
+  mobile?: boolean
 }
 
 interface Emits {
-  (e: 'search'): void
+  (e: 'placeholder-search', title: string): void
+  (e: 'direct-search', title: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   transparent: false,
+  mobile: false,
 })
 
-defineEmits<Emits>()
+const emit = defineEmits<Emits>()
 
 const displayItems = computed(() => props.items.slice(0, 5))
 const activeIndex = ref(0)
@@ -52,6 +62,18 @@ const tickerPaused = ref(false)
 let tickerTimer: ReturnType<typeof setInterval> | null = null
 
 const currentItem = computed(() => displayItems.value[activeIndex.value] ?? displayItems.value[0])
+
+function getCurrentTitle() {
+  return currentItem.value?.title?.trim() || ''
+}
+
+function emitPlaceholderSearch() {
+  emit('placeholder-search', getCurrentTitle())
+}
+
+function emitDirectSearch() {
+  emit('direct-search', getCurrentTitle())
+}
 
 function stopTicker() {
   if (tickerTimer) {
@@ -123,8 +145,9 @@ onUnmounted(() => {
 .search-trigger {
   flex-shrink: 0;
   height: 100%;
-  min-width: 126px;
-  padding: 0 0.85rem;
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
   border: none;
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.04));
@@ -136,12 +159,6 @@ onUnmounted(() => {
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
 
-  &:hover {
-    transform: translateY(-1px);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.08));
-    color: $color-primary;
-  }
-
   .dark & {
     color: $color-dark-text;
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(30, 41, 59, 0.3));
@@ -151,10 +168,19 @@ onUnmounted(() => {
     color: #fff;
     background: rgba(255, 255, 255, 0.12);
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
-    }
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .search-trigger:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.08));
+    color: $color-primary;
+  }
+
+  .is-transparent .search-trigger:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
   }
 }
 
@@ -162,18 +188,18 @@ onUnmounted(() => {
   opacity: 0.9;
 }
 
-.search-trigger__text {
-  font-size: 0.83rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 .ticker-panel {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   min-width: 0;
   flex: 1;
   display: flex;
   align-items: center;
   padding-right: 0.5rem;
+  padding-left: 0;
+  text-align: left;
 }
 
 .ticker-viewport {
@@ -200,27 +226,29 @@ onUnmounted(() => {
 
 .ticker-link {
   color: $color-text;
-  text-decoration: none;
   transition: color 0.2s ease;
-
-  &:hover {
-    color: $color-primary;
-  }
 
   .dark & {
     color: $color-dark-text;
 
-    &:hover {
-      color: #93c5fd;
-    }
   }
 
   .is-transparent & {
     color: rgba(255, 255, 255, 0.92);
+  }
+}
 
-    &:hover {
-      color: #fff;
-    }
+@media (hover: hover) and (pointer: fine) {
+  .ticker-link:hover {
+    color: $color-primary;
+  }
+
+  .dark .ticker-link:hover {
+    color: #93c5fd;
+  }
+
+  .is-transparent .ticker-link:hover {
+    color: #fff;
   }
 }
 
@@ -286,9 +314,80 @@ onUnmounted(() => {
   }
 }
 
+.home-nav-search--mobile {
+  display: none;
+}
+
 @media (max-width: 1180px) {
-  .home-nav-search {
+  .home-nav-search:not(.home-nav-search--mobile) {
     display: none;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1366px) {
+  .home-nav-search:not(.home-nav-search--mobile) {
+    min-width: 220px;
+    max-width: 340px;
+    flex: 0 1 clamp(240px, 28vw, 340px);
+    margin-left: 0.6rem;
+  }
+}
+
+@media (max-width: $breakpoint-md) {
+  .home-nav-search--mobile {
+    display: inline-flex;
+    width: min(100%, 320px);
+    min-width: 0;
+    max-width: 320px;
+    flex: 0 1 320px;
+    margin-left: clamp(0.56rem, 2.2vw, 0.88rem);
+    height: 32px;
+    padding: 0.16rem;
+    gap: 0.24rem;
+  }
+
+  @media (max-width: 600px) {
+    .home-nav-search--mobile {
+      width: 100%;
+      max-width: 100%;
+      flex: 1;
+    }
+  }
+
+  .home-nav-search--mobile .search-trigger {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-nav-search--mobile .search-trigger:hover {
+      background: rgba(59, 130, 246, 0.14);
+      transform: none;
+    }
+  }
+
+  .home-nav-search--mobile .ticker-panel {
+    padding-right: 0.1rem;
+  }
+
+  .home-nav-search--mobile .ticker-viewport {
+    height: 26px;
+  }
+
+  .home-nav-search--mobile .ticker-link,
+  .home-nav-search--mobile .ticker-placeholder {
+    font-size: 0.7rem;
+    line-height: 1.25;
+  }
+
+  .home-nav-search--mobile .ticker-fire {
+    transform: scale(0.9);
+    transform-origin: center;
   }
 }
 

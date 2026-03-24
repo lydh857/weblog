@@ -62,10 +62,10 @@
 
       <!-- 左右切换箭头（多张时显示） -->
       <template v-if="slides.length > 1">
-        <button class="carousel-arrow carousel-arrow--left" aria-label="上一张" @click="goToPrev">
+        <button class="carousel-arrow carousel-arrow--left touch-target" aria-label="上一张" @click="goToPrev">
           <Icon name="heroicons:chevron-left-20-solid" size="28" />
         </button>
-        <button class="carousel-arrow carousel-arrow--right" aria-label="下一张" @click="goToNext">
+        <button class="carousel-arrow carousel-arrow--right touch-target" aria-label="下一张" @click="goToNext">
           <Icon name="heroicons:chevron-right-20-solid" size="28" />
         </button>
       </template>
@@ -333,7 +333,7 @@ function handleStartupDone() {
   height: clamp(480px, 80vh, 720px);
   overflow: hidden;
   background: #0f172a;
-  margin-top: -60px; // 覆盖到 fixed 导航栏下方
+  margin-top: calc(var(--layout-navbar-height, 60px) * -1); // 覆盖到 fixed 导航栏下方
 }
 
 .carousel-placeholder {

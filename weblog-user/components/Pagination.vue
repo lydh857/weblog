@@ -781,7 +781,7 @@ onUnmounted(() => {
   }
 }
 
-@media (pointer: coarse) and (max-width: 640px) {
+@media (max-width: 640px) {
   .pagination .page-btn,
   .pagination .page-ellipsis,
   .pagination .size-trigger {
@@ -790,7 +790,7 @@ onUnmounted(() => {
   }
 }
 
-@media (pointer: coarse) and (max-width: 430px) {
+@media (max-width: 430px) {
   .pagination .page-btn,
   .pagination .page-ellipsis,
   .pagination .size-trigger {
@@ -799,7 +799,7 @@ onUnmounted(() => {
   }
 }
 
-@media (pointer: coarse) and (max-width: 360px) {
+@media (max-width: 360px) {
   .pagination .page-btn,
   .pagination .page-ellipsis,
   .pagination .size-trigger {

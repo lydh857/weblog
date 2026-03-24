@@ -32,7 +32,7 @@
           <NuxtLink to="/ranking">热门排行</NuxtLink>
           <NuxtLink to="/friend-links">友情链接</NuxtLink>
           <button type="button" class="link-btn" @click="openSearchModal">站内搜索</button>
-          <NuxtLink to="/ad-apply">广告投放</NuxtLink>
+          <button type="button" class="link-btn" @click="openAdApplyModal">广告投放</button>
         </section>
 
         <section class="link-group">
@@ -54,12 +54,26 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear()
 const searchModal = useSearchModal()
+const loginModal = useLoginModal()
+const adApplyModal = useAdApplyModal()
+const userStore = useUserStore()
 const siteConfig = useSiteConfigState()
 const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
 const siteDescription = computed(() => siteConfig.value.siteDescription || DEFAULT_SITE_DESCRIPTION)
 
 function openSearchModal() {
   searchModal.open()
+}
+
+function openAdApplyModal() {
+  if (!userStore.isLoggedIn) {
+    loginModal.open('code', () => {
+      adApplyModal.open()
+    })
+    return
+  }
+
+  adApplyModal.open()
 }
 </script>
 

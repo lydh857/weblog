@@ -56,7 +56,7 @@
               <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
             </div>
 
-            <div v-else-if="posts.length" ref="postGridRef" class="post-grid">
+            <div v-else-if="posts.length" class="post-grid">
               <template v-for="item in postGridItems" :key="item.key">
                 <ArticleCard
                   v-if="item.type === 'post'"
@@ -104,9 +104,6 @@ const noMore = ref(false)
 const currentPage = ref(1)
 const pageSize = 19
 const hasLoadedInitialPosts = ref(false)
-const postGridRef = ref<HTMLElement | null>(null)
-const LOAD_MORE_SCROLL_TOP_OFFSET = 84
-const LOAD_MORE_MIN_SCROLL_DELTA = 28
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const HOME_REVEAL_BOOTSTRAP_DELAY = 140
 const todaySectionRef = ref<HTMLElement | null>(null)
@@ -304,30 +301,6 @@ async function loadListCardAds() {
   }
 }
 
-function maybeScrollToFirstLoadedCard(previousCount: number) {
-  if (!import.meta.client) return
-
-  nextTick(() => {
-    const cards = postGridRef.value?.children
-    if (!cards || !cards[previousCount]) return
-
-    const targetCard = cards[previousCount] as HTMLElement
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const top = targetCard.getBoundingClientRect().top + window.scrollY - LOAD_MORE_SCROLL_TOP_OFFSET
-        if (Math.abs(top - window.scrollY) < LOAD_MORE_MIN_SCROLL_DELTA) return
-
-        window.scrollTo({
-          top,
-          behavior: prefersReducedMotion ? 'auto' : 'smooth'
-        })
-      }, 90)
-    })
-  })
-}
-
 async function loadPosts() {
   if (loading.value || hasLoadedInitialPosts.value) return
 
@@ -346,7 +319,6 @@ async function loadPosts() {
 
 async function loadMore() {
   if (loadingMore.value || noMore.value) return
-  const previousCount = posts.value.length
   loadingMore.value = true
   try {
     const nextPage = currentPage.value + 1
@@ -355,10 +327,6 @@ async function loadMore() {
     posts.value = [...posts.value, ...appendedPosts]
     currentPage.value = nextPage
     noMore.value = appendedPosts.length < pageSize || nextPage >= res.data.pages
-
-    if (appendedPosts.length > 0) {
-      maybeScrollToFirstLoadedCard(previousCount)
-    }
   } catch { /* ignore */ }
   finally { loadingMore.value = false }
 }

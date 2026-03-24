@@ -12,10 +12,10 @@
         <span class="sk-circle" />
       </div>
       <div v-else-if="canScroll" class="scroll-arrows">
-        <button class="scroll-arrow" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
+        <button class="scroll-arrow touch-target" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
           <Icon name="heroicons:chevron-left-20-solid" size="18" />
         </button>
-        <button class="scroll-arrow" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
+        <button class="scroll-arrow touch-target" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
           <Icon name="heroicons:chevron-right-20-solid" size="18" />
         </button>
       </div>
@@ -479,13 +479,6 @@ onUnmounted(() => {
 
   .section-desc {
     display: none;
-  }
-}
-
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
-  .scroll-arrow {
-    min-width: 38px;
-    min-height: 38px;
   }
 }
 

@@ -220,7 +220,13 @@ const topicId = Number(route.params.id)
 const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
-const stickyTop = computed(() => bannerVisible.value ? '106px' : '70px')
+const stickyTop = computed(() => {
+  if (bannerVisible.value) {
+    return 'calc(var(--layout-navbar-height, 60px) + 10px + var(--layout-announcement-height, 36px))'
+  }
+
+  return 'calc(var(--layout-navbar-height, 60px) + 10px)'
+})
 const editorTheme = computed(() => isDark.value ? 'dark' : 'light')
 
 const topic = ref<TopicDetail | null>(null)
@@ -539,7 +545,7 @@ onUnmounted(() => {
     @media (max-width: $breakpoint-md) { font-size: 0.95rem; }
   }
   :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
-    scroll-margin-top: var(--sticky-top, 70px);
+    scroll-margin-top: var(--sticky-top, calc(var(--layout-navbar-height, 60px) + 10px));
   }
   :deep(.md-editor-preview),
   :deep(.md-editor-preview p),

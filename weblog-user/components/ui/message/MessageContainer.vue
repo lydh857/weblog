@@ -20,7 +20,7 @@ const { messages, remove } = useMessageStore()
             <Icon v-else-if="msg.type === 'warning'" name="heroicons:exclamation-triangle-20-solid" size="18" class="msg-icon" />
             <Icon v-else name="heroicons:x-circle-20-solid" size="18" class="msg-icon" />
             <span class="msg-text">{{ msg.content }}</span>
-            <button type="button" class="msg-close" aria-label="关闭" @click="remove(msg.id)">&times;</button>
+            <button type="button" class="msg-close touch-target" aria-label="关闭" @click="remove(msg.id)">&times;</button>
           </div>
         </TransitionGroup>
       </div>
@@ -43,9 +43,10 @@ const { messages, remove } = useMessageStore()
   position: relative;
 }
 .msg-item {
+  position: relative;
   pointer-events: auto;
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; margin-bottom: 8px; border-radius: 8px;
+  padding: 10px 44px 10px 14px; margin-bottom: 8px; border-radius: 8px;
   border: 1px solid; width: 100%;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   backface-visibility: hidden;
@@ -61,9 +62,14 @@ const { messages, remove } = useMessageStore()
 .msg-icon { flex-shrink: 0; }
 .msg-text { flex: 1; font-size: 14px; line-height: 1.5; color: #1e293b; word-break: break-word; }
 .msg-close {
-  flex-shrink: 0; background: none; border: none; font-size: 16px; color: #94a3b8;
-  cursor: pointer; width: 20px; height: 20px; display: flex; align-items: center;
-  justify-content: center; border-radius: 4px; padding: 0; transition: color 0.2s, background 0.2s;
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  background: none; border: none; font-size: 16px; color: #94a3b8;
+  cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center;
+  justify-content: center; border-radius: 8px; padding: 0; transition: color 0.2s, background 0.2s;
+  line-height: 1;
 }
 .msg-close:hover { color: #64748b; background: rgba(0,0,0,0.06); }
 

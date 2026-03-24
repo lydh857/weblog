@@ -789,13 +789,6 @@ onUnmounted(() => {
   }
 }
 
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
-  .sort-tab {
-    min-height: 32px;
-    min-width: 52px;
-  }
-}
-
 /* 评论表单 */
 .comment-form { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
 .form-avatar {

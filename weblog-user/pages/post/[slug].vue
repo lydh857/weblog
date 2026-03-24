@@ -217,8 +217,14 @@ const { isDark } = useDarkMode()
 
 const detailAsyncKey = computed(() => `post-detail:${slug.value}`)
 
-// sticky top 值：导航栏 60px + 间距 10px + 公告栏 36px（如果有）
-const stickyTop = computed(() => bannerVisible.value ? '106px' : '70px')
+// sticky top 值：导航栏 + 间距 10px + 公告栏（如果有）
+const stickyTop = computed(() => {
+  if (bannerVisible.value) {
+    return 'calc(var(--layout-navbar-height, 60px) + 10px + var(--layout-announcement-height, 36px))'
+  }
+
+  return 'calc(var(--layout-navbar-height, 60px) + 10px)'
+})
 
 const { data: detailData, pending: loading } = await useAsyncData(
   detailAsyncKey,
@@ -638,7 +644,7 @@ onUnmounted(() => {
     @media (max-width: $breakpoint-md) { font-size: 0.95rem; }
   }
   :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
-    scroll-margin-top: var(--sticky-top, 70px);
+    scroll-margin-top: var(--sticky-top, calc(var(--layout-navbar-height, 60px) + 10px));
   }
   :deep(img) {
     max-width: 100%;

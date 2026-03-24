@@ -15,16 +15,16 @@
         </div>
         <template v-else>
           <div v-if="canScroll" class="scroll-arrows">
-            <button class="scroll-arrow" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
+            <button class="scroll-arrow touch-target" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
               <Icon name="heroicons:chevron-left-20-solid" size="18" />
             </button>
             <!-- 滚动到底延迟后变为"查看更多"，带过渡动画 -->
             <Transition name="arrow-morph" mode="out-in">
-              <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow" aria-label="查看更多">
+              <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow touch-target" aria-label="查看更多">
                 查看更多
                 <Icon name="heroicons:arrow-right-16-solid" size="14" />
               </NuxtLink>
-              <button v-else key="scroll-right" class="scroll-arrow" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
+              <button v-else key="scroll-right" class="scroll-arrow touch-target" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
                 <Icon name="heroicons:chevron-right-20-solid" size="18" />
               </button>
             </Transition>
@@ -610,17 +610,6 @@ onUnmounted(() => {
 
   .view-more {
     display: none;
-  }
-}
-
-@media (pointer: coarse) and (max-width: $breakpoint-md) {
-  .scroll-arrow {
-    min-width: 38px;
-    min-height: 38px;
-
-    &.view-more-arrow {
-      min-height: 38px;
-    }
   }
 }
 
