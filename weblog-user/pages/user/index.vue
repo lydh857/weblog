@@ -113,8 +113,16 @@ watch(() => profile.value?.avatar, () => {
   gap: var(--layout-page-title-gap);
   font-size: var(--layout-page-title-size);
   line-height: 1.2;
+  color: $color-text;
+
+  .dark & { color: $color-dark-text; }
 }
-.page-desc { margin-top: var(--layout-page-desc-margin-top); color: $color-text-muted; font-size: .92rem; }
+.page-desc {
+  margin-top: var(--layout-page-desc-margin-top);
+  color: $color-text-muted;
+  font-size: .92rem;
+  .dark & { color: $color-dark-text-muted; }
+}
 
 .profile-card {
   display: grid;
@@ -125,6 +133,11 @@ watch(() => profile.value?.avatar, () => {
   border: 1px solid $color-border;
   border-radius: 14px;
   background: $color-bg;
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+  }
 }
 
 .profile-avatar {
@@ -136,15 +149,17 @@ watch(() => profile.value?.avatar, () => {
   align-items: center;
   justify-content: center;
   background: #eef2ff;
+
+  .dark & { background: $color-dark-bg-elevated; }
 }
 
 .avatar-img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; }
 .avatar-placeholder { display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 50%; background: $color-primary; color: #fff; font-size: 2rem; font-weight: 700; }
-.profile-name { font-size: 1.3rem; font-weight: 700; margin: 0; }
-.profile-email { font-size: .86rem; color: $color-text-muted; margin-top: .2rem; }
-.profile-bio { font-size: .9rem; margin-top: .65rem; line-height: 1.5; }
-.profile-bio.muted { color: $color-text-muted; font-style: italic; }
-.profile-joined { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: $color-text-muted; margin-top: .7rem; }
+.profile-name { font-size: 1.3rem; font-weight: 700; margin: 0; color: $color-text; .dark & { color: $color-dark-text; } }
+.profile-email { font-size: .86rem; color: $color-text-muted; margin-top: .2rem; .dark & { color: $color-dark-text-muted; } }
+.profile-bio { font-size: .9rem; margin-top: .65rem; line-height: 1.5; color: $color-text; .dark & { color: $color-dark-text; } }
+.profile-bio.muted { color: $color-text-muted; font-style: italic; .dark & { color: $color-dark-text-muted; } }
+.profile-joined { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: $color-text-muted; margin-top: .7rem; .dark & { color: $color-dark-text-muted; } }
 .edit-btn { display: inline-flex; align-items: center; gap: .375rem; padding: .5rem 1.1rem; border-radius: 10px; background: $color-primary; color: #fff; text-decoration: none; min-height: 40px; }
 
 .quick-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
@@ -159,16 +174,30 @@ watch(() => profile.value?.avatar, () => {
   text-decoration: none;
   color: $color-text;
   transition: border-color .2s, transform .2s;
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+    color: $color-dark-text;
+  }
 }
-.quick-card:hover { border-color: $color-primary; transform: translateY(-1px); }
+.quick-card:hover {
+  border-color: $color-primary;
+  transform: translateY(-1px);
+
+  .dark & {
+    border-color: rgba(148, 163, 184, 0.46);
+    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.35);
+  }
+}
 .quick-icon { opacity: .9; }
 .fav-icon { color: #f59e0b; }
 .comment-icon { color: $color-primary; }
 .quick-label { display: block; font-size: .95rem; font-weight: 600; }
-.quick-desc { margin-top: .1rem; font-size: .8rem; color: $color-text-muted; }
-.quick-arrow { color: $color-text-muted; }
+.quick-desc { margin-top: .1rem; font-size: .8rem; color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
+.quick-arrow { color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
 
-.empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
+.empty-state { text-align: center; padding: 4rem; color: #94a3b8; .dark & { color: $color-dark-text-muted; } }
 .login-link { display: inline-block; margin-top: 1rem; padding: .5rem 1.5rem; background: $color-primary; color: #fff; border-radius: $radius-md; border: none; cursor: pointer; }
 
 @media (max-width: $breakpoint-md) {

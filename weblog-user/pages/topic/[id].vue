@@ -377,7 +377,7 @@ onUnmounted(() => {
 .topic-detail-bg {
   background: #f5f5f5;
   min-height: 100vh;
-  .dark & { background: #f5f5f5; }
+  .dark & { background: $color-dark-bg; }
 }
 
 .topic-detail-page {
@@ -594,7 +594,7 @@ onUnmounted(() => {
   height: 100px;
   position: relative;
   background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-  .dark & { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+  .dark & { background: linear-gradient(135deg, $color-dark-bg-elevated 0%, $color-dark-border 100%); }
 }
 .nav-cover-img {
   position: absolute;
@@ -687,7 +687,7 @@ onUnmounted(() => {
   &:hover { color: $color-primary; background: #f0f7ff; }
   .dark & {
     background: $color-dark-bg-secondary;
-    color: #64748b;
+    color: $color-dark-text-muted;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
     &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.1); }
   }
@@ -741,7 +741,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   transition: all 0.2s;
   &:hover { background: #f0f7ff; color: $color-primary; }
-  .dark & { color: #64748b; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } }
+  .dark & { color: $color-dark-text-muted; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } }
 }
 
 .mobile-fab-group {
@@ -937,7 +937,7 @@ onUnmounted(() => {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
-  .dark & { background: $color-dark-bg-secondary; color: #64748b; }
+  .dark & { background: $color-dark-bg-secondary; color: $color-dark-text-muted; }
 }
 
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }

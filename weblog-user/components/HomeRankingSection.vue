@@ -387,7 +387,7 @@ onMounted(() => {
 .section-desc {
   font-size: 0.8rem;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 /* 三栏网格 */
@@ -472,7 +472,7 @@ onMounted(() => {
 .card-subtitle {
   font-size: 0.65rem;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 /* 第1名封面（信息叠加在封面上） */
@@ -496,7 +496,7 @@ onMounted(() => {
   aspect-ratio: 16 / 9;
   max-height: 220px;
   background: $color-bg-secondary;
-  .dark & { background: #1a2332; }
+  .dark & { background: $color-dark-bg-elevated; }
   img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease; }
 }
 
@@ -504,7 +504,7 @@ onMounted(() => {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
   color: $color-text-muted;
-  .dark & { color: #475569; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .hero-overlay {
@@ -631,7 +631,7 @@ onMounted(() => {
   &.rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
   &.rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
   &.rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
-  .dark & { background: rgba(255, 255, 255, 0.08); color: #64748b; }
+  .dark & { background: rgba(255, 255, 255, 0.08); color: $color-dark-text-muted; }
 }
 
 .rank-cover {
@@ -806,7 +806,7 @@ onMounted(() => {
   text-align: center;
   font-size: 0.8rem;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 /* 响应式 */

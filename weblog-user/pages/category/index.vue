@@ -364,7 +364,7 @@ onMounted(async () => {
   gap: $spacing-md;
   padding: 4rem 0;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
   p { font-size: 0.95rem; }
 }
 

@@ -54,20 +54,24 @@ onUnmounted(() => {
 .confirm-box {
   background: #fff; border-radius: 12px; padding: 24px; width: 100%; max-width: 360px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.18);
-  .dark & { background: #1e293b; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+  .dark & {
+    background: $color-dark-bg-elevated;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+  }
 }
 .confirm-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .confirm-icon { flex-shrink: 0; }
-.icon-info { color: #3b82f6; }
-.icon-warning { color: #f59e0b; }
-.icon-danger { color: #ef4444; }
+.icon-info { color: var(--status-info); }
+.icon-warning { color: var(--status-warning); }
+.icon-danger { color: var(--status-danger); }
 .confirm-title {
   margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b;
-  .dark & { color: #e2e8f0; }
+  .dark & { color: $color-dark-text; }
 }
 .confirm-message {
   margin: 0 0 20px; font-size: 0.9rem; color: #64748b; line-height: 1.5;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .btn-cancel, .btn-confirm {
@@ -77,13 +81,22 @@ onUnmounted(() => {
 .btn-cancel {
   background: #fff; border-color: #e2e8f0; color: #64748b;
   &:hover { border-color: #cbd5e1; color: #334155; }
-  .dark & { background: #0f172a; border-color: #334155; color: #94a3b8; &:hover { border-color: #475569; color: #e2e8f0; } }
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+    color: $color-dark-text-muted;
+    &:hover {
+      border-color: rgba(148, 163, 184, 0.42);
+      color: $color-dark-text;
+      background: $color-dark-bg-elevated;
+    }
+  }
 }
 .btn-confirm {
   color: #fff; border-color: transparent;
-  &.btn-info { background: #3b82f6; &:hover { background: #2563eb; } }
-  &.btn-warning { background: #f59e0b; &:hover { background: #d97706; } }
-  &.btn-danger { background: #ef4444; &:hover { background: #dc2626; } }
+  &.btn-info { background: var(--status-info); }
+  &.btn-warning { background: var(--status-warning); }
+  &.btn-danger { background: var(--status-danger); }
 }
 
 /* Transition 动画 — overlay 淡入淡出 + box 弹性缩放 */

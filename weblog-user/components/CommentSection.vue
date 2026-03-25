@@ -749,7 +749,7 @@ onUnmounted(() => {
   background: transparent; color: $color-text-muted; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
   &:hover { border-color: $color-primary; color: $color-primary; }
   &.active { background: $color-primary; color: #fff; border-color: $color-primary; }
-  .dark & { border-color: $color-dark-border; color: #94a3b8; &.active { background: $color-primary; color: #fff; border-color: $color-primary; } }
+  .dark & { border-color: $color-dark-border; color: $color-dark-text-muted; &.active { background: $color-primary; color: #fff; border-color: $color-primary; } }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -800,7 +800,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
   border-radius: 50%; background: $color-primary; color: #fff; font-size: 0.9rem; font-weight: 600;
   &.guest { background: transparent; color: #94a3b8; }
-  .dark & { background: $color-primary; &.guest { background: transparent; color: #64748b; } }
+  .dark & { background: $color-primary; &.guest { background: transparent; color: $color-dark-text-muted; } }
   &.sm { width: 32px; height: 32px; font-size: 0.8rem; }
 }
 .form-body, .inline-form-body { flex: 1; min-width: 0; }
@@ -831,7 +831,7 @@ onUnmounted(() => {
   &:hover { background: rgba(230,240,255,0.7); color: $color-primary; &::before { transform: scale(2); } }
   &:active { transform: scale(0.92); }
   &.sm { padding: 5px; border-radius: 6px; }
-  .dark & { background: rgba(51,65,85,0.5); color: #94a3b8; &:hover { background: rgba(59,130,246,0.15); color: $color-primary; } }
+  .dark & { background: rgba(42,49,58,0.56); color: $color-dark-text-muted; &:hover { background: rgba(59,130,246,0.15); color: $color-primary; } }
 }
 
 /* 发布按钮 - 参照案例 */
@@ -931,10 +931,10 @@ onUnmounted(() => {
     .dark & { color: $color-dark-text; }
   }
 }
-.top-badge { font-size: 0.65rem; padding: 0.0625rem 0.375rem; border-radius: 999px; background: #eff6ff; color: #1d4ed8; .dark & { background: #1e3a5f; color: #93c5fd; } }
+.top-badge { font-size: 0.65rem; padding: 0.0625rem 0.375rem; border-radius: 999px; background: #eff6ff; color: #1d4ed8; .dark & { background: rgba(59,130,246,0.2); color: #93c5fd; } }
 .comment-text { font-size: 0.9rem; line-height: 1.6; color: $color-text; word-break: break-word; .dark & { color: $color-dark-text; } }
 .comment-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.375rem; }
-.action-time { font-size: 0.75rem; color: $color-text-muted; margin-right: 0.25rem; .dark & { color: #64748b; } }
+.action-time { font-size: 0.75rem; color: $color-text-muted; margin-right: 0.25rem; .dark & { color: $color-dark-text-muted; } }
 .action-sm {
   display: flex; align-items: center; gap: 0.25rem; border: none; background: none;
   font-size: 0.75rem; color: $color-text-muted; cursor: pointer; padding: 0.25rem 0; transition: color 0.2s;
@@ -944,7 +944,7 @@ onUnmounted(() => {
   &.delete:hover { color: #ef4444; }
   &.reply-action.active { color: $color-primary; font-weight: 500; }
   .liked { color: #ef4444; }
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 /* 内联回复表单 */
@@ -968,7 +968,7 @@ onUnmounted(() => {
   font-size: 0.85rem; cursor: pointer; padding: 4px 0; transition: all 0.2s; user-select: none;
   .view-more-text { font-weight: 400; }
   &:hover { color: $color-primary; }
-  .dark & { color: #64748b; &:hover { color: $color-primary; } }
+  .dark & { color: $color-dark-text-muted; &:hover { color: $color-primary; } }
 }
 .reply-pagination { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 0.85rem; color: $color-text-muted; }
 .reply-page-info { margin-right: 2px; }
@@ -977,14 +977,14 @@ onUnmounted(() => {
   cursor: pointer; transition: all 0.2s;
   &:hover:not(:disabled) { color: $color-primary; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 .reply-page-num {
   padding: 0 5px; margin: 0 1px; border: none; background: none; color: $color-text-muted;
   font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
   &:hover:not(.active) { color: $color-primary; }
   &.active { color: $color-primary; font-weight: 500; }
-  .dark & { color: #64748b; &.active { color: $color-primary; } }
+  .dark & { color: $color-dark-text-muted; &.active { color: $color-primary; } }
 }
 
 /* 一级分页 */

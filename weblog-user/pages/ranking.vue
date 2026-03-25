@@ -339,7 +339,7 @@ onMounted(() => {
   line-height: 1.4;
   color: $color-text-muted;
   white-space: nowrap;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .ranking-panel {

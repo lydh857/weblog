@@ -37,30 +37,42 @@
           </div>
 
           <div class="modal-body" :class="{ 'modal-body--dense': currentStep === 2 && form.position === 'post_list_card' }">
-            <section v-if="currentStep === 1" class="step-content">
+            <section v-if="currentStep === 1" class="step-content step-content--intro">
               <div v-if="configLoading" class="loading-text">正在加载申请配置...</div>
-              <template v-else>
-                <div class="notice notice-info">
-                  <p>流程：选择位置和坑位 → 选择时效 → 上传素材 → 提交审核。</p>
-                  <p>审核若晚于申请开始时间，系统会自动顺延，保障完整投放天数。</p>
+              <div v-else class="intro-layout">
+                <div class="intro-main">
+                  <div class="notice notice-info">
+                    <p>流程：选择位置和坑位 → 选择时效 → 上传素材 → 提交审核。</p>
+                    <p>审核若晚于申请开始时间，系统会自动顺延，保障完整投放天数。</p>
+                  </div>
+
+                  <div v-if="!isLoggedIn" class="notice notice-warning">
+                    登录后可提交广告申请。
+                    <button class="inline-btn" type="button" @click="openLogin">去登录</button>
+                  </div>
+                  <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
+                  <div v-else-if="myApplication && !canResubmitApplication" class="notice notice-info">
+                    你已提交过广告申请，当前不支持修改申请内容。
+                    <button class="inline-btn" type="button" @click="currentStep = 3">查看申请状态</button>
+                  </div>
+                  <div v-else-if="!hasAvailablePit && !canResubmitApplication" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
+                  <div v-else class="step-actions step-actions--intro">
+                    <button class="action-btn primary" type="button" @click="currentStep = 2">
+                      {{ canResubmitApplication ? '去修改申请' : '我已了解，下一步' }}
+                    </button>
+                  </div>
                 </div>
 
-                <div v-if="!isLoggedIn" class="notice notice-warning">
-                  登录后可提交广告申请。
-                  <button class="inline-btn" type="button" @click="openLogin">去登录</button>
-                </div>
-                <div v-else-if="!applyEnabled" class="notice notice-error">广告申请入口当前未开放，请稍后再试。</div>
-                <div v-else-if="myApplication && !canResubmitApplication" class="notice notice-info">
-                  你已提交过广告申请，当前不支持修改申请内容。
-                  <button class="inline-btn" type="button" @click="currentStep = 3">查看申请状态</button>
-                </div>
-                <div v-else-if="!hasAvailablePit && !canResubmitApplication" class="notice notice-warning">当前暂无可申请坑位，请稍后再试。</div>
-                <div v-else class="step-actions">
-                  <button class="action-btn primary" type="button" @click="currentStep = 2">
-                    {{ canResubmitApplication ? '去修改申请' : '我已了解，下一步' }}
-                  </button>
-                </div>
-              </template>
+                <aside class="intro-side">
+                  <h4>投放建议</h4>
+                  <ul>
+                    <li>优先上传清晰度较高的素材，避免压缩过度。</li>
+                    <li>封面文案建议控制在 16 字内，移动端展示更完整。</li>
+                    <li>开始时间建议预留审核缓冲，减少临期排期冲突。</li>
+                    <li>文章列表拟态卡需填写标题，便于列表阅读与转化。</li>
+                  </ul>
+                </aside>
+              </div>
             </section>
 
             <section v-if="currentStep === 2" class="step-content">
@@ -1769,12 +1781,22 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .ad-apply-fade-enter-active,
 .ad-apply-fade-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity 0.25s ease;
+}
+
+.ad-apply-fade-enter-active .ad-apply-modal,
+.ad-apply-fade-leave-active .ad-apply-modal {
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
 .ad-apply-fade-enter-from,
 .ad-apply-fade-leave-to {
   opacity: 0;
+
+  .ad-apply-modal {
+    transform: translateY(20px) scale(0.96);
+    opacity: 0;
+  }
 }
 
 .ad-apply-overlay {
@@ -1785,7 +1807,11 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.56);
+  background: rgba(0, 0, 0, 0.5);
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .ad-apply-modal {
@@ -1796,8 +1822,11 @@ onUnmounted(() => {
   --flat-text-muted: #64748b;
   --flat-primary: #2563eb;
   --flat-primary-soft: rgba(37, 99, 235, 0.12);
+  --flat-media-surface: linear-gradient(180deg, #f3f6fb, #e8edf5);
+  --flat-media-dark-overlay: rgba(15, 23, 42, 0.48);
 
   width: min(1120px, 100%);
+  height: min(840px, calc(100vh - 1rem));
   max-height: calc(100vh - 1rem);
   border-radius: 12px;
   border: 1px solid var(--flat-border);
@@ -1815,6 +1844,8 @@ onUnmounted(() => {
     --flat-text-muted: #94a3b8;
     --flat-primary: #60a5fa;
     --flat-primary-soft: rgba(96, 165, 250, 0.22);
+    --flat-media-surface: linear-gradient(180deg, #1f2937, #111827);
+    --flat-media-dark-overlay: rgba(2, 6, 23, 0.62);
 
     border-color: var(--flat-border);
     background: var(--flat-surface);
@@ -1890,8 +1921,8 @@ onUnmounted(() => {
   }
 
   &.completed .step-dot {
-    border-color: #10b981;
-    background: #10b981;
+    border-color: var(--status-success);
+    background: var(--status-success);
     color: #fff;
   }
 }
@@ -1977,27 +2008,67 @@ onUnmounted(() => {
 }
 
 .notice-info {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  background: var(--status-info-soft-bg);
+  border-color: var(--status-info-soft-border);
+  color: var(--status-info);
 }
 
 .notice-success {
-  background: #ecfdf5;
-  border-color: #10b981;
-  color: #047857;
+  background: var(--status-success-soft-bg);
+  border-color: var(--status-success-soft-border);
+  color: var(--status-success);
 }
 
 .notice-warning {
-  background: #fffbeb;
-  border-color: #f59e0b;
-  color: #b45309;
+  background: var(--status-warning-soft-bg);
+  border-color: var(--status-warning-soft-border);
+  color: var(--status-warning);
 }
 
 .notice-error {
-  background: #fef2f2;
-  border-color: #ef4444;
-  color: #b91c1c;
+  background: var(--status-danger-soft-bg);
+  border-color: var(--status-danger-soft-border);
+  color: var(--status-danger);
+}
+
+.step-content--intro {
+  min-height: 520px;
+}
+
+.intro-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+  gap: 0.86rem;
+  min-height: 100%;
+}
+
+.intro-main,
+.intro-side {
+  border: 1px solid var(--flat-border);
+  border-radius: 10px;
+  background: var(--flat-surface-subtle);
+  padding: 0.72rem;
+}
+
+.intro-side h4 {
+  margin: 0 0 0.46rem;
+  font-size: 0.86rem;
+  color: var(--flat-text);
+}
+
+.intro-side ul {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.46rem;
+  color: var(--flat-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.step-actions--intro {
+  margin-top: 1.4rem;
 }
 
 .inline-btn {
@@ -2447,6 +2518,10 @@ onUnmounted(() => {
   padding-top: 18dvh;
 }
 
+:global(html.dark) .datetime-picker-shell--drawer {
+  background: rgba(2, 6, 23, 0.56);
+}
+
 :global(html.dark) .datetime-picker-shell {
   --picker-surface: #111827;
   --picker-surface-subtle: #1f2937;
@@ -2809,7 +2884,7 @@ onUnmounted(() => {
   max-height: 220px;
   cursor: pointer;
   border: 1px solid var(--flat-border);
-  background: var(--flat-surface-subtle);
+  background: var(--flat-media-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2889,7 +2964,7 @@ onUnmounted(() => {
   font-size: 0.82rem;
   font-weight: 600;
   color: #fff;
-  background: rgba(15, 23, 42, 0.48);
+  background: var(--flat-media-dark-overlay);
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -2941,7 +3016,7 @@ onUnmounted(() => {
 .preview-image-box {
   border: 1px solid var(--flat-border);
   border-radius: 8px;
-  background: transparent;
+  background: var(--flat-media-surface);
   padding: 0.35rem;
   overflow: hidden;
   display: flex;
@@ -2973,12 +3048,12 @@ onUnmounted(() => {
   margin-top: 0.3rem;
   padding: 0.42rem 0.52rem;
   border-radius: 6px;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  background: rgba(254, 242, 242, 0.92);
+  border: 1px solid var(--status-danger-soft-border);
+  background: var(--status-danger-soft-bg);
 
   span {
     font-size: 0.78rem;
-    color: #dc2626;
+    color: var(--status-danger);
     font-weight: 700;
   }
 
@@ -2986,7 +3061,7 @@ onUnmounted(() => {
     margin: 0.22rem 0 0;
     font-size: 0.78rem;
     line-height: 1.42;
-    color: #991b1b;
+    color: var(--status-danger);
   }
 }
 
@@ -3112,6 +3187,14 @@ onUnmounted(() => {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .step-content--intro {
+    min-height: 0;
+  }
+
+  .intro-layout {
     grid-template-columns: 1fr;
   }
 

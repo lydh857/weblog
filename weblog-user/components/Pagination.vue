@@ -330,7 +330,7 @@ onUnmounted(() => {
   font-size: 0.8rem;
   color: $color-text-muted;
   white-space: nowrap;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .pagination-meta {

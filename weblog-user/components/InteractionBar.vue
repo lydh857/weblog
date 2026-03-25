@@ -164,7 +164,7 @@ watch(() => props.postId, (nextId, prevId) => {
   &:hover { background: rgba(59, 130, 246, 0.06); color: $color-primary; }
   &:disabled { opacity: 0.6; }
   &.active { color: #ef4444; }
-  .dark & { color: #64748b; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } &.active { color: #ef4444; } }
+  .dark & { color: $color-dark-text-muted; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } &.active { color: #ef4444; } }
 }
 .like-active { color: #ef4444; }
 .fav-active { color: #f59e0b; }

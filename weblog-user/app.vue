@@ -8,7 +8,7 @@
     <div
       v-if="showStartup"
       class="startup-mask"
-      style="position:fixed;inset:0;z-index:90000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f7f9ff;"
+      style="position:fixed;inset:0;z-index:90000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--startup-mask-bg,radial-gradient(120% 120% at 0% 0%,rgba(59,130,246,0.13),transparent 45%),radial-gradient(120% 120% at 100% 100%,rgba(56,189,248,0.1),transparent 52%),linear-gradient(180deg,#171b20,#101215));"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -75,27 +75,9 @@ onBeforeUnmount(() => {
 useLazyImages()
 </script>
 
-<style scoped>
+<style>
 .startup-mask {
-  position: fixed;
-  inset: 0;
   z-index: var(--z-startup, 90000);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background:
-    radial-gradient(circle at 22% 20%, rgba(91, 141, 239, 0.18), transparent 44%),
-    radial-gradient(circle at 78% 24%, rgba(91, 141, 239, 0.14), transparent 46%),
-    #f7f9ff;
-}
-
-:global(html.dark) .startup-mask {
-  background:
-    radial-gradient(circle at 20% 16%, rgba(91, 141, 239, 0.24), transparent 42%),
-    radial-gradient(circle at 82% 22%, rgba(91, 141, 239, 0.18), transparent 46%),
-    #0f1728;
 }
 
 .startup-fade-enter-active,

@@ -897,16 +897,16 @@ onUnmounted(() => {
   transition: color 0.2s, background 0.2s;
 
   &:hover {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.06);
+    color: var(--status-danger);
+    background: var(--status-danger-soft-bg);
   }
 
   .dark & {
     color: #64748b;
 
     &:hover {
-      color: #f87171;
-      background: rgba(239, 68, 68, 0.1);
+      color: var(--status-danger);
+      background: var(--status-danger-soft-bg);
     }
   }
 }
@@ -977,7 +977,7 @@ onUnmounted(() => {
 
   &:hover {
     color: #fff;
-    background: #ef4444;
+    background: var(--status-danger);
     box-shadow: none;
   }
 
@@ -988,7 +988,7 @@ onUnmounted(() => {
 
     &:hover {
       color: #fff;
-      background: #f87171;
+      background: var(--status-danger);
       box-shadow: none;
     }
   }

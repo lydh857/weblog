@@ -313,7 +313,7 @@ watch(() => props.visible, (val) => {
   background: #fff; border-radius: 8px; overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   user-select: none; touch-action: none;
-  :global(html.dark) & { background: #1e293b; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); }
+  :global(html.dark) & { background: $color-dark-bg-elevated; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); border: 1px solid rgba(148,163,184,0.14); }
 }
 
 .captcha-header {
@@ -335,7 +335,7 @@ watch(() => props.visible, (val) => {
   position: relative; overflow: hidden; margin: 15px;
   border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   background: #f1f5f9;
-  :global(html.dark) & { background: #0f172a; }
+  :global(html.dark) & { background: $color-dark-bg-secondary; }
 }
 
 // 叠化容器
@@ -369,7 +369,7 @@ watch(() => props.visible, (val) => {
 .captcha-loading {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: rgba(255, 255, 255, 0.7); z-index: 20;
-  :global(html.dark) & { background: rgba(15, 23, 42, 0.7); }
+  :global(html.dark) & { background: rgba(16, 18, 21, 0.72); }
 }
 
 .captcha-spinner {
@@ -410,7 +410,7 @@ watch(() => props.visible, (val) => {
   position: relative; height: 40px; margin: 0 15px 15px;
   background: #f0f2f5; border-radius: 5px; overflow: hidden;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
-  :global(html.dark) & { background: #0f172a; }
+  :global(html.dark) & { background: $color-dark-bg-secondary; }
 }
 
 .captcha-slider-progress {

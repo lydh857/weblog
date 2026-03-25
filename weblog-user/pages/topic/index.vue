@@ -118,7 +118,7 @@ onMounted(() => fetchTopics())
 .topic-list-bg {
   background: #f5f5f5;
   min-height: 100vh;
-  .dark & { background: #f5f5f5; }
+  .dark & { background: $color-dark-bg; }
 }
 
 .topic-list-page {
@@ -157,7 +157,7 @@ onMounted(() => fetchTopics())
   line-height: 1.4;
   color: $color-text-muted;
   white-space: nowrap;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -209,7 +209,7 @@ onMounted(() => fetchTopics())
   height: 180px;
   overflow: hidden;
   background: #e2e8f0;
-  .dark & { background: #334155; }
+  .dark & { background: $color-dark-border; }
 }
 
 .cover-img {
@@ -226,7 +226,7 @@ onMounted(() => fetchTopics())
   align-items: center;
   justify-content: center;
   color: #94a3b8;
-  .dark & { color: #475569; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .card-body {
@@ -260,7 +260,7 @@ onMounted(() => fetchTopics())
   overflow: hidden;
   margin-bottom: 0.75rem;
   flex: 1;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .card-footer {
@@ -269,7 +269,7 @@ onMounted(() => fetchTopics())
   justify-content: space-between;
   font-size: 0.8rem;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .article-count {

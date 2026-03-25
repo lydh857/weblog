@@ -607,7 +607,7 @@ const pwdLevel = computed(() => {
   if (p.length >= 8) s++; if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++
   if (/\d/.test(p)) s++; if (/[^a-zA-Z0-9]/.test(p)) s++; return s
 })
-const pwdColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][pwdLevel.value])
+const pwdColor = computed(() => ['', 'var(--status-danger)', 'var(--status-warning)', 'var(--status-info)', 'var(--status-success)'][pwdLevel.value])
 const pwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][pwdLevel.value])
 
 // ===== 重置密码相关 =====
@@ -693,7 +693,7 @@ const resetPwdLevel = computed(() => {
   if (p.length >= 8) s++; if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++
   if (/\d/.test(p)) s++; if (/[^a-zA-Z0-9]/.test(p)) s++; return s
 })
-const resetPwdColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][resetPwdLevel.value])
+const resetPwdColor = computed(() => ['', 'var(--status-danger)', 'var(--status-warning)', 'var(--status-info)', 'var(--status-success)'][resetPwdLevel.value])
 const resetPwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][resetPwdLevel.value])
 
 function validateResetForm(): boolean {
@@ -990,17 +990,17 @@ watch(() => loginModal.visible.value, (v) => {
 }
 .subtitle {
   text-align: center; color: #64748b; font-size: 0.9rem; margin-bottom: 1rem;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 .login-tabs {
   display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; position: relative;
-  .dark & { border-bottom-color: #334155; }
+  .dark & { border-bottom-color: $color-dark-border; }
   button {
     flex: 1; padding: 0.5rem 0; background: none; border: none; border-bottom: 2px solid transparent;
     margin-bottom: -2px; font-size: 0.9rem; color: #64748b; cursor: pointer; transition: color 0.25s;
     &.active { color: #3b82f6; font-weight: 600; }
     &:hover:not(.active) { color: #334155; }
-    .dark & { color: #94a3b8; &.active { color: #3b82f6; } &:hover:not(.active) { color: #cbd5e1; } }
+    .dark & { color: $color-dark-text-muted; &.active { color: #60a5fa; } &:hover:not(.active) { color: $color-dark-text; } }
   }
   .tab-indicator {
     position: absolute; bottom: -2px; left: 0; width: 50%; height: 2px;
@@ -1011,7 +1011,7 @@ watch(() => loginModal.visible.value, (v) => {
 }
 .form-group {
   margin-bottom: 0.125rem;
-  label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; color: #334155; .dark & { color: #cbd5e1; } }
+  label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; color: #334155; .dark & { color: $color-dark-text; } }
 }
 .auth-form { transition: min-height 0.2s ease; }
 .toggle-fields {
@@ -1032,7 +1032,7 @@ watch(() => loginModal.visible.value, (v) => {
     width: 100%; padding: 0.625rem 2.5rem; border: 1px solid #e2e8f0; border-radius: 0.5rem;
     font-size: 0.9rem; background: #f8fafc; color: #1e293b; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
     &:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-    .dark & { background: #0f172a; border-color: #334155; color: #e2e8f0;
+    .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; color: $color-dark-text;
       &:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
     }
   }
@@ -1041,15 +1041,15 @@ watch(() => loginModal.visible.value, (v) => {
 .clear-btn {
   position: absolute; right: 0.5rem; background: none; border: none; color: #c0c4cc; cursor: pointer; padding: 0.25rem; display: flex; transition: color 0.2s;
   &:hover { color: #909399; } &.with-toggle { right: 2rem; }
-  .dark & { color: #4a5568; &:hover { color: #718096; } }
+  .dark & { color: $color-dark-text-muted; &:hover { color: $color-dark-text; } }
 }
 .email-group { position: relative; }
 .email-suggestions {
   position: absolute; top: 100%; left: 0; right: 0; z-index: 10; margin: 0; padding: 0.25rem 0; list-style: none;
   background: #fff; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 200px; overflow-y: auto;
   li { padding: 0.5rem 0.75rem; font-size: 0.85rem; color: #334155; cursor: pointer; transition: background-color 0.15s; &:hover { background: #f1f5f9; } }
-  .dark & { background: #1e293b; border-color: #334155; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    li { color: #cbd5e1; &:hover { background: #334155; } }
+  .dark & { background: $color-dark-bg-elevated; border-color: $color-dark-border; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    li { color: $color-dark-text; &:hover { background: $color-dark-bg-secondary; } }
   }
 }
 .recent-emails {
@@ -1060,7 +1060,7 @@ watch(() => loginModal.visible.value, (v) => {
     flex-shrink: 0; background: none; border: none; color: #c0c4cc; cursor: pointer; padding: 0.125rem;
     display: flex; align-items: center; transition: color 0.2s; margin-left: 0.5rem;
     &:hover { color: #ef4444; }
-    .dark & { color: #4a5568; &:hover { color: #ef4444; } }
+    .dark & { color: $color-dark-text-muted; &:hover { color: #ef4444; } }
   }
 }
 .code-row { display: flex; gap: 0.5rem; .code-input-wrapper { flex: 1; } }
@@ -1072,7 +1072,7 @@ watch(() => loginModal.visible.value, (v) => {
   &:disabled { opacity: 0.5; cursor: not-allowed; border-color: #94a3b8; color: #94a3b8; }
   .dark & { background: transparent; border-color: #3b82f6; color: #3b82f6;
     &:hover:not(:disabled) { background: #3b82f6; color: #fff; }
-    &:disabled { border-color: #475569; color: #475569; }
+    &:disabled { border-color: $color-dark-border; color: $color-dark-text-muted; }
   }
 }
 .error-text {
@@ -1087,7 +1087,7 @@ watch(() => loginModal.visible.value, (v) => {
 .password-strength {
   display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;
   .strength-bars { display: flex; gap: 4px; }
-  .bar { width: 2rem; height: 4px; border-radius: 2px; background-color: #e2e8f0; transition: background-color 0.2s; .dark & { background-color: #334155; } }
+  .bar { width: 2rem; height: 4px; border-radius: 2px; background-color: #e2e8f0; transition: background-color 0.2s; .dark & { background-color: $color-dark-border; } }
   .strength-text { font-size: 0.75rem; font-weight: 500; }
 }
 .submit-btn {
@@ -1098,17 +1098,17 @@ watch(() => loginModal.visible.value, (v) => {
 .remember-me {
   display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; color: #64748b;
   input[type="checkbox"] { accent-color: #3b82f6; cursor: pointer; }
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 .remember-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .forgot-pwd-btn {
   background: none; border: none; color: #3b82f6; font-size: 0.85rem; cursor: pointer; padding: 0;
   &:hover { text-decoration: underline; }
 }
-.code-hint { margin-bottom: 0.75rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.25; .dark & { color: #64748b; } }
+.code-hint { margin-bottom: 0.75rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.25; .dark & { color: $color-dark-text-muted; } }
 .divider {
   display: flex; align-items: center; margin: 0.5rem 0; color: #94a3b8; font-size: 0.8rem;
-  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; .dark & { background: #334155; } }
+  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; .dark & { background: $color-dark-border; } }
   span { padding: 0 0.75rem; }
 }
 .github-btn {
@@ -1116,10 +1116,10 @@ watch(() => loginModal.visible.value, (v) => {
   font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: background-color 0.2s, border-color 0.2s;
   &:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
-  .dark & { background: #0f172a; border-color: #334155; color: #e2e8f0; &:hover:not(:disabled) { background: #1e293b; border-color: #475569; } }
+  .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; color: $color-dark-text; &:hover:not(:disabled) { background: $color-dark-bg-elevated; border-color: rgba(148, 163, 184, 0.42); } }
 }
 .switch-mode {
-  margin-top: 0.875rem; text-align: center; font-size: 0.85rem; color: #64748b; .dark & { color: #94a3b8; }
+  margin-top: 0.875rem; text-align: center; font-size: 0.85rem; color: #64748b; .dark & { color: $color-dark-text-muted; }
   .link-btn { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: inherit; font-weight: 500; &:hover { text-decoration: underline; } }
 }
 .spin { animation: spin 1s linear infinite; }

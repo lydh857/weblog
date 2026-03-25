@@ -67,7 +67,7 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .oauth-overlay { position: fixed; inset: 0; z-index: var(--z-confirm); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; }
-:global(html.dark) .oauth-overlay { background: rgba(15,23,42,.92); }
+:global(html.dark) .oauth-overlay { background: rgba(16,18,21,.92); }
 .oauth-card { text-align: center; padding: 2.5rem 2rem; max-width: 360px; width: 100%; }
 .oauth-spinner { display: flex; justify-content: center; margin-bottom: 1.5rem; }
 .circular { width: 48px; height: 48px; animation: rotate 1.4s linear infinite; }
@@ -75,9 +75,9 @@ onMounted(async () => {
 .oauth-icon { margin-bottom: 1rem; }
 .oauth-icon.error { color: #ef4444; }
 .oauth-title { font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-bottom: .5rem; }
-:global(html.dark) .oauth-title { color: #e2e8f0; }
+:global(html.dark) .oauth-title { color: #d6dbe4; }
 .oauth-desc { font-size: .875rem; color: #64748b; line-height: 1.5; }
-:global(html.dark) .oauth-desc { color: #94a3b8; }
+:global(html.dark) .oauth-desc { color: #9aa5b5; }
 .oauth-btn { margin-top: 1.5rem; padding: .625rem 1.5rem; border: none; border-radius: .5rem; background: #3b82f6; color: #fff; font-size: .9rem; font-weight: 500; cursor: pointer; }
 .oauth-btn:hover { background: #2563eb; }
 @keyframes rotate { to { transform: rotate(360deg); } }

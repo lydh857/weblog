@@ -554,7 +554,7 @@ onUnmounted(() => {
 .tags-page-bg {
   min-height: calc(100vh - 120px);
   background: #f5f5f5;
-  .dark & { background: #f5f5f5; }
+  .dark & { background: $color-dark-bg; }
 }
 
 .tags-page {
@@ -654,7 +654,7 @@ onUnmounted(() => {
     font-size: 0.86rem;
   }
 
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
   &:hover {
     color: $color-text;
     .dark & { color: $color-dark-text; }

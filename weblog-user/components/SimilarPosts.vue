@@ -86,7 +86,7 @@ onMounted(async () => {
   border-radius: 6px;
   overflow: hidden;
   background: #f1f5f9;
-  .dark & { background: #334155; }
+  .dark & { background: $color-dark-border; }
   img {
     width: 100%;
     height: 100%;
@@ -114,7 +114,7 @@ onMounted(async () => {
   overflow: hidden;
   margin: 0;
   transition: color 0.2s;
-  .dark & { color: #cbd5e1; }
+  .dark & { color: $color-dark-text; }
 }
 
 .card-summary {

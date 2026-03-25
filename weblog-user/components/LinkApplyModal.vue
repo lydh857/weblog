@@ -339,7 +339,7 @@ async function handleSubmit() {
   transition: background 0.15s;
   &:hover { background: rgba(0, 0, 0, 0.06); }
   .dark & {
-    color: #94a3b8;
+    color: $color-dark-text-muted;
     &:hover { background: rgba(255, 255, 255, 0.08); }
   }
 }
@@ -358,7 +358,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.4rem;
   color: $color-text-muted;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
   &.active {
     color: $color-primary;
     .step-dot {
@@ -469,7 +469,7 @@ async function handleSubmit() {
   list-style: none;
   padding: 0;
   color: $color-text-muted;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
   li {
     padding: 0.3rem 0;
     text-align: center;
@@ -497,7 +497,7 @@ async function handleSubmit() {
   .dark & {
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
-    color: #94a3b8;
+    color: $color-dark-text-muted;
   }
   &:hover {
     border-color: $color-text-muted;
@@ -588,7 +588,7 @@ async function handleSubmit() {
   flex-shrink: 0;
   font-weight: 500;
   color: $color-text-muted;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .preview-logo {

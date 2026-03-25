@@ -154,7 +154,7 @@ onMounted(() => loadData())
 <style scoped lang="scss">
 .likes-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 .page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
-.back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .45rem; }
+.back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .45rem; .dark & { color: $color-dark-text-muted; } }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .header-left { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .page-title {
@@ -166,29 +166,50 @@ onMounted(() => loadData())
   align-items: center;
   gap: .35rem;
   min-height: 2rem;
+  color: $color-text;
+  .dark & { color: $color-dark-text; }
 }
 
-.page-total { font-size: .82rem; color: $color-text-muted; }
+.page-total { font-size: .82rem; color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
 
 .toolbar-btn, .manage-btn {
   display: inline-flex; align-items: center; gap: .25rem;
   padding: .34rem .7rem; border: 1px solid $color-border; border-radius: 9px;
   background: transparent; color: $color-text-muted; cursor: pointer;
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg-secondary;
+    color: $color-dark-text-muted;
+  }
 }
-.danger-btn { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
+.danger-btn {
+  border-color: var(--status-danger-soft-border);
+  color: var(--status-danger);
+  background: var(--status-danger-soft-bg);
+  .dark & {
+    border-color: var(--status-danger-soft-border);
+    color: var(--status-danger);
+    background: var(--status-danger-soft-bg);
+  }
+}
 
 .post-card { position: relative; display: flex; align-items: flex-start; margin-bottom: .75rem; border: 1px solid $color-border; border-radius: 12px; overflow: hidden; padding: .85rem; background: $color-bg; transition: border-color .2s, box-shadow .2s; }
+.post-card { .dark & { border-color: $color-dark-border; background: $color-dark-bg-secondary; } }
 .post-card.managing { cursor: pointer; }
 .post-card.selected { border-color: $color-primary; background: rgba($color-primary, .04); }
-.post-card:hover { border-color: rgba(59, 130, 246, .45); box-shadow: 0 8px 20px rgba(59,130,246,.08); }
+.post-card:hover {
+  border-color: rgba(59, 130, 246, .45);
+  box-shadow: 0 8px 20px rgba(59,130,246,.08);
+  .dark & { border-color: rgba(148, 163, 184, .46); box-shadow: 0 8px 20px rgba(2, 6, 23, .35); }
+}
 .card-link { display: flex; flex: 1; gap: .75rem; text-decoration: none; color: inherit; min-width: 0; }
 .card-link.disabled { pointer-events: none; }
-.card-cover { width: 120px; height: 80px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #e2e8f0; }
+.card-cover { width: 120px; height: 80px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #e2e8f0; .dark & { background: $color-dark-border; } }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; }
 .card-body { flex: 1; min-width: 0; }
-.card-title { margin: 0 0 .35rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-summary { margin: 0; font-size: .86rem; color: $color-text-muted; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-meta { display: flex; align-items: center; gap: .55rem; margin-top: .45rem; font-size: .78rem; color: $color-text-muted; flex-wrap: wrap; }
+.card-title { margin: 0 0 .35rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: $color-text; .dark & { color: $color-dark-text; } }
+.card-summary { margin: 0; font-size: .86rem; color: $color-text-muted; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; .dark & { color: $color-dark-text-muted; } }
+.card-meta { display: flex; align-items: center; gap: .55rem; margin-top: .45rem; font-size: .78rem; color: $color-text-muted; flex-wrap: wrap; .dark & { color: $color-dark-text-muted; } }
 .meta-item { display: inline-flex; align-items: center; gap: .2rem; }
 .unfav-btn {
   position: absolute;
@@ -206,6 +227,7 @@ onMounted(() => loadData())
   cursor: pointer;
   opacity: 0;
   transition: opacity .2s, color .2s, background-color .2s;
+  .dark & { background: rgba(148, 163, 184, .14); color: $color-dark-text-muted; }
 }
 
 .post-card:hover .unfav-btn {
@@ -214,11 +236,16 @@ onMounted(() => loadData())
 
 .unfav-btn:hover,
 .unfav-btn:focus-visible {
-  color: #dc2626;
-  background: #fee2e2;
+  color: var(--status-danger);
+  background: var(--status-danger-soft-bg);
+  .dark & {
+    color: var(--status-danger);
+    background: var(--status-danger-soft-bg);
+  }
 }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; color: $color-text-muted; gap: .5rem; border: 1px dashed rgba(148,163,184,.45); border-radius: 12px; }
+.empty-state { .dark & { color: $color-dark-text-muted; border-color: rgba(148,163,184,.32); background: $color-dark-bg-secondary; } }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 

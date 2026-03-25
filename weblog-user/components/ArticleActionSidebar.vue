@@ -220,7 +220,7 @@ watch(() => props.postId, (nextId, prevId) => {
   height: 1px;
   background: #e2e8f0;
   margin: 2px 0;
-  .dark & { background: #334155; }
+  .dark & { background: $color-dark-border; }
 }
 .sidebar-btn {
   display: flex;
@@ -263,7 +263,7 @@ watch(() => props.postId, (nextId, prevId) => {
     }
   }
   .dark & {
-    background: $color-dark-bg-secondary; color: #64748b;
+    background: $color-dark-bg-secondary; color: $color-dark-text-muted;
     box-shadow: 0 1px 6px rgba(0,0,0,0.15);
     &:hover:not(:disabled) { color: $color-primary; }
     &.active { color: #ef4444; }

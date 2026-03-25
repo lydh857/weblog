@@ -79,15 +79,19 @@ onUnmounted(() => {
   background: #fff; border-radius: 12px; max-width: 90vw; max-height: calc(100vh - 40px);
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.18);
-  .dark & { background: #1e293b; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+  .dark & {
+    background: $color-dark-bg-elevated;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+  }
 }
 .modal-header {
   display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f1f5f9;
-  .dark & { border-bottom-color: #334155; }
+  .dark & { border-bottom-color: $color-dark-border; }
 }
 .modal-title {
   margin: 0; flex: 1; font-size: 1.1rem; font-weight: 600; color: #1e293b;
-  .dark & { color: #e2e8f0; }
+  .dark & { color: $color-dark-text; }
 }
 .modal-close {
   background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer;
@@ -95,12 +99,15 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center;
   border-radius: 10px; transition: all 0.2s; flex-shrink: 0;
   &:hover { color: #64748b; background: rgba(0,0,0,0.05); }
-  .dark & { color: #64748b; &:hover { color: #94a3b8; background: rgba(255,255,255,0.08); } }
+  .dark & {
+    color: $color-dark-text-muted;
+    &:hover { color: $color-dark-text; background: rgba(148,163,184,0.12); }
+  }
 }
 .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
 .modal-footer {
   padding: 12px 20px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 8px;
-  .dark & { border-top-color: #334155; }
+  .dark & { border-top-color: $color-dark-border; }
 }
 
 /* Transition 动画 */

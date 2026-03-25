@@ -33,6 +33,17 @@ html {
   }
 }
 
+body {
+  background: $color-bg-page;
+  color: $color-text;
+  transition: background-color 0.28s ease, color 0.28s ease;
+}
+
+html.dark body {
+  background: $color-dark-bg;
+  color: $color-dark-text;
+}
+
 :root {
   --layout-max-width: 1400px;
   --layout-page-padding-y: 2rem;
@@ -48,6 +59,37 @@ html {
   --z-modal: 60000;
   --z-captcha: 65000;
   --z-confirm: 70000;
+  --theme-dark-bg: #101215;
+  --theme-dark-surface: #171b20;
+  --theme-dark-elevated: #1d232a;
+  --theme-dark-border: #2a313a;
+  --status-info: #3b82f6;
+  --status-info-soft-bg: rgba(59, 130, 246, 0.12);
+  --status-info-soft-border: rgba(59, 130, 246, 0.32);
+  --status-success: #16a34a;
+  --status-success-soft-bg: #f0fdf4;
+  --status-success-soft-border: #86efac;
+  --status-warning: #b45309;
+  --status-warning-soft-bg: #fef3c7;
+  --status-warning-soft-border: #facc15;
+  --status-danger: #dc2626;
+  --status-danger-soft-bg: #fef2f2;
+  --status-danger-soft-border: #fca5a5;
+}
+
+html.dark {
+  --status-info: #93c5fd;
+  --status-info-soft-bg: rgba(59, 130, 246, 0.16);
+  --status-info-soft-border: rgba(147, 197, 253, 0.34);
+  --status-success: #86efac;
+  --status-success-soft-bg: rgba(34, 197, 94, 0.14);
+  --status-success-soft-border: rgba(134, 239, 172, 0.56);
+  --status-warning: #fde68a;
+  --status-warning-soft-bg: rgba(250, 204, 21, 0.16);
+  --status-warning-soft-border: rgba(250, 204, 21, 0.56);
+  --status-danger: #fda4af;
+  --status-danger-soft-bg: rgba(239, 68, 68, 0.16);
+  --status-danger-soft-border: rgba(252, 165, 165, 0.52);
 }
 
 @media (max-width: $breakpoint-md) {

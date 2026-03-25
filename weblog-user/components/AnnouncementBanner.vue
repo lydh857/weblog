@@ -165,8 +165,8 @@ onUnmounted(() => stopAutoPlay())
   }
 
   .dark & {
-    background: linear-gradient(135deg, #1e293b 0%, #1e3a5f 100%);
-    border-bottom-color: rgba(59, 130, 246, 0.2);
+    background: linear-gradient(135deg, #1d232a 0%, #171b20 100%);
+    border-bottom-color: rgba(148, 163, 184, 0.24);
   }
 
   @media (max-width: $breakpoint-md) {
@@ -212,10 +212,10 @@ onUnmounted(() => stopAutoPlay())
   }
 
   .dark & {
-    color: #93c5fd;
+    color: #d2d9e3;
 
     &:hover {
-      color: #bfdbfe;
+      color: #e8edf5;
     }
   }
 }
@@ -266,10 +266,10 @@ onUnmounted(() => stopAutoPlay())
   }
 
   .dark & {
-    color: #93c5fd;
+    color: #b9c3d2;
 
     &:hover {
-      background: rgba(59, 130, 246, 0.2);
+      background: rgba(148, 163, 184, 0.16);
     }
   }
 }
@@ -281,7 +281,7 @@ onUnmounted(() => stopAutoPlay())
   text-align: center;
 
   .dark & {
-    color: #94a3b8;
+    color: #9aa5b5;
   }
 }
 
@@ -305,11 +305,11 @@ onUnmounted(() => stopAutoPlay())
   }
 
   .dark & {
-    color: #94a3b8;
+    color: #9aa5b5;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #e2e8f0;
+      background: rgba(148, 163, 184, 0.16);
+      color: #d6dbe4;
     }
   }
 

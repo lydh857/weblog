@@ -20,6 +20,7 @@
 
     <!-- 内容区域（相对定位容器） -->
     <div
+      ref="rankingBodyRef"
       class="ranking-body"
       @touchstart="handleTouchStart"
       @touchmove="handleTouchMove"
@@ -120,6 +121,7 @@ const items = ref<RankingItem[]>([])
 const loading = ref(false)
 const animKey = ref(0)
 const currentMeta = ref<RankingMeta | null>(null)
+const rankingBodyRef = ref<HTMLElement | null>(null)
 let touchTracking = false
 let touchStartX = 0
 let touchStartY = 0
@@ -173,7 +175,12 @@ async function switchTab(rankType: number) {
     return
   }
   activeTab.value = rankType
+  resetRankingScrollTop()
   await loadRanking()
+}
+
+function resetRankingScrollTop() {
+  rankingBodyRef.value?.scrollTo({ top: 0, behavior: 'auto' })
 }
 
 function switchTabByOffset(offset: number) {
@@ -473,7 +480,7 @@ onMounted(() => {
   font-size: 0.7rem;
   color: $color-text-muted;
 
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .meta-category {
@@ -545,7 +552,7 @@ onMounted(() => {
   font-weight: 600;
   color: $color-text-muted;
 
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .ranking-item--normal .item-title {
@@ -596,7 +603,7 @@ onMounted(() => {
   background: $color-bg-secondary;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 
-  .dark & { background: #1e293b; }
+  .dark & { background: $color-dark-bg-elevated; }
 }
 
 .skeleton-content { flex: 1; }
@@ -608,7 +615,7 @@ onMounted(() => {
   background: $color-bg-secondary;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 
-  .dark & { background: #1e293b; }
+  .dark & { background: $color-dark-bg-elevated; }
 }
 
 .skeleton-meta {
@@ -619,7 +626,7 @@ onMounted(() => {
   margin-top: 0.375rem;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 
-  .dark & { background: #1e293b; }
+  .dark & { background: $color-dark-bg-elevated; }
 }
 
 @keyframes skeleton-pulse {
@@ -652,7 +659,7 @@ onMounted(() => {
   gap: $spacing-sm;
 
   p { font-size: 0.85rem; }
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 /* ===== 减少动画偏好 ===== */

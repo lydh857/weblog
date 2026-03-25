@@ -51,14 +51,14 @@ const { messages, remove } = useMessageStore()
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   backface-visibility: hidden;
 }
-.msg-info { background: #eff6ff; border-color: #bfdbfe; }
-.msg-info .msg-icon { color: #3b82f6; }
-.msg-success { background: #f0fdf4; border-color: #bbf7d0; }
-.msg-success .msg-icon { color: #22c55e; }
-.msg-warning { background: #fffbeb; border-color: #fde68a; }
-.msg-warning .msg-icon { color: #f59e0b; }
-.msg-error { background: #fef2f2; border-color: #fecaca; }
-.msg-error .msg-icon { color: #ef4444; }
+.msg-info { background: var(--status-info-soft-bg); border-color: var(--status-info-soft-border); }
+.msg-info .msg-icon { color: var(--status-info); }
+.msg-success { background: var(--status-success-soft-bg); border-color: var(--status-success-soft-border); }
+.msg-success .msg-icon { color: var(--status-success); }
+.msg-warning { background: var(--status-warning-soft-bg); border-color: var(--status-warning-soft-border); }
+.msg-warning .msg-icon { color: var(--status-warning); }
+.msg-error { background: var(--status-danger-soft-bg); border-color: var(--status-danger-soft-border); }
+.msg-error .msg-icon { color: var(--status-danger); }
 .msg-icon { flex-shrink: 0; }
 .msg-text { flex: 1; font-size: 14px; line-height: 1.5; color: #1e293b; word-break: break-word; }
 .msg-close {
@@ -73,14 +73,14 @@ const { messages, remove } = useMessageStore()
 }
 .msg-close:hover { color: #64748b; background: rgba(0,0,0,0.06); }
 
-/* 暗色模式 */
-:root.dark .msg-info { background: #1e293b; border-color: #1e3a5f; }
-:root.dark .msg-success { background: #1a2e1a; border-color: #1a3d1a; }
-:root.dark .msg-warning { background: #2e2a1a; border-color: #3d351a; }
-:root.dark .msg-error { background: #2e1a1a; border-color: #3d1a1a; }
-:root.dark .msg-text { color: #e2e8f0; }
-:root.dark .msg-close { color: #64748b; }
-:root.dark .msg-close:hover { color: #94a3b8; background: rgba(255,255,255,0.08); }
+/* 暗色模式（柔和黑） */
+:root.dark .msg-info { background: var(--status-info-soft-bg); border-color: var(--status-info-soft-border); }
+:root.dark .msg-success { background: var(--status-success-soft-bg); border-color: var(--status-success-soft-border); }
+:root.dark .msg-warning { background: var(--status-warning-soft-bg); border-color: var(--status-warning-soft-border); }
+:root.dark .msg-error { background: var(--status-danger-soft-bg); border-color: var(--status-danger-soft-border); }
+:root.dark .msg-text { color: #d6dbe4; }
+:root.dark .msg-close { color: #9aa5b5; }
+:root.dark .msg-close:hover { color: #d6dbe4; background: rgba(148,163,184,0.12); }
 
 /* TransitionGroup 动画 */
 .msg-move {

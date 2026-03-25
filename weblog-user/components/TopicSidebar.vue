@@ -158,7 +158,7 @@ function toggleAllNodes() {
   cursor: pointer;
   transition: all 0.2s;
   &:hover { background: #f0f7ff; color: $color-primary; }
-  .dark & { color: #64748b; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } }
+  .dark & { color: $color-dark-text-muted; &:hover { background: rgba(59, 130, 246, 0.1); color: $color-primary; } }
 }
 
 .sidebar-tree {

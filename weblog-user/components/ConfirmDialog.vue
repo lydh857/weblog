@@ -51,11 +51,14 @@ function handleCancel() {
   width: 320px; max-width: 90vw;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   text-align: center;
-  .dark & { background: $color-dark-bg-secondary; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); }
+  .dark & {
+    background: $color-dark-bg-elevated;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+  }
 }
 .confirm-icon {
-  color: #f59e0b; margin-bottom: 0.75rem;
-  .dark & { color: #fbbf24; }
+  color: var(--status-warning); margin-bottom: 0.75rem;
 }
 .confirm-message {
   font-size: 0.95rem; color: $color-text; line-height: 1.5; margin-bottom: 1.25rem;
@@ -68,11 +71,16 @@ function handleCancel() {
   &.cancel {
     background: #f1f5f9; color: $color-text;
     &:hover { background: #e2e8f0; }
-    .dark & { background: #334155; color: $color-dark-text; &:hover { background: #475569; } }
+    .dark & {
+      background: $color-dark-bg-secondary;
+      color: $color-dark-text;
+      border: 1px solid $color-dark-border;
+      &:hover { background: $color-dark-bg-elevated; }
+    }
   }
   &.ok {
-    background: #ef4444; color: #fff;
-    &:hover { background: #dc2626; }
+    background: var(--status-danger); color: #fff;
+    &:hover { background: var(--status-danger); }
   }
 }
 .confirm-fade-enter-active { transition: opacity 0.2s; }

@@ -296,7 +296,7 @@ const dlgPwdLevel = computed(() => {
   if (/[^a-zA-Z0-9]/.test(p)) s++
   return s
 })
-const dlgPwdColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][dlgPwdLevel.value])
+const dlgPwdColor = computed(() => ['', 'var(--status-danger)', 'var(--status-warning)', 'var(--status-info)', 'var(--status-success)'][dlgPwdLevel.value])
 const dlgPwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][dlgPwdLevel.value])
 
 const reviewStatusTitle = computed(() => {
@@ -638,18 +638,21 @@ onUnmounted(() => {
   background: #f8fafc;
 
   &.is-pending {
-    border-color: #facc15;
-    background: #fefce8;
+    border-color: var(--status-warning-soft-border);
+    background: var(--status-warning-soft-bg);
+    .review-title { color: var(--status-warning); }
   }
 
   &.is-rejected {
-    border-color: #fca5a5;
-    background: #fef2f2;
+    border-color: var(--status-danger-soft-border);
+    background: var(--status-danger-soft-bg);
+    .review-title { color: var(--status-danger); }
   }
 
   &.is-approved {
-    border-color: #86efac;
-    background: #f0fdf4;
+    border-color: var(--status-success-soft-border);
+    background: var(--status-success-soft-bg);
+    .review-title { color: var(--status-success); }
   }
 }
 
@@ -670,7 +673,7 @@ onUnmounted(() => {
   margin-top: 0.35rem;
   margin-bottom: 0;
   font-size: 0.8rem;
-  color: #b91c1c;
+  color: var(--status-danger);
 }
 
 .form-section {
@@ -971,7 +974,7 @@ onUnmounted(() => {
   display: block;
   min-height: 1rem;
   font-size: 0.75rem;
-  color: #ef4444;
+  color: var(--status-danger);
   visibility: hidden;
 }
 
@@ -1000,6 +1003,111 @@ onUnmounted(() => {
 
 .strength-text {
   font-size: 0.75rem;
+}
+
+.dark .edit-page {
+  .back-link,
+  .edit-subtitle,
+  .char-count,
+  .avatar-hint,
+  .avatar-review-hint,
+  .security-value {
+    color: $color-dark-text-muted;
+  }
+
+  .edit-title,
+  .form-label,
+  .section-title,
+  .security-label,
+  .dialog-title {
+    color: $color-dark-text;
+  }
+
+  .edit-form,
+  .security-card,
+  .dialog-card {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+  }
+
+  .review-status-banner {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+
+    &.is-pending {
+      border-color: var(--status-warning-soft-border);
+      background: var(--status-warning-soft-bg);
+      .review-title { color: var(--status-warning); }
+    }
+
+    &.is-rejected {
+      border-color: var(--status-danger-soft-border);
+      background: var(--status-danger-soft-bg);
+      .review-title { color: var(--status-danger); }
+    }
+
+    &.is-approved {
+      border-color: var(--status-success-soft-border);
+      background: var(--status-success-soft-bg);
+      .review-title { color: var(--status-success); }
+    }
+  }
+
+  .review-desc {
+    color: $color-dark-text-muted;
+  }
+
+  .review-reason { color: var(--status-danger); }
+
+  .form-input,
+  .form-textarea {
+    background: $color-dark-bg;
+    border-color: $color-dark-border;
+    color: $color-dark-text;
+
+    &::placeholder {
+      color: $color-dark-text-muted;
+    }
+  }
+
+  .avatar-edit {
+    border-color: rgba(148, 163, 184, 0.32);
+    background: rgba(23, 27, 32, 0.8);
+  }
+
+  .avatar-preview {
+    background: $color-dark-bg-elevated;
+  }
+
+  .avatar-pending-tip {
+    color: #6ee7b7;
+  }
+
+  .upload-btn,
+  .btn-secondary {
+    border-color: $color-dark-border;
+    color: $color-dark-text;
+    background: $color-dark-bg-secondary;
+  }
+
+  .dialog-close,
+  .field-clear,
+  .field-toggle {
+    color: $color-dark-text-muted;
+  }
+
+  .dlg-email-suggestions {
+    border-color: $color-dark-border;
+    background: $color-dark-bg-elevated;
+  }
+
+  .dlg-email-suggestions li:hover {
+    background: rgba(148, 163, 184, 0.16);
+  }
+
+  .bar {
+    background: $color-dark-border;
+  }
 }
 
 @media (max-width: $breakpoint-md) {

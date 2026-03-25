@@ -19,7 +19,7 @@
   border-radius: 8px;
   background: #f5f7ff;
   overflow: hidden;
-  .dark & { background: #1e2340; border-color: #334155; }
+  .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; }
 }
 .disclaimer-header {
   display: flex;
@@ -30,13 +30,13 @@
   color: #4f46e5;
   font-weight: 600;
   font-size: 0.95rem;
-  .dark & { background: #312e81; color: #a5b4fc; }
+  .dark & { background: rgba(59, 130, 246, 0.2); color: #bfdbfe; }
 }
 .disclaimer-content {
   padding: 1rem;
   color: #4b5563;
   font-size: 0.875rem;
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
   p {
     margin-bottom: 0.5rem;
     line-height: 1.6;

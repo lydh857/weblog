@@ -91,9 +91,9 @@ function openAdApplyModal() {
   .dark & {
     border-top-color: $color-dark-border;
     background:
-      radial-gradient(120% 120% at 0% 0%, rgba(37, 99, 235, 0.2), transparent 45%),
-      radial-gradient(120% 120% at 100% 100%, rgba(14, 165, 233, 0.16), transparent 52%),
-      linear-gradient(180deg, #0b1220, #0f172a);
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
     color: $color-dark-text;
   }
 }

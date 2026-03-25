@@ -810,7 +810,7 @@ onUnmounted(() => {
   border-bottom: 1px solid $color-border;
   transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s ease, border-color 0.3s ease;
   .dark & {
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(16, 18, 21, 0.86);
     border-bottom-color: $color-dark-border;
   }
   &--transparent {
@@ -987,8 +987,12 @@ onUnmounted(() => {
     background: rgba(59, 130, 246, 0.08);
   }
   .dark & {
-    color: #94a3b8;
-    &:hover, &.router-link-active { color: $color-primary; background: rgba(59, 130, 246, 0.15); }
+    color: #c6cfdb;
+    &:hover,
+    &.router-link-active {
+      color: #f2f5fa;
+      background: rgba(148, 163, 184, 0.18);
+    }
   }
 }
 
@@ -1013,7 +1017,13 @@ onUnmounted(() => {
   color: $color-text-muted;
   cursor: pointer;
   &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.08); }
-  .dark & { color: #94a3b8; &:hover { color: $color-primary; background: rgba(59, 130, 246, 0.15); } }
+  .dark & {
+    color: #c6cfdb;
+    &:hover {
+      color: #f2f5fa;
+      background: rgba(148, 163, 184, 0.18);
+    }
+  }
 }
 
 .notice-badge-dot {
@@ -1023,7 +1033,7 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--status-danger);
 }
 
 .login-btn {
@@ -1114,7 +1124,7 @@ onUnmounted(() => {
   padding: 0.4rem;
   backdrop-filter: blur(10px);
   .dark & {
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(29, 35, 42, 0.92);
     border-color: $color-dark-border;
     box-shadow: 0 14px 32px rgba(2, 6, 23, 0.55);
   }
@@ -1140,22 +1150,26 @@ onUnmounted(() => {
   }
   &.logout {
     margin-top: 0.2rem;
-    color: #ef4444;
+    color: var(--status-danger);
     border-top: 1px solid rgba(148, 163, 184, 0.3);
     border-radius: 0 0 8px 8px;
     padding-top: 0.66rem;
     &:hover {
-      color: #dc2626;
-      background: rgba(239, 68, 68, 0.1);
+      color: var(--status-danger);
+      background: var(--status-danger-soft-bg);
     }
   }
   .dark & {
     color: $color-dark-text;
+    &:hover {
+      color: #f2f5fa;
+      background: rgba(148, 163, 184, 0.16);
+    }
     &.logout {
-      color: #f87171;
+      color: var(--status-danger);
       border-top-color: rgba(71, 85, 105, 0.5);
       &:hover {
-        color: #ef4444;
+        color: var(--status-danger);
       }
     }
   }
@@ -1199,7 +1213,7 @@ onUnmounted(() => {
   flex-direction: column;
 
   .dark & {
-    background: #0f172a;
+    background: $color-dark-bg-secondary;
     border-left-color: $color-dark-border;
   }
 
@@ -1301,7 +1315,7 @@ onUnmounted(() => {
     }
   }
 
-  &.logout-link { color: #ef4444; }
+  &.logout-link { color: var(--status-danger); }
 
   &.router-link-active,
   &.router-link-exact-active {
@@ -1316,12 +1330,12 @@ onUnmounted(() => {
     }
 
     .dark & {
-      color: #93c5fd;
-      background: rgba(59, 130, 246, 0.22);
-      border-color: rgba(147, 197, 253, 0.32);
+      color: #f2f5fa;
+      background: rgba(148, 163, 184, 0.18);
+      border-color: rgba(148, 163, 184, 0.34);
 
       .mobile-link__icon {
-        color: #93c5fd;
+        color: #f2f5fa;
       }
     }
   }
@@ -1362,7 +1376,7 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--status-danger);
 }
 
 .global-left-ad {
@@ -1397,6 +1411,10 @@ onUnmounted(() => {
   min-height: calc(100vh - var(--layout-navbar-height) - 60px);
   padding-top: var(--layout-navbar-height);
   background: #f5f5f5;
+
+  .dark & {
+    background: $color-dark-bg;
+  }
 
   &.has-announcement {
     padding-top: calc(var(--layout-navbar-height) + var(--layout-announcement-height));

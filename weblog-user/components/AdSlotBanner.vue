@@ -480,6 +480,14 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .ad-slot-banner {
+  --ad-media-bg: linear-gradient(180deg, #f3f6fb, #e8edf5);
+  --ad-media-overlay: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0) 52%,
+    rgba(15, 23, 42, 0.18) 80%,
+    rgba(15, 23, 42, 0.28) 100%
+  );
+
   position: relative;
   border-radius: $radius-lg;
   overflow: hidden;
@@ -487,6 +495,20 @@ onUnmounted(() => {
   background: $color-bg;
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
   transition: box-shadow 0.3s ease;
+
+  .dark & {
+    --ad-media-bg: linear-gradient(180deg, #1f2937, #111827);
+    --ad-media-overlay: linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0) 46%,
+      rgba(2, 6, 23, 0.34) 82%,
+      rgba(2, 6, 23, 0.5) 100%
+    );
+
+    border-color: $color-dark-border;
+    background: $color-dark-bg-secondary;
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.34);
+  }
 }
 
 .ad-slot-banner-wrap {
@@ -532,6 +554,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
+  background: var(--ad-media-bg);
 }
 
 .ad-link,
@@ -549,6 +572,8 @@ onUnmounted(() => {
 
 .ad-image {
   object-fit: cover;
+  object-position: center;
+  background: var(--ad-media-bg);
   opacity: 0;
   transition: opacity 0.55s ease;
   position: relative;
@@ -573,6 +598,10 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.95);
   font-size: 0.72rem;
   text-align: center;
+
+  .dark & {
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.9));
+  }
 }
 
 .ad-image-wrap.is-broken::after {
@@ -585,12 +614,7 @@ onUnmounted(() => {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(15, 23, 42, 0) 52%,
-    rgba(15, 23, 42, 0.18) 80%,
-    rgba(15, 23, 42, 0.28) 100%
-  );
+  background: var(--ad-media-overlay);
 }
 
 .ad-slide-item.active .ad-image {
@@ -763,17 +787,17 @@ onUnmounted(() => {
 .ad-slot-banner--home_left .ad-image {
   height: 100%;
   object-fit: contain;
-  background: rgba(15, 23, 42, 0.12);
+  background: var(--ad-media-bg);
 }
 
 .ad-slot-banner--home_left {
   border: 1px solid rgba(148, 163, 184, 0.24);
-  background: linear-gradient(180deg, rgba(100, 116, 139, 0.94), rgba(51, 65, 85, 0.96));
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.96), rgba(226, 232, 240, 0.98));
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.2);
 
   .dark & {
     border-color: rgba(148, 163, 184, 0.22);
-    background: linear-gradient(180deg, rgba(71, 85, 105, 0.92), rgba(30, 41, 59, 0.95));
+    background: linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(17, 24, 39, 0.98));
     box-shadow: 0 10px 26px rgba(2, 6, 23, 0.34);
   }
 }
@@ -930,6 +954,13 @@ onUnmounted(() => {
     background: rgba(239, 246, 255, 0.96);
     border-color: rgba(59, 130, 246, 0.42);
     box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+
+    .dark & {
+      background: rgba(30, 41, 59, 0.86);
+      border-color: rgba(148, 163, 184, 0.42);
+      color: #e2e8f0;
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.32);
+    }
   }
 
   .ad-slot-banner--post_top .ad-image-fallback,

@@ -164,6 +164,8 @@ watch(() => props.ad.content, () => {
 }
 
 .ad-mimic-card {
+  --ad-mimic-media-bg: linear-gradient(180deg, #f3f6fb, #e8edf5);
+
   display: flex;
   flex-direction: column;
   position: relative;
@@ -188,6 +190,7 @@ watch(() => props.ad.content, () => {
   }
 
   .dark & {
+    --ad-mimic-media-bg: linear-gradient(180deg, #1f2937, #111827);
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
 
@@ -248,10 +251,10 @@ watch(() => props.ad.content, () => {
   height: 100%;
   flex-shrink: 0;
   border-radius: $radius-lg 0 0 $radius-lg;
-  background: $color-bg-secondary;
+  background: var(--ad-mimic-media-bg);
 
   .dark & {
-    background: #1a2332;
+    background: var(--ad-mimic-media-bg);
   }
 }
 
@@ -267,6 +270,8 @@ watch(() => props.ad.content, () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  background: var(--ad-mimic-media-bg);
   transition: transform 0.35s ease;
 }
 
@@ -344,22 +349,22 @@ watch(() => props.ad.content, () => {
   font-size: 0.65rem;
   font-weight: 500;
   line-height: 1.5;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--status-info-soft-bg);
+  color: var(--status-info);
 
   .dark & {
-    background: #1e3a5f;
-    color: #93c5fd;
+    background: var(--status-info-soft-bg);
+    color: var(--status-info);
   }
 }
 
 .ad-tag--sponsor {
-  background: #f0fdf4;
-  color: #15803d;
+  background: var(--status-success-soft-bg);
+  color: var(--status-success);
 
   .dark & {
-    background: #14532d;
-    color: #86efac;
+    background: var(--status-success-soft-bg);
+    color: var(--status-success);
   }
 }
 

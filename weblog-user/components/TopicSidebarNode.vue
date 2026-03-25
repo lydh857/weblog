@@ -109,7 +109,7 @@ function handleClick() {
     .dark & { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
   }
 
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .expand-btn {

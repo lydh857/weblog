@@ -352,6 +352,12 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
+  }
 }
 
 .cropper-body {
@@ -377,6 +383,12 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text;
+  }
 
   &.text {
     font-size: 0.9rem;
@@ -457,6 +469,12 @@ onUnmounted(() => {
   &.secondary {
     background: $color-bg;
     color: $color-text-muted;
+
+    .dark & {
+      background: $color-dark-bg;
+      border-color: $color-dark-border;
+      color: $color-dark-text-muted;
+    }
   }
 
   &.primary {
@@ -473,7 +491,7 @@ onUnmounted(() => {
 
 .error-msg {
   font-size: 0.75rem;
-  color: #ef4444;
+  color: var(--status-danger);
 }
 
 @media (max-width: $breakpoint-md) {

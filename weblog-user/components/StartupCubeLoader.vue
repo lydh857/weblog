@@ -7,6 +7,9 @@
 
 <style scoped>
 .cube-loader {
+  --startup-text-color: var(--startup-loader-text-color, #4e6ea8);
+  --startup-image-shadow: var(--startup-loader-shadow, drop-shadow(0 8px 20px rgba(32, 61, 120, 0.2)));
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,7 +20,7 @@
 .cube-image {
   width: min(34vw, 172px);
   height: auto;
-  filter: drop-shadow(0 8px 20px rgba(32, 61, 120, 0.2));
+  filter: var(--startup-image-shadow);
   animation: cubeFloat 2.2s ease-in-out infinite;
 }
 
@@ -26,11 +29,7 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.6px;
-  color: #4e6ea8;
-}
-
-:global(html.dark) .cube-loader__text {
-  color: #aac5f7;
+  color: var(--startup-text-color);
 }
 
 @keyframes cubeFloat {

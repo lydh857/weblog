@@ -316,7 +316,12 @@ onUnmounted(() => {
   }
 
   .dark & {
-    background: rgba(59, 130, 246, 0.22);
+    color: $color-dark-text;
+    background: rgba(148, 163, 184, 0.16);
+  }
+
+  .dark &:hover {
+    background: rgba(148, 163, 184, 0.24);
   }
 }
 
@@ -380,7 +385,7 @@ onUnmounted(() => {
   }
 
   .dark &:hover {
-    background: rgba(59, 130, 246, 0.16);
+    background: rgba(148, 163, 184, 0.16);
   }
 }
 
@@ -420,7 +425,7 @@ onUnmounted(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--status-danger);
   flex-shrink: 0;
 }
 
@@ -442,8 +447,9 @@ onUnmounted(() => {
   align-items: center;
   border-radius: 999px;
   padding: 0.1rem 0.42rem;
-  color: #b91c1c;
-  background: rgba(239, 68, 68, 0.12);
+  color: var(--status-danger);
+  background: var(--status-danger-soft-bg);
+  border: 1px solid var(--status-danger-soft-border);
 }
 
 .notice-empty {

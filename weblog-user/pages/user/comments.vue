@@ -154,7 +154,7 @@ onMounted(() => loadData())
 <style scoped lang="scss">
 .comments-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
 .page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
-.back-link { display: inline-flex; align-items: center; gap: .375rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; }
+.back-link { display: inline-flex; align-items: center; gap: .375rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; .dark & { color: $color-dark-text-muted; } }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .header-left { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .page-title {
@@ -166,26 +166,65 @@ onMounted(() => loadData())
   align-items: center;
   gap: .35rem;
   min-height: 2rem;
+  color: $color-text;
+  .dark & { color: $color-dark-text; }
 }
-.page-total { font-size: .82rem; color: $color-text-muted; }
-.toolbar-btn, .manage-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .3rem .68rem; border: 1px solid $color-border; border-radius: 9px; background: transparent; color: $color-text-muted; cursor: pointer; }
-.danger-btn { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
-.comment-card { position: relative; padding: .75rem .9rem; margin-bottom: .5rem; border: 1px solid $color-border; border-radius: 12px; background: $color-bg; transition: border-color .2s, box-shadow .2s; }
+.page-total { font-size: .82rem; color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
+.toolbar-btn, .manage-btn {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .3rem .68rem;
+  border: 1px solid $color-border; border-radius: 9px; background: transparent; color: $color-text-muted; cursor: pointer;
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg-secondary;
+    color: $color-dark-text-muted;
+  }
+}
+.danger-btn {
+  border-color: var(--status-danger-soft-border);
+  color: var(--status-danger);
+  background: var(--status-danger-soft-bg);
+  .dark & {
+    border-color: var(--status-danger-soft-border);
+    color: var(--status-danger);
+    background: var(--status-danger-soft-bg);
+  }
+}
+.comment-card { position: relative; padding: .75rem .9rem; margin-bottom: .5rem; border: 1px solid $color-border; border-radius: 12px; background: $color-bg; transition: border-color .2s, box-shadow .2s; .dark & { border-color: $color-dark-border; background: $color-dark-bg-secondary; } }
 .comment-card.managing { cursor: pointer; }
 .comment-card.selected { border-color: $color-primary; background: rgba($color-primary,.03); }
-.comment-card:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 8px 18px rgba(59,130,246,.08); }
+.comment-card:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 8px 18px rgba(59,130,246,.08); .dark & { border-color: rgba(148,163,184,.46); box-shadow: 0 8px 18px rgba(2, 6, 23, .35); } }
 .row-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .25rem; min-height: 20px; padding-right: 1.5rem; }
 .post-link { font-size: .8rem; color: $color-primary; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.post-link.disabled { color: $color-text-muted; }
-.meta-likes { display: inline-flex; align-items: center; gap: .15rem; font-size: .7rem; color: $color-text-muted; }
-.meta-time { font-size: .7rem; color: $color-text-muted; white-space: nowrap; }
-.status-badge { padding: 0 .3rem; border-radius: 999px; font-size: .6rem; line-height: 1.6; background: #fef3c7; color: #92400e; }
-.comment-text { font-size: .85rem; line-height: 1.5; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.reply-prefix { color: #94a3b8; font-size: .8rem; }
-.delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .2s, color .2s, background-color .2s; }
+.post-link.disabled { color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
+.meta-likes { display: inline-flex; align-items: center; gap: .15rem; font-size: .7rem; color: $color-text-muted; .dark & { color: $color-dark-text-muted; } }
+.meta-time { font-size: .7rem; color: $color-text-muted; white-space: nowrap; .dark & { color: $color-dark-text-muted; } }
+.status-badge {
+  padding: 0 .3rem;
+  border-radius: 999px;
+  font-size: .6rem;
+  line-height: 1.6;
+  background: var(--status-warning-soft-bg);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning-soft-border);
+  .dark & {
+    background: var(--status-warning-soft-bg);
+    color: var(--status-warning);
+    border: 1px solid var(--status-warning-soft-border);
+  }
+}
+.comment-text { font-size: .85rem; line-height: 1.5; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: $color-text; .dark & { color: $color-dark-text; } }
+.reply-prefix { color: #94a3b8; font-size: .8rem; .dark & { color: $color-dark-text-muted; } }
+.delete-btn { position: absolute; top: .375rem; right: .375rem; width: 24px; height: 24px; border: none; border-radius: $radius-sm; background: rgba(0,0,0,.04); color: $color-text-muted; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .2s, color .2s, background-color .2s; .dark & { background: rgba(148,163,184,.14); color: $color-dark-text-muted; } }
 .comment-card:hover .delete-btn { opacity: 1; }
 .delete-btn:hover,
-.delete-btn:focus-visible { color: #dc2626; background: #fee2e2; }
+.delete-btn:focus-visible {
+  color: var(--status-danger);
+  background: var(--status-danger-soft-bg);
+  .dark & {
+    color: var(--status-danger);
+    background: var(--status-danger-soft-bg);
+  }
+}
 .empty-state {
   text-align: center;
   padding: 4rem 1rem;
@@ -197,6 +236,7 @@ onMounted(() => loadData())
   align-items: center;
   justify-content: center;
   gap: .5rem;
+  .dark & { color: $color-dark-text-muted; border-color: rgba(148,163,184,.32); background: $color-dark-bg-secondary; }
 }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

@@ -230,7 +230,7 @@ onUnmounted(() => {
   width: 26px; height: 26px; border-radius: 6px;
   color: #999; transition: all 0.2s;
   &:hover { background: #f0f7ff; color: $color-primary; }
-  .dark & { color: #64748b; &:hover { background: rgba(59,130,246,0.1); color: $color-primary; } }
+  .dark & { color: $color-dark-text-muted; &:hover { background: rgba(59,130,246,0.1); color: $color-primary; } }
 }
 .toc-items {
   max-height: min(300px, calc(70vh - 100px));
@@ -239,7 +239,7 @@ onUnmounted(() => {
   padding-right: 2px;
   margin-left: 2px;
   border-left: 1.5px solid #eef2f6;
-  .dark & { border-left-color: #2d3748; }
+  .dark & { border-left-color: $color-dark-border; }
   mask-image: linear-gradient(to bottom, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
   padding-top: 2px; padding-bottom: 2px;
@@ -268,7 +268,7 @@ onUnmounted(() => {
     background: #f0f7ff;
     .dark & { color: #60a5fa; border-left-color: #60a5fa; background: rgba(59,130,246,0.1); }
   }
-  .dark & { color: #94a3b8; }
+  .dark & { color: $color-dark-text-muted; }
   .toc-text {
     display: block;
     overflow: hidden;
@@ -280,9 +280,9 @@ onUnmounted(() => {
   &.level-3 { padding-left: 28px; font-size: 0.775rem; }
   &.level-4 { padding-left: 38px; font-size: 0.75rem; color: #94a3b8; }
 }
-.no-toc {
+  .no-toc {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #999; padding: 1.5rem 0; font-size: 0.85rem; gap: 0.5rem;
-  .dark & { color: #64748b; }
+  .dark & { color: $color-dark-text-muted; }
 }
 </style>
