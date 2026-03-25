@@ -8,13 +8,13 @@
     <!-- 封面图 -->
     <div class="card-cover">
       <img
-        v-if="post.coverImage"
+        v-if="post.coverImage && !imageError"
         :src="post.coverImage"
         :alt="post.title"
         loading="lazy"
         @error="handleImageError"
       />
-      <div v-else class="cover-placeholder" :style="placeholderStyle">
+      <div v-else class="cover-placeholder">
         <span class="placeholder-char">{{ titleFirstChar }}</span>
       </div>
     </div>
@@ -89,28 +89,11 @@ const props = withDefaults(defineProps<Props>(), {
   showAuthor: true,
 })
 
-// 渐变色预设，用于无封面图时的占位背景
-const GRADIENTS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-  'linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)',
-  'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
-]
-
 /** 标题首字，用于占位图显示 */
 const titleFirstChar = computed(() => {
   const title = props.post.title || ''
   return title.charAt(0) || '?'
 })
-
-/** 根据文章 ID 选择渐变色 */
-const placeholderStyle = computed(() => ({
-  background: GRADIENTS[Math.abs(props.post.id) % GRADIENTS.length],
-}))
 
 /** 图片加载失败时的回退处理 */
 const imageError = ref(false)
@@ -228,7 +211,10 @@ function handleImageError(e: Event) {
   border-radius: $radius-lg 0 0 $radius-lg;
 
   .dark & {
-    background: #1a2332;
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
   }
 
   img {
@@ -251,6 +237,14 @@ function handleImageError(e: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
+
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
 }
 
 .placeholder-char {

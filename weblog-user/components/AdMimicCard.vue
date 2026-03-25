@@ -164,7 +164,7 @@ watch(() => props.ad.content, () => {
 }
 
 .ad-mimic-card {
-  --ad-mimic-media-bg: linear-gradient(180deg, #f3f6fb, #e8edf5);
+  --ad-mimic-media-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
 
   display: flex;
   flex-direction: column;
@@ -190,7 +190,10 @@ watch(() => props.ad.content, () => {
   }
 
   .dark & {
-    --ad-mimic-media-bg: linear-gradient(180deg, #1f2937, #111827);
+    --ad-mimic-media-bg:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
 
@@ -221,26 +224,41 @@ watch(() => props.ad.content, () => {
 }
 
 .ad-apply-btn {
-  border: 1px solid rgba(59, 130, 246, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #1d4ed8;
-  background: rgba(239, 246, 255, 0.95);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.62);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
   cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 
   &:hover {
-    border-color: rgba(37, 99, 235, 0.56);
-    color: #1e40af;
-    background: rgba(219, 234, 254, 0.98);
+    border-color: rgba(226, 232, 240, 0.42);
+    color: #ffffff;
+    background: rgba(30, 41, 59, 0.86);
+    transform: translate3d(0, -1px, 0);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.34);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 1px;
   }
 
   .dark & {
-    border-color: rgba(96, 165, 250, 0.42);
-    color: #bfdbfe;
-    background: rgba(30, 58, 138, 0.32);
+    border-color: rgba(148, 163, 184, 0.42);
+    color: #e2e8f0;
+    background: rgba(2, 6, 23, 0.74);
+
+    &:hover {
+      border-color: rgba(203, 213, 225, 0.52);
+      background: rgba(15, 23, 42, 0.92);
+      color: #f8fafc;
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.4);
+    }
   }
 }
 
@@ -259,11 +277,7 @@ watch(() => props.ad.content, () => {
 }
 
 .ad-cover-wrap.is-broken {
-  background: linear-gradient(180deg, #eef2f7, #e2e8f0);
-
-  .dark & {
-    background: linear-gradient(180deg, #1f2937, #111827);
-  }
+  background: var(--ad-mimic-media-bg);
 }
 
 .ad-cover {
@@ -290,13 +304,13 @@ watch(() => props.ad.content, () => {
   gap: 0.35rem;
   padding: 0.8rem;
   text-align: center;
-  color: #334155;
-  background: linear-gradient(180deg, #eef2f7, #e2e8f0);
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.86));
   font-size: 0.72rem;
 
   .dark & {
     color: #cbd5e1;
-    background: linear-gradient(180deg, #1f2937, #111827);
+    background: var(--ad-mimic-media-bg);
   }
 }
 
@@ -503,8 +517,8 @@ watch(() => props.ad.content, () => {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    border-color: rgba(59, 130, 246, 0.42);
-    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
   }
 
   .ad-cover-fallback {

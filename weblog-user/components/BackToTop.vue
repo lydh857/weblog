@@ -39,6 +39,8 @@ const radius = 23
 const circumference = 2 * Math.PI * radius
 const dashOffset = computed(() => circumference * (1 - progress.value / 100))
 
+let bodyMutationObserver: MutationObserver | null = null
+
 function handleScroll() {
   visible.value = window.scrollY > props.threshold
   const total = document.documentElement.scrollHeight - window.innerHeight
@@ -51,11 +53,26 @@ function scrollToTop() {
 
 onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('resize', handleScroll, { passive: true })
+
+  if (typeof MutationObserver !== 'undefined') {
+    bodyMutationObserver = new MutationObserver(() => {
+      handleScroll()
+    })
+    bodyMutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    })
+  }
+
   handleScroll()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', handleScroll)
+  bodyMutationObserver?.disconnect()
+  bodyMutationObserver = null
 })
 </script>
 

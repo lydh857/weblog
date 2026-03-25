@@ -84,12 +84,12 @@ html.dark {
   --status-success: #86efac;
   --status-success-soft-bg: rgba(34, 197, 94, 0.14);
   --status-success-soft-border: rgba(134, 239, 172, 0.56);
-  --status-warning: #fde68a;
-  --status-warning-soft-bg: rgba(250, 204, 21, 0.16);
-  --status-warning-soft-border: rgba(250, 204, 21, 0.56);
-  --status-danger: #fda4af;
-  --status-danger-soft-bg: rgba(239, 68, 68, 0.16);
-  --status-danger-soft-border: rgba(252, 165, 165, 0.52);
+  --status-warning: #fbbf24;
+  --status-warning-soft-bg: rgba(251, 191, 36, 0.22);
+  --status-warning-soft-border: rgba(251, 191, 36, 0.62);
+  --status-danger: #fb7185;
+  --status-danger-soft-bg: rgba(244, 63, 94, 0.22);
+  --status-danger-soft-border: rgba(251, 113, 133, 0.62);
 }
 
 @media (max-width: $breakpoint-md) {

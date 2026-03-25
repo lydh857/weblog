@@ -22,7 +22,7 @@
             :title="currentItem.title"
           >
             <span class="ticker-link__text">{{ currentItem.title }}</span>
-            <span class="ticker-fire" aria-hidden="true">
+            <span class="ticker-fire" :style="getTickerFireStyle(activeIndex + 1)" aria-hidden="true">
               <Icon name="heroicons:fire-16-solid" size="14" />
             </span>
           </span>
@@ -75,6 +75,23 @@ function emitDirectSearch() {
   emit('direct-search', getCurrentTitle())
 }
 
+function getHeatColor(rank: number): string {
+  if (rank <= 1) return '#ef4444'
+  if (rank <= 2) return '#f56565'
+  if (rank <= 3) return '#f87171'
+  if (rank <= 5) return '#fb923c'
+  if (rank <= 8) return '#fdba74'
+  return '#94a3b8'
+}
+
+function getTickerFireStyle(rank: number): Record<string, string> {
+  const color = getHeatColor(rank)
+  return {
+    color,
+    filter: `drop-shadow(0 0 6px ${color}66)`,
+  }
+}
+
 function stopTicker() {
   if (tickerTimer) {
     clearInterval(tickerTimer)
@@ -113,6 +130,11 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .home-nav-search {
+  --home-nav-search-bg-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
+
   flex: 0 1 460px;
   min-width: 280px;
   max-width: 460px;
@@ -131,7 +153,7 @@ onUnmounted(() => {
 
   .dark & {
     border-color: rgba(71, 85, 105, 0.72);
-    background: rgba(15, 23, 42, 0.78);
+    background: var(--home-nav-search-bg-dark);
     box-shadow: 0 12px 32px rgba(2, 6, 23, 0.28);
   }
 
@@ -276,11 +298,9 @@ onUnmounted(() => {
 
 .ticker-fire {
   flex-shrink: 0;
-  color: #fb923c;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.35));
   animation: flame-flicker 1.15s ease-in-out infinite;
 }
 

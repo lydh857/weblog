@@ -24,6 +24,8 @@ const isDragging = ref(false)
 const status = ref<'idle' | 'success' | 'fail'>('idle')
 const resultMessage = ref('')
 const isRefreshing = ref(false)
+const isDarkMode = ref(false)
+let themeObserver: MutationObserver | null = null
 
 // 叠化效果：双缓冲图片
 const bgImages = reactive<Array<{ src: string; active: boolean }>>([
@@ -196,16 +198,42 @@ function close() {
   sliderLeft.value = 0
 }
 
+function syncDarkMode() {
+  if (!import.meta.client) return
+  const root = document.documentElement
+  const body = document.body
+  isDarkMode.value = root.classList.contains('dark') || body.classList.contains('dark')
+}
+
 // 显示时自动加载
 watch(() => props.visible, (val) => {
   if (val) loadCaptcha()
+})
+
+onMounted(() => {
+  if (!import.meta.client) return
+  syncDarkMode()
+  themeObserver = new MutationObserver(syncDarkMode)
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme'],
+  })
+  themeObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme'],
+  })
+})
+
+onUnmounted(() => {
+  themeObserver?.disconnect()
+  themeObserver = null
 })
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="captcha-fade">
-      <div v-if="visible" class="captcha-overlay" @click.self="close">
+      <div v-if="visible" class="captcha-overlay" :class="{ 'captcha-overlay--dark': isDarkMode }" @click.self="close">
         <div class="captcha-modal">
           <!-- 标题栏 -->
           <div class="captcha-header">
@@ -304,38 +332,77 @@ watch(() => props.visible, (val) => {
 
 <style scoped lang="scss">
 .captcha-overlay {
+  --captcha-overlay-bg: rgba(0, 0, 0, 0.5);
+  --captcha-modal-bg: #ffffff;
+  --captcha-modal-border: transparent;
+  --captcha-modal-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  --captcha-header-bg: linear-gradient(135deg, #4e80ee 0%, #6a9bff 100%);
+  --captcha-header-text: #ffffff;
+  --captcha-close-hover-bg: rgba(255, 255, 255, 0.15);
+  --captcha-image-bg: #f1f5f9;
+  --captcha-loading-bg: rgba(255, 255, 255, 0.7);
+  --captcha-refresh-bg: rgba(0, 0, 0, 0.2);
+  --captcha-refresh-hover-bg: rgba(0, 0, 0, 0.5);
+  --captcha-track-bg: #f0f2f5;
+  --captcha-track-shadow: 0 2px 5px rgba(0, 0, 0, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  --captcha-progress-bg: rgba(78, 128, 238, 0.1);
+  --captcha-thumb-bg: #4e80ee;
+  --captcha-thumb-hover-bg: #40a9ff;
+  --captcha-hint: #999;
+
   position: fixed; inset: 0; z-index: var(--z-captcha);
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--captcha-overlay-bg);
+  backdrop-filter: blur(4px);
+
+}
+
+.captcha-overlay--dark {
+  --captcha-overlay-bg: rgba(0, 0, 0, 0.5);
+  --captcha-modal-bg: linear-gradient(180deg, #171b20, #101215);
+  --captcha-modal-border: rgba(148, 163, 184, 0.2);
+  --captcha-modal-shadow: 0 16px 36px rgba(2, 6, 23, 0.48);
+  --captcha-header-bg: linear-gradient(180deg, rgba(8, 10, 14, 0.96), rgba(20, 24, 31, 0.96));
+  --captcha-header-text: #f8fafc;
+  --captcha-close-hover-bg: rgba(148, 163, 184, 0.16);
+  --captcha-image-bg: rgba(8, 10, 14, 0.92);
+  --captcha-loading-bg: rgba(8, 10, 14, 0.74);
+  --captcha-refresh-bg: rgba(8, 10, 14, 0.72);
+  --captcha-refresh-hover-bg: rgba(20, 24, 31, 0.92);
+  --captcha-track-bg: rgba(8, 10, 14, 0.9);
+  --captcha-track-shadow: 0 4px 12px rgba(2, 6, 23, 0.4), inset 0 1px 3px rgba(2, 6, 23, 0.45);
+  --captcha-progress-bg: rgba(148, 163, 184, 0.14);
+  --captcha-thumb-bg: rgba(8, 10, 14, 0.96);
+  --captcha-thumb-hover-bg: rgba(20, 24, 31, 0.96);
+  --captcha-hint: #94a3b8;
 }
 
 .captcha-modal {
-  background: #fff; border-radius: 8px; overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  background: var(--captcha-modal-bg); border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--captcha-modal-border);
+  box-shadow: var(--captcha-modal-shadow);
   user-select: none; touch-action: none;
-  :global(html.dark) & { background: $color-dark-bg-elevated; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); border: 1px solid rgba(148,163,184,0.14); }
 }
 
 .captcha-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 15px;
-  background: linear-gradient(135deg, #4e80ee 0%, #6a9bff 100%);
-  color: #fff; font-size: 0.95rem; font-weight: 500;
+  background: var(--captcha-header-bg);
+  color: var(--captcha-header-text); font-size: 0.95rem; font-weight: 500;
 }
 
 .captcha-close-btn {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 6px;
-  background: none; border: none; color: #fff; cursor: pointer;
+  background: none; border: none; color: var(--captcha-header-text); cursor: pointer;
   opacity: 0.8; transition: all 0.2s;
-  &:hover { opacity: 1; background: rgba(255, 255, 255, 0.15); }
+  &:hover { opacity: 1; background: var(--captcha-close-hover-bg); }
 }
 
 .captcha-image-area {
   position: relative; overflow: hidden; margin: 15px;
   border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  background: #f1f5f9;
-  :global(html.dark) & { background: $color-dark-bg-secondary; }
+  background: var(--captcha-image-bg);
 }
 
 // 叠化容器
@@ -368,25 +435,28 @@ watch(() => props.visible, (val) => {
 // 加载
 .captcha-loading {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(255, 255, 255, 0.7); z-index: 20;
-  :global(html.dark) & { background: rgba(16, 18, 21, 0.72); }
+  background: var(--captcha-loading-bg); z-index: 20;
 }
 
 .captcha-spinner {
   width: 36px; height: 36px;
   border: 3px solid rgba(0, 0, 0, 0.1); border-left-color: #4e80ee;
   border-radius: 50%; animation: captcha-spin 1s linear infinite;
-  :global(html.dark) & { border-color: rgba(255, 255, 255, 0.1); border-left-color: #6a9bff; }
+}
+
+.captcha-overlay--dark .captcha-spinner {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: #cbd5e1;
 }
 
 // 刷新按钮
 .captcha-refresh-btn {
   position: absolute; top: 10px; right: 10px; z-index: 10;
   width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(0, 0, 0, 0.2); border: none;
+  background: var(--captcha-refresh-bg); border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex; align-items: center; justify-content: center;
   color: #fff; cursor: pointer; transition: background-color 0.3s;
-  &:hover { background: rgba(0, 0, 0, 0.5); transform: rotate(30deg); transition: background-color 0.3s, transform 0.3s; }
+  &:hover { background: var(--captcha-refresh-hover-bg); transform: rotate(30deg); transition: background-color 0.3s, transform 0.3s; }
   &.refreshing { cursor: default; animation: captcha-spin 1s linear infinite; }
 }
 
@@ -408,14 +478,13 @@ watch(() => props.visible, (val) => {
 // 滑动轨道
 .captcha-slider-track {
   position: relative; height: 40px; margin: 0 15px 15px;
-  background: #f0f2f5; border-radius: 5px; overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
-  :global(html.dark) & { background: $color-dark-bg-secondary; }
+  background: var(--captcha-track-bg); border-radius: 5px; overflow: hidden;
+  box-shadow: var(--captcha-track-shadow);
 }
 
 .captcha-slider-progress {
   position: absolute; left: 0; top: 0; height: 100%;
-  background: rgba(78, 128, 238, 0.1); transition: background-color 0.3s;
+  background: var(--captcha-progress-bg); transition: background-color 0.3s;
   &.success { background: rgba(34, 197, 94, 0.1); }
   &.fail { background: rgba(239, 68, 68, 0.1); }
 }
@@ -423,12 +492,12 @@ watch(() => props.visible, (val) => {
 .captcha-slider-thumb {
   position: absolute; top: 0;
   width: 40px; height: 40px; border-radius: 5px;
-  background: #4e80ee; color: #fff; cursor: grab;
+  background: var(--captcha-thumb-bg); color: #fff; cursor: grab;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   transition: background-color 0.3s;
   z-index: 2;
-  &:hover { background: #40a9ff; }
+  &:hover { background: var(--captcha-thumb-hover-bg); }
   &.dragging { cursor: grabbing; }
   &.success { background: #22c55e; }
   &.fail { background: #ef4444; }
@@ -436,7 +505,7 @@ watch(() => props.visible, (val) => {
 
 .captcha-slider-hint {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 0.8rem; color: #999; pointer-events: none; z-index: 1;
+  font-size: 0.8rem; color: var(--captcha-hint); pointer-events: none; z-index: 1;
 }
 
 // ===== 动画 =====

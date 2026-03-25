@@ -17,10 +17,11 @@
       @touchend="handleTouchEnd"
       @touchcancel="handleTouchCancel"
     >
-      <div class="tabs">
+      <div ref="tabsRef" class="tabs">
         <button
           v-for="tab in tabs"
           :key="tab.value"
+          :ref="(el) => setTabButtonRef(tab.value, el)"
           class="tab-btn"
           :class="{ active: rankType === tab.value }"
           @click="switchTab(tab.value)"
@@ -87,6 +88,8 @@ const tabs = [
 ]
 
 const rankType = ref(1)
+const tabsRef = ref<HTMLElement | null>(null)
+const tabButtonRefs = new Map<number, HTMLElement>()
 const limit = 20
 const offset = ref(0)
 const hasMore = ref(true)
@@ -149,6 +152,38 @@ function getItemAnimationStyle(idx: number): Record<string, string> {
   }
 }
 
+function setTabButtonRef(tabValue: number, el: Element | null) {
+  if (el instanceof HTMLElement) {
+    tabButtonRefs.set(tabValue, el)
+    return
+  }
+  tabButtonRefs.delete(tabValue)
+}
+
+function scrollActiveTabIntoView(userTriggered = false) {
+  if (!import.meta.client) {
+    return
+  }
+
+  const tabsEl = tabsRef.value
+  const activeBtn = tabButtonRefs.get(rankType.value)
+  if (!tabsEl || !activeBtn) {
+    return
+  }
+
+  const isMobile = window.innerWidth <= 768
+  if (!isMobile && !userTriggered) {
+    return
+  }
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  activeBtn.scrollIntoView({
+    inline: 'center',
+    block: 'nearest',
+    behavior: userTriggered && !prefersReducedMotion ? 'smooth' : 'auto',
+  })
+}
+
 async function fetchRanking(append = false) {
   const nextAnimationStartIndex = append ? items.value.length : 0
   if (append) {
@@ -195,6 +230,8 @@ async function fetchRanking(append = false) {
 async function switchTab(value: number) {
   if (rankType.value === value) return
   rankType.value = value
+  await nextTick()
+  scrollActiveTabIntoView(true)
   rankingMeta.value = null
   rankingSource.value = 'ranking'
   offset.value = 0
@@ -299,6 +336,9 @@ async function loadMore() {
 
 onMounted(() => {
   fetchRanking(false)
+  nextTick(() => {
+    scrollActiveTabIntoView(false)
+  })
 })
 </script>
 
@@ -384,6 +424,27 @@ onMounted(() => {
     background: $color-primary;
     box-shadow: 0 6px 14px rgba(59, 130, 246, 0.28);
   }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        border-color: rgba(147, 197, 253, 0.56);
+        color: $color-dark-text;
+        background: rgba(148, 163, 184, 0.12);
+      }
+    }
+
+    &.active {
+      border-color: rgba(147, 197, 253, 0.54);
+      color: #f8fbff;
+      background: rgba(59, 130, 246, 0.38);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
+    }
+  }
 }
 
 .state {
@@ -401,12 +462,24 @@ onMounted(() => {
   border: 1px solid rgba(59, 130, 246, 0.22);
   background: rgba(59, 130, 246, 0.05);
   font-size: 0.82rem;
+
+  .dark & {
+    color: var(--status-info);
+    border-color: var(--status-info-soft-border);
+    background: var(--status-info-soft-bg);
+  }
 }
 
 .state--empty {
   min-height: 250px;
   justify-content: center;
   border: 1px dashed rgba(148, 163, 184, 0.5);
+
+  .dark & {
+    color: $color-dark-text-muted;
+    border-color: rgba(148, 163, 184, 0.38);
+    background: rgba(15, 23, 42, 0.24);
+  }
 }
 
 .list {
@@ -458,6 +531,16 @@ onMounted(() => {
     transform: translateY(-1px);
     box-shadow: 0 8px 18px rgba(59, 130, 246, 0.1);
   }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: rgba(16, 18, 21, 0.78);
+
+    &:hover {
+      border-color: rgba(147, 197, 253, 0.52);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.44);
+    }
+  }
 }
 
 .rank {
@@ -473,6 +556,11 @@ onMounted(() => {
   &.rank-1 { color: #fff; background: linear-gradient(135deg, #f59e0b, #d97706); }
   &.rank-2 { color: #fff; background: linear-gradient(135deg, #94a3b8, #64748b); }
   &.rank-3 { color: #fff; background: linear-gradient(135deg, #d97706, #b45309); }
+
+  .dark &:not(.rank-1):not(.rank-2):not(.rank-3) {
+    color: $color-dark-text-muted;
+    background: rgba(148, 163, 184, 0.18);
+  }
 }
 
 .content {
@@ -487,11 +575,19 @@ onMounted(() => {
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
+
+    .dark & {
+      color: $color-dark-text;
+    }
   }
   p {
     margin-top: 0.35rem;
     font-size: 0.82rem;
     color: $color-text-muted;
+
+    .dark & {
+      color: $color-dark-text-muted;
+    }
   }
 }
 
@@ -535,6 +631,18 @@ onMounted(() => {
   &:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+  }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
+
+    &:hover:not(:disabled) {
+      border-color: rgba(147, 197, 253, 0.52);
+      color: $color-dark-text;
+      background: rgba(148, 163, 184, 0.12);
+    }
   }
 }
 

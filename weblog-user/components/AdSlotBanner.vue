@@ -481,6 +481,10 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .ad-slot-banner {
   --ad-media-bg: linear-gradient(180deg, #f3f6fb, #e8edf5);
+  --ad-media-bg-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
   --ad-media-overlay: linear-gradient(
     180deg,
     rgba(15, 23, 42, 0) 52%,
@@ -497,7 +501,7 @@ onUnmounted(() => {
   transition: box-shadow 0.3s ease;
 
   .dark & {
-    --ad-media-bg: linear-gradient(180deg, #1f2937, #111827);
+    --ad-media-bg: var(--ad-media-bg-dark);
     --ad-media-overlay: linear-gradient(
       180deg,
       rgba(2, 6, 23, 0) 46%,
@@ -600,7 +604,8 @@ onUnmounted(() => {
   text-align: center;
 
   .dark & {
-    background: linear-gradient(180deg, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.9));
+    background: var(--ad-media-bg-dark);
+    color: #cbd5e1;
   }
 }
 
@@ -702,27 +707,41 @@ onUnmounted(() => {
 }
 
 .ad-apply-btn {
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   padding: 0.34rem 0.72rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #1d4ed8;
-  background: rgba(239, 246, 255, 0.95);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.62);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
   cursor: pointer;
-  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 
   &:hover {
-    border-color: rgba(37, 99, 235, 0.56);
-    color: #1e40af;
-    background: rgba(219, 234, 254, 0.98);
+    border-color: rgba(226, 232, 240, 0.42);
+    color: #ffffff;
+    background: rgba(30, 41, 59, 0.86);
+    transform: translate3d(0, -1px, 0);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.34);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 1px;
   }
 
   .dark & {
-    border-color: rgba(96, 165, 250, 0.45);
-    background: rgba(30, 58, 138, 0.28);
-    color: #bfdbfe;
+    border-color: rgba(148, 163, 184, 0.42);
+    background: rgba(2, 6, 23, 0.74);
+    color: #e2e8f0;
+
+    &:hover {
+      border-color: rgba(203, 213, 225, 0.52);
+      background: rgba(15, 23, 42, 0.92);
+      color: #f8fafc;
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.4);
+    }
   }
 }
 
@@ -797,7 +816,7 @@ onUnmounted(() => {
 
   .dark & {
     border-color: rgba(148, 163, 184, 0.22);
-    background: linear-gradient(180deg, rgba(31, 41, 55, 0.96), rgba(17, 24, 39, 0.98));
+    background: var(--ad-media-bg-dark);
     box-shadow: 0 10px 26px rgba(2, 6, 23, 0.34);
   }
 }
@@ -854,8 +873,8 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    border-color: rgba(59, 130, 246, 0.42);
-    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+    border-color: rgba(255, 255, 255, 0.26);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
   }
 }
 
@@ -905,6 +924,13 @@ onUnmounted(() => {
   bottom: 0.36rem;
 }
 
+.ad-slot-banner--home_left .ad-badge {
+  top: auto;
+  left: auto;
+  right: 0.5rem;
+  bottom: 0.5rem;
+}
+
 .ad-slot-banner--post_top .ad-image,
 .ad-slot-banner--post_bottom .ad-image {
   height: 100%;
@@ -951,15 +977,15 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     border-width: 1px;
-    background: rgba(239, 246, 255, 0.96);
-    border-color: rgba(59, 130, 246, 0.42);
-    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.2);
+    background: rgba(15, 23, 42, 0.68);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
 
     .dark & {
-      background: rgba(30, 41, 59, 0.86);
+      background: rgba(2, 6, 23, 0.8);
       border-color: rgba(148, 163, 184, 0.42);
       color: #e2e8f0;
-      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.32);
+      box-shadow: 0 8px 18px rgba(2, 6, 23, 0.36);
     }
   }
 
@@ -993,7 +1019,8 @@ onUnmounted(() => {
 
   .ad-slot-banner--home_left .ad-badge {
     top: auto;
-    left: 0.62rem;
+    left: auto;
+    right: 0.62rem;
     bottom: 0.68rem;
     font-size: 0.62rem;
   }

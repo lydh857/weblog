@@ -50,16 +50,6 @@
         </p>
       </div>
 
-      <!-- 装饰粒子效果（<480px 隐藏） -->
-      <div class="carousel-particles">
-        <span
-          v-for="i in 5"
-          :key="i"
-          class="particle"
-          :class="`particle-${i}`"
-        />
-      </div>
-
       <!-- 左右切换箭头（多张时显示） -->
       <template v-if="slides.length > 1">
         <button class="carousel-arrow carousel-arrow--left touch-target" aria-label="上一张" @click="goToPrev">
@@ -328,22 +318,32 @@ function handleStartupDone() {
 <style lang="scss" scoped>
 /* ===== 轮播容器 ===== */
 .hero-carousel {
+  --carousel-placeholder-bg: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(15, 23, 42, 0.98) 100%
+  );
+  --carousel-placeholder-bg-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
+
   position: relative;
   width: 100%;
   height: clamp(480px, 80vh, 720px);
   overflow: hidden;
-  background: #0f172a;
+  background: var(--carousel-placeholder-bg);
   margin-top: calc(var(--layout-navbar-height, 60px) * -1); // 覆盖到 fixed 导航栏下方
+
+  .dark & {
+    --carousel-placeholder-bg: var(--carousel-placeholder-bg-dark);
+  }
 }
 
 .carousel-placeholder {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(15, 23, 42, 0.92) 0%,
-    rgba(15, 23, 42, 0.98) 100%
-  );
+  background: var(--carousel-placeholder-bg);
 }
 
 /* ===== 幻灯片 ===== */
@@ -393,12 +393,7 @@ function handleStartupDone() {
   &--placeholder {
     opacity: 1;
     transform: none;
-    background: linear-gradient(
-      160deg,
-      rgba(30, 41, 59, 0.88) 0%,
-      rgba(15, 23, 42, 0.92) 60%,
-      rgba(15, 23, 42, 0.98) 100%
-    );
+    background: var(--carousel-placeholder-bg);
   }
 }
 
@@ -477,86 +472,6 @@ function handleStartupDone() {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* ===== 装饰粒子 ===== */
-.carousel-particles {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.particle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  animation: particleFloat 8s ease-in-out infinite;
-
-  &.particle-1 {
-    width: 6px;
-    height: 6px;
-    top: 20%;
-    left: 15%;
-    animation-delay: 0s;
-    animation-duration: 7s;
-  }
-
-  &.particle-2 {
-    width: 8px;
-    height: 8px;
-    top: 60%;
-    left: 80%;
-    animation-delay: 1.5s;
-    animation-duration: 9s;
-  }
-
-  &.particle-3 {
-    width: 5px;
-    height: 5px;
-    top: 35%;
-    left: 65%;
-    animation-delay: 3s;
-    animation-duration: 6s;
-  }
-
-  &.particle-4 {
-    width: 10px;
-    height: 10px;
-    top: 75%;
-    left: 25%;
-    animation-delay: 2s;
-    animation-duration: 10s;
-  }
-
-  &.particle-5 {
-    width: 4px;
-    height: 4px;
-    top: 45%;
-    left: 45%;
-    animation-delay: 4s;
-    animation-duration: 8s;
-  }
-}
-
-@keyframes particleFloat {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.3;
-  }
-  25% {
-    transform: translate(15px, -20px) scale(1.2);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translate(-10px, -35px) scale(0.8);
-    opacity: 0.4;
-  }
-  75% {
-    transform: translate(20px, -15px) scale(1.1);
-    opacity: 0.5;
   }
 }
 
@@ -707,12 +622,8 @@ function handleStartupDone() {
   }
 }
 
-/* 超小屏：隐藏粒子 */
+/* 超小屏 */
 @media (max-width: 480px) {
-  .carousel-particles {
-    display: none;
-  }
-
   .carousel-indicators {
     bottom: 28px;
     gap: 0.28rem;
@@ -752,10 +663,6 @@ function handleStartupDone() {
   .slide-bg {
     transition: opacity 200ms ease;
     transform: none !important;
-  }
-
-  .particle {
-    animation: none;
   }
 
   .carousel-title,

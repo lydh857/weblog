@@ -16,13 +16,19 @@
                 v-model="keyword"
                 type="text"
                 class="search-input"
-                :placeholder="inputPlaceholderText"
+                :placeholder="actualInputPlaceholder"
                 autocomplete="off"
                 @input="handleInput"
               />
+              <span v-if="showPlaceholderFire" class="input-placeholder-with-fire" aria-hidden="true">
+                <span class="input-placeholder-text">{{ inputPlaceholderText }}</span>
+                <span class="placeholder-fire">
+                  <Icon name="heroicons:fire-16-solid" size="16" />
+                </span>
+              </span>
               <button
                 type="button"
-                class="clear-btn touch-target"
+                class="clear-btn"
                 :class="{ 'clear-btn--visible': hasKeyword }"
                 :aria-hidden="!hasKeyword"
                 :tabindex="hasKeyword ? 0 : -1"
@@ -33,7 +39,7 @@
               </button>
               <button
                 type="button"
-                class="search-submit-btn touch-target"
+                class="search-submit-btn"
                 aria-label="搜索"
                 @click="handleSearchSubmit"
               >
@@ -232,6 +238,8 @@ const hasSearched = ref(false)
 const shouldShowEmpty = computed(() => hasKeyword.value && hasSearched.value && !searching.value && results.value.length === 0)
 const DEFAULT_SEARCH_PLACEHOLDER = '搜索文章...'
 const inputPlaceholderText = ref(DEFAULT_SEARCH_PLACEHOLDER)
+const showPlaceholderFire = computed(() => !keyword.value.trim() && inputPlaceholderText.value !== DEFAULT_SEARCH_PLACEHOLDER)
+const actualInputPlaceholder = computed(() => (showPlaceholderFire.value ? '' : inputPlaceholderText.value))
 
 // ===== 搜索历史（localStorage 持久化） =====
 const HISTORY_KEY = 'weblog_search_history'
@@ -629,6 +637,17 @@ onUnmounted(() => {
 
 /* ===== 模态框主体 ===== */
 .search-modal {
+  --search-muted: #64748b;
+  --search-muted-strong: #475569;
+  --search-surface: rgba(248, 250, 252, 0.96);
+  --search-surface-soft: rgba(148, 163, 184, 0.1);
+  --search-border-soft: rgba(148, 163, 184, 0.44);
+  --search-hover-soft: rgba(148, 163, 184, 0.16);
+  --search-shell-bg-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
+
   position: relative;
   width: 90%;
   max-width: 640px;
@@ -642,7 +661,14 @@ onUnmounted(() => {
   overflow: hidden;
 
   .dark & {
-    background: $color-dark-bg-secondary;
+    --search-muted: #9aa5b5;
+    --search-muted-strong: #d6dbe4;
+    --search-surface: rgba(16, 18, 21, 0.92);
+    --search-surface-soft: rgba(148, 163, 184, 0.14);
+    --search-border-soft: rgba(71, 85, 105, 0.55);
+    --search-hover-soft: rgba(148, 163, 184, 0.2);
+
+    background: var(--search-shell-bg-dark);
     border-color: rgba(71, 85, 105, 0.55);
     box-shadow: 0 28px 70px rgba(2, 6, 23, 0.62);
   }
@@ -654,10 +680,10 @@ onUnmounted(() => {
   height: 44px;
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid rgba(148, 163, 184, 0.44);
+  border: 1px solid var(--search-border-soft);
   border-radius: 12px;
-  background: rgba(248, 250, 252, 0.96);
-  color: $color-text-muted;
+  background: var(--search-surface);
+  color: var(--search-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -666,19 +692,19 @@ onUnmounted(() => {
 
   &:hover {
     color: $color-text;
-    border-color: $color-primary;
-    background: #fff;
+    border-color: rgba(100, 116, 139, 0.26);
+    background: rgba(148, 163, 184, 0.16);
   }
 
   .dark & {
-    background: rgba(15, 23, 42, 0.92);
-    border-color: $color-dark-border;
-    color: #94a3b8;
+    background: var(--search-surface);
+    border-color: var(--search-border-soft);
+    color: var(--search-muted);
 
     &:hover {
-      color: $color-dark-text;
-      border-color: $color-primary;
-      background: rgba(15, 23, 42, 1);
+      color: var(--search-muted-strong);
+      border-color: rgba(148, 163, 184, 0.28);
+      background: var(--search-hover-soft);
     }
   }
 }
@@ -694,37 +720,61 @@ onUnmounted(() => {
 
   .dark & {
     border-bottom-color: $color-dark-border;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7));
+    background: var(--search-shell-bg-dark);
   }
 }
 
 .search-input-wrapper {
   flex: 1;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.12rem;
   box-sizing: border-box;
   border: 1px solid $color-border;
   border-radius: 12px;
-  height: 48px;
-  padding: 0 0.42rem;
-  background: rgba(255, 255, 255, 0.9);
+  height: 44px;
+  padding: 0 0.3rem;
+  background: var(--search-surface);
+  gap: 0.08rem;
+
   .dark & {
     border-color: $color-dark-border;
-    background: rgba(15, 23, 42, 0.78);
+    background: var(--search-surface);
   }
+}
+
+.input-placeholder-with-fire {
+  position: absolute;
+  left: 0.72rem;
+  right: 5.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.input-placeholder-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--search-muted);
 }
 
 .search-submit-btn {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   border: 1px solid transparent;
-  border-radius: 12px;
-  background: rgba(148, 163, 184, 0.1);
-  color: $color-text-muted;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--search-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -732,18 +782,18 @@ onUnmounted(() => {
   transition: color 0.18s ease, background 0.18s ease;
 
   &:hover {
-    color: $color-primary;
-    border-color: rgba(59, 130, 246, 0.3);
-    background: rgba(59, 130, 246, 0.14);
+    color: $color-text;
+    border-color: rgba(100, 116, 139, 0.26);
+    background: rgba(148, 163, 184, 0.16);
   }
 
   .dark & {
-    color: #64748b;
+    color: var(--search-muted);
 
     &:hover {
-      color: #93c5fd;
-      border-color: rgba(96, 165, 250, 0.34);
-      background: rgba(59, 130, 246, 0.28);
+      color: var(--search-muted-strong);
+      border-color: rgba(148, 163, 184, 0.28);
+      background: var(--search-hover-soft);
     }
   }
 }
@@ -759,33 +809,58 @@ onUnmounted(() => {
   line-height: 1.4;
 
   &::placeholder {
-    color: $color-text-muted;
+    color: var(--search-muted);
   }
 
   .dark & {
     color: $color-dark-text;
 
     &::placeholder {
-      color: #64748b;
+      color: var(--search-muted);
     }
+  }
+}
+
+.placeholder-fire {
+  flex-shrink: 0;
+  color: #fb923c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.4));
+  animation: flame-flicker 1.15s ease-in-out infinite;
+}
+
+@keyframes flame-flicker {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.92;
+  }
+  35% {
+    transform: translate3d(0, -1px, 0) scale(1.08);
+    opacity: 1;
+  }
+  68% {
+    transform: translate3d(0, 0.5px, 0) scale(0.96);
+    opacity: 0.82;
   }
 }
 
 .clear-btn {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
-  background: rgba(148, 163, 184, 0.1);
-  color: $color-text-muted;
+  background: transparent;
+  color: var(--search-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   opacity: 0;
   pointer-events: none;
   transition: color 0.2s, opacity 0.18s, background 0.18s, border-color 0.18s;
@@ -797,12 +872,12 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #64748b;
+    color: var(--search-muted);
 
     &:hover {
-      color: $color-dark-text;
+      color: var(--search-muted-strong);
       border-color: rgba(148, 163, 184, 0.28);
-      background: rgba(100, 116, 139, 0.24);
+      background: var(--search-hover-soft);
     }
   }
 }
@@ -821,6 +896,29 @@ onUnmounted(() => {
 
 .search-body--results {
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.5);
+  }
+
+  .dark & {
+    scrollbar-color: rgba(148, 163, 184, 0.36) transparent;
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.36);
+    }
+  }
 }
 
 .search-body--ranking {
@@ -854,6 +952,17 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.search-body--ranking .ranking-section :deep(.ranking-list .ranking-tabs) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.search-body--ranking .ranking-section :deep(.ranking-list .ranking-tabs::-webkit-scrollbar) {
+  display: none;
+}
+
 .search-body--ranking .ranking-section :deep(.ranking-list .ranking-body) {
   flex: 1;
   min-height: 0;
@@ -882,7 +991,7 @@ onUnmounted(() => {
   color: $color-text-muted;
 
   .dark & {
-    color: #94a3b8;
+    color: $color-dark-text-muted;
   }
 }
 
@@ -902,7 +1011,7 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #64748b;
+    color: $color-dark-text-muted;
 
     &:hover {
       color: var(--status-danger);
@@ -983,7 +1092,7 @@ onUnmounted(() => {
 
   .dark & {
     background: $color-dark-bg;
-    color: #64748b;
+    color: $color-dark-text-muted;
     box-shadow: 0 0 0 1px $color-dark-border;
 
     &:hover {
@@ -1029,6 +1138,10 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.15s;
 
+  .dark & {
+    border: 1px solid transparent;
+  }
+
   &:hover,
   &.active {
     background: rgba(59, 130, 246, 0.06);
@@ -1038,6 +1151,7 @@ onUnmounted(() => {
     &:hover,
     &.active {
       background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(148, 163, 184, 0.26);
     }
   }
 }
@@ -1083,7 +1197,7 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #94a3b8;
+    color: $color-dark-text-muted;
   }
 }
 
@@ -1097,7 +1211,7 @@ onUnmounted(() => {
   color: $color-text-muted;
 
   .dark & {
-    color: #64748b;
+    color: $color-dark-text-muted;
   }
 }
 
@@ -1118,7 +1232,7 @@ onUnmounted(() => {
   color: $color-text-muted;
 
   .dark & {
-    color: #64748b;
+    color: $color-dark-text-muted;
   }
 }
 
@@ -1222,7 +1336,7 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #64748b;
+    color: $color-dark-text-muted;
   }
 }
 
@@ -1270,7 +1384,7 @@ onUnmounted(() => {
   color: $color-text-muted;
 
   .dark & {
-    color: #64748b;
+    color: $color-dark-text-muted;
   }
 
   kbd {
@@ -1285,7 +1399,7 @@ onUnmounted(() => {
     line-height: 1.4;
 
     .dark & {
-      color: #64748b;
+      color: $color-dark-text-muted;
       background: $color-dark-bg;
       border-color: $color-dark-border;
     }
@@ -1345,6 +1459,7 @@ onUnmounted(() => {
 
 /* ===== 减少动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
+  .placeholder-fire,
   .modal-enter-active,
   .modal-leave-active,
   .modal-enter-active .search-modal,

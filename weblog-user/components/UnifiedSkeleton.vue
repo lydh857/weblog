@@ -61,8 +61,12 @@ withDefaults(defineProps<{
 
 <style scoped lang="scss">
 .unified-skeleton {
-  --sk-base: rgba(148, 163, 184, 0.18);
-  --sk-shine: rgba(255, 255, 255, 0.72);
+  --sk-shimmer: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.16) 0%,
+    rgba(148, 163, 184, 0.3) 50%,
+    rgba(148, 163, 184, 0.16) 100%
+  );
   --sk-border: rgba(148, 163, 184, 0.24);
   display: grid;
   gap: 1rem;
@@ -108,18 +112,30 @@ withDefaults(defineProps<{
 }
 
 .skeleton-item::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(105deg, transparent 35%, var(--sk-shine) 50%, transparent 65%);
-  animation: skeletonSweep 1.35s ease-in-out infinite;
+  content: none;
 }
 
 .skeleton-block,
 .skeleton-line,
 .skeleton-avatar {
-  background: var(--sk-base);
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.variant-article .skeleton-cover,
+.variant-friend-link .skeleton-avatar {
+  background: var(--sk-shimmer);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.4s linear infinite;
+}
+
+.variant-article .skeleton-line,
+.variant-friend-link .skeleton-line {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.variant-article .skeleton-meta-row .skeleton-line,
+.variant-friend-link .skeleton-meta-row .skeleton-line {
+  background: rgba(148, 163, 184, 0.18);
 }
 
 .skeleton-cover {
@@ -190,22 +206,47 @@ withDefaults(defineProps<{
 .w-92 { width: 92%; }
 
 .dark .unified-skeleton {
-  --sk-base: rgba(71, 85, 105, 0.32);
-  --sk-shine: rgba(148, 163, 184, 0.2);
+  --sk-shell-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
+  --sk-shimmer: linear-gradient(
+    90deg,
+    rgba(71, 85, 105, 0.24) 0%,
+    rgba(100, 116, 139, 0.4) 50%,
+    rgba(71, 85, 105, 0.24) 100%
+  );
   --sk-border: rgba(71, 85, 105, 0.34);
 }
 
 .dark .skeleton-item {
-  background: rgba(15, 23, 42, 0.72);
+  background: var(--sk-shell-dark);
 }
 
-@keyframes skeletonSweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+.dark .variant-article .skeleton-line,
+.dark .variant-friend-link .skeleton-line {
+  background: rgba(100, 116, 139, 0.3);
+}
+
+.dark .variant-article .skeleton-meta-row .skeleton-line,
+.dark .variant-friend-link .skeleton-meta-row .skeleton-line {
+  background: rgba(100, 116, 139, 0.28);
+}
+
+.variant-topic .skeleton-topic-cover,
+.variant-topic .skeleton-line {
+  background: var(--sk-shimmer);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.4s linear infinite;
+}
+
+.dark .variant-topic .skeleton-line {
+  background: var(--sk-shimmer);
+}
+
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -242,7 +283,10 @@ withDefaults(defineProps<{
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton-item::after {
+  .variant-article .skeleton-cover,
+  .variant-friend-link .skeleton-avatar,
+  .variant-topic .skeleton-topic-cover,
+  .variant-topic .skeleton-line {
     animation: none;
   }
 }

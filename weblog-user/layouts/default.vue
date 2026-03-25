@@ -549,7 +549,17 @@ function handleScroll() {
   }
 
   if (isHomePage.value) {
-    isNavHidden.value = hasPassedHero
+    if (!hasPassedHero) {
+      isNavHidden.value = false
+      lastScrollY.value = scrollY
+      syncGlobalLeftAdScrollState()
+      return
+    }
+
+    const delta = scrollY - lastScrollY.value
+    if (Math.abs(delta) >= NAV_TOGGLE_SCROLL_DELTA) {
+      isNavHidden.value = delta > 0
+    }
     lastScrollY.value = scrollY
     syncGlobalLeftAdScrollState()
     return
@@ -1058,10 +1068,10 @@ onUnmounted(() => {
     background: rgba(59, 130, 246, 0.08);
   }
   .dark & {
-    color: #94a3b8;
+    color: #c6cfdb;
     &:hover {
-      color: $color-primary;
-      background: rgba(59, 130, 246, 0.15);
+      color: #f2f5fa;
+      background: rgba(148, 163, 184, 0.18);
     }
   }
 }
@@ -1124,9 +1134,12 @@ onUnmounted(() => {
   padding: 0.4rem;
   backdrop-filter: blur(10px);
   .dark & {
-    background: rgba(29, 35, 42, 0.92);
-    border-color: $color-dark-border;
-    box-shadow: 0 14px 32px rgba(2, 6, 23, 0.55);
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.11), transparent 46%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.08), transparent 54%),
+      linear-gradient(180deg, #171b20, #101215);
+    border-color: rgba(148, 163, 184, 0.34);
+    box-shadow: 0 16px 36px rgba(2, 6, 23, 0.56);
   }
 }
 
@@ -1160,16 +1173,17 @@ onUnmounted(() => {
     }
   }
   .dark & {
-    color: $color-dark-text;
+    color: #d6dbe4;
     &:hover {
-      color: #f2f5fa;
-      background: rgba(148, 163, 184, 0.16);
+      color: #f8fafc;
+      background: rgba(148, 163, 184, 0.14);
     }
     &.logout {
-      color: var(--status-danger);
-      border-top-color: rgba(71, 85, 105, 0.5);
+      color: #fda4af;
+      border-top-color: rgba(71, 85, 105, 0.62);
       &:hover {
-        color: var(--status-danger);
+        color: #fecaca;
+        background: rgba(239, 68, 68, 0.16);
       }
     }
   }

@@ -328,6 +328,14 @@ onMounted(() => {
   margin-bottom: $spacing-md;
   border-bottom: 1px solid $color-border;
   padding-bottom: $spacing-sm;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   .dark & {
     border-bottom-color: $color-dark-border;
@@ -348,42 +356,51 @@ onMounted(() => {
 }
 
 .tab-btn {
-  padding: 0.375rem 0.75rem;
-  border: none;
-  border-radius: $radius-md;
-  background: transparent;
+  border: 1px solid $color-border;
+  background: $color-bg;
   color: $color-text-muted;
-  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.86rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  transition: all 0.2s;
   -webkit-tap-highlight-color: transparent;
+  flex: 0 0 auto;
+  white-space: nowrap;
 
   @media (hover: hover) and (pointer: fine) {
     &:hover {
+      border-color: $color-primary;
       color: $color-primary;
-      background: rgba(59, 130, 246, 0.06);
     }
   }
 
   &.active {
-    color: $color-primary;
-    background: rgba(59, 130, 246, 0.1);
-    font-weight: 600;
+    border-color: $color-primary;
+    color: #fff;
+    background: $color-primary;
+    box-shadow: 0 6px 14px rgba(59, 130, 246, 0.28);
   }
 
   .dark & {
-    color: #94a3b8;
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
 
     @media (hover: hover) and (pointer: fine) {
       &:hover {
-        color: $color-primary;
-        background: rgba(59, 130, 246, 0.15);
+        border-color: rgba(147, 197, 253, 0.56);
+        color: $color-dark-text;
+        background: rgba(148, 163, 184, 0.12);
       }
     }
 
     &.active {
-      color: $color-primary;
-      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(147, 197, 253, 0.54);
+      color: #f8fbff;
+      background: rgba(59, 130, 246, 0.38);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
     }
   }
 }

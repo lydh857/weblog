@@ -209,7 +209,12 @@ onMounted(() => fetchTopics())
   height: 180px;
   overflow: hidden;
   background: #e2e8f0;
-  .dark & { background: $color-dark-border; }
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
 }
 
 .cover-img {
@@ -226,7 +231,13 @@ onMounted(() => fetchTopics())
   align-items: center;
   justify-content: center;
   color: #94a3b8;
-  .dark & { color: $color-dark-text-muted; }
+  .dark & {
+    color: $color-dark-text-muted;
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
 }
 
 .card-body {

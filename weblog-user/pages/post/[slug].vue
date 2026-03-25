@@ -263,6 +263,7 @@ const commentSectionRef = ref<HTMLElement | null>(null)
 const userStore = useUserStore()
 const loginModal = useLoginModal()
 const loginFromReadLimit = ref(false)
+const readLimitLoginSucceeded = ref(false)
 const restoreScrollY = ref<number | null>(null)
 
 // 阅读限制状态
@@ -304,10 +305,12 @@ function restoreScrollPosition() {
 
 function handleReadLimitLogin() {
   loginFromReadLimit.value = true
+  readLimitLoginSucceeded.value = false
   readLimitState.value.show = false
   restoreScrollY.value = import.meta.client ? window.scrollY : null
   loginModal.open('code', () => {
     // 登录成功：保持当前位置，解除限制
+    readLimitLoginSucceeded.value = true
     readLimitState.value.show = false
     readLimitState.value.loggedIn = true
     restoreScrollPosition()
@@ -317,6 +320,14 @@ function handleReadLimitLogin() {
 watch(() => loginModal.visible.value, (v, oldV) => {
   if (oldV === true && v === false && loginFromReadLimit.value) {
     loginFromReadLimit.value = false
+    if (readLimitLoginSucceeded.value) {
+      readLimitLoginSucceeded.value = false
+      readLimitState.value.show = false
+      readLimitState.value.loggedIn = true
+      restoreScrollPosition()
+      return
+    }
+
     if (!userStore.userInfo?.userId) {
       // 用户未登录就关闭了登录弹窗：继续限制
       readLimitState.value.show = true
