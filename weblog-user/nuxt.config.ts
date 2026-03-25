@@ -6,6 +6,12 @@ export default defineNuxtConfig({
   // 站点全局 head
   app: {
     head: {
+      meta: [
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover',
+        },
+      ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/brand/logo.png' },
       ],

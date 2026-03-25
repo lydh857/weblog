@@ -17,12 +17,18 @@
       <template v-else-if="variant === 'topic'">
         <div class="skeleton-block skeleton-topic-cover" />
         <div class="skeleton-content skeleton-topic-content">
-          <div class="skeleton-line w-64" />
-          <div class="skeleton-line w-92" />
-          <div class="skeleton-line w-80" />
-          <div class="skeleton-meta-row">
-            <span class="skeleton-line w-36" />
-            <span class="skeleton-line w-24" />
+          <div class="skeleton-topic-title-group">
+            <div class="skeleton-line skeleton-topic-title w-64" />
+            <div class="skeleton-line skeleton-topic-title w-52" />
+          </div>
+          <div class="skeleton-topic-summary-group">
+            <div class="skeleton-line skeleton-topic-summary w-92" />
+            <div class="skeleton-line skeleton-topic-summary w-84" />
+            <div class="skeleton-line skeleton-topic-summary w-68" />
+          </div>
+          <div class="skeleton-meta-row skeleton-topic-footer">
+            <span class="skeleton-line skeleton-topic-count w-36" />
+            <span class="skeleton-line skeleton-topic-time w-24" />
           </div>
         </div>
       </template>
@@ -101,6 +107,9 @@ withDefaults(defineProps<{
 
 .variant-topic .skeleton-item {
   flex-direction: column;
+  gap: 0;
+  border-radius: 10px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
 }
 
 .variant-category .skeleton-item {
@@ -146,7 +155,7 @@ withDefaults(defineProps<{
 
 .skeleton-topic-cover {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 180px;
 }
 
 .skeleton-avatar {
@@ -167,7 +176,46 @@ withDefaults(defineProps<{
 }
 
 .skeleton-topic-content {
-  padding: 0.95rem 1rem 1.05rem;
+  padding: 1rem 1.25rem 1.25rem;
+  gap: 0;
+  min-height: 138px;
+}
+
+.skeleton-topic-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-topic-summary-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+}
+
+.skeleton-topic-title {
+  height: 17px;
+  border-radius: 6px;
+}
+
+.skeleton-topic-summary {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-topic-footer {
+  margin-top: auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+}
+
+.skeleton-topic-count,
+.skeleton-topic-time {
+  height: 12px;
+  border-radius: 999px;
 }
 
 .skeleton-link-content {
@@ -196,11 +244,13 @@ withDefaults(defineProps<{
 .w-24 { width: 24%; }
 .w-36 { width: 36%; }
 .w-46 { width: 46%; }
+.w-52 { width: 52%; }
 .w-55 { width: 55%; }
 .w-64 { width: 64%; }
 .w-66 { width: 66%; }
 .w-72 { width: 72%; }
 .w-80 { width: 80%; }
+.w-84 { width: 84%; }
 .w-88 { width: 88%; }
 .w-90 { width: 90%; }
 .w-92 { width: 92%; }
@@ -221,6 +271,10 @@ withDefaults(defineProps<{
 
 .dark .skeleton-item {
   background: var(--sk-shell-dark);
+}
+
+.dark .variant-topic .skeleton-item {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
 }
 
 .dark .variant-article .skeleton-line,

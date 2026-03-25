@@ -5,8 +5,7 @@
       class="navbar"
       :class="{
         'navbar--transparent': isNavbarTransparent,
-        'navbar--hidden': isNavHidden,
-        'navbar--pre-enter': shouldHideNavbarBeforeEnter
+        'navbar--hidden': isNavHidden
       }"
     >
         <div class="nav-inner">
@@ -58,7 +57,7 @@
           <button
             class="icon-btn desktop-nav-item"
             :class="{ 'animate-nav-item': shouldAnimate }"
-            :style="shouldAnimate ? '--delay: 0.8s' : ''"
+            :style="shouldAnimate ? '--delay: 0.58s' : ''"
             aria-label="公告通知"
             @click="openAnnouncementCenter"
           >
@@ -69,7 +68,7 @@
           <button
             class="icon-btn desktop-nav-item"
             :class="{ 'animate-nav-item': shouldAnimate }"
-            :style="shouldAnimate ? '--delay: 0.85s' : ''"
+            :style="shouldAnimate ? '--delay: 0.66s' : ''"
             aria-label="切换主题"
             @click="toggleDark()"
           >
@@ -80,7 +79,7 @@
             ref="navAuthRef"
             class="nav-auth-slot desktop-nav-item"
             :class="{ 'animate-nav-item': shouldAnimate }"
-            :style="shouldAnimate ? '--delay: 0.9s' : ''"
+            :style="shouldAnimate ? '--delay: 0.74s' : ''"
             @mouseenter="openUserMenu"
             @mouseleave="scheduleHideUserMenu()"
           >
@@ -295,19 +294,8 @@ const NAV_MOBILE_BREAKPOINT = 768
 const NAV_TOGGLE_SCROLL_DELTA = 8
 const forceHomeNavbarTransparent = ref(false)
 const shouldRenderNavbar = computed(() => !isHomePage.value || isStartupDone.value)
-let navEnterRafId: number | null = null
-let navRevealRafId: number | null = null
-
-function resolveInitialNavbarHiddenState() {
-  if (!import.meta.client) {
-    return false
-  }
-
-  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
-  return route.path === '/' && !runtimeWindow.__weblogStartupDone
-}
-
-const shouldHideNavbarBeforeEnter = ref(resolveInitialNavbarHiddenState())
+const hasPlayedHomeNavEntrance = ref(false)
+let homeNavAnimateTimer: ReturnType<typeof setTimeout> | null = null
 
 function hasStartupDone() {
   if (!import.meta.client) {
@@ -316,41 +304,6 @@ function hasStartupDone() {
 
   const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
   return Boolean(runtimeWindow.__weblogStartupDone)
-}
-
-function clearNavEnterAnimationFrames() {
-  if (!import.meta.client) return
-
-  if (navEnterRafId !== null) {
-    window.cancelAnimationFrame(navEnterRafId)
-    navEnterRafId = null
-  }
-
-  if (navRevealRafId !== null) {
-    window.cancelAnimationFrame(navRevealRafId)
-    navRevealRafId = null
-  }
-}
-
-function triggerHomeNavEnterAnimation() {
-  if (!import.meta.client) return
-  if (!shouldRenderNavbar.value) return
-
-  clearNavEnterAnimationFrames()
-  shouldAnimate.value = false
-  shouldHideNavbarBeforeEnter.value = true
-
-  nextTick(() => {
-    navEnterRafId = window.requestAnimationFrame(() => {
-      navEnterRafId = null
-      shouldAnimate.value = true
-
-      navRevealRafId = window.requestAnimationFrame(() => {
-        navRevealRafId = null
-        shouldHideNavbarBeforeEnter.value = false
-      })
-    })
-  })
 }
 
 function clearLeftAdHeroWatchers() {
@@ -454,26 +407,39 @@ async function loadHomeNavRanking() {
   }
 }
 
-// 进入首页时，等 DOM 渲染完成后再触发动画，确保用户能看到
-watch([isHomePage, isStartupDone], ([home, startupDone]) => {
-  if (home && startupDone) {
-    triggerHomeNavEnterAnimation()
-    return
-  }
+function clearHomeNavAnimateTimer() {
+  if (!homeNavAnimateTimer) return
+  clearTimeout(homeNavAnimateTimer)
+  homeNavAnimateTimer = null
+}
 
-  clearNavEnterAnimationFrames()
-  shouldAnimate.value = false
+function triggerHomeNavItemsEntrance() {
+  if (!import.meta.client) return
+  if (hasPlayedHomeNavEntrance.value) return
+  if (route.path !== '/') return
+  if (window.scrollY > 2) return
 
-  if (home && !startupDone && import.meta.client) {
-    shouldHideNavbarBeforeEnter.value = true
-    return
-  }
-
-  shouldHideNavbarBeforeEnter.value = false
-}, { immediate: true, flush: 'sync' })
+  hasPlayedHomeNavEntrance.value = true
+  shouldAnimate.value = true
+  clearHomeNavAnimateTimer()
+  homeNavAnimateTimer = setTimeout(() => {
+    shouldAnimate.value = false
+    homeNavAnimateTimer = null
+  }, 1100)
+}
 
 watch(() => route.path, (path, oldPath) => {
   if (!import.meta.client) return
+
+  const isEnterHomeFromOtherPage = path === '/' && Boolean(oldPath) && oldPath !== '/'
+  if (isEnterHomeFromOtherPage) {
+    hasPlayedHomeNavEntrance.value = false
+  }
+
+  if (path !== '/') {
+    shouldAnimate.value = false
+    clearHomeNavAnimateTimer()
+  }
 
   const isMobileViewport = window.innerWidth <= NAV_MOBILE_BREAKPOINT
   if (path === '/') {
@@ -513,6 +479,15 @@ watch(() => route.path, (path, oldPath) => {
     })
   })
 }, { immediate: true })
+
+watch([isHomePage, isStartupDone], ([home, startupDone]) => {
+  if (!import.meta.client) return
+  if (!home || !startupDone) return
+
+  nextTick(() => {
+    triggerHomeNavItemsEntrance()
+  })
+}, { immediate: true, flush: 'post' })
 
 watch(shouldShowGlobalLeftAd, (visible) => {
   if (visible) return
@@ -598,10 +573,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  clearNavEnterAnimationFrames()
   window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('resize', handleWindowResize)
+  clearHomeNavAnimateTimer()
   clearLeftAdMobileScrollTimer()
   if (forceHomeNavbarTimer) {
     clearTimeout(forceHomeNavbarTimer)
@@ -790,15 +765,15 @@ onUnmounted(() => {
 /* ===== 导航栏入场动画 ===== */
 .animate-nav-item {
   opacity: 0;
-  transform: translateY(-20px);
-  animation: navFadeInDown 0.6s ease forwards;
+  transform: translateY(-14px);
+  animation: navFadeInDown 0.52s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
   animation-delay: var(--delay, 0s);
 }
 
 @keyframes navFadeInDown {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-14px);
   }
   to {
     opacity: 1;
@@ -858,12 +833,6 @@ onUnmounted(() => {
     transform: translateY(-100%);
   }
 
-  &--pre-enter {
-    opacity: 0;
-    transform: translateY(-100%);
-    pointer-events: none;
-    transition: none;
-  }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -1060,6 +1029,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.18rem;
+  line-height: 1;
   white-space: nowrap;
   border: none;
   cursor: pointer;
@@ -1077,8 +1047,15 @@ onUnmounted(() => {
 }
 
 .login-btn__icon {
+  display: block;
   opacity: 0.9;
   flex-shrink: 0;
+}
+
+.login-btn > span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .avatar-btn {

@@ -150,6 +150,7 @@ onUnmounted(() => {
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
   min-width: 0;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 
   .dark & {
     border-color: rgba(71, 85, 105, 0.72);
@@ -162,6 +163,17 @@ onUnmounted(() => {
     background: rgba(255, 255, 255, 0.14);
     box-shadow: none;
   }
+}
+
+.home-nav-search:focus-within {
+  transform: translate3d(0, -1px, 0);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), 0 14px 30px rgba(15, 23, 42, 0.12);
+}
+
+.dark .home-nav-search:focus-within {
+  border-color: rgba(148, 163, 184, 0.62);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16), 0 16px 34px rgba(2, 6, 23, 0.36);
 }
 
 .search-trigger {
@@ -179,7 +191,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.42rem;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 
   .dark & {
     color: $color-dark-text;
@@ -193,6 +205,10 @@ onUnmounted(() => {
   }
 }
 
+.search-trigger__icon {
+  opacity: 0.9;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .search-trigger:hover {
     transform: translateY(-1px);
@@ -200,14 +216,15 @@ onUnmounted(() => {
     color: $color-primary;
   }
 
+  .dark .search-trigger:hover {
+    color: #dbeafe;
+    background: linear-gradient(135deg, rgba(30, 64, 175, 0.42), rgba(30, 41, 59, 0.54));
+  }
+
   .is-transparent .search-trigger:hover {
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
   }
-}
-
-.search-trigger__icon {
-  opacity: 0.9;
 }
 
 .ticker-panel {
@@ -222,6 +239,17 @@ onUnmounted(() => {
   padding-right: 0.5rem;
   padding-left: 0;
   text-align: left;
+  border-radius: 999px;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 1px;
+  }
+
+  .dark &:focus-visible {
+    outline-color: rgba(148, 163, 184, 0.65);
+  }
 }
 
 .ticker-viewport {
@@ -248,7 +276,7 @@ onUnmounted(() => {
 
 .ticker-link {
   color: $color-text;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
 
   .dark & {
     color: $color-dark-text;
@@ -257,20 +285,6 @@ onUnmounted(() => {
 
   .is-transparent & {
     color: rgba(255, 255, 255, 0.92);
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ticker-link:hover {
-    color: $color-primary;
-  }
-
-  .dark .ticker-link:hover {
-    color: #93c5fd;
-  }
-
-  .is-transparent .ticker-link:hover {
-    color: #fff;
   }
 }
 
@@ -382,13 +396,6 @@ onUnmounted(() => {
     background: transparent;
     box-shadow: none;
     transform: none;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .home-nav-search--mobile .search-trigger:hover {
-      background: rgba(59, 130, 246, 0.14);
-      transform: none;
-    }
   }
 
   .home-nav-search--mobile .ticker-panel {

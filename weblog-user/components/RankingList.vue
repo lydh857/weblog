@@ -1,10 +1,11 @@
 <template>
   <div class="ranking-list">
     <!-- 分类 Tab -->
-    <div class="ranking-tabs">
+    <div ref="tabsRef" class="ranking-tabs">
       <button
         v-for="tab in tabs"
         :key="tab.rankType"
+        :ref="(el) => setTabButtonRef(tab.rankType, el)"
         class="tab-btn"
         :class="{ active: activeTab === tab.rankType }"
         @click="switchTab(tab.rankType)"
@@ -56,7 +57,14 @@
         <template v-if="index < 3">
           <span class="rank-badge" :class="`rank-${index + 1}`">{{ index + 1 }}</span>
           <div v-if="item.cover_image" class="item-cover">
-            <img :src="item.cover_image" :alt="item.title" loading="lazy" />
+            <img
+              v-if="!isCoverBroken(item.post_id)"
+              :src="item.cover_image"
+              :alt="item.title"
+              loading="lazy"
+              @error="handleCoverError(item.post_id, $event)"
+            />
+            <div v-else class="item-cover-placeholder" />
           </div>
           <div class="item-content">
             <h4 class="item-title">{{ item.title }}</h4>
@@ -121,6 +129,9 @@ const items = ref<RankingItem[]>([])
 const loading = ref(false)
 const animKey = ref(0)
 const currentMeta = ref<RankingMeta | null>(null)
+const imageErrorMap = ref<Record<number, boolean>>({})
+const tabsRef = ref<HTMLElement | null>(null)
+const tabButtonRefs = new Map<number, HTMLElement>()
 const rankingBodyRef = ref<HTMLElement | null>(null)
 let touchTracking = false
 let touchStartX = 0
@@ -175,8 +186,43 @@ async function switchTab(rankType: number) {
     return
   }
   activeTab.value = rankType
+  await nextTick()
+  scrollActiveTabIntoView(true)
   resetRankingScrollTop()
   await loadRanking()
+}
+
+function setTabButtonRef(rankType: number, el: Element | null) {
+  if (el instanceof HTMLElement) {
+    tabButtonRefs.set(rankType, el)
+    return
+  }
+
+  tabButtonRefs.delete(rankType)
+}
+
+function scrollActiveTabIntoView(userTriggered = false) {
+  if (!import.meta.client) {
+    return
+  }
+
+  const tabsEl = tabsRef.value
+  const activeBtn = tabButtonRefs.get(activeTab.value)
+  if (!tabsEl || !activeBtn) {
+    return
+  }
+
+  const isMobile = window.innerWidth <= 768
+  if (!isMobile && !userTriggered) {
+    return
+  }
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  activeBtn.scrollIntoView({
+    inline: 'center',
+    block: 'nearest',
+    behavior: userTriggered && !prefersReducedMotion ? 'smooth' : 'auto',
+  })
 }
 
 function resetRankingScrollTop() {
@@ -265,6 +311,22 @@ function handleTouchCancel() {
   resetTouchState()
 }
 
+function isCoverBroken(postId: number): boolean {
+  return !!imageErrorMap.value[postId]
+}
+
+function handleCoverError(postId: number, event: Event) {
+  imageErrorMap.value = {
+    ...imageErrorMap.value,
+    [postId]: true,
+  }
+
+  const target = event.target as HTMLImageElement | null
+  if (target) {
+    target.style.display = 'none'
+  }
+}
+
 /** 加载排行数据 */
 async function loadRanking() {
   loading.value = true
@@ -275,11 +337,13 @@ async function loadRanking() {
     })
     items.value = res.items
     currentMeta.value = res.meta
+    imageErrorMap.value = {}
     // 递增 key 强制重新触发入场动画
     animKey.value++
   } catch {
     items.value = []
     currentMeta.value = null
+    imageErrorMap.value = {}
   } finally {
     loading.value = false
   }
@@ -287,6 +351,9 @@ async function loadRanking() {
 
 onMounted(() => {
   loadRanking()
+  nextTick(() => {
+    scrollActiveTabIntoView(false)
+  })
 })
 </script>
 
@@ -461,12 +528,25 @@ onMounted(() => {
   height: 48px;
   border-radius: $radius-sm;
   overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
+
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
+}
+
+.item-cover-placeholder {
+  width: 100%;
+  height: 100%;
 }
 
 .item-content {

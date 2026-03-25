@@ -1,16 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="popup-overlay-fade" appear>
-      <div v-if="visible && currentAnn" class="popup-overlay" @click.self="tryClose">
-        <button
-          v-if="currentAnn.isClosable"
-          type="button"
-          class="popup-overlay-close"
-          aria-label="关闭公告弹窗"
-          @click.stop="tryClose"
-        >
-          <Icon name="heroicons:x-mark-20-solid" size="20" />
-        </button>
+      <div v-if="visible && currentAnn" class="popup-overlay">
         <div class="popup-envelope-wrap">
           <div
             class="popup-envelope"
@@ -448,13 +439,13 @@ onUnmounted(() => {
 
 .popup-overlay-fade-enter-active .popup-envelope-wrap,
 .popup-overlay-fade-appear-active .popup-envelope-wrap {
-  animation: popup-envelope-zoom-in 420ms cubic-bezier(0.22, 0.72, 0.22, 1) both;
+  animation: popup-envelope-zoom-in 300ms cubic-bezier(0.22, 0.72, 0.22, 1) both;
 }
 
 @keyframes popup-envelope-zoom-in {
   from {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.96);
   }
 
   to {
@@ -474,31 +465,7 @@ onUnmounted(() => {
   background:
     radial-gradient(circle at 50% 38%, rgba(148, 163, 184, 0.18), transparent 60%),
     rgba(2, 6, 23, 0.55);
-  backdrop-filter: blur(6px);
-}
-
-.popup-overlay-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(148, 163, 184, 0.55);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
-  color: #f8fafc;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 60;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-
-  &:hover {
-    transform: scale(1.05);
-    background: rgba(15, 23, 42, 0.86);
-    border-color: rgba(148, 163, 184, 0.8);
-  }
+  backdrop-filter: blur(4px);
 }
 
 .popup-envelope-wrap {
@@ -523,7 +490,9 @@ onUnmounted(() => {
   justify-content: center;
   background: #F5F5F5;
   transition: all 0.7s ease;
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.32);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .popup-letter {
@@ -542,11 +511,9 @@ onUnmounted(() => {
   opacity: 1;
   pointer-events: none;
   transition:
-    transform 0.95s cubic-bezier(0.22, 0.72, 0.22, 1),
-    clip-path 0.95s cubic-bezier(0.22, 0.72, 0.22, 1),
-    box-shadow 0.4s ease,
+    transform 0.72s cubic-bezier(0.22, 0.72, 0.22, 1),
     opacity 0.25s ease;
-  will-change: transform, clip-path;
+  will-change: transform, opacity;
   box-shadow: none;
 
   .dark & {
@@ -560,7 +527,7 @@ onUnmounted(() => {
   z-index: 14;
   opacity: 1;
   pointer-events: auto;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
 }
 
 .popup-title {
@@ -726,14 +693,14 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  transition: all 0.7s ease;
+  transition: all 0.45s ease;
 }
 
 .envelope-top {
   background: #262626;
   clip-path: polygon(50% 50%, 100% 0, 0 0);
   z-index: 35;
-  transition: clip-path 1s ease;
+  transition: clip-path 0.55s ease;
 }
 
 .envelope-left {
@@ -763,11 +730,6 @@ onUnmounted(() => {
   .popup-overlay {
     align-items: flex-end;
     padding: 0.75rem;
-  }
-
-  .popup-overlay-close {
-    top: 12px;
-    right: 12px;
   }
 
   .popup-envelope {

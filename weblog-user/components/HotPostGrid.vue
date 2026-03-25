@@ -15,16 +15,16 @@
         </div>
         <template v-else>
           <div v-if="canScroll" class="scroll-arrows">
-            <button class="scroll-arrow touch-target" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
+            <button class="scroll-arrow" :disabled="!canScrollLeft" aria-label="向左滚动" @click="scrollBy(-1)">
               <Icon name="heroicons:chevron-left-20-solid" size="18" />
             </button>
             <!-- 滚动到底延迟后变为"查看更多"，带过渡动画 -->
             <Transition name="arrow-morph" mode="out-in">
-              <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow touch-target" aria-label="查看更多">
+              <NuxtLink v-if="showViewMore" key="view-more" to="/ranking" class="scroll-arrow view-more-arrow" aria-label="查看更多">
                 查看更多
                 <Icon name="heroicons:arrow-right-16-solid" size="14" />
               </NuxtLink>
-              <button v-else key="scroll-right" class="scroll-arrow touch-target" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
+              <button v-else key="scroll-right" class="scroll-arrow" :disabled="!canScrollRight" aria-label="向右滚动" @click="scrollBy(1)">
                 <Icon name="heroicons:chevron-right-20-solid" size="18" />
               </button>
             </Transition>
@@ -63,12 +63,13 @@
         <!-- 背景图占满 -->
         <div class="card-bg">
           <img
-            v-if="post.cover_image"
+            v-if="post.cover_image && !isImageBroken(post.post_id)"
             :src="post.cover_image"
             :alt="post.title"
             loading="lazy"
+            @error="handleImageError(post.post_id, $event)"
           />
-          <div v-else class="cover-placeholder" :style="getPlaceholderStyle(post.post_id)" />
+          <div v-else class="cover-placeholder" />
         </div>
         <!-- 渐变遮罩 -->
         <div class="card-overlay" />
@@ -109,22 +110,24 @@ const canScrollLeft = ref(false)
 const canScrollRight = ref(false)
 const canScroll = ref(false)
 const loaded = ref(false)
+const imageErrorMap = ref<Record<number, boolean>>({})
 // 直接根据滚动状态切换"查看更多"
 const showViewMore = computed(() => !canScrollRight.value && canScroll.value)
 
-const GRADIENTS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-  'linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)',
-  'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
-]
+function isImageBroken(postId: number): boolean {
+  return !!imageErrorMap.value[postId]
+}
 
-function getPlaceholderStyle(postId: number) {
-  return { background: GRADIENTS[Math.abs(postId) % GRADIENTS.length] }
+function handleImageError(postId: number, event: Event) {
+  imageErrorMap.value = {
+    ...imageErrorMap.value,
+    [postId]: true,
+  }
+
+  const target = event.target as HTMLImageElement | null
+  if (target) {
+    target.style.display = 'none'
+  }
 }
 
 function updateScrollState() {
@@ -146,8 +149,10 @@ async function loadHotPosts() {
   try {
     const res = await rankingApi.get({ rankType: 4, limit: 8 })
     posts.value = res.data
+    imageErrorMap.value = {}
   } catch {
     posts.value = []
+    imageErrorMap.value = {}
   } finally {
     loaded.value = true
   }
@@ -489,6 +494,14 @@ onUnmounted(() => {
 .cover-placeholder {
   width: 100%;
   height: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
+
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
 }
 
 /* ===== 渐变遮罩 ===== */
