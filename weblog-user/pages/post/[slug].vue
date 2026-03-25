@@ -523,7 +523,7 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   padding: 0.75rem 2rem 2rem;
-  .dark & { background: $color-dark-bg-secondary; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+  .dark & { background: #171b20; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
   @media (max-width: $breakpoint-md) { padding: 0.75rem 1.25rem 1.25rem; }
 }
 
@@ -651,6 +651,7 @@ onUnmounted(() => {
     font-size: 1rem;
     line-height: 1.8;
     color: $color-text;
+    .dark & { background: #171b20; }
     .dark & { color: $color-dark-text; }
     @media (max-width: $breakpoint-md) { font-size: 0.95rem; }
   }
