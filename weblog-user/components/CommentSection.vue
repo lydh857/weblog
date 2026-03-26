@@ -284,7 +284,12 @@
     <Teleport to="body">
       <div v-if="showEmojiPicker" class="emoji-overlay" @click="showEmojiPicker = false" />
       <Transition name="emoji-pop">
-        <div v-if="showEmojiPicker" class="emoji-popup" :class="{ 'position-top': emojiOnTop }" :style="emojiPopupStyle">
+        <div
+          v-if="showEmojiPicker"
+          class="emoji-popup"
+          :class="{ 'position-top': emojiOnTop && !isEmojiDrawerMode, 'drawer-mode': isEmojiDrawerMode }"
+          :style="emojiPopupStyle"
+        >
           <div class="emoji-grid">
             <button v-for="emoji in currentEmojis" :key="emoji" class="emoji-btn" @click="insertEmoji(emoji)">{{ emoji }}</button>
           </div>
@@ -359,6 +364,7 @@ const showEmojiPicker = ref(false)
 const activeEmojiTab = ref('常用')
 const emojiPopupStyle = ref<Record<string, string>>({})
 const emojiOnTop = ref(false)
+const isEmojiDrawerMode = ref(false)
 const emojiTarget = ref<'main' | 'inline' | 'bottom'>('main')
 
 const emojiCategories = [
@@ -383,6 +389,26 @@ function openEmoji(target: 'main' | 'inline' | 'bottom', e?: MouseEvent) {
   if (!isLoggedIn.value) { useLoginModal().open(); return }
   if (showEmojiPicker.value && emojiTarget.value === target) { showEmojiPicker.value = false; return }
   emojiTarget.value = target
+  const useDrawerMode = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches
+  if (useDrawerMode) {
+    isEmojiDrawerMode.value = true
+    emojiOnTop.value = false
+    emojiPopupStyle.value = {
+      position: 'fixed',
+      left: '0',
+      right: '0',
+      bottom: '0',
+      top: 'auto',
+      width: '100vw',
+      maxWidth: '100vw',
+      zIndex: '5000',
+    }
+    lockNavScroll()
+    showEmojiPicker.value = true
+    return
+  }
+
+  isEmojiDrawerMode.value = false
   let btn: HTMLElement | null = null
   if (target === 'main') btn = mainEmojiBtnRef.value
   else if (target === 'inline') btn = e?.currentTarget as HTMLElement ?? null
@@ -413,6 +439,14 @@ function openEmoji(target: 'main' | 'inline' | 'bottom', e?: MouseEvent) {
   }
   showEmojiPicker.value = true
 }
+
+watch(showEmojiPicker, (visible) => {
+  if (!visible) {
+    isEmojiDrawerMode.value = false
+    emojiOnTop.value = false
+    emojiPopupStyle.value = {}
+  }
+})
 
 function insertEmoji(emoji: string) {
   if (emojiTarget.value === 'inline') inlineComment.value += emoji
@@ -817,7 +851,22 @@ onUnmounted(() => {
   resize: none; min-height: 40px; max-height: 120px; background: transparent; color: $color-text; outline: none; line-height: 1.5;
   .dark & { color: $color-dark-text; }
 }
-.word-count { position: absolute; right: 0.75rem; bottom: 4px; font-size: 0.75rem; color: $color-text-muted; background: rgba(255,255,255,0.8); padding: 0 4px; border-radius: 4px; }
+.word-count {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 4px;
+  font-size: 0.75rem;
+  color: $color-text-muted;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0 4px;
+  border-radius: 4px;
+
+  .dark & {
+    color: #c6d6ee;
+    background: rgba(18, 25, 35, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.5);
+  }
+}
 .comment-toolbar { display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; }
 .toolbar-left { display: flex; align-items: center; gap: 0.5rem; }
 .toolbar-right { display: flex; align-items: center; gap: 0.75rem; }
@@ -867,6 +916,33 @@ onUnmounted(() => {
     }
   }
   &.sm { padding: 4px 12px; font-size: 0.8rem; min-height: 30px; min-width: 60px; border-radius: 6px; }
+
+  .dark & {
+    background: linear-gradient(180deg, #4d7294, #3e5f7e);
+    color: #f1f5f9;
+    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.38), inset 0 1px 0 rgba(191, 219, 254, 0.28);
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(180deg, #5a7ea0, #466786);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(219, 234, 254, 0.32);
+    }
+
+    &:active:not(:disabled) {
+      background: linear-gradient(180deg, #436280, #395470);
+      box-shadow: 0 4px 10px rgba(2, 6, 23, 0.36);
+    }
+
+    &:disabled {
+      background: #334155;
+      color: #94a3b8;
+      box-shadow: none;
+      opacity: 1;
+    }
+
+    &.submitting {
+      background: linear-gradient(180deg, #5c7c9a, #466380);
+    }
+  }
 }
 @keyframes successPulse {
   0% { width: 0; height: 0; opacity: 0.5; }
@@ -1034,6 +1110,30 @@ onUnmounted(() => {
   animation: emojiPopIn 0.25s ease;
   &.position-top { animation: emojiPopDown 0.25s ease; }
   .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+}
+
+.emoji-popup.drawer-mode {
+  border-radius: 14px 14px 0 0;
+  max-height: min(62dvh, 430px);
+  border-bottom: none;
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.24);
+  animation: emojiDrawerIn 0.24s ease-out;
+
+  .emoji-grid {
+    max-height: min(50dvh, 330px);
+  }
+}
+
+@keyframes emojiDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes emojiPopIn { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes emojiPopDown { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }

@@ -571,8 +571,9 @@ onUnmounted(() => {
   margin-bottom: $spacing-lg;
 
   .dark & {
-    background: $color-dark-bg-secondary;
-    border-color: $color-dark-border;
+    background: linear-gradient(180deg, rgba(23, 29, 39, 0.96), rgba(17, 22, 30, 0.96));
+    border-color: rgba(71, 85, 105, 0.6);
+    box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
   }
 }
 
@@ -653,7 +654,7 @@ onUnmounted(() => {
   overflow: hidden;
 
   .dark & {
-    border-bottom-color: $color-dark-border;
+    border-bottom-color: rgba(71, 85, 105, 0.46);
   }
 
   &.no-border {
@@ -677,7 +678,11 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #94a3b8;
+    color: #c0cede;
+
+    .icon {
+      color: #7cb1ff;
+    }
   }
 }
 
@@ -721,17 +726,25 @@ onUnmounted(() => {
 
   .dark & {
     border-color: $color-dark-border;
-    color: $color-dark-text;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
 
     &:hover {
-      border-color: $color-primary;
-      color: $color-primary;
+      border-color: rgba(147, 197, 253, 0.56);
+      color: $color-dark-text;
+      background: rgba(148, 163, 184, 0.12);
     }
 
     &.active {
-      background: $color-primary;
-      border-color: $color-primary;
-      color: #fff;
+      border-color: rgba(147, 197, 253, 0.54);
+      color: #f8fbff;
+      background: rgba(59, 130, 246, 0.38);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
+
+      .badge {
+        background: rgba(255, 255, 255, 0.25);
+        color: #f8fbff;
+      }
     }
   }
 }
@@ -757,8 +770,8 @@ onUnmounted(() => {
   line-height: 1;
 
   .dark & {
-    background: rgba(255, 255, 255, 0.1);
-    color: #94a3b8;
+    background: rgba(71, 85, 105, 0.48);
+    color: #d5e2f4;
   }
 }
 
@@ -768,7 +781,7 @@ onUnmounted(() => {
   font-size: 0.75rem;
 
   .dark & {
-    color: #64748b;
+    color: #8ca2bc;
   }
 }
 
@@ -1036,8 +1049,8 @@ onUnmounted(() => {
   padding: $spacing-md $spacing-lg;
 
   .dark & {
-    background: $color-dark-bg-secondary;
-    border-color: $color-dark-border;
+    background: linear-gradient(180deg, rgba(23, 29, 39, 0.97), rgba(17, 22, 30, 0.97));
+    border-color: rgba(71, 85, 105, 0.6);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 
@@ -1056,7 +1069,7 @@ onUnmounted(() => {
   overflow: hidden;
 
   .dark & {
-    border-bottom-color: $color-dark-border;
+    border-bottom-color: rgba(71, 85, 105, 0.46);
   }
 
   &.no-border {
@@ -1080,7 +1093,11 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: #94a3b8;
+    color: #c0cede;
+
+    .icon {
+      color: #7cb1ff;
+    }
   }
 }
 

@@ -79,12 +79,7 @@
             :key="tag.id"
             :to="{ path: '/category', query: { tagId: String(tag.id) } }"
             class="flat-tag enter-item"
-            :style="{
-              '--tag-color': tag.color || getTagColor(i),
-              '--tag-bg': (tag.color || getTagColor(i)) + '15',
-              '--tag-bg-hover': (tag.color || getTagColor(i)) + '25',
-              '--enter-delay': `${Math.min(i, 18) * 0.03}s`,
-            }"
+            :style="getFlatTagStyle(tag.color, i)"
           >
             <Icon name="heroicons:tag-16-solid" size="14" class="flat-tag__icon" />
             <span>{{ tag.name }}</span>
@@ -249,6 +244,79 @@ const renderedTags = computed(() => {
 })
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => b.postCount - a.postCount))
+
+function clampChannel(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)))
+}
+
+function parseHexColor(input: string) {
+  const text = input.trim()
+  const hex = text.startsWith('#') ? text.slice(1) : text
+  if (!/^[\da-fA-F]{3}$|^[\da-fA-F]{6}$/.test(hex)) {
+    return null
+  }
+
+  const normalized = hex.length === 3
+    ? hex.split('').map((char) => char + char).join('')
+    : hex
+
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  }
+}
+
+function mixColor(
+  base: { r: number; g: number; b: number },
+  target: { r: number; g: number; b: number },
+  ratio: number
+) {
+  return {
+    r: clampChannel(base.r * (1 - ratio) + target.r * ratio),
+    g: clampChannel(base.g * (1 - ratio) + target.g * ratio),
+    b: clampChannel(base.b * (1 - ratio) + target.b * ratio),
+  }
+}
+
+function toRgba(color: { r: number; g: number; b: number }, alpha: number) {
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`
+}
+
+function getFlatTagStyle(tagColor: string | null | undefined, index: number): Record<string, string> {
+  const baseColor = tagColor || getTagColor(index)
+  const enterDelay = `${Math.min(index, 18) * 0.03}s`
+  const parsed = parseHexColor(baseColor)
+
+  if (!parsed) {
+    return {
+      '--tag-color': baseColor,
+      '--tag-bg': 'rgba(59, 130, 246, 0.12)',
+      '--tag-bg-hover': 'rgba(59, 130, 246, 0.2)',
+      '--tag-dark-color': '#dbeafe',
+      '--tag-dark-bg': 'rgba(30, 41, 59, 0.66)',
+      '--tag-dark-bg-hover': 'rgba(37, 52, 72, 0.82)',
+      '--tag-dark-border': 'rgba(125, 170, 248, 0.6)',
+      '--enter-delay': enterDelay,
+    }
+  }
+
+  const darkText = mixColor(parsed, { r: 241, g: 245, b: 249 }, 0.46)
+  const darkBg = mixColor(parsed, { r: 15, g: 23, b: 42 }, 0.7)
+  const darkBgHover = mixColor(parsed, { r: 30, g: 41, b: 59 }, 0.6)
+  const darkBorder = mixColor(parsed, { r: 148, g: 163, b: 184 }, 0.34)
+
+  return {
+    '--tag-color': baseColor,
+    '--tag-bg': toRgba(parsed, 0.12),
+    '--tag-bg-hover': toRgba(parsed, 0.2),
+    '--tag-dark-color': `rgb(${darkText.r}, ${darkText.g}, ${darkText.b})`,
+    '--tag-dark-bg': toRgba(darkBg, 0.7),
+    '--tag-dark-bg-hover': toRgba(darkBgHover, 0.86),
+    '--tag-dark-border': toRgba(darkBorder, 0.72),
+    '--enter-delay': enterDelay,
+  }
+}
 
 if (import.meta.client) {
   isMobileViewport.value = window.innerWidth <= VIEWPORT_MOBILE_BREAKPOINT
@@ -623,6 +691,7 @@ onUnmounted(() => {
   display: flex;
   gap: 4px;
   background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 10px;
   padding: 3px;
 
@@ -630,7 +699,11 @@ onUnmounted(() => {
     width: 100%;
   }
 
-  .dark & { background: rgba(255, 255, 255, 0.06); }
+  .dark & {
+    background: linear-gradient(180deg, rgba(19, 25, 34, 0.96), rgba(15, 20, 28, 0.96));
+    border-color: rgba(71, 85, 105, 0.56);
+    box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+  }
 }
 
 .toggle-btn {
@@ -664,8 +737,9 @@ onUnmounted(() => {
     color: $color-primary;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     .dark & {
-      background: $color-dark-bg-secondary;
-      color: $color-primary;
+      background: linear-gradient(180deg, #243347, #1a2738);
+      color: #d9e7ff;
+      box-shadow: 0 6px 14px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(191, 219, 254, 0.25);
     }
   }
 }
@@ -865,8 +939,21 @@ onUnmounted(() => {
     transform: translateY(-1px);
   }
 
+  .dark & {
+    color: var(--tag-dark-color);
+    background: linear-gradient(180deg, var(--tag-dark-bg), color-mix(in srgb, var(--tag-dark-bg) 88%, #0f172a 12%));
+    border-color: var(--tag-dark-border);
+    box-shadow: inset 0 1px 0 rgba(226, 232, 240, 0.08);
+
+    &:hover {
+      background: linear-gradient(180deg, var(--tag-dark-bg-hover), color-mix(in srgb, var(--tag-dark-bg-hover) 84%, #0f172a 16%));
+      border-color: var(--tag-dark-color);
+      box-shadow: 0 8px 18px rgba(2, 6, 23, 0.34), inset 0 1px 0 rgba(226, 232, 240, 0.12);
+    }
+  }
+
   &__icon {
-    color: var(--tag-color);
+    color: currentColor;
     opacity: 0.7;
   }
 

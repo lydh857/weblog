@@ -12,6 +12,9 @@
         :src="post.coverImage"
         :alt="post.title"
         loading="lazy"
+        class="cover-image"
+        :class="{ 'cover-image--loaded': imageLoaded }"
+        @load="handleImageLoad"
         @error="handleImageError"
       />
       <div v-else class="cover-placeholder">
@@ -97,8 +100,20 @@ const titleFirstChar = computed(() => {
 
 /** 图片加载失败时的回退处理 */
 const imageError = ref(false)
+const imageLoaded = ref(false)
+
+watch(() => props.post.coverImage, () => {
+  imageError.value = false
+  imageLoaded.value = false
+})
+
+function handleImageLoad() {
+  imageLoaded.value = true
+}
+
 function handleImageError(e: Event) {
   imageError.value = true
+  imageLoaded.value = false
   const target = e.target as HTMLImageElement
   // 隐藏加载失败的图片，显示占位
   target.style.display = 'none'
@@ -217,15 +232,24 @@ function handleImageError(e: Event) {
       linear-gradient(180deg, #171b20, #101215);
   }
 
-  img {
+  .cover-image {
     width: 240px;
     height: calc(240px * 9 / 16);
     display: block;
     object-fit: cover;
-    transition: transform 0.35s ease;
+    opacity: 0;
+    transform: scale(1.03);
+    filter: blur(2px);
+    transition: opacity 0.28s ease, transform 0.35s ease, filter 0.28s ease;
   }
 
-  .article-card:hover & img {
+  .cover-image--loaded {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+
+  .article-card:hover & .cover-image--loaded {
     transform: scale(1.05);
   }
 }
@@ -414,7 +438,7 @@ function handleImageError(e: Event) {
   .card-cover {
     width: 200px;
 
-    img {
+    .cover-image {
       width: 200px;
       height: calc(200px * 9 / 16);
     }
@@ -473,7 +497,7 @@ function handleImageError(e: Event) {
   .card-cover {
     width: 180px;
 
-    img {
+    .cover-image {
       width: 180px;
       height: calc(180px * 9 / 16);
     }
@@ -532,7 +556,7 @@ function handleImageError(e: Event) {
     width: 100%;
     border-radius: $radius-lg $radius-lg 0 0;
 
-    img {
+    .cover-image {
       width: 100%;
       height: auto;
       aspect-ratio: 16 / 9;

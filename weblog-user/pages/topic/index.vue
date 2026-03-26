@@ -11,11 +11,12 @@
         </div>
       </header>
 
-      <!-- 加载态 -->
-      <UnifiedSkeleton v-if="loading" variant="topic" :count="pageSize" />
+      <div v-if="loading">
+        <UnifiedSkeleton class="topic-page-skeleton" variant="topic" :count="pageSize" />
+      </div>
 
-      <!-- 专题列表 -->
-      <template v-else>
+      <div v-else>
+        <!-- 专题列表 -->
         <div v-if="topics.length" class="topic-grid">
           <NuxtLink
             v-for="item in topics"
@@ -25,11 +26,14 @@
           >
             <div class="card-cover">
               <img
-                v-if="item.cover"
+                v-if="item.cover && !coverImageErrors[item.id]"
                 :src="item.cover"
                 :alt="item.title"
                 loading="lazy"
                 class="cover-img"
+                :class="{ 'cover-img--loaded': loadedCoverIds.has(item.id) }"
+                @load="handleCoverLoad(item.id)"
+                @error="handleCoverError(item.id)"
               />
               <div v-else class="cover-placeholder">
                 <Icon name="heroicons:book-open-20-solid" size="32" />
@@ -65,7 +69,7 @@
           @update:current-page="handlePageChange"
           @update:page-size="handleSizeChange"
         />
-      </template>
+      </div>
     </div>
   </div>
 </template>
@@ -81,15 +85,54 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(6)
 const loading = ref(true)
+const MIN_SKELETON_MS = 220
+let fetchTopicsRequestId = 0
+const coverImageErrors = reactive<Record<number, boolean>>({})
+const loadedCoverIds = reactive(new Set<number>())
+
+function resetCoverLoadState() {
+  loadedCoverIds.clear()
+  Object.keys(coverImageErrors).forEach((key) => {
+    delete coverImageErrors[Number(key)]
+  })
+}
+
+function handleCoverLoad(id: number) {
+  loadedCoverIds.add(id)
+}
+
+function handleCoverError(id: number) {
+  coverImageErrors[id] = true
+  loadedCoverIds.delete(id)
+}
+
+function waitFor(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms))
+}
 
 async function fetchTopics() {
+  const requestId = ++fetchTopicsRequestId
+  const startAt = Date.now()
+  resetCoverLoadState()
   loading.value = true
   try {
     const res = await topicApi.list(currentPage.value, pageSize.value)
+    if (requestId !== fetchTopicsRequestId) {
+      return
+    }
     topics.value = res.data.records
     total.value = res.data.total
   } catch { /* 静默 */ }
-  finally { loading.value = false }
+  finally {
+    if (requestId !== fetchTopicsRequestId) {
+      return
+    }
+    const elapsed = Date.now() - startAt
+    if (elapsed < MIN_SKELETON_MS) {
+      await waitFor(MIN_SKELETON_MS - elapsed)
+    }
+    loading.value = false
+  }
 }
 
 function handlePageChange(page: number) {
@@ -184,6 +227,8 @@ onMounted(() => fetchTopics())
 .topic-card {
   display: flex;
   flex-direction: column;
+  height: 334px;
+  min-height: 334px;
   background: #fff;
   border-radius: 10px;
   overflow: hidden;
@@ -195,7 +240,7 @@ onMounted(() => fetchTopics())
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-    .cover-img { transform: scale(1.05); }
+    .cover-img--loaded { transform: scale(1.05); }
   }
   .dark & {
     background: $color-dark-bg-secondary;
@@ -221,7 +266,16 @@ onMounted(() => fetchTopics())
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.35s ease;
+  opacity: 0;
+  transform: scale(1.03);
+  filter: blur(2px);
+  transition: opacity 0.28s ease, transform 0.35s ease, filter 0.28s ease;
+}
+
+.cover-img--loaded {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
 }
 
 .cover-placeholder {
@@ -245,6 +299,8 @@ onMounted(() => fetchTopics())
   display: flex;
   flex-direction: column;
   flex: 1;
+  height: 154px;
+  min-height: 154px;
 }
 
 .card-title {
@@ -278,6 +334,7 @@ onMounted(() => fetchTopics())
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: auto;
   font-size: 0.8rem;
   color: $color-text-muted;
   .dark & { color: $color-dark-text-muted; }
@@ -304,5 +361,13 @@ onMounted(() => fetchTopics())
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
+}
+
+:deep(.dark .topic-page-skeleton .skeleton-item) {
+  background: $color-dark-bg-secondary;
+}
+
+:deep(.dark .topic-page-skeleton.variant-topic .skeleton-item) {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
 }
 </style>

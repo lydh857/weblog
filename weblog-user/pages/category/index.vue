@@ -16,8 +16,12 @@
       @update:page-size="handlePageSizeChange"
     />
 
+    <section v-if="loading" class="post-grid">
+      <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
+    </section>
+
     <!-- 文章列表：双列布局 -->
-    <section v-if="!loading && posts.length" class="post-grid">
+    <section v-else-if="posts.length" class="post-grid">
       <template v-for="item in postGridItems" :key="item.key">
         <ArticleCard v-if="item.type === 'post'" :post="item.post" />
         <AdMimicCard v-else :ad="item.ad" />
@@ -25,15 +29,10 @@
     </section>
 
     <!-- 空状态 -->
-    <div v-if="!loading && !posts.length" class="empty-state">
+    <div v-else class="empty-state">
       <Icon name="heroicons:document-magnifying-glass" size="48" />
       <p>暂无符合条件的文章</p>
     </div>
-
-    <!-- 加载骨架屏 -->
-    <section v-if="loading" class="post-grid">
-      <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
-    </section>
 
     <!-- 分页 -->
     <Pagination
@@ -94,6 +93,12 @@ const listCardAds = ref<AdvertisementVO[]>([])
 const total = ref(0)
 const pageCount = ref(0)
 const loading = ref(true)
+const MIN_SKELETON_MS = 220
+let fetchPostsRequestId = 0
+
+function waitFor(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms))
+}
 
 type CategoryGridItem =
   | { key: string; type: 'post'; post: PostVO }
@@ -215,6 +220,8 @@ async function fetchTags() {
 
 /** 加载文章列表 */
 async function fetchPosts() {
+  const requestId = ++fetchPostsRequestId
+  const startAt = Date.now()
   loading.value = true
   try {
     const params: Record<string, number | string | undefined> = {
@@ -230,14 +237,27 @@ async function fetchPosts() {
     params.sortBy = filters.sortBy
 
     const res = await postApi.list(params as Parameters<typeof postApi.list>[0])
+    if (requestId !== fetchPostsRequestId) {
+      return
+    }
     posts.value = res.data.records
     total.value = res.data.total
     pageCount.value = Math.ceil(res.data.total / filters.pageSize)
   } catch {
+    if (requestId !== fetchPostsRequestId) {
+      return
+    }
     posts.value = []
     total.value = 0
     pageCount.value = 0
   } finally {
+    if (requestId !== fetchPostsRequestId) {
+      return
+    }
+    const elapsed = Date.now() - startAt
+    if (elapsed < MIN_SKELETON_MS) {
+      await waitFor(MIN_SKELETON_MS - elapsed)
+    }
     loading.value = false
   }
 }
@@ -370,6 +390,18 @@ onMounted(async () => {
 
 :deep(.home-load-more-skeleton) {
   display: contents;
+}
+
+:deep(.dark .home-load-more-skeleton .skeleton-item) {
+  background: $color-dark-bg-secondary;
+  border-color: $color-dark-border;
+}
+
+:deep(.dark .home-load-more-skeleton .skeleton-cover) {
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.11), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.08), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
 }
 
 /* 响应式 */

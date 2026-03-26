@@ -24,7 +24,6 @@
           <div class="skeleton-topic-summary-group">
             <div class="skeleton-line skeleton-topic-summary w-92" />
             <div class="skeleton-line skeleton-topic-summary w-84" />
-            <div class="skeleton-line skeleton-topic-summary w-68" />
           </div>
           <div class="skeleton-meta-row skeleton-topic-footer">
             <span class="skeleton-line skeleton-topic-count w-36" />
@@ -80,14 +79,19 @@ withDefaults(defineProps<{
 
 .variant-article {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  --sk-article-cover-width: 240px;
+  --sk-article-content-padding-y: 0.5rem;
+  --sk-article-content-padding-x: 0.75rem;
 }
 
 .variant-topic {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
 }
 
 .variant-friend-link {
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 0.9rem;
 }
 
 .variant-category {
@@ -108,8 +112,21 @@ withDefaults(defineProps<{
 .variant-topic .skeleton-item {
   flex-direction: column;
   gap: 0;
+  border: none;
   border-radius: 10px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+  height: 334px;
+  min-height: 334px;
+}
+
+.variant-article .skeleton-item {
+  height: calc(var(--sk-article-cover-width) * 9 / 16);
+}
+
+.variant-friend-link .skeleton-item {
+  align-items: center;
+  gap: 0.72rem;
+  padding: 0.88rem;
 }
 
 .variant-category .skeleton-item {
@@ -148,9 +165,9 @@ withDefaults(defineProps<{
 }
 
 .skeleton-cover {
-  width: 240px;
+  width: var(--sk-article-cover-width, 240px);
+  height: 100%;
   flex-shrink: 0;
-  aspect-ratio: 16 / 9;
 }
 
 .skeleton-topic-cover {
@@ -162,7 +179,6 @@ withDefaults(defineProps<{
   width: 52px;
   height: 52px;
   border-radius: 12px;
-  margin: 0.88rem 0 0.88rem 0.88rem;
   flex-shrink: 0;
 }
 
@@ -175,10 +191,15 @@ withDefaults(defineProps<{
   gap: 0.45rem;
 }
 
+.variant-article .skeleton-content {
+  padding: var(--sk-article-content-padding-y) var(--sk-article-content-padding-x);
+}
+
 .skeleton-topic-content {
   padding: 1rem 1.25rem 1.25rem;
   gap: 0;
-  min-height: 138px;
+  height: 154px;
+  min-height: 154px;
 }
 
 .skeleton-topic-title-group {
@@ -195,12 +216,12 @@ withDefaults(defineProps<{
 }
 
 .skeleton-topic-title {
-  height: 17px;
+  height: 20px;
   border-radius: 6px;
 }
 
 .skeleton-topic-summary {
-  height: 12px;
+  height: 14px;
   border-radius: 999px;
 }
 
@@ -209,7 +230,7 @@ withDefaults(defineProps<{
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-top: 0.9rem;
+  padding-top: 0.75rem;
 }
 
 .skeleton-topic-count,
@@ -219,8 +240,9 @@ withDefaults(defineProps<{
 }
 
 .skeleton-link-content {
-  justify-content: center;
-  padding: 0.88rem 0.88rem 0.88rem 0;
+  justify-content: flex-start;
+  gap: 0.22rem;
+  padding: 0;
 }
 
 .skeleton-category-content {
@@ -309,30 +331,45 @@ withDefaults(defineProps<{
     grid-template-columns: 1fr;
   }
 
-  .variant-topic {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .skeleton-cover {
+    width: var(--sk-article-cover-width, 180px);
   }
 
-  .skeleton-cover {
-    width: 180px;
+  .variant-article {
+    --sk-article-cover-width: 180px;
+    --sk-article-content-padding-y: 0.375rem;
+    --sk-article-content-padding-x: 0.5rem;
+  }
+}
+
+@media (max-width: $breakpoint-sm) {
+  .variant-topic {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
+  .variant-article {
+    --sk-article-cover-width: 200px;
+    --sk-article-content-padding-y: 0.45rem;
+    --sk-article-content-padding-x: 0.6rem;
   }
 }
 
 @media (max-width: 480px) {
-  .variant-topic {
-    grid-template-columns: 1fr;
-  }
-
   .variant-article .skeleton-item {
     flex-direction: column;
+    height: auto;
   }
 
   .variant-article .skeleton-cover {
     width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
 
   .variant-article .skeleton-content {
-    padding: 0.8rem;
+    padding: $spacing-md;
   }
 }
 

@@ -104,6 +104,8 @@ const noMore = ref(false)
 const currentPage = ref(1)
 const pageSize = 19
 const hasLoadedInitialPosts = ref(false)
+const MIN_HOME_INITIAL_SKELETON_MS = 220
+const MIN_HOME_LOAD_MORE_SKELETON_MS = 180
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const HOME_REVEAL_BOOTSTRAP_DELAY = 140
 const todaySectionRef = ref<HTMLElement | null>(null)
@@ -304,6 +306,7 @@ async function loadListCardAds() {
 async function loadPosts() {
   if (loading.value || hasLoadedInitialPosts.value) return
 
+  const startAt = Date.now()
   loading.value = true
   try {
     const res = await postApi.list({ pageNum: 1, pageSize })
@@ -312,6 +315,10 @@ async function loadPosts() {
     currentPage.value = 1
   } catch { /* ignore */ }
   finally {
+    const elapsed = Date.now() - startAt
+    if (elapsed < MIN_HOME_INITIAL_SKELETON_MS) {
+      await new Promise<void>(resolve => setTimeout(resolve, MIN_HOME_INITIAL_SKELETON_MS - elapsed))
+    }
     loading.value = false
     hasLoadedInitialPosts.value = true
   }
@@ -319,6 +326,7 @@ async function loadPosts() {
 
 async function loadMore() {
   if (loadingMore.value || noMore.value) return
+  const startAt = Date.now()
   loadingMore.value = true
   try {
     const nextPage = currentPage.value + 1
@@ -328,7 +336,13 @@ async function loadMore() {
     currentPage.value = nextPage
     noMore.value = appendedPosts.length < pageSize || nextPage >= res.data.pages
   } catch { /* ignore */ }
-  finally { loadingMore.value = false }
+  finally {
+    const elapsed = Date.now() - startAt
+    if (elapsed < MIN_HOME_LOAD_MORE_SKELETON_MS) {
+      await new Promise<void>(resolve => setTimeout(resolve, MIN_HOME_LOAD_MORE_SKELETON_MS - elapsed))
+    }
+    loadingMore.value = false
+  }
 }
 
 onMounted(() => {
