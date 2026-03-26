@@ -1,6 +1,8 @@
 package com.blog.content.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.blog.common.entity.BaseEntityNoDelete;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -29,7 +31,10 @@ public class Announcement extends BaseEntityNoDelete {
     /** 优先级（越大越优先） */
     private Integer priority;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime startTime;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime endTime;
 
     /** 是否可关闭 */

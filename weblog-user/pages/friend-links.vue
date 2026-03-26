@@ -247,7 +247,10 @@ onMounted(() => {
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   .dark & {
     border-color: $color-dark-border;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.68), rgba(30, 41, 59, 0.82));
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
   }
 }
 

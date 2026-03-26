@@ -45,7 +45,7 @@
                   </div>
                   <div class="item-meta">
                     <time>{{ formatAnnouncementTime(item) }}</time>
-                    <span v-if="item.priority > 0" class="item-tag">重要</span>
+                    <span v-if="getPriorityTag(item.priority)" class="item-tag">{{ getPriorityTag(item.priority) }}</span>
                   </div>
                 </button>
               </li>
@@ -110,6 +110,11 @@ function formatAnnouncementTime(item: AnnouncementVO): string {
   const dateValue = item.updateTime || item.createTime
   if (!dateValue) return '最近发布'
   return formatRelativeTime(dateValue)
+}
+
+function getPriorityTag(priority: number): string {
+  if (priority >= 80) return '重要'
+  return ''
 }
 
 function close() {

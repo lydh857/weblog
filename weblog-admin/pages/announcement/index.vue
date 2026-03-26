@@ -51,7 +51,13 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="优先级" prop="priority" width="80" align="center" />
+      <el-table-column label="优先级" width="90" align="center">
+        <template #default="{ row }">
+          <el-tag :type="row.priority >= 80 ? 'danger' : 'info'" size="small">
+            {{ row.priority >= 80 ? '重要' : '普通' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="可关闭" width="80" align="center">
         <template #default="{ row }">{{ row.isClosable ? '是' : '否' }}</template>
       </el-table-column>
@@ -90,7 +96,15 @@
           </el-select>
         </el-form-item>
         <el-form-item label="内容"><el-input v-model="form.content" type="textarea" :rows="4" clearable /></el-form-item>
-        <el-form-item label="优先级"><el-input-number v-model="form.priority" :min="0" :max="100" /></el-form-item>
+        <el-form-item label="优先级">
+          <div class="priority-section">
+            <div class="priority-simple">
+              <el-switch v-model="isImportant" />
+              <span class="priority-label">标记为重要</span>
+            </div>
+            <p class="priority-tip">默认普通（无需设置）；开启后按重要公告处理并在用户端显示“重要”标签。</p>
+          </div>
+        </el-form-item>
         <el-form-item label="可关闭"><el-switch v-model="form.isClosable" /></el-form-item>
         <el-form-item label="有效期">
           <div class="time-section">
@@ -132,6 +146,7 @@ const submitting = ref(false)
 const editingId = ref<number | null>(null)
 const selectedIds = ref<number[]>([])
 const isPermanent = ref(true)
+const isImportant = ref(false)
 
 const form = reactive({
   title: '', type: 'banner', content: '', priority: 0, isClosable: true,
@@ -198,6 +213,7 @@ function openDialog(row?: AnnouncementVO) {
   editingId.value = row?.id || null
   form.title = row?.title || ''; form.type = row?.type || 'banner'; form.content = row?.content || ''
   form.priority = row?.priority ?? 0; form.isClosable = row?.isClosable ?? true
+  isImportant.value = form.priority >= 80
   form.startTime = row?.startTime || null; form.endTime = row?.endTime || null
   isPermanent.value = !row?.startTime && !row?.endTime
   dialogVisible.value = true
@@ -207,6 +223,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     const data = { ...form }
+    data.priority = isImportant.value ? 80 : 0
     if (isPermanent.value) {
       data.startTime = null; data.endTime = null
     } else {
@@ -309,6 +326,28 @@ onMounted(loadData)
     flex-direction: column;
     gap: 8px;
   }
+}
+
+.priority-section {
+  width: 100%;
+}
+
+.priority-simple {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.priority-label {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+
+.priority-tip {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 // ========== Switch ==========

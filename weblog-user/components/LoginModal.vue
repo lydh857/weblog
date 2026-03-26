@@ -38,10 +38,10 @@
         <div v-show="mode === 'register'" class="form-group">
           <label for="lm-nickname">昵称</label>
           <div class="input-wrapper" @mouseenter="nicknameHover = true" @mouseleave="nicknameHover = false">
-            <Icon name="heroicons:user-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="user-16-solid" size="18" class="input-icon" />
             <input id="lm-nickname" v-model="form.nickname" type="text" placeholder="请输入昵称" maxlength="20" autocomplete="off" />
             <button v-show="nicknameHover && form.nickname" type="button" class="clear-btn" @mousedown.prevent="clearField('nickname')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
         </div>
@@ -50,10 +50,10 @@
         <div class="form-group email-group">
           <label for="lm-email">邮箱</label>
           <div class="input-wrapper" @mouseenter="emailHover = true" @mouseleave="emailHover = false">
-            <Icon name="heroicons:envelope-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="envelope-16-solid" size="18" class="input-icon" />
             <input id="lm-email" v-model="form.email" type="email" placeholder="请输入邮箱" required :autocomplete="mode === 'register' ? 'off' : 'email'" @input="onEmailInput" @blur="onEmailBlur" @focus="onEmailFocus" />
             <button v-show="emailHover && form.email" type="button" class="clear-btn" @mousedown.prevent="clearField('email')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
           <ClientOnly>
@@ -80,10 +80,10 @@
               <label>验证码</label>
               <div class="code-row">
                 <div class="input-wrapper code-input-wrapper" @mouseenter="codeHover = true" @mouseleave="codeHover = false">
-                  <Icon name="heroicons:shield-check-16-solid" size="18" class="input-icon" />
+                  <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
                   <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" :tabindex="mode === 'password' ? -1 : undefined" />
                   <button v-show="codeHover && form.code" type="button" class="clear-btn" @mousedown.prevent="clearField('code')" tabindex="-1">
-                    <Icon name="heroicons:x-circle-16-solid" size="16" />
+                    <FormFieldIcon name="x-circle-16-solid" size="16" />
                   </button>
                 </div>
                 <button type="button" class="send-code-btn" :disabled="codeCooldown > 0 || sendingCode" @click="handleSendCode" :tabindex="mode === 'password' ? -1 : undefined">
@@ -98,13 +98,13 @@
             <div class="form-group">
               <label for="lm-password">密码</label>
               <div class="input-wrapper" @mouseenter="pwdHover = true" @mouseleave="pwdHover = false">
-                <Icon name="heroicons:lock-closed-16-solid" size="18" class="input-icon" />
+                <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
                 <input id="lm-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="请输入密码" autocomplete="current-password" class="no-browser-eye" :tabindex="mode === 'code' ? -1 : undefined" @keyup.enter="handleSubmit" @blur="validateField('password')" />
                 <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('password')" tabindex="-1">
-                  <Icon name="heroicons:x-circle-16-solid" size="16" />
+                  <FormFieldIcon name="x-circle-16-solid" size="16" />
                 </button>
                 <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" @mousedown.prevent="togglePwd" tabindex="-1">
-                  <Icon :name="showPassword ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="18" />
+                  <FormFieldIcon :name="showPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
                 </button>
               </div>
               <span class="error-text" :class="{ visible: errors.password }">{{ errors.password || '&nbsp;' }}</span>
@@ -118,10 +118,10 @@
             <label>验证码</label>
             <div class="code-row">
               <div class="input-wrapper code-input-wrapper" @mouseenter="codeHover = true" @mouseleave="codeHover = false">
-                <Icon name="heroicons:shield-check-16-solid" size="18" class="input-icon" />
+                <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
                 <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" />
                 <button v-show="codeHover && form.code" type="button" class="clear-btn" @mousedown.prevent="clearField('code')" tabindex="-1">
-                  <Icon name="heroicons:x-circle-16-solid" size="16" />
+                  <FormFieldIcon name="x-circle-16-solid" size="16" />
                 </button>
               </div>
               <button type="button" class="send-code-btn" :disabled="codeCooldown > 0 || sendingCode" @click="handleSendCode">
@@ -135,13 +135,13 @@
           <div class="form-group">
             <label for="lm-reg-password">密码</label>
             <div class="input-wrapper" @mouseenter="pwdHover = true" @mouseleave="pwdHover = false">
-              <Icon name="heroicons:lock-closed-16-solid" size="18" class="input-icon" />
+              <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
               <input id="lm-reg-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" @keyup.enter="handleSubmit" @blur="validateField('password')" />
               <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('password')" tabindex="-1">
-                <Icon name="heroicons:x-circle-16-solid" size="16" />
+                <FormFieldIcon name="x-circle-16-solid" size="16" />
               </button>
               <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" @mousedown.prevent="togglePwd" tabindex="-1">
-                <Icon :name="showPassword ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="18" />
+                <FormFieldIcon :name="showPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
               </button>
             </div>
             <div v-show="form.password" class="password-strength">
@@ -158,13 +158,13 @@
         <div v-show="mode === 'register'" class="form-group">
           <label for="lm-confirmPassword">确认密码</label>
           <div class="input-wrapper" @mouseenter="confirmPwdHover = true" @mouseleave="confirmPwdHover = false">
-            <Icon name="heroicons:lock-closed-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
             <input id="lm-confirmPassword" ref="confirmPwdInputRef" v-model="form.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'" placeholder="请再次输入密码" autocomplete="new-password" class="no-browser-eye" @blur="validateField('confirmPassword')" />
             <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('confirmPassword')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
             <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="toggle-pwd" @mousedown.prevent="toggleConfirmPwd" tabindex="-1">
-              <Icon :name="showConfirmPassword ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="18" />
+              <FormFieldIcon :name="showConfirmPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
           <span class="error-text" :class="{ visible: errors.confirmPassword }">{{ errors.confirmPassword || '&nbsp;' }}</span>
@@ -194,10 +194,10 @@
         <div class="form-group email-group">
           <label>邮箱</label>
           <div class="input-wrapper" @mouseenter="resetEmailHover = true" @mouseleave="resetEmailHover = false">
-            <Icon name="heroicons:envelope-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="envelope-16-solid" size="18" class="input-icon" />
             <input v-model="resetForm.email" type="email" placeholder="请输入注册邮箱" autocomplete="off" @input="onResetEmailInput" @blur="onResetEmailBlur" @focus="onResetEmailInput" />
             <button v-show="resetEmailHover && resetForm.email" type="button" class="clear-btn" @mousedown.prevent="clearResetField('email')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
           <ClientOnly>
@@ -212,10 +212,10 @@
           <label>验证码</label>
           <div class="code-row">
             <div class="input-wrapper code-input-wrapper" @mouseenter="resetCodeHover = true" @mouseleave="resetCodeHover = false">
-              <Icon name="heroicons:shield-check-16-solid" size="18" class="input-icon" />
+              <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
               <input v-model="resetForm.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" />
               <button v-show="resetCodeHover && resetForm.code" type="button" class="clear-btn" @mousedown.prevent="clearResetField('code')" tabindex="-1">
-                <Icon name="heroicons:x-circle-16-solid" size="16" />
+                <FormFieldIcon name="x-circle-16-solid" size="16" />
               </button>
             </div>
             <button type="button" class="send-code-btn" :disabled="resetCooldown > 0 || resetSendingCode" @click="handleResetSendCode">
@@ -229,13 +229,13 @@
         <div class="form-group">
           <label>新密码</label>
           <div class="input-wrapper" @mouseenter="resetPwdHover = true" @mouseleave="resetPwdHover = false">
-            <Icon name="heroicons:lock-closed-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
             <input ref="resetPwdInputRef" v-model="resetForm.password" :type="showResetPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" />
             <button v-show="resetPwdHover && resetForm.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearResetField('password')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
             <button v-show="resetPwdHover && resetForm.password" type="button" class="toggle-pwd" @mousedown.prevent="toggleResetPwd" tabindex="-1">
-              <Icon :name="showResetPassword ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="18" />
+              <FormFieldIcon :name="showResetPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
           <div v-show="resetForm.password" class="password-strength">
@@ -250,13 +250,13 @@
         <div class="form-group">
           <label>确认新密码</label>
           <div class="input-wrapper" @mouseenter="resetConfirmPwdHover = true" @mouseleave="resetConfirmPwdHover = false">
-            <Icon name="heroicons:lock-closed-16-solid" size="18" class="input-icon" />
+            <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
             <input ref="resetConfirmPwdInputRef" v-model="resetForm.confirmPassword" :type="showResetConfirmPassword ? 'text' : 'password'" placeholder="请再次输入新密码" autocomplete="new-password" class="no-browser-eye" />
             <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearResetField('confirmPassword')" tabindex="-1">
-              <Icon name="heroicons:x-circle-16-solid" size="16" />
+              <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
             <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="toggle-pwd" @mousedown.prevent="toggleResetConfirmPwd" tabindex="-1">
-              <Icon :name="showResetConfirmPassword ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="18" />
+              <FormFieldIcon :name="showResetConfirmPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
           <span class="error-text" :class="{ visible: resetErrors.confirmPassword }">{{ resetErrors.confirmPassword || '&nbsp;' }}</span>
@@ -315,6 +315,7 @@ import { useLoginModal } from '~/composables/useLoginModal'
 import type { LoginModalMode } from '~/composables/useLoginModal'
 import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
 import BaseModal from '~/components/ui/modal/BaseModal.vue'
+import FormFieldIcon from '~/components/ui/icon/FormFieldIcon.vue'
 import { saveNavContext } from '~/utils/navContext'
 import { normalizeSafeHref } from '~/utils/urlSafety'
 
