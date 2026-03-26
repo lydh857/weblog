@@ -1293,6 +1293,7 @@ onUnmounted(() => {
   cursor: pointer;
   width: 100%;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(100, 116, 139, 0.08);
@@ -1329,6 +1330,20 @@ onUnmounted(() => {
         color: #f2f5fa;
       }
     }
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .mobile-link:hover,
+  .mobile-link:active {
+    background: none;
+    border-color: transparent;
+  }
+
+  .dark .mobile-link:hover,
+  .dark .mobile-link:active {
+    background: none;
+    border-color: transparent;
   }
 }
 

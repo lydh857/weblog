@@ -355,6 +355,8 @@ function handleStartupDone() {
 .carousel-slide {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+  background: var(--carousel-placeholder-bg);
   opacity: 0;
   transition: opacity 850ms cubic-bezier(0.33, 1, 0.68, 1);
   pointer-events: none;
@@ -374,6 +376,7 @@ function handleStartupDone() {
 }
 
 .slide-bg {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -606,6 +609,10 @@ function handleStartupDone() {
   .carousel-indicators {
     bottom: 36px;
     gap: 0.35rem;
+  }
+
+  .slide-overlay {
+    inset: 0 0 -1px;
   }
 
   .indicator-dot {

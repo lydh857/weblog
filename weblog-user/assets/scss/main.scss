@@ -43,6 +43,33 @@ html.startup-theme-lock body {
   transition: none;
 }
 
+html[data-theme-switching='1'],
+html[data-theme-switching='1'] *,
+html[data-theme-switching='1'] *::before,
+html[data-theme-switching='1'] *::after {
+  transition-property: background, background-color, color, border-color, box-shadow, fill, stroke, outline-color, text-decoration-color;
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-switching='1'],
+  html[data-theme-switching='1'] *,
+  html[data-theme-switching='1'] *::before,
+  html[data-theme-switching='1'] *::after,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+  }
+}
+
 html.dark body {
   background: $color-dark-bg;
   color: $color-dark-text;
