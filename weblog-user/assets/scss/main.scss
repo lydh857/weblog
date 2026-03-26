@@ -39,6 +39,10 @@ body {
   transition: background-color 0.28s ease, color 0.28s ease;
 }
 
+html.startup-theme-lock body {
+  transition: none;
+}
+
 html.dark body {
   background: $color-dark-bg;
   color: $color-dark-text;
@@ -63,6 +67,9 @@ html.dark body {
   --theme-dark-surface: #171b20;
   --theme-dark-elevated: #1d232a;
   --theme-dark-border: #2a313a;
+  --startup-mask-bg: radial-gradient(120% 120% at 0% 0%, rgba(37, 99, 235, 0.09), transparent 46%), radial-gradient(120% 120% at 100% 100%, rgba(14, 165, 233, 0.11), transparent 52%), linear-gradient(180deg, #ffffff, #f8fafc);
+  --startup-loader-text-color: #4e6ea8;
+  --startup-loader-shadow: drop-shadow(0 8px 20px rgba(32, 61, 120, 0.2));
   --status-info: #3b82f6;
   --status-info-soft-bg: rgba(59, 130, 246, 0.12);
   --status-info-soft-border: rgba(59, 130, 246, 0.32);
@@ -78,6 +85,9 @@ html.dark body {
 }
 
 html.dark {
+  --startup-mask-bg: radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%), radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%), linear-gradient(180deg, #171b20, #101215);
+  --startup-loader-text-color: #d7e4fb;
+  --startup-loader-shadow: drop-shadow(0 10px 24px rgba(2, 6, 23, 0.6));
   --status-info: #93c5fd;
   --status-info-soft-bg: rgba(59, 130, 246, 0.16);
   --status-info-soft-border: rgba(147, 197, 253, 0.34);

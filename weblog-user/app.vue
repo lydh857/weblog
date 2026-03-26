@@ -8,7 +8,7 @@
     <div
       v-if="showStartup"
       class="startup-mask"
-      style="position:fixed;inset:0;z-index:90000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--startup-mask-bg,radial-gradient(120% 120% at 0% 0%,rgba(59,130,246,0.13),transparent 45%),radial-gradient(120% 120% at 100% 100%,rgba(56,189,248,0.1),transparent 52%),linear-gradient(180deg,#171b20,#101215));"
+      style="position:fixed;inset:0;z-index:90000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--startup-mask-bg);"
       role="status"
       aria-live="polite"
       aria-busy="true"
