@@ -85,9 +85,13 @@ jobs:
           mysql -h127.0.0.1 -P3307 -uroot -proot -e "GRANT ALL PRIVILEGES ON weblog.* TO 'blog_user'@'%'; FLUSH PRIVILEGES;"
           mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/weblog.sql
 
+      - name: Build backend
+        run: |
+          mvn -f weblog-backend/pom.xml -pl weblog-api -am -DskipTests package
+
       - name: Start backend
         run: |
-          nohup mvn -f weblog-backend/weblog-api/pom.xml -DskipTests spring-boot:run > backend-ci.log 2>&1 &
+          nohup java -jar weblog-backend/weblog-api/target/weblog-api-1.0.0-SNAPSHOT.jar > backend-ci.log 2>&1 &
           echo $! > backend-ci.pid
 
       - name: Wait for backend ready
