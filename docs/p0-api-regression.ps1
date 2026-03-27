@@ -116,6 +116,38 @@ function Assert-Contains([string]$actual, [string]$expectedSubstring, [string]$c
   }
 }
 
+function Get-ResponseCode([object]$response) {
+  if ($null -ne $response -and $null -ne $response.Json) {
+    $codeProp = $response.Json.PSObject.Properties['code']
+    if ($null -ne $codeProp -and $null -ne $codeProp.Value) {
+      try {
+        return [int]$codeProp.Value
+      } catch {
+      }
+    }
+  }
+  return [int]$response.StatusCode
+}
+
+function Get-ResponseMessage([object]$response) {
+  if ($null -ne $response -and $null -ne $response.Json) {
+    $messageProp = $response.Json.PSObject.Properties['message']
+    if ($null -ne $messageProp -and $null -ne $messageProp.Value) {
+      return [string]$messageProp.Value
+    }
+
+    $errorProp = $response.Json.PSObject.Properties['error']
+    if ($null -ne $errorProp -and $null -ne $errorProp.Value) {
+      return [string]$errorProp.Value
+    }
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($response.Raw)) {
+    return [string]$response.Raw
+  }
+  return ''
+}
+
 function Extract-QueryParam([string]$url, [string]$name) {
   $uri = [System.Uri]$url
   $raw = $uri.Query.TrimStart('?')
@@ -391,11 +423,15 @@ Run-Check 'oauth authorize' {
   $originHeaders = @{ Cookie = $stateCookie; Origin = 'http://localhost:3000'; Referer = 'http://localhost:3000/' }
 
   $callbackFirst = Invoke-Api 'POST' $callbackUrl $originHeaders
-  Write-Host "[INFO] oauth callback first -> code=$($callbackFirst.Json.code), message=$($callbackFirst.Json.message)"
+  $callbackFirstCode = Get-ResponseCode $callbackFirst
+  $callbackFirstMessage = Get-ResponseMessage $callbackFirst
+  Write-Host "[INFO] oauth callback first -> code=$callbackFirstCode, message=$callbackFirstMessage"
 
   $callbackSecond = Invoke-Api 'POST' $callbackUrl $originHeaders
-  Assert-ResultCode ([int]$callbackSecond.Json.code) 400 'oauth state reused'
-  Assert-Contains ([string]$callbackSecond.Json.message) 'state' 'oauth state reused message'
+  $callbackSecondCode = Get-ResponseCode $callbackSecond
+  $callbackSecondMessage = Get-ResponseMessage $callbackSecond
+  Assert-ResultCode $callbackSecondCode 400 'oauth state reused'
+  Assert-Contains $callbackSecondMessage 'state' 'oauth state reused message'
 }
 
 Write-Host ''
