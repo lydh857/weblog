@@ -18,11 +18,15 @@ powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "
 
 6) malformed comment like cache tolerance check
 powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -CheckMalformedCommentLike -MalformedCheckPostId 1 -MalformedCheckCommentId 1 -MalformedExpectedLikeCount 12
+
+7) fail fast when authenticated checks are required but token missing
+powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -RequireAuthChecks
 #>
 
 param(
   [string]$BaseUrl = "http://localhost:9091",
   [string]$AuthToken = "",
+  [switch]$RequireAuthChecks,
   [switch]$AllowLegacyRepliesPaging,
   [long]$ForbiddenCommentId = 0,
   [string]$SummaryJsonPath = "",
@@ -40,6 +44,8 @@ $script:PassedChecks = 0
 $script:FailedChecks = 0
 $script:WarnChecks = 0
 $script:FailureMessages = New-Object System.Collections.Generic.List[string]
+$script:CheckMetrics = New-Object System.Collections.Generic.List[object]
+$script:RunStartedAt = [DateTimeOffset]::Now
 
 function Join-Url([string]$base, [string]$pathAndQuery) {
   if ($base.EndsWith('/')) {
@@ -223,14 +229,28 @@ function Find-CommentLikeCount([object]$records, [long]$targetCommentId) {
 
 function Run-Check([string]$name, [scriptblock]$check) {
   $script:TotalChecks++
+  $startedAt = [DateTimeOffset]::Now
   try {
     & $check
     $script:PassedChecks++
+    $durationMs = [Math]::Round((([DateTimeOffset]::Now - $startedAt).TotalMilliseconds), 2)
+    $script:CheckMetrics.Add([pscustomobject]@{
+      name = $name
+      status = 'passed'
+      durationMs = $durationMs
+    })
     Write-Host "[PASS] $name"
   } catch {
     $script:FailedChecks++
+    $durationMs = [Math]::Round((([DateTimeOffset]::Now - $startedAt).TotalMilliseconds), 2)
     $msg = "$name -> $($_.Exception.Message)"
     $script:FailureMessages.Add($msg)
+    $script:CheckMetrics.Add([pscustomobject]@{
+      name = $name
+      status = 'failed'
+      durationMs = $durationMs
+      message = $_.Exception.Message
+    })
     Write-Host "[FAIL] $msg"
   }
 }
@@ -238,6 +258,30 @@ function Run-Check([string]$name, [scriptblock]$check) {
 function Add-Warn([string]$name, [string]$message) {
   $script:WarnChecks++
   Write-Host "[WARN] $name -> $message"
+}
+
+function Write-SummaryJsonFile([string]$path, [object[]]$failedItems) {
+  if ([string]::IsNullOrWhiteSpace($path)) {
+    return
+  }
+
+  $summary = [ordered]@{
+    timestamp = [DateTimeOffset]::Now.ToString('o')
+    baseUrl = $BaseUrl
+    total = $script:TotalChecks
+    passed = $script:PassedChecks
+    failed = $script:FailedChecks
+    warnings = $script:WarnChecks
+    failedList = @($failedItems)
+    authChecksEnabled = ($authHeaders.Count -gt 0)
+    requireAuthChecks = [bool]$RequireAuthChecks
+    legacyRepliesPaging = [bool]$AllowLegacyRepliesPaging
+    durationMs = [Math]::Round((([DateTimeOffset]::Now - $script:RunStartedAt).TotalMilliseconds), 2)
+    checkMetrics = @($script:CheckMetrics.ToArray())
+  }
+
+  $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $path -Encoding UTF8
+  Write-Host "Summary JSON written: $path"
 }
 
 Write-Host "== P0 API regression start =="
@@ -253,6 +297,10 @@ if (-not [string]::IsNullOrWhiteSpace($AuthToken)) {
   Write-Host "[INFO] authenticated checks enabled"
 } else {
   Write-Host "[INFO] authenticated checks skipped (AuthToken is empty)"
+}
+
+if ($RequireAuthChecks -and $authHeaders.Count -eq 0) {
+  throw 'RequireAuthChecks is enabled but AuthToken is empty'
 }
 
 Run-Check 'smoke check' {
@@ -488,39 +536,11 @@ if ($script:FailedChecks -gt 0) {
     Write-Host "- $item"
   }
 
-  if (-not [string]::IsNullOrWhiteSpace($SummaryJsonPath)) {
-    $summaryObj = [pscustomobject]@{
-      timestamp = [DateTimeOffset]::Now.ToString("o")
-      baseUrl = $BaseUrl
-      total = $script:TotalChecks
-      passed = $script:PassedChecks
-      failed = $script:FailedChecks
-      warnings = $script:WarnChecks
-      failedList = @($script:FailureMessages)
-      authChecksEnabled = ($authHeaders.Count -gt 0)
-      legacyRepliesPaging = [bool]$AllowLegacyRepliesPaging
-    }
-    $summaryObj | ConvertTo-Json -Depth 10 | Set-Content -Path $SummaryJsonPath -Encoding UTF8
-    Write-Host "Summary JSON written: $SummaryJsonPath"
-  }
+  Write-SummaryJsonFile $SummaryJsonPath @($script:FailureMessages.ToArray())
 
   throw "P0 API regression failed with $script:FailedChecks failed checks"
 }
 
-if (-not [string]::IsNullOrWhiteSpace($SummaryJsonPath)) {
-  $summaryObj = [pscustomobject]@{
-    timestamp = [DateTimeOffset]::Now.ToString("o")
-    baseUrl = $BaseUrl
-    total = $script:TotalChecks
-    passed = $script:PassedChecks
-    failed = $script:FailedChecks
-    warnings = $script:WarnChecks
-    failedList = @()
-    authChecksEnabled = ($authHeaders.Count -gt 0)
-    legacyRepliesPaging = [bool]$AllowLegacyRepliesPaging
-  }
-  $summaryObj | ConvertTo-Json -Depth 10 | Set-Content -Path $SummaryJsonPath -Encoding UTF8
-  Write-Host "Summary JSON written: $SummaryJsonPath"
-}
+Write-SummaryJsonFile $SummaryJsonPath @()
 
 Write-Host '== P0 API regression passed =='
