@@ -200,3 +200,5 @@ sudo systemctl start weblog-api
 - Docker & Docker Compose
 - MySQL 8.0+
 - Redis 7.0+
+
+<!-- ci-check -->
