@@ -226,7 +226,11 @@ Write-Host "BaseUrl: $BaseUrl"
 
 $authHeaders = @{}
 if (-not [string]::IsNullOrWhiteSpace($AuthToken)) {
-  $authHeaders = @{ Cookie = "Satoken=$AuthToken" }
+  $authHeaders = @{
+    Cookie = "Satoken=$AuthToken"
+    Origin = 'http://localhost:3000'
+    Referer = 'http://localhost:3000/'
+  }
   Write-Host "[INFO] authenticated checks enabled"
 } else {
   Write-Host "[INFO] authenticated checks skipped (AuthToken is empty)"

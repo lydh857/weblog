@@ -77,7 +77,7 @@ jobs:
           cache: maven
 
       - name: Install mysql client
-        run: sudo apt-get update && sudo apt-get install -y mysql-client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client redis-tools
 
       - name: Init MySQL schema
         run: |
@@ -123,7 +123,60 @@ jobs:
           INPUT_MALFORMED_CHECK_COMMENT_ID: ${{ inputs.malformedCheckCommentId }}
           INPUT_MALFORMED_EXPECTED_LIKE_COUNT: ${{ inputs.malformedExpectedLikeCount }}
         run: |
-          $authToken = if (-not [string]::IsNullOrWhiteSpace($env:INPUT_AUTH_TOKEN)) { $env:INPUT_AUTH_TOKEN } else { $env:SECRET_AUTH_TOKEN }
+          $authToken = ''
+          $authTokenSource = ''
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_AUTH_TOKEN)) {
+            $authToken = $env:INPUT_AUTH_TOKEN
+            $authTokenSource = 'workflow input'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($authToken)) {
+            try {
+              $clientIp = '127.0.0.1'
+              $tokenId = [guid]::NewGuid().ToString()
+              $createTime = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+
+              $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($env:CAPTCHA_SECRET_KEY))
+              $payload = "$tokenId|$clientIp|$createTime"
+              $signatureBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($payload))
+              $signature = [Convert]::ToBase64String($signatureBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+              $verifyToken = "$tokenId.$signature"
+
+              $verifyTokenData = "{`"clientIp`":`"$clientIp`",`"createTime`":$createTime}"
+              redis-cli -h 127.0.0.1 -p 6380 SETEX "captcha:verify:$tokenId" 300 "$verifyTokenData" | Out-Null
+              if ($LASTEXITCODE -ne 0) {
+                throw 'write verify token to redis failed'
+              }
+
+              $loginBody = @{ email = 'admin@blog.com'; password = 'Admin@2026'; rememberMe = $false } | ConvertTo-Json
+              $loginHeaders = @{
+                'X-Captcha-Token' = $verifyToken
+                Origin = 'http://localhost:3000'
+                Referer = 'http://localhost:3000/'
+              }
+
+              $loginResponse = Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:9091/api/portal/auth/login' -Headers $loginHeaders -Body $loginBody -ContentType 'application/json'
+              foreach ($setCookie in @($loginResponse.Headers['Set-Cookie'])) {
+                if ($null -ne $setCookie -and $setCookie -match 'Satoken=([^;]+)') {
+                  $authToken = $matches[1]
+                  break
+                }
+              }
+
+              if ([string]::IsNullOrWhiteSpace($authToken)) {
+                throw 'extract Satoken from login response failed'
+              }
+
+              $authTokenSource = 'generated in CI'
+            } catch {
+              Write-Host "[WARN] auto-generate auth token failed: $($_.Exception.Message)"
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($authToken) -and -not [string]::IsNullOrWhiteSpace($env:SECRET_AUTH_TOKEN)) {
+            $authToken = $env:SECRET_AUTH_TOKEN
+            $authTokenSource = 'repository secret'
+          }
 
           $scriptArgs = @{
             BaseUrl = 'http://127.0.0.1:9091'
@@ -131,6 +184,7 @@ jobs:
           }
 
           if (-not [string]::IsNullOrWhiteSpace($authToken)) {
+            Write-Host "[INFO] authenticated checks token source: $authTokenSource"
             $scriptArgs.AuthToken = $authToken
           }
 
