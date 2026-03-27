@@ -58,7 +58,7 @@ jobs:
       REDIS_PORT: 6380
       REDIS_PASSWORD: ""
       JWT_SECRET: ci-jwt-secret-key-2026-at-least-32-characters
-      CAPTCHA_SECRET_KEY: ci-captcha-secret-key
+      CAPTCHA_SECRET_KEY: ci-captcha-secret-key-2026-at-least-32-characters
       GITHUB_CLIENT_ID: ci-github-client-id
       GITHUB_CLIENT_SECRET: ci-github-client-secret
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
@@ -86,10 +86,9 @@ jobs:
           mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/weblog.sql
 
       - name: Start backend
-        working-directory: weblog-backend
         run: |
-          nohup mvn -pl weblog-api -am -DskipTests spring-boot:run > ../backend-ci.log 2>&1 &
-          echo $! > ../backend-ci.pid
+          nohup mvn -f weblog-backend/weblog-api/pom.xml -DskipTests spring-boot:run > backend-ci.log 2>&1 &
+          echo $! > backend-ci.pid
 
       - name: Wait for backend ready
         run: |
