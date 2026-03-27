@@ -11,7 +11,8 @@
 参考案例/
 # Docker 数据卷（包含数据库数据，不提交）
 docker-data/
-database/
+database/*
+!database/weblog.sql
 # 文档文件夹（如果是临时文档）
 docs/*
 !docs/p0-api-regression.ps1
