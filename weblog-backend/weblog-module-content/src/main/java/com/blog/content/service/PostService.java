@@ -18,7 +18,8 @@ import com.blog.infra.oss.CdnService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class PostService {
     private final TagService tagService;
     private final CategoryService categoryService;
     private final StringRedisTemplate redisTemplate;
+    private final CacheManager cacheManager;
 
     /** CDN 刷新服务（OSS 未启用时为 null） */
     @Autowired(required = false)
@@ -142,7 +144,6 @@ public class PostService {
      * 更新文章
      */
     @Transactional
-    @CacheEvict(value = "post:detail", key = "#req.slug")
     public PostVO update(Long id, PostCreateRequest req, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -152,6 +153,7 @@ public class PostService {
         if (!post.getAuthorId().equals(operatorId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权编辑此文章");
         }
+        String oldSlug = post.getSlug();
 
         post.setTitle(XssUtil.cleanText(req.getTitle()));
         if (req.getSlug() != null && !req.getSlug().isBlank()) {
@@ -214,6 +216,9 @@ public class PostService {
             cdnService.refreshPost(post.getSlug());
         }
 
+        evictPostDetailCache(oldSlug);
+        evictPostDetailCache(post.getSlug());
+
         return getById(id);
     }
 
@@ -273,6 +278,7 @@ public class PostService {
         if (cdnService != null && "published".equals(post.getStatus())) {
             cdnService.refreshPost(post.getSlug());
         }
+        evictPostDetailCache(post.getSlug());
         log.info("文章删除成功: id={}, operator={}", id, operatorId);
     }
 
@@ -550,6 +556,7 @@ public class PostService {
             if (cdnService != null && "published".equals(post.getStatus())) {
                 cdnService.refreshPost(post.getSlug());
             }
+            evictPostDetailCache(post.getSlug());
             count++;
         }
         log.info("批量删除文章: count={}, operator={}", count, operatorId);
@@ -1178,6 +1185,16 @@ public class PostService {
         Page<Post> page = new Page<>(pageNum, pageSize);
         IPage<Post> result = postMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
         return convertPageWithRelations(result);
+    }
+
+    private void evictPostDetailCache(String slug) {
+        if (StrUtil.isBlank(slug)) {
+            return;
+        }
+        Cache cache = cacheManager.getCache("post:detail");
+        if (cache != null) {
+            cache.evict(slug);
+        }
     }
 
     /**

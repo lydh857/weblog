@@ -3,6 +3,7 @@ package com.blog.api.scheduler;
 import com.blog.interaction.entity.PostReadDaily;
 import com.blog.interaction.mapper.PostReadDailyMapper;
 import com.blog.interaction.service.ReadCountService;
+import com.blog.infra.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,6 +30,7 @@ public class ViewCountSyncScheduler {
     private final PostReadDailyMapper postReadDailyMapper;
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final RedisService redisService;
     private static final String LOCK_KEY = "scheduler:view-count:sync";
 
     /**
@@ -138,9 +140,6 @@ public class ViewCountSyncScheduler {
     }
 
     private void releaseLock(String lockValue) {
-        String current = redisTemplate.opsForValue().get(LOCK_KEY);
-        if (lockValue.equals(current)) {
-            redisTemplate.delete(LOCK_KEY);
-        }
+        redisService.releaseLock(LOCK_KEY, lockValue);
     }
 }

@@ -2,6 +2,7 @@ package com.blog.api.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.blog.infra.redis.RedisService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,6 +27,7 @@ public class RankingComputeScheduler {
 
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final RedisService redisService;
     private static final String LOCK_KEY = "scheduler:ranking:compute";
 
     /**
@@ -128,9 +130,6 @@ public class RankingComputeScheduler {
     }
 
     private void releaseLock(String lockValue) {
-        String current = redisTemplate.opsForValue().get(LOCK_KEY);
-        if (lockValue.equals(current)) {
-            redisTemplate.delete(LOCK_KEY);
-        }
+        redisService.releaseLock(LOCK_KEY, lockValue);
     }
 }

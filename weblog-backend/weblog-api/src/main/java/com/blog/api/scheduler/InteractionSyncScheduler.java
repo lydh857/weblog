@@ -3,6 +3,7 @@ package com.blog.api.scheduler;
 import com.blog.interaction.service.CommentService;
 import com.blog.interaction.service.FavoriteService;
 import com.blog.interaction.service.LikeService;
+import com.blog.infra.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,6 +30,7 @@ public class InteractionSyncScheduler {
     private final CommentService commentService;
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final RedisService redisService;
     private static final String LOCK_KEY = "scheduler:interaction:sync";
 
     /**
@@ -139,9 +141,6 @@ public class InteractionSyncScheduler {
     }
 
     private void releaseLock(String lockValue) {
-        String current = redisTemplate.opsForValue().get(LOCK_KEY);
-        if (lockValue.equals(current)) {
-            redisTemplate.delete(LOCK_KEY);
-        }
+        redisService.releaseLock(LOCK_KEY, lockValue);
     }
 }
