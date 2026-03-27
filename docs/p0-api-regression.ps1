@@ -48,11 +48,30 @@ function Join-Url([string]$base, [string]$pathAndQuery) {
   return "$base$pathAndQuery"
 }
 
-function Invoke-Api([string]$method, [string]$url, [hashtable]$headers = @{}, [object]$body = $null) {
-  $payload = $null
-  if ($null -ne $body) {
-    $payload = $body | ConvertTo-Json -Depth 10
+function Convert-RequestPayload([object]$body) {
+  if ($null -eq $body) {
+    return $null
   }
+
+  if ($body -is [System.Array]) {
+    if ($body.Count -eq 0) {
+      return '[]'
+    }
+    return $body | ConvertTo-Json -Depth 10 -AsArray
+  }
+
+  if (($body -is [System.Collections.IList]) -and -not ($body -is [string])) {
+    if ($body.Count -eq 0) {
+      return '[]'
+    }
+    return $body | ConvertTo-Json -Depth 10 -AsArray
+  }
+
+  return $body | ConvertTo-Json -Depth 10
+}
+
+function Invoke-Api([string]$method, [string]$url, [hashtable]$headers = @{}, [object]$body = $null) {
+  $payload = Convert-RequestPayload $body
 
   try {
     $resp = Invoke-WebRequest -Method $method -Uri $url -Headers $headers -Body $payload -ContentType "application/json" -UseBasicParsing

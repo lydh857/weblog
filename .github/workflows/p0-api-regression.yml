@@ -148,14 +148,22 @@ jobs:
                 throw 'write verify token to redis failed'
               }
 
-              $loginBody = @{ email = 'admin@blog.com'; password = 'Admin@2026'; rememberMe = $false } | ConvertTo-Json
+              $loginEmail = 'ci-regression@blog.test'
+              $loginCode = '123456'
+              $loginCodeKey = "blog:email:code:login:$loginEmail"
+              redis-cli -h 127.0.0.1 -p 6380 SETEX "$loginCodeKey" 300 "$loginCode" | Out-Null
+              if ($LASTEXITCODE -ne 0) {
+                throw 'write login code to redis failed'
+              }
+
+              $loginBody = @{ email = $loginEmail; code = $loginCode } | ConvertTo-Json
               $loginHeaders = @{
                 'X-Captcha-Token' = $verifyToken
                 Origin = 'http://localhost:3000'
                 Referer = 'http://localhost:3000/'
               }
 
-              $loginResponse = Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:9091/api/portal/auth/login' -Headers $loginHeaders -Body $loginBody -ContentType 'application/json'
+              $loginResponse = Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:9091/api/portal/auth/login-by-code' -Headers $loginHeaders -Body $loginBody -ContentType 'application/json'
               foreach ($setCookie in @($loginResponse.Headers['Set-Cookie'])) {
                 if ($null -ne $setCookie -and $setCookie -match 'Satoken=([^;]+)') {
                   $authToken = $matches[1]
