@@ -52,6 +52,7 @@ jobs:
           --health-retries=12
 
     env:
+      SPRING_PROFILES_ACTIVE: dev
       DB_USERNAME: blog_user
       DB_PASSWORD: blog_pass
       REDIS_HOST: 127.0.0.1
@@ -96,7 +97,12 @@ jobs:
 
       - name: Wait for backend ready
         run: |
-          for i in {1..60}; do
+          for i in {1..120}; do
+            if [ -f backend-ci.pid ] && ! kill -0 "$(cat backend-ci.pid)" 2>/dev/null; then
+              echo "backend process exited unexpectedly"
+              cat backend-ci.log || true
+              exit 1
+            fi
             if curl -sS "http://127.0.0.1:9091/api/search?keyword=test&pageNum=1&pageSize=1" >/dev/null; then
               echo "backend is ready"
               exit 0
