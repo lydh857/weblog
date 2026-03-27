@@ -1,6 +1,8 @@
 name: P0 API Regression
 
 on:
+  schedule:
+    - cron: '0 18 * * *'
   pull_request:
     branches:
       - master
@@ -10,6 +12,11 @@ on:
         description: 'Portal Satoken for authenticated checks (optional, can also use secret P0_REGRESSION_AUTH_TOKEN)'
         required: false
         default: ''
+      requireAuthChecks:
+        description: 'Fail when authenticated checks cannot be enabled'
+        required: false
+        type: boolean
+        default: false
       checkMalformedCommentLike:
         description: 'Enable malformed comment like cache fallback check'
         required: false
@@ -120,6 +127,7 @@ jobs:
         shell: pwsh
         env:
           INPUT_AUTH_TOKEN: ${{ inputs.authToken }}
+          INPUT_REQUIRE_AUTH_CHECKS: ${{ inputs.requireAuthChecks }}
           SECRET_AUTH_TOKEN: ${{ secrets.P0_REGRESSION_AUTH_TOKEN }}
           INPUT_CHECK_MALFORMED_COMMENT_LIKE: ${{ inputs.checkMalformedCommentLike }}
           INPUT_MALFORMED_CHECK_POST_ID: ${{ inputs.malformedCheckPostId }}
@@ -128,6 +136,13 @@ jobs:
         run: |
           $authToken = ''
           $authTokenSource = ''
+          $requireAuthChecks = $false
+          if ($env:GITHUB_EVENT_NAME -eq 'pull_request' -or $env:GITHUB_EVENT_NAME -eq 'schedule') {
+            $requireAuthChecks = $true
+          } elseif ($env:INPUT_REQUIRE_AUTH_CHECKS -eq 'true' -or $env:INPUT_REQUIRE_AUTH_CHECKS -eq 'True') {
+            $requireAuthChecks = $true
+          }
+
           if (-not [string]::IsNullOrWhiteSpace($env:INPUT_AUTH_TOKEN)) {
             $authToken = $env:INPUT_AUTH_TOKEN
             $authTokenSource = 'workflow input'
@@ -189,9 +204,17 @@ jobs:
             $authTokenSource = 'repository secret'
           }
 
+          if ($requireAuthChecks -and [string]::IsNullOrWhiteSpace($authToken)) {
+            throw 'RequireAuthChecks enabled but no auth token is available'
+          }
+
           $scriptArgs = @{
             BaseUrl = 'http://127.0.0.1:9091'
             SummaryJsonPath = 'docs/p0-api-regression-result.json'
+          }
+
+          if ($requireAuthChecks) {
+            $scriptArgs.RequireAuthChecks = $true
           }
 
           if (-not [string]::IsNullOrWhiteSpace($authToken)) {
