@@ -125,25 +125,24 @@ jobs:
         run: |
           $authToken = if (-not [string]::IsNullOrWhiteSpace($env:INPUT_AUTH_TOKEN)) { $env:INPUT_AUTH_TOKEN } else { $env:SECRET_AUTH_TOKEN }
 
-          $args = @(
-            '-BaseUrl', 'http://127.0.0.1:9091',
-            '-SummaryJsonPath', 'docs/p0-api-regression-result.json'
-          )
+          $scriptArgs = @{
+            BaseUrl = 'http://127.0.0.1:9091'
+            SummaryJsonPath = 'docs/p0-api-regression-result.json'
+          }
 
           if (-not [string]::IsNullOrWhiteSpace($authToken)) {
-            $args += @('-AuthToken', $authToken)
+            $scriptArgs.AuthToken = $authToken
           }
 
-          if ($env:INPUT_CHECK_MALFORMED_COMMENT_LIKE -eq 'true') {
-            $args += @(
-              '-CheckMalformedCommentLike',
-              '-MalformedCheckPostId', $env:INPUT_MALFORMED_CHECK_POST_ID,
-              '-MalformedCheckCommentId', $env:INPUT_MALFORMED_CHECK_COMMENT_ID,
-              '-MalformedExpectedLikeCount', $env:INPUT_MALFORMED_EXPECTED_LIKE_COUNT
-            )
+          $enableMalformedCheck = $env:INPUT_CHECK_MALFORMED_COMMENT_LIKE -eq 'true' -or $env:INPUT_CHECK_MALFORMED_COMMENT_LIKE -eq 'True'
+          if ($enableMalformedCheck) {
+            $scriptArgs.CheckMalformedCommentLike = $true
+            $scriptArgs.MalformedCheckPostId = [long]$env:INPUT_MALFORMED_CHECK_POST_ID
+            $scriptArgs.MalformedCheckCommentId = [long]$env:INPUT_MALFORMED_CHECK_COMMENT_ID
+            $scriptArgs.MalformedExpectedLikeCount = [long]$env:INPUT_MALFORMED_EXPECTED_LIKE_COUNT
           }
 
-          ./docs/p0-api-regression.ps1 @args
+          & ./docs/p0-api-regression.ps1 @scriptArgs
 
       - name: Upload backend log
         if: always()
