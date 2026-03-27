@@ -235,22 +235,22 @@ if (-not [string]::IsNullOrWhiteSpace($AuthToken)) {
 Run-Check 'smoke check' {
   $healthUrl = Join-Url $BaseUrl '/api/search?keyword=test&pageNum=1&pageSize=1'
   $healthResp = Invoke-Api 'GET' $healthUrl
-  Assert-ResultCode ([int]$healthResp.Json.code) 200 'smoke check'
+  Assert-ResultCode (Get-ResponseCode $healthResp) 200 'smoke check'
 }
 
 Run-Check 'search pageNum lower bound' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/search?keyword=test&pageNum=0&pageSize=10')
-  Assert-ResultCode ([int]$resp.Json.code) 400 'search pageNum lower bound'
+  Assert-ResultCode (Get-ResponseCode $resp) 400 'search pageNum lower bound'
 }
 
 Run-Check 'search pageSize lower bound' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/search?keyword=test&pageNum=1&pageSize=0')
-  Assert-ResultCode ([int]$resp.Json.code) 400 'search pageSize lower bound'
+  Assert-ResultCode (Get-ResponseCode $resp) 400 'search pageSize lower bound'
 }
 
 Run-Check 'search empty keyword returns empty result' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/search?keyword=%20%20%20&pageNum=1&pageSize=10')
-  Assert-ResultCode ([int]$resp.Json.code) 200 'search empty keyword code'
+  Assert-ResultCode (Get-ResponseCode $resp) 200 'search empty keyword code'
   $total = [long]$resp.Json.data.total
   if ($total -ne 0) {
     throw "search empty keyword total expected 0, actual $total"
@@ -263,40 +263,42 @@ Run-Check 'search empty keyword returns empty result' {
 
 Run-Check 'comment replies parentId lower bound' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/comment/replies/0?pageNum=1&pageSize=10')
-  Assert-ResultCode ([int]$resp.Json.code) 400 'comment replies parentId lower bound'
+  Assert-ResultCode (Get-ResponseCode $resp) 400 'comment replies parentId lower bound'
 }
 
 $repliesPageNumBad = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/comment/replies/1?pageNum=0&pageSize=10')
 $repliesPageSizeBad = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/comment/replies/1?pageNum=1&pageSize=0')
+$repliesPageNumBadCode = Get-ResponseCode $repliesPageNumBad
+$repliesPageSizeBadCode = Get-ResponseCode $repliesPageSizeBad
 if ($AllowLegacyRepliesPaging) {
-  if ([int]$repliesPageNumBad.Json.code -eq 400) {
+  if ($repliesPageNumBadCode -eq 400) {
     Write-Host '[PASS] comment replies pageNum lower bound'
   } else {
-    Add-Warn 'comment replies pageNum lower bound' "expected code=400, actual code=$([int]$repliesPageNumBad.Json.code) (legacy mode enabled)"
+    Add-Warn 'comment replies pageNum lower bound' "expected code=400, actual code=$repliesPageNumBadCode (legacy mode enabled)"
   }
-  if ([int]$repliesPageSizeBad.Json.code -eq 400) {
+  if ($repliesPageSizeBadCode -eq 400) {
     Write-Host '[PASS] comment replies pageSize lower bound'
   } else {
-    Add-Warn 'comment replies pageSize lower bound' "expected code=400, actual code=$([int]$repliesPageSizeBad.Json.code) (legacy mode enabled)"
+    Add-Warn 'comment replies pageSize lower bound' "expected code=400, actual code=$repliesPageSizeBadCode (legacy mode enabled)"
   }
 } else {
   Run-Check 'comment replies pageNum lower bound' {
-    Assert-ResultCode ([int]$repliesPageNumBad.Json.code) 400 'comment replies pageNum lower bound'
+    Assert-ResultCode $repliesPageNumBadCode 400 'comment replies pageNum lower bound'
   }
   Run-Check 'comment replies pageSize lower bound' {
-    Assert-ResultCode ([int]$repliesPageSizeBad.Json.code) 400 'comment replies pageSize lower bound'
+    Assert-ResultCode $repliesPageSizeBadCode 400 'comment replies pageSize lower bound'
   }
 }
 
 $missingPostId = 999999999
 Run-Check 'comment post existence' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl "/api/portal/comment/post/${missingPostId}?pageNum=1&pageSize=10")
-  Assert-ResultCode ([int]$resp.Json.code) 404 'comment post existence'
+  Assert-ResultCode (Get-ResponseCode $resp) 404 'comment post existence'
 }
 
 Run-Check 'interaction post existence' {
   $resp = Invoke-Api 'GET' (Join-Url $BaseUrl "/api/portal/interaction/like/${missingPostId}")
-  Assert-ResultCode ([int]$resp.Json.code) 404 'interaction post existence'
+  Assert-ResultCode (Get-ResponseCode $resp) 404 'interaction post existence'
 }
 
 if ($CheckMalformedCommentLike) {
@@ -310,7 +312,7 @@ if ($CheckMalformedCommentLike) {
 
     $listUrl = Join-Url $BaseUrl "/api/portal/comment/post/${MalformedCheckPostId}?pageNum=1&pageSize=100"
     $resp = Invoke-Api 'GET' $listUrl
-    Assert-ResultCode ([int]$resp.Json.code) 200 'malformed comment like cache fallback code'
+    Assert-ResultCode (Get-ResponseCode $resp) 200 'malformed comment like cache fallback code'
 
     $records = $resp.Json.data.records
     $actualLikeCount = Find-CommentLikeCount $records $MalformedCheckCommentId
@@ -331,53 +333,53 @@ if ($authHeaders.Count -gt 0) {
 
   Run-Check 'comment my pageNum lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/comment/my?pageNum=0&pageSize=10') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'comment my pageNum lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'comment my pageNum lower bound'
   }
   Run-Check 'comment my pageSize lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/comment/my?pageNum=1&pageSize=0') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'comment my pageSize lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'comment my pageSize lower bound'
   }
   Run-Check 'interaction likes pageNum lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/interaction/my/likes?pageNum=0&pageSize=10') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction likes pageNum lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction likes pageNum lower bound'
   }
   Run-Check 'interaction likes pageSize lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/interaction/my/likes?pageNum=1&pageSize=0') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction likes pageSize lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction likes pageSize lower bound'
   }
   Run-Check 'interaction favorites pageNum lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/interaction/my/favorites?pageNum=0&pageSize=10') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction favorites pageNum lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction favorites pageNum lower bound'
   }
   Run-Check 'interaction favorites pageSize lower bound' {
     $resp = Invoke-Api 'GET' (Join-Url $BaseUrl '/api/portal/interaction/my/favorites?pageNum=1&pageSize=0') $authHeaders
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction favorites pageSize lower bound'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction favorites pageSize lower bound'
   }
 
   Run-Check 'comment batch delete invalid id' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/comment/batch') $authHeaders @(0)
-    Assert-ResultCode ([int]$resp.Json.code) 400 'comment batch delete invalid id'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'comment batch delete invalid id'
   }
 
   Run-Check 'comment batch delete empty list' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/comment/batch') $authHeaders @()
-    Assert-ResultCode ([int]$resp.Json.code) 200 'comment batch delete empty list'
+    Assert-ResultCode (Get-ResponseCode $resp) 200 'comment batch delete empty list'
   }
 
   Run-Check 'comment batch delete not found' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/comment/batch') $authHeaders @(999999999)
-    Assert-ResultCode ([int]$resp.Json.code) 404 'comment batch delete not found'
+    Assert-ResultCode (Get-ResponseCode $resp) 404 'comment batch delete not found'
   }
 
   Run-Check 'comment batch delete max count' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/comment/batch') $authHeaders $oversizedIds
-    Assert-ResultCode ([int]$resp.Json.code) 400 'comment batch delete max count'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'comment batch delete max count'
   }
 
   if ($ForbiddenCommentId -gt 0) {
     Run-Check 'comment batch delete forbidden' {
       $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/comment/batch') $authHeaders @($ForbiddenCommentId)
-      Assert-ResultCode ([int]$resp.Json.code) 403 'comment batch delete forbidden'
+      Assert-ResultCode (Get-ResponseCode $resp) 403 'comment batch delete forbidden'
     }
   } else {
     Write-Host '[INFO] comment batch delete forbidden check skipped (ForbiddenCommentId not provided)'
@@ -385,31 +387,47 @@ if ($authHeaders.Count -gt 0) {
 
   Run-Check 'interaction batch unfavorite invalid duplicate id' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/interaction/favorite/batch') $authHeaders @(0, 0)
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction batch unfavorite invalid duplicate id'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction batch unfavorite invalid duplicate id'
   }
 
   Run-Check 'interaction batch unfavorite empty list' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/interaction/favorite/batch') $authHeaders @()
-    Assert-ResultCode ([int]$resp.Json.code) 200 'interaction batch unfavorite empty list'
+    Assert-ResultCode (Get-ResponseCode $resp) 200 'interaction batch unfavorite empty list'
   }
 
   Run-Check 'interaction batch unfavorite not found duplicate id' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/interaction/favorite/batch') $authHeaders @(999999999, 999999999)
-    Assert-ResultCode ([int]$resp.Json.code) 404 'interaction batch unfavorite not found duplicate id'
+    Assert-ResultCode (Get-ResponseCode $resp) 404 'interaction batch unfavorite not found duplicate id'
   }
 
   Run-Check 'interaction batch unfavorite max count' {
     $resp = Invoke-Api 'DELETE' (Join-Url $BaseUrl '/api/portal/interaction/favorite/batch') $authHeaders $oversizedIds
-    Assert-ResultCode ([int]$resp.Json.code) 400 'interaction batch unfavorite max count'
+    Assert-ResultCode (Get-ResponseCode $resp) 400 'interaction batch unfavorite max count'
   }
 }
 
 $redirectUri = [System.Uri]::EscapeDataString('http://localhost:3000/oauth/callback')
 Run-Check 'oauth authorize' {
   $authorizeResp = Invoke-Api 'GET' (Join-Url $BaseUrl "/api/portal/oauth/github/authorize?redirectUri=$redirectUri")
-  Assert-ResultCode ([int]$authorizeResp.Json.code) 200 'oauth authorize'
+  $authorizeCode = Get-ResponseCode $authorizeResp
+  Assert-ResultCode $authorizeCode 200 'oauth authorize'
 
-  $authUrl = [string]$authorizeResp.Json.data
+  $authUrl = ''
+  if ($authorizeResp.Json -is [string]) {
+    $authUrl = [string]$authorizeResp.Json
+  } elseif ($null -ne $authorizeResp.Json) {
+    $dataProp = $authorizeResp.Json.PSObject.Properties['data']
+    if ($null -ne $dataProp -and $null -ne $dataProp.Value) {
+      $authUrl = [string]$dataProp.Value
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($authUrl) -and -not [string]::IsNullOrWhiteSpace($authorizeResp.Raw)) {
+    $rawText = [string]$authorizeResp.Raw
+    if ($rawText.StartsWith('http')) {
+      $authUrl = $rawText
+    }
+  }
+
   if ([string]::IsNullOrWhiteSpace($authUrl)) {
     throw 'oauth authorize did not return auth url'
   }
