@@ -64,6 +64,90 @@ pnpm dev
 - 管理端: http://localhost:3001
 - API 文档: http://localhost:9091/doc.html
 
+## P0 API 回归（本地/CI）
+
+### GitHub Actions
+
+- 工作流文件：`.github/workflows/p0-api-regression.yml`
+- 触发方式：Actions 页面手动触发 `P0 API Regression`
+- 关键输入参数：
+  - `authToken`：可选，`Satoken` 的纯值（不带 `Satoken=` 前缀）
+  - `checkMalformedCommentLike`：可选，是否开启评论点赞缓存脏值容错断言
+  - `malformedCheckPostId` / `malformedCheckCommentId` / `malformedExpectedLikeCount`：可选，容错断言目标
+- 可选 Secret：`P0_REGRESSION_AUTH_TOKEN`
+  - 若 `authToken` 输入为空，工作流会回退读取该 Secret
+  - 若两者都为空，工作流只跑无登录态断言（登录态断言自动跳过）
+
+### 本地生成 Satoken（用于 CI 登录态回归）
+
+登录接口要求 `X-Captcha-Token`，可用下面脚本在本地生成一次性 `verifyToken` 并换取 `Satoken`：
+
+```powershell
+param(
+  [Parameter(Mandatory = $true)] [string]$Email,
+  [Parameter(Mandatory = $true)] [string]$Password,
+  [string]$BaseUrl = "http://127.0.0.1:9091",
+  [string]$ClientIp = "127.0.0.1"
+)
+
+$envMap = @{}
+Get-Content "./.env" | ForEach-Object {
+  if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
+  $parts = $_.Split('=', 2)
+  $envMap[$parts[0].Trim()] = $parts[1].Trim()
+}
+
+$captchaSecret = $envMap["CAPTCHA_SECRET_KEY"]
+$redisPassword = $envMap["REDIS_PASSWORD"]
+if ([string]::IsNullOrWhiteSpace($captchaSecret)) { throw "CAPTCHA_SECRET_KEY 未配置" }
+if ([string]::IsNullOrWhiteSpace($redisPassword)) { throw "REDIS_PASSWORD 未配置" }
+
+$tokenId = [Guid]::NewGuid().ToString()
+$createTime = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+$signPayload = "$tokenId|$ClientIp|$createTime"
+
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($captchaSecret))
+$sigBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($signPayload))
+$signature = [Convert]::ToBase64String($sigBytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
+$verifyToken = "$tokenId.$signature"
+
+$verifyJson = "{`"clientIp`":`"$ClientIp`",`"createTime`":$createTime}"
+docker exec blog-redis redis-cli -a $redisPassword -p 6379 SETEX ("captcha:verify:" + $tokenId) 300 $verifyJson | Out-Null
+
+$loginBody = @{
+  email = $Email
+  password = $Password
+  rememberMe = $false
+} | ConvertTo-Json
+
+$resp = Invoke-WebRequest -Method POST -Uri "$BaseUrl/api/admin/auth/login" -Headers @{
+  "X-Captcha-Token" = $verifyToken
+  "Origin" = "http://localhost:3001"
+  "Referer" = "http://localhost:3001/"
+} -Body $loginBody -ContentType "application/json"
+
+$payload = $resp.Content | ConvertFrom-Json
+if ([int]$payload.code -ne 200) {
+  throw "登录失败，code=$($payload.code), message=$($payload.message)"
+}
+
+$setCookies = @($resp.Headers["Set-Cookie"])
+$satoken = $null
+foreach ($cookie in $setCookies) {
+  if ($cookie -match 'Satoken=([^;]+)') {
+    $satoken = $matches[1]
+    break
+  }
+}
+if ([string]::IsNullOrWhiteSpace($satoken)) {
+  throw "未在 Set-Cookie 中提取到 Satoken"
+}
+
+Write-Output $satoken
+```
+
+将输出的 token 作为工作流 `authToken` 输入，或保存为仓库 Secret `P0_REGRESSION_AUTH_TOKEN`。
+
 
 ## 生产部署
 

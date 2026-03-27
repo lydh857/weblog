@@ -1,0 +1,159 @@
+name: P0 API Regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      authToken:
+        description: 'Portal Satoken for authenticated checks (optional, can also use secret P0_REGRESSION_AUTH_TOKEN)'
+        required: false
+        default: ''
+      checkMalformedCommentLike:
+        description: 'Enable malformed comment like cache fallback check'
+        required: false
+        type: boolean
+        default: false
+      malformedCheckPostId:
+        description: 'Post ID used by malformed cache check'
+        required: false
+        default: '1'
+      malformedCheckCommentId:
+        description: 'Comment ID used by malformed cache check'
+        required: false
+        default: '1'
+      malformedExpectedLikeCount:
+        description: 'Expected like count for malformed cache check'
+        required: false
+        default: '12'
+
+jobs:
+  p0-api-regression:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+      redis:
+        image: redis:7.2
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    env:
+      DB_USERNAME: blog_user
+      DB_PASSWORD: blog_pass
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6380
+      REDIS_PASSWORD: ""
+      JWT_SECRET: ci-jwt-secret-key-2026-at-least-32-characters
+      CAPTCHA_SECRET_KEY: ci-captcha-secret-key
+      GITHUB_CLIENT_ID: ci-github-client-id
+      GITHUB_CLIENT_SECRET: ci-github-client-secret
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install mysql client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Init MySQL schema
+        run: |
+          mysql -h127.0.0.1 -P3307 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS weblog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          mysql -h127.0.0.1 -P3307 -uroot -proot -e "CREATE USER IF NOT EXISTS 'blog_user'@'%' IDENTIFIED BY 'blog_pass';"
+          mysql -h127.0.0.1 -P3307 -uroot -proot -e "GRANT ALL PRIVILEGES ON weblog.* TO 'blog_user'@'%'; FLUSH PRIVILEGES;"
+          mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/weblog.sql
+
+      - name: Start backend
+        working-directory: weblog-backend
+        run: |
+          nohup mvn -pl weblog-api -am -DskipTests spring-boot:run > ../backend-ci.log 2>&1 &
+          echo $! > ../backend-ci.pid
+
+      - name: Wait for backend ready
+        run: |
+          for i in {1..60}; do
+            if curl -sS "http://127.0.0.1:9091/api/search?keyword=test&pageNum=1&pageSize=1" >/dev/null; then
+              echo "backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "backend not ready in time"
+          cat backend-ci.log || true
+          exit 1
+
+      - name: Run P0 API regression script
+        shell: pwsh
+        env:
+          INPUT_AUTH_TOKEN: ${{ inputs.authToken }}
+          SECRET_AUTH_TOKEN: ${{ secrets.P0_REGRESSION_AUTH_TOKEN }}
+          INPUT_CHECK_MALFORMED_COMMENT_LIKE: ${{ inputs.checkMalformedCommentLike }}
+          INPUT_MALFORMED_CHECK_POST_ID: ${{ inputs.malformedCheckPostId }}
+          INPUT_MALFORMED_CHECK_COMMENT_ID: ${{ inputs.malformedCheckCommentId }}
+          INPUT_MALFORMED_EXPECTED_LIKE_COUNT: ${{ inputs.malformedExpectedLikeCount }}
+        run: |
+          $authToken = if (-not [string]::IsNullOrWhiteSpace($env:INPUT_AUTH_TOKEN)) { $env:INPUT_AUTH_TOKEN } else { $env:SECRET_AUTH_TOKEN }
+
+          $args = @(
+            '-BaseUrl', 'http://127.0.0.1:9091',
+            '-SummaryJsonPath', 'docs/p0-api-regression-result.json'
+          )
+
+          if (-not [string]::IsNullOrWhiteSpace($authToken)) {
+            $args += @('-AuthToken', $authToken)
+          }
+
+          if ($env:INPUT_CHECK_MALFORMED_COMMENT_LIKE -eq 'true') {
+            $args += @(
+              '-CheckMalformedCommentLike',
+              '-MalformedCheckPostId', $env:INPUT_MALFORMED_CHECK_POST_ID,
+              '-MalformedCheckCommentId', $env:INPUT_MALFORMED_CHECK_COMMENT_ID,
+              '-MalformedExpectedLikeCount', $env:INPUT_MALFORMED_EXPECTED_LIKE_COUNT
+            )
+          }
+
+          ./docs/p0-api-regression.ps1 @args
+
+      - name: Upload backend log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-ci-log
+          path: backend-ci.log
+
+      - name: Upload regression summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-api-regression-summary
+          path: docs/p0-api-regression-result.json
+          if-no-files-found: warn
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend-ci.pid ]; then
+            kill $(cat backend-ci.pid) || true
+          fi
