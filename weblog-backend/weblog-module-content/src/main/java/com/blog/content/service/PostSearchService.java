@@ -73,7 +73,11 @@ public class PostSearchService {
             Query finalQuery = boosted.build();
 
             IndexSearcher searcher = indexManager.getSearcher();
-            int maxHits = Math.min((pageNum) * pageSize + pageSize, 1000);
+            int start = (pageNum - 1) * pageSize;
+            int maxHits = Math.min(start + pageSize, 1000);
+            if (maxHits < 1) {
+                maxHits = 1;
+            }
             TopDocs topDocs = searcher.search(finalQuery, maxHits);
             result.setTotal(topDocs.totalHits.value);
 
@@ -84,7 +88,6 @@ public class PostSearchService {
             highlighter.setTextFragmenter(new SimpleFragmenter(150));
 
             // 分页
-            int start = (pageNum - 1) * pageSize;
             int end = Math.min(start + pageSize, (int) topDocs.totalHits.value);
             List<SearchResult.SearchHit> hits = new ArrayList<>();
 

@@ -8,6 +8,8 @@ import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
+import com.blog.api.portal.support.BatchIdNormalizer;
+import com.blog.api.portal.support.PageParamNormalizer;
 import com.blog.interaction.entity.UserFavorite;
 import com.blog.interaction.entity.UserLike;
 import com.blog.interaction.mapper.UserLikeMapper;
@@ -71,6 +73,7 @@ public class InteractionController {
     @GetMapping("/like/{postId}")
     @RateLimit(key = "interaction-like-check", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> isLiked(@PathVariable Long postId) {
+        validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         boolean liked = likeService.isLiked(userId, postId);
@@ -109,6 +112,7 @@ public class InteractionController {
     @GetMapping("/favorite/{postId}")
     @RateLimit(key = "interaction-favorite-check", capacity = 120, seconds = 60)
     public Result<Map<String, Object>> isFavorited(@PathVariable Long postId) {
+        validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         boolean favorited = favoriteService.isFavorited(userId, postId);
@@ -125,7 +129,9 @@ public class InteractionController {
             @RequestParam(defaultValue = "10") int pageSize) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        PageParamNormalizer.PageParams pageParams = PageParamNormalizer.normalize(pageNum, pageSize, MAX_PAGE_SIZE);
+        pageNum = pageParams.pageNum();
+        pageSize = pageParams.pageSize();
 
         // 查询用户点赞记录
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<UserLike> page =
@@ -163,18 +169,23 @@ public class InteractionController {
     public Result<Void> batchUnfavorite(@RequestBody List<Long> postIds) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        if (postIds == null || postIds.isEmpty()) {
+        List<Long> uniquePostIds = BatchIdNormalizer.normalize(
+                postIds,
+                MAX_BATCH_OPERATE_COUNT,
+                "单次最多取消" + MAX_BATCH_OPERATE_COUNT + "条收藏",
+                "文章ID不合法"
+        );
+        if (uniquePostIds.isEmpty()) {
             return Result.success();
         }
-        if (postIds.size() > MAX_BATCH_OPERATE_COUNT) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "单次最多取消" + MAX_BATCH_OPERATE_COUNT + "条收藏");
-        }
-        for (Long postId : postIds) {
-            validatePostId(postId);
-            if (favoriteService.isFavorited(userId, postId)) {
-                favoriteService.setFavoriteState(userId, postId, false);
+
+        Set<Long> existingPostIds = new HashSet<>(postMapper.selectExistingIds(uniquePostIds));
+        for (Long postId : uniquePostIds) {
+            if (!existingPostIds.contains(postId)) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "文章不存在");
             }
         }
+        favoriteService.batchUnfavorite(userId, uniquePostIds);
         return Result.success();
     }
 
@@ -186,7 +197,9 @@ public class InteractionController {
             @RequestParam(defaultValue = "10") int pageSize) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        PageParamNormalizer.PageParams pageParams = PageParamNormalizer.normalize(pageNum, pageSize, MAX_PAGE_SIZE);
+        pageNum = pageParams.pageNum();
+        pageSize = pageParams.pageSize();
 
         IPage<UserFavorite> favPage = favoriteService.getUserFavorites(userId, pageNum, pageSize);
 
@@ -256,6 +269,9 @@ public class InteractionController {
     private void validatePostId(Long postId) {
         if (postId == null || postId <= 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "文章ID不合法");
+        }
+        if (postMapper.existsById(postId) <= 0) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "文章不存在");
         }
     }
 

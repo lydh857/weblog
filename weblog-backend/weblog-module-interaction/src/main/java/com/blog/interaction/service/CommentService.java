@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -114,6 +115,47 @@ public class CommentService {
         redisTemplate.opsForSet().add(KEY_COMMENT_DIRTY, comment.getPostId().toString());
 
         log.info("评论删除: userId={}, commentId={}", userId, commentId);
+    }
+
+    /**
+     * 批量删除评论（只能删自己的）
+     */
+    @Transactional
+    public void batchDeleteComments(Long userId, List<Long> commentIds) {
+        if (commentIds == null || commentIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> uniqueCommentIds = commentIds.stream().distinct().toList();
+        List<Comment> comments = commentMapper.selectByIds(uniqueCommentIds);
+        Map<Long, Comment> commentMap = new HashMap<>();
+        for (Comment comment : comments) {
+            if (comment != null && comment.getId() != null) {
+                commentMap.putIfAbsent(comment.getId(), comment);
+            }
+        }
+
+        Map<Long, Long> decrementByPostId = new HashMap<>();
+        for (Long commentId : uniqueCommentIds) {
+            Comment comment = commentMap.get(commentId);
+            if (comment == null) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "评论不存在");
+            }
+            if (!comment.getUserId().equals(userId)) {
+                throw new BusinessException(ResultCode.FORBIDDEN, "只能删除自己的评论");
+            }
+            decrementByPostId.merge(comment.getPostId(), 1L, Long::sum);
+        }
+
+        commentMapper.deleteByIds(uniqueCommentIds);
+        for (Map.Entry<Long, Long> entry : decrementByPostId.entrySet()) {
+            Long postId = entry.getKey();
+            Long delta = entry.getValue();
+            RedisCounterUtil.safeDecrementBy(redisTemplate, KEY_COMMENT_COUNT + postId, delta);
+            redisTemplate.opsForSet().add(KEY_COMMENT_DIRTY, postId.toString());
+        }
+
+        log.info("评论批量删除: userId={}, count={}", userId, uniqueCommentIds.size());
     }
 
     /**

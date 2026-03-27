@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.*;
@@ -92,6 +93,42 @@ public class FavoriteService {
     public boolean isFavorited(Long userId, Long postId) {
         String userKey = KEY_USER_FAVORITES + userId;
         return resolveFavoriteState(userId, postId, userKey, postId.toString());
+    }
+
+    /**
+     * 批量取消收藏（忽略未收藏项）
+     */
+    @Transactional
+    public void batchUnfavorite(Long userId, List<Long> postIds) {
+        if (postIds == null || postIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> uniquePostIds = postIds.stream().distinct().toList();
+        List<UserFavorite> activeFavorites = userFavoriteMapper.selectList(
+                new LambdaQueryWrapper<UserFavorite>()
+                        .eq(UserFavorite::getUserId, userId)
+                        .in(UserFavorite::getPostId, uniquePostIds));
+        if (activeFavorites.isEmpty()) {
+            return;
+        }
+
+        Set<Long> activePostIds = activeFavorites.stream()
+                .map(UserFavorite::getPostId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        userFavoriteMapper.softDeleteByUserAndPostIds(userId, new ArrayList<>(activePostIds));
+
+        String userKey = KEY_USER_FAVORITES + userId;
+        String[] postIdStrings = activePostIds.stream().map(String::valueOf).toArray(String[]::new);
+        redisTemplate.opsForSet().remove(userKey, (Object[]) postIdStrings);
+
+        for (Long postId : activePostIds) {
+            ensureCollectCounterLoaded(postId);
+            RedisCounterUtil.safeDecrementBy(redisTemplate, KEY_POST_COLLECT + postId, 1);
+            redisTemplate.opsForSet().add(KEY_COLLECT_DIRTY, String.valueOf(postId));
+        }
+        log.debug("批量取消收藏: userId={}, count={}", userId, activePostIds.size());
     }
 
     /**

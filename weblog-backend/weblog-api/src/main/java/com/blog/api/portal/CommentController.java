@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.api.portal.support.BatchIdNormalizer;
+import com.blog.api.portal.support.PageParamNormalizer;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
 import com.blog.interaction.dto.CommentVO;
@@ -48,6 +50,7 @@ public class CommentController {
     @PostMapping
     @RateLimit(key = "comment-create", capacity = 10, seconds = 60)
     public Result<CommentVO> create(@Valid @RequestBody CreateCommentRequest req) {
+        validatePostId(req.getPostId());
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         String auditVal = systemConfigService.getValue("comment_audit_enabled");
@@ -73,18 +76,17 @@ public class CommentController {
     public Result<Void> batchDelete(@RequestBody List<Long> commentIds) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        if (commentIds == null || commentIds.isEmpty()) {
+        List<Long> uniqueCommentIds = BatchIdNormalizer.normalize(
+                commentIds,
+                MAX_BATCH_OPERATE_COUNT,
+                "单次最多删除" + MAX_BATCH_OPERATE_COUNT + "条评论",
+                "评论ID不合法"
+        );
+        if (uniqueCommentIds.isEmpty()) {
             return Result.success();
         }
-        if (commentIds.size() > MAX_BATCH_OPERATE_COUNT) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "单次最多删除" + MAX_BATCH_OPERATE_COUNT + "条评论");
-        }
-        for (Long id : commentIds) {
-            if (id == null || id <= 0) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "评论ID不合法");
-            }
-            commentService.deleteComment(userId, id);
-        }
+
+        commentService.batchDeleteComments(userId, uniqueCommentIds);
         return Result.success();
     }
 
@@ -97,13 +99,16 @@ public class CommentController {
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "new") String sort) {
 
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        validatePostId(postId);
+        PageParamNormalizer.PageParams pageParams = PageParamNormalizer.normalize(pageNum, pageSize, MAX_PAGE_SIZE);
+        pageNum = pageParams.pageNum();
+        pageSize = pageParams.pageSize();
         IPage<Comment> page = commentService.getTopLevelComments(postId, pageNum, pageSize, sort);
 
         List<Long> parentIds = page.getRecords().stream()
                 .map(Comment::getId).collect(Collectors.toList());
 
-        List<Comment> replies = commentService.getReplies(parentIds);
+        List<Comment> replies = parentIds.isEmpty() ? List.of() : commentService.getReplies(parentIds);
 
         // 收集所有用户ID
         Set<Long> userIds = new HashSet<>();
@@ -121,16 +126,23 @@ public class CommentController {
         Map<Long, List<Comment>> replyGrouped = replies.stream()
                 .collect(Collectors.groupingBy(Comment::getParentId));
 
+        List<Long> likeCountCommentIds = new ArrayList<>();
+        page.getRecords().forEach(c -> likeCountCommentIds.add(c.getId()));
+        replies.forEach(c -> likeCountCommentIds.add(c.getId()));
+        Map<Long, Long> likeCountMap = likeCountCommentIds.isEmpty()
+                ? Map.of()
+                : likeService.getCommentLikeCounts(likeCountCommentIds);
+
         List<CommentVO> records = page.getRecords().stream().map(c -> {
             CommentVO vo = toVO(c, userMap);
             // 实时点赞数
-            vo.setLikeCount((int) likeService.getCommentLikeCount(c.getId()));
+            vo.setLikeCount(likeCountMap.getOrDefault(c.getId(), 0L).intValue());
             List<Comment> allReplies = replyGrouped.getOrDefault(c.getId(), List.of());
             vo.setReplyTotal((long) allReplies.size());
             List<Comment> preview = allReplies.size() > 3 ? allReplies.subList(0, 3) : allReplies;
             vo.setReplies(preview.stream().map(r -> {
                 CommentVO rvo = toVO(r, userMap);
-                rvo.setLikeCount((int) likeService.getCommentLikeCount(r.getId()));
+                rvo.setLikeCount(likeCountMap.getOrDefault(r.getId(), 0L).intValue());
                 return rvo;
             }).collect(Collectors.toList()));
             return vo;
@@ -143,7 +155,7 @@ public class CommentController {
             if (r.getReplies() != null) r.getReplies().forEach(rr -> allCommentIds.add(rr.getId()));
         });
         Set<Long> likedIds = Set.of();
-        if (StpUtil.isLogin()) {
+        if (!allCommentIds.isEmpty() && StpUtil.isLogin()) {
             likedIds = likeService.getCommentLikedIds(StpUtil.getLoginIdAsLong(), allCommentIds);
         }
         Set<Long> finalLikedIds = likedIds;
@@ -192,7 +204,10 @@ public class CommentController {
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
 
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        validateCommentId(parentId);
+        PageParamNormalizer.PageParams pageParams = PageParamNormalizer.normalize(pageNum, pageSize, MAX_PAGE_SIZE);
+        pageNum = pageParams.pageNum();
+        pageSize = pageParams.pageSize();
         IPage<Comment> page = commentService.getRepliesPage(parentId, pageNum, pageSize);
 
         Set<Long> userIds = new HashSet<>();
@@ -204,16 +219,23 @@ public class CommentController {
                 : userMapper.selectByIds(userIds).stream()
                         .collect(Collectors.toMap(User::getId, u -> u));
 
+        List<Long> recordCommentIds = page.getRecords().stream()
+                .map(Comment::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> likeCountMap = recordCommentIds.isEmpty()
+                ? Map.of()
+                : likeService.getCommentLikeCounts(recordCommentIds);
+
         List<CommentVO> records = page.getRecords().stream()
                 .map(c -> {
                     CommentVO vo = toVO(c, userMap);
-                    vo.setLikeCount((int) likeService.getCommentLikeCount(c.getId()));
+                    vo.setLikeCount(likeCountMap.getOrDefault(c.getId(), 0L).intValue());
                     return vo;
                 })
                 .collect(Collectors.toList());
 
         // 附带当前用户的点赞状态
-        if (StpUtil.isLogin()) {
+        if (!records.isEmpty() && StpUtil.isLogin()) {
             List<Long> commentIds = records.stream().map(CommentVO::getId).collect(Collectors.toList());
             Set<Long> likedIds = likeService.getCommentLikedIds(StpUtil.getLoginIdAsLong(), commentIds);
             records.forEach(r -> r.setLiked(likedIds.contains(r.getId())));
@@ -234,7 +256,9 @@ public class CommentController {
             @RequestParam(defaultValue = "10") int pageSize) {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        PageParamNormalizer.PageParams pageParams = PageParamNormalizer.normalize(pageNum, pageSize, MAX_PAGE_SIZE);
+        pageNum = pageParams.pageNum();
+        pageSize = pageParams.pageSize();
         IPage<Comment> page = commentService.getMyComments(userId, pageNum, pageSize);
 
         // 收集所有需要查询的用户ID
@@ -325,8 +349,19 @@ public class CommentController {
     }
 
     private void validateCommentId(Long commentId) {
-        if (commentId == null || commentId <= 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "评论ID不合法");
+        validatePositiveId(commentId, "评论ID不合法");
+    }
+
+    private void validatePostId(Long postId) {
+        validatePositiveId(postId, "文章ID不合法");
+        if (postMapper.existsById(postId) <= 0) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "文章不存在");
+        }
+    }
+
+    private void validatePositiveId(Long id, String errorMessage) {
+        if (id == null || id <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, errorMessage);
         }
     }
 

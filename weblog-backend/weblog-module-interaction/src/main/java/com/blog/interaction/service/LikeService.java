@@ -155,6 +155,62 @@ public class LikeService {
     }
 
     /**
+     * 批量获取评论点赞数（Redis 优先，缺失回查数据库并回填）
+     */
+    public Map<Long, Long> getCommentLikeCounts(List<Long> commentIds) {
+        if (commentIds == null || commentIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> uniqueIds = commentIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (uniqueIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<String> redisKeys = uniqueIds.stream()
+                .map(id -> KEY_COMMENT_LIKE + id)
+                .toList();
+        List<String> redisValues = redisTemplate.opsForValue().multiGet(redisKeys);
+
+        Map<Long, Long> result = new HashMap<>();
+        List<Long> missingIds = new ArrayList<>();
+
+        for (int i = 0; i < uniqueIds.size(); i++) {
+            Long commentId = uniqueIds.get(i);
+            String value = redisValues != null && i < redisValues.size() ? redisValues.get(i) : null;
+            if (value == null) {
+                missingIds.add(commentId);
+                continue;
+            }
+
+            try {
+                result.put(commentId, Long.parseLong(value));
+            } catch (NumberFormatException ex) {
+                log.warn("评论点赞数缓存值异常，回退数据库: commentId={}, value={}", commentId, value);
+                missingIds.add(commentId);
+            }
+        }
+
+        if (!missingIds.isEmpty()) {
+            Map<Long, Long> dbCounts = queryCommentLikeCountsFromDb(missingIds);
+            Map<String, String> redisFill = new HashMap<>();
+            for (Long commentId : missingIds) {
+                long count = dbCounts.getOrDefault(commentId, 0L);
+                result.put(commentId, count);
+                redisFill.put(KEY_COMMENT_LIKE + commentId, String.valueOf(count));
+            }
+            if (!redisFill.isEmpty()) {
+                redisTemplate.opsForValue().multiSet(redisFill);
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * 设置文章点赞状态（幂等）
      * @return true=点赞, false=取消点赞
      */
@@ -281,6 +337,26 @@ public class LikeService {
                 .eq(UserLike::getTargetType, "post")
                 .eq(UserLike::getTargetId, postId));
         return count != null && count > 0;
+    }
+
+    private Map<Long, Long> queryCommentLikeCountsFromDb(List<Long> commentIds) {
+        if (commentIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String placeholders = String.join(",", Collections.nCopies(commentIds.size(), "?"));
+        String sql = "SELECT id, IFNULL(like_count, 0) AS like_count FROM t_comment WHERE id IN (" + placeholders + ")";
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, commentIds.toArray());
+
+        Map<Long, Long> result = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object idValue = row.get("id");
+            Object countValue = row.get("like_count");
+            if (idValue instanceof Number idNumber && countValue instanceof Number countNumber) {
+                result.put(idNumber.longValue(), countNumber.longValue());
+            }
+        }
+        return result;
     }
 
     /**

@@ -2,8 +2,10 @@ package com.blog.infra.redis;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -11,6 +13,19 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class RedisService {
+
+    private static final DefaultRedisScript<Long> DELETE_KEY_SCRIPT;
+    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT;
+
+    static {
+        DELETE_KEY_SCRIPT = new DefaultRedisScript<>();
+        DELETE_KEY_SCRIPT.setScriptText("return redis.call('del', KEYS[1])");
+        DELETE_KEY_SCRIPT.setResultType(Long.class);
+
+        RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>();
+        RELEASE_LOCK_SCRIPT.setScriptText("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end");
+        RELEASE_LOCK_SCRIPT.setResultType(Long.class);
+    }
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -31,6 +46,25 @@ public class RedisService {
 
     public Boolean delete(String key) {
         return stringRedisTemplate.delete(key);
+    }
+
+    /**
+     * 原子消费 key（存在则删除并返回 true，不存在返回 false）
+     */
+    public boolean consumeKey(String key) {
+        Long deleted = stringRedisTemplate.execute(DELETE_KEY_SCRIPT, Collections.singletonList(key));
+        return deleted != null && deleted > 0;
+    }
+
+    /**
+     * 分布式锁安全释放：仅当 value 匹配时删除 key
+     */
+    public boolean releaseLock(String key, String lockValue) {
+        if (key == null || lockValue == null) {
+            return false;
+        }
+        Long deleted = stringRedisTemplate.execute(RELEASE_LOCK_SCRIPT, Collections.singletonList(key), lockValue);
+        return deleted != null && deleted > 0;
     }
 
     public Boolean hasKey(String key) {

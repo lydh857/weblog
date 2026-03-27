@@ -73,9 +73,18 @@ function Invoke-Api([string]$method, [string]$url, [hashtable]$headers = @{}, [o
       $statusCode = [int]$webResp.StatusCode
     } catch {}
 
-    $reader = New-Object System.IO.StreamReader($webResp.GetResponseStream())
-    $raw = $reader.ReadToEnd()
-    $reader.Close()
+    $raw = ''
+    if ($webResp -is [System.Net.Http.HttpResponseMessage]) {
+      try {
+        $raw = $webResp.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+      } catch {
+        $raw = ''
+      }
+    } elseif ($null -ne $webResp.PSObject.Methods['GetResponseStream']) {
+      $reader = New-Object System.IO.StreamReader($webResp.GetResponseStream())
+      $raw = $reader.ReadToEnd()
+      $reader.Close()
+    }
 
     $json = $null
     try {

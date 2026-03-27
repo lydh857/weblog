@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
+
 /**
  * 用户收藏 Mapper
  */
@@ -37,4 +39,14 @@ public interface UserFavoriteMapper extends BaseMapper<UserFavorite> {
 
     @Update("UPDATE t_user_favorite SET is_deleted = 0, create_time = NOW() WHERE id = #{id}")
     int restoreById(@Param("id") Long id);
+
+    @Update("<script>" +
+            "UPDATE t_user_favorite " +
+            "SET is_deleted = 1 " +
+            "WHERE user_id = #{userId} " +
+            "AND is_deleted = 0 " +
+            "AND post_id IN " +
+            "<foreach collection='postIds' item='postId' open='(' separator=',' close=')'>#{postId}</foreach>" +
+            "</script>")
+    int softDeleteByUserAndPostIds(@Param("userId") Long userId, @Param("postIds") List<Long> postIds);
 }

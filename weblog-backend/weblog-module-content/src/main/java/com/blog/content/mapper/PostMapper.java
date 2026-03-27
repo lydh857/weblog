@@ -39,6 +39,17 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select("SELECT COUNT(*) FROM t_post WHERE slug = #{slug}")
     int countBySlugIncludeDeleted(@Param("slug") String slug);
 
+    /** 文章是否存在（未软删除） */
+    @Select("SELECT COUNT(1) FROM t_post WHERE id = #{id} AND is_deleted = 0")
+    int existsById(@Param("id") Long id);
+
+    /** 批量查询存在的文章ID（未软删除） */
+    @Select("<script>" +
+            "SELECT id FROM t_post WHERE is_deleted = 0 AND id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    List<Long> selectExistingIds(@Param("ids") List<Long> ids);
+
     /** 统计已删除文章数 */
     @Select("SELECT COUNT(*) FROM t_post WHERE is_deleted = 1")
     int countDeleted();

@@ -97,10 +97,9 @@ public class GitHubOAuthService {
 
         // 验证 state 防止 CSRF
         String stateKey = STATE_KEY_PREFIX + state;
-        if (!redisService.hasKey(stateKey)) {
+        if (!redisService.consumeKey(stateKey)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "OAuth state 无效或已过期");
         }
-        redisService.delete(stateKey);
 
         // 用 code 换 access_token
         String accessToken = exchangeAccessToken(code);
