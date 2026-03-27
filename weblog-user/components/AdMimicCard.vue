@@ -57,7 +57,7 @@ const props = defineProps<{
 }>()
 
 const safeLinkUrl = computed(() => normalizeSafeHref(props.ad.linkUrl))
-const linkAttributes = computed<Record<string, string>>(() => {
+const linkAttributes = computed<Partial<Record<'href' | 'target' | 'rel', string>>>(() => {
   if (!safeLinkUrl.value) return {}
   return {
     href: safeLinkUrl.value,

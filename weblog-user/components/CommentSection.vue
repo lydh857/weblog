@@ -587,8 +587,9 @@ async function submitInlineReply(parent: CommentItem, reply?: CommentItem) {
     await loadReplyPage(parent.id, pageInfo ? pageInfo.current : 1)
     // 同步更新父评论的 replyTotal
     const parentComment = comments.value.find(c => c.id === parent.id)
-    if (parentComment && replyPageMap.value[parent.id]) {
-      parentComment.replyTotal = replyPageMap.value[parent.id].total
+    const parentReplyPage = replyPageMap.value[parent.id]
+    if (parentComment && parentReplyPage) {
+      parentComment.replyTotal = parentReplyPage.total
     }
   } catch (error) {
     showSubmitError(error, '回复提交失败，请稍后重试')
@@ -703,7 +704,8 @@ interface ReplyPageInfo { list: CommentItem[]; current: number; pages: number; t
 const replyPageMap = ref<Record<number, ReplyPageInfo>>({})
 function getReplyTotal(comment: CommentItem): number { return comment.replyTotal ?? comment.replies?.length ?? 0 }
 function getReplyData(comment: CommentItem): { list: CommentItem[] } {
-  if (expandedMap.value[comment.id] && replyPageMap.value[comment.id]) return { list: replyPageMap.value[comment.id].list }
+  const pageInfo = replyPageMap.value[comment.id]
+  if (expandedMap.value[comment.id] && pageInfo) return { list: pageInfo.list }
   return { list: ((comment.replies || []) as CommentItem[]).slice(0, 3) }
 }
 function getReplyPageData(parentId: number): { current: number; pages: number } {
@@ -750,11 +752,20 @@ onMounted(() => {
     const rootEl = document.querySelector('.comment-section') as HTMLElement
     if (rootEl) sectionRef.value = rootEl
     if (formRef.value) {
-      formObserver = new IntersectionObserver(([entry]) => { formInView.value = entry.isIntersecting }, { threshold: 0.1 })
+      formObserver = new IntersectionObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        formInView.value = entry.isIntersecting
+      }, { threshold: 0.1 })
       formObserver.observe(formRef.value)
     }
     if (sectionRef.value) {
-      sectionObserver = new IntersectionObserver(([entry]) => { sectionInView.value = entry.isIntersecting; if (entry.isIntersecting) updateBottomBarPosition() }, { threshold: 0 })
+      sectionObserver = new IntersectionObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        sectionInView.value = entry.isIntersecting
+        if (entry.isIntersecting) updateBottomBarPosition()
+      }, { threshold: 0 })
       sectionObserver.observe(sectionRef.value)
     }
     window.addEventListener('scroll', onScrollUpdate, { passive: true })

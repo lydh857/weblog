@@ -132,7 +132,7 @@
                   class="result-item"
                   :class="{ active: activeIndex === index }"
                   @mouseenter="activeIndex = index"
-                  @click="handleResultClick(item)"
+                  @click="handleResultClick"
                 >
                   <div class="result-content">
                     <h4 class="result-title" v-html="sanitizeHtml(item.highlightTitle || item.title)" />
@@ -240,6 +240,11 @@ const DEFAULT_SEARCH_PLACEHOLDER = '搜索文章...'
 const inputPlaceholderText = ref(DEFAULT_SEARCH_PLACEHOLDER)
 const showPlaceholderFire = computed(() => !keyword.value.trim() && inputPlaceholderText.value !== DEFAULT_SEARCH_PLACEHOLDER)
 const actualInputPlaceholder = computed(() => (showPlaceholderFire.value ? '' : inputPlaceholderText.value))
+let searchRequestId = 0
+
+function invalidateSearchRequest() {
+  searchRequestId += 1
+}
 
 // ===== 搜索历史（localStorage 持久化） =====
 const HISTORY_KEY = 'weblog_search_history'
@@ -404,8 +409,10 @@ function handleSearchBodyClick(event: MouseEvent) {
 function handleInput() {
   activeIndex.value = -1
   hasSearched.value = false
+  invalidateSearchRequest()
   if (!keyword.value.trim()) {
     results.value = []
+    searching.value = false
   }
 }
 
@@ -422,10 +429,12 @@ function handleSearchSubmit() {
 
 /** 执行搜索 */
 async function doSearch() {
+  const requestId = ++searchRequestId
   const kw = keyword.value.trim()
   if (!kw) {
     hasSearched.value = false
     results.value = []
+    searching.value = false
     return
   }
 
@@ -433,21 +442,31 @@ async function doSearch() {
   searching.value = true
   try {
     const res = await searchApi.search({ keyword: kw, pageSize: 20 })
+    if (requestId !== searchRequestId) {
+      return
+    }
     results.value = res.data.hits
     activeIndex.value = results.value.length > 0 ? 0 : -1
   } catch {
+    if (requestId !== searchRequestId) {
+      return
+    }
     results.value = []
   } finally {
-    searching.value = false
+    if (requestId === searchRequestId) {
+      searching.value = false
+    }
   }
 }
 
 /** 清空关键词 */
 function clearKeyword() {
+  invalidateSearchRequest()
   keyword.value = ''
   hasSearched.value = false
   results.value = []
   activeIndex.value = -1
+  searching.value = false
   searchInputRef.value?.focus()
 }
 
@@ -534,9 +553,8 @@ function formatCategoryPath(item: SearchHit): string {
 }
 
 // ===== 结果点击 =====
-function handleResultClick(item: SearchHit) {
+function handleResultClick() {
   addToHistory(keyword.value.trim())
-  window.open(`/post/${item.slug}`, '_blank', 'noopener,noreferrer')
 }
 
 // ===== 关闭模态框 =====
@@ -571,11 +589,13 @@ watch(() => props.visible, (val) => {
       locked = true
     }
   } else {
+    invalidateSearchRequest()
     keyword.value = ''
     hasSearched.value = false
     inputPlaceholderText.value = DEFAULT_SEARCH_PLACEHOLDER
     results.value = []
     activeIndex.value = -1
+    searching.value = false
     historyLongPressIndex.value = null
     suppressHistoryClick.value = false
     clearHistoryLongPressTimer()

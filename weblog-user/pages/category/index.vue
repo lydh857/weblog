@@ -111,8 +111,8 @@ const backendPageSize = computed(() => Math.max(1, filters.pageSize - 1))
 function resolveListCardAd(pageNo: number): AdvertisementVO | null {
   const pool = listCardAdPool.value
   if (!pool.length) return null
-  if (pool.length === 1) return pool[0]
-  return pool[(Math.max(1, pageNo) - 1) % pool.length]
+  if (pool.length === 1) return pool[0] ?? null
+  return pool[(Math.max(1, pageNo) - 1) % pool.length] ?? null
 }
 
 const postGridItems = computed<CategoryGridItem[]>(() => {

@@ -443,6 +443,7 @@ function getTouchDistance(touches: TouchList) {
   if (touches.length < 2) return 0
   const first = touches[0]
   const second = touches[1]
+  if (!first || !second) return 0
   const dx = first.clientX - second.clientX
   const dy = first.clientY - second.clientY
   return Math.hypot(dx, dy)

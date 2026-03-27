@@ -210,6 +210,7 @@ import { useLoginModal } from '~/composables/useLoginModal'
 import { useSearchModal } from '~/composables/useSearchModal'
 import { useNavScrollLock } from '~/composables/useNavScrollLock'
 import { rankingApi, type RankingItem } from '~/api/ranking'
+import { authApi } from '~/api/auth'
 
 const { bannerVisible: announcementBarVisible } = useAnnouncementBar()
 

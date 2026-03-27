@@ -23,7 +23,7 @@
 
     <SharePoster
       :visible="showPoster"
-      :title="postTitle"
+      :title="shareTitle"
       :summary="postSummary"
       :author="postAuthor"
       :url="shareUrl"
@@ -57,6 +57,7 @@ const userStore = useUserStore()
 const likeCount = ref(props.likeCount)
 const showPoster = ref(false)
 const shareUrl = computed(() => import.meta.client ? window.location.href : '')
+const shareTitle = computed(() => props.postTitle || '')
 
 const likeCommitQueue = useDebouncedStateCommit<boolean, { data: { liked: boolean; likeCount: number } }>({
   delayMs: 600,

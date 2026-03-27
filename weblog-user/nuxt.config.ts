@@ -31,7 +31,6 @@ export default defineNuxtConfig({
     css: {
       preprocessorOptions: {
         scss: {
-          api: 'modern-compiler',
           additionalData: '@use "~/assets/scss/variables" as *;',
         },
       },
@@ -41,11 +40,11 @@ export default defineNuxtConfig({
   // 运行时配置
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9091/api',
+      apiBase: import.meta.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9091/api',
     },
   },
 
-  devtools: { enabled: process.env.NODE_ENV === 'development' },
+  devtools: { enabled: import.meta.dev },
 
   // 页面缓存配置（SWR - Stale-While-Revalidate）
   routeRules: {

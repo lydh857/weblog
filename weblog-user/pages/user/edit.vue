@@ -581,6 +581,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (emailTimer) {
+    clearInterval(emailTimer)
+    emailTimer = null
+  }
+  if (pwdTimer) {
+    clearInterval(pwdTimer)
+    pwdTimer = null
+  }
   pendingAvatarFile.value = null
   pendingAvatarUrl.value = null
   revokeAvatarPreview()

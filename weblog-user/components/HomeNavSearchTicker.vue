@@ -17,11 +17,11 @@
       <div v-if="displayItems.length" class="ticker-viewport">
         <Transition name="ticker-roll" mode="out-in">
           <span
-            :key="currentItem.post_id"
+            :key="currentItem?.post_id ?? 'ticker-empty'"
             class="ticker-link"
-            :title="currentItem.title"
+            :title="currentItem?.title || ''"
           >
-            <span class="ticker-link__text">{{ currentItem.title }}</span>
+            <span class="ticker-link__text">{{ currentItem?.title || '' }}</span>
             <span class="ticker-fire" :style="getTickerFireStyle(activeIndex + 1)" aria-hidden="true">
               <Icon name="heroicons:fire-16-solid" size="14" />
             </span>

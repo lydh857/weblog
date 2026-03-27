@@ -901,7 +901,8 @@ function ensurePitSelectedForPosition() {
 
   const exists = options.some(item => item.pitAdId === form.pitAdId)
   if (!exists) {
-    form.pitAdId = options[0].pitAdId
+    const firstOption = options[0]
+    form.pitAdId = firstOption ? firstOption.pitAdId : null
   }
 }
 
@@ -1030,7 +1031,8 @@ function ensureDurationSelected() {
 
   const hasSelected = currentPositionRules.value.some(rule => rule.durationDays === form.durationDays)
   if (!hasSelected) {
-    form.durationDays = currentPositionRules.value[0].durationDays
+    const firstRule = currentPositionRules.value[0]
+    form.durationDays = firstRule ? firstRule.durationDays : 0
   }
 
   if (!form.startDate) {
@@ -1055,7 +1057,8 @@ function applyStartDatePreset(startDate: string) {
     return
   }
   if (currentPositionRules.value.length > 0) {
-    form.durationDays = currentPositionRules.value[0].durationDays
+    const firstRule = currentPositionRules.value[0]
+    form.durationDays = firstRule ? firstRule.durationDays : 0
     form.endDate = addDays(form.startDate, form.durationDays)
   }
   if (startDatePickerOpen.value) {
@@ -1078,7 +1081,8 @@ function handleStartDateChange() {
     return
   }
   if (currentPositionRules.value.length > 0) {
-    form.durationDays = currentPositionRules.value[0].durationDays
+    const firstRule = currentPositionRules.value[0]
+    form.durationDays = firstRule ? firstRule.durationDays : 0
     form.endDate = addDays(form.startDate, form.durationDays)
   }
 }

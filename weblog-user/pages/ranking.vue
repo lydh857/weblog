@@ -76,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
 
 useHead({ title: '排行榜 - Weblog' })
@@ -152,7 +153,7 @@ function getItemAnimationStyle(idx: number): Record<string, string> {
   }
 }
 
-function setTabButtonRef(tabValue: number, el: Element | null) {
+function setTabButtonRef(tabValue: number, el: Element | ComponentPublicInstance | null) {
   if (el instanceof HTMLElement) {
     tabButtonRefs.set(tabValue, el)
     return

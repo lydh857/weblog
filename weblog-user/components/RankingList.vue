@@ -107,6 +107,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
 
 interface Props {
@@ -192,7 +193,7 @@ async function switchTab(rankType: number) {
   await loadRanking()
 }
 
-function setTabButtonRef(rankType: number, el: Element | null) {
+function setTabButtonRef(rankType: number, el: Element | ComponentPublicInstance | null) {
   if (el instanceof HTMLElement) {
     tabButtonRefs.set(rankType, el)
     return

@@ -20,5 +20,5 @@ const TAG_COLORS = [
  * 根据索引或 ID 获取预设标签颜色
  */
 export function getTagColor(indexOrId: number): string {
-  return TAG_COLORS[Math.abs(indexOrId) % TAG_COLORS.length]
+  return TAG_COLORS[Math.abs(indexOrId) % TAG_COLORS.length] ?? TAG_COLORS[0] ?? '#3b82f6'
 }

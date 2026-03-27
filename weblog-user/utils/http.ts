@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useLoginModal } from '~/composables/useLoginModal'
 
 // ============================================================
@@ -10,15 +10,37 @@ import { useLoginModal } from '~/composables/useLoginModal'
 
 // 防止刷新死循环
 let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
+type RetryRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb)
+interface HttpError extends Error {
+  code?: number
 }
 
-function onTokenRefreshed(token: string) {
-  refreshSubscribers.forEach(cb => cb(token))
+interface RefreshSubscriber {
+  onSuccess: () => void
+  onError: (error: HttpError) => void
+}
+
+let refreshSubscribers: RefreshSubscriber[] = []
+
+function subscribeTokenRefresh(onSuccess: () => void, onError: (error: HttpError) => void) {
+  refreshSubscribers.push({ onSuccess, onError })
+}
+
+function onTokenRefreshed() {
+  refreshSubscribers.forEach(subscriber => subscriber.onSuccess())
   refreshSubscribers = []
+}
+
+function onTokenRefreshFailed(error: HttpError) {
+  refreshSubscribers.forEach(subscriber => subscriber.onError(error))
+  refreshSubscribers = []
+}
+
+function createHttpError(message: string, code?: number): HttpError {
+  const error = new Error(message) as HttpError
+  error.code = code
+  return error
 }
 
 function getBaseURL(): string {
@@ -57,22 +79,23 @@ function createHttp(): AxiosInstance {
           removeToken()
           try { useLoginModal().open() } catch {}
         }
-        const err: any = new Error(data.message || '请求失败')
-        err.code = data.code
-        return Promise.reject(err)
+        return Promise.reject(createHttpError(data.message || '请求失败', data.code))
       }
       return data
     },
     // 错误响应
-    async (error) => {
-      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    async (error: AxiosError<{ code?: number; message?: string }>) => {
+      const originalRequest = error.config as RetryRequestConfig | undefined
 
       // 401 未授权：尝试使用 Refresh Token 刷新
-      if (error.response?.status === 401 && import.meta.client && !originalRequest._retry) {
+      if (error.response?.status === 401 && import.meta.client && originalRequest && !originalRequest._retry) {
         if (isRefreshing) {
-          return new Promise((resolve) => {
+          return new Promise((resolve, reject) => {
             subscribeTokenRefresh(() => {
+              originalRequest._retry = true
               resolve(instance(originalRequest))
+            }, (refreshError) => {
+              reject(refreshError)
             })
           })
         }
@@ -81,39 +104,42 @@ function createHttp(): AxiosInstance {
         isRefreshing = true
 
         try {
-          await axios.post(
+          const refreshRes = await axios.post<{ code?: number; message?: string }>(
             `${getBaseURL()}/portal/auth/refresh`,
             {},
             { withCredentials: true }
           )
 
-          onTokenRefreshed('refreshed')
-          isRefreshing = false
+          if (refreshRes.data?.code !== 200) {
+            throw createHttpError(refreshRes.data?.message || '登录已过期，请重新登录', 401)
+          }
+
+          onTokenRefreshed()
 
           return instance(originalRequest)
-        } catch (refreshError) {
-          isRefreshing = false
+        } catch {
+          const refreshError = createHttpError('登录已过期，请重新登录', 401)
+          onTokenRefreshFailed(refreshError)
           removeToken()
           try { useLoginModal().open() } catch {}
 
-          const err: any = new Error('登录已过期，请重新登录')
-          err.code = 401
-          return Promise.reject(err)
+          return Promise.reject(refreshError)
+        } finally {
+          isRefreshing = false
         }
       }
 
       // CSRF 验证失败
       if (error.response?.status === 403) {
-        const err: any = new Error('安全验证失败，请刷新页面重试')
-        err.code = 403
-        return Promise.reject(err)
+        return Promise.reject(createHttpError('安全验证失败，请刷新页面重试', 403))
       }
 
       // 其他错误
       const serverMsg = error.response?.data?.message
-      const err: any = new Error(serverMsg || '网络异常，请稍后重试')
-      err.code = error.response?.data?.code || error.response?.status
-      return Promise.reject(err)
+      return Promise.reject(createHttpError(
+        serverMsg || '网络异常，请稍后重试',
+        error.response?.data?.code || error.response?.status
+      ))
     },
   )
 
@@ -128,7 +154,7 @@ const AVATAR_COOKIE = 'weblog_avatar'
 const NICKNAME_COOKIE = 'weblog_nickname'
 
 function setCookie(name: string, value: string, maxAge = 60 * 60 * 24 * 30) {
-  const isProd = process.env.NODE_ENV === 'production'
+  const isProd = import.meta.env.PROD
   const options = [
     `path=/`,
     `max-age=${maxAge}`,
@@ -139,7 +165,7 @@ function setCookie(name: string, value: string, maxAge = 60 * 60 * 24 * 30) {
 }
 
 function removeCookie(name: string) {
-  const isProd = process.env.NODE_ENV === 'production'
+  const isProd = import.meta.env.PROD
   const options = [
     `path=/`,
     `max-age=0`,

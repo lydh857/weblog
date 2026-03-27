@@ -135,7 +135,7 @@
                 <ArticleToc
                   v-if="currentPost"
                   content-selector=".post-content .md-editor-preview"
-                  :key="currentArticleId"
+                  :key="currentArticleId ?? 'none'"
                 />
               </div>
             </div>
@@ -216,7 +216,17 @@ import { postApi, type PostVO } from '~/api/post'
 import { useDarkMode } from '~/composables/useDarkMode'
 
 const route = useRoute()
-const topicId = Number(route.params.id)
+
+function parseTopicId(param: unknown): number | null {
+  const raw = Array.isArray(param) ? param[0] : param
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null
+  }
+  return parsed
+}
+
+const topicId = computed(() => parseTopicId(route.params.id))
 const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
@@ -237,6 +247,8 @@ const loading = ref(true)
 const articleLoading = ref(false)
 const mobileCatalogVisible = ref(false)
 const mobileTocVisible = ref(false)
+let topicRequestId = 0
+let articleRequestId = 0
 
 // 左侧收缩
 const leftCollapsed = ref(false)
@@ -274,14 +286,26 @@ const nextArticle = computed(() =>
 
 // 加载文章内容
 async function loadArticle(slug: string, articleId: number) {
+  const requestId = ++articleRequestId
   articleLoading.value = true
   currentArticleId.value = articleId
   try {
     const res = await postApi.detail(slug)
+    if (requestId !== articleRequestId) {
+      return
+    }
     currentPost.value = res.data.post
     useHead({ title: `${currentPost.value.title} - ${topic.value?.title} - Weblog` })
-  } catch { currentPost.value = null }
-  finally { articleLoading.value = false }
+  } catch {
+    if (requestId !== articleRequestId) {
+      return
+    }
+    currentPost.value = null
+  } finally {
+    if (requestId === articleRequestId) {
+      articleLoading.value = false
+    }
+  }
 }
 
 function formatViewCount(n: number): string {
@@ -344,26 +368,73 @@ function findFirstArticle(nodes: CatalogNode[]): CatalogNode | null {
   return null
 }
 
+function resetTopicState() {
+  topic.value = null
+  catalogs.value = []
+  currentPost.value = null
+  currentArticleId.value = null
+  mobileCatalogVisible.value = false
+  mobileTocVisible.value = false
+}
+
+async function loadTopicDetail() {
+  const currentTopicId = topicId.value
+  const requestId = ++topicRequestId
+  articleRequestId += 1
+  loading.value = true
+  articleLoading.value = false
+  resetTopicState()
+
+  if (currentTopicId == null) {
+    loading.value = false
+    return
+  }
+
+  try {
+    const [detailRes, catalogRes] = await Promise.all([
+      topicApi.detail(currentTopicId),
+      topicApi.catalogs(currentTopicId),
+    ])
+
+    if (requestId !== topicRequestId) {
+      return
+    }
+
+    topic.value = detailRes.data
+    catalogs.value = catalogRes.data
+    useHead({ title: `${topic.value.title} - Weblog` })
+
+    const first = findFirstArticle(catalogs.value)
+    if (first) {
+      const firstSlug = first.slug
+      const firstArticleId = first.articleId
+      if (firstSlug && firstArticleId) {
+        await loadArticle(firstSlug, firstArticleId)
+      }
+    }
+  } catch {
+    if (requestId !== topicRequestId) {
+      return
+    }
+    resetTopicState()
+  } finally {
+    if (requestId === topicRequestId) {
+      loading.value = false
+    }
+  }
+}
+
 onMounted(async () => {
   if (import.meta.client) {
     window.addEventListener('resize', handleWindowResize)
     handleWindowResize()
   }
 
-  try {
-    const [detailRes, catalogRes] = await Promise.all([
-      topicApi.detail(topicId),
-      topicApi.catalogs(topicId),
-    ])
-    topic.value = detailRes.data
-    catalogs.value = catalogRes.data
-    useHead({ title: `${topic.value.title} - Weblog` })
+  await loadTopicDetail()
+})
 
-    // 默认加载第一篇文章
-    const first = findFirstArticle(catalogs.value)
-    if (first) handleCatalogSelect(first)
-  } catch { /* 静默 */ }
-  finally { loading.value = false }
+watch(() => route.params.id, () => {
+  void loadTopicDetail()
 })
 
 onUnmounted(() => {

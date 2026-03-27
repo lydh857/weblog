@@ -47,24 +47,24 @@
         </div>
         <template v-else-if="dailyBoard.items.length">
           <!-- 第1名封面 -->
-          <NuxtLink :to="`/post/${dailyBoard.items[0].slug}`" class="hero-card">
+          <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="dailyBoard.items[0].cover_image" :src="dailyBoard.items[0].cover_image" :alt="dailyBoard.items[0].title" loading="lazy" />
+              <img v-if="dailyTopItem.cover_image" :src="dailyTopItem.cover_image" :alt="dailyTopItem.title" loading="lazy" />
               <div v-else class="hero-placeholder"><Icon name="heroicons:bolt-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
                 <div class="hero-bottom">
                   <div class="hero-info">
-                    <span class="hero-title">{{ dailyBoard.items[0].title }}</span>
+                    <span class="hero-title">{{ dailyTopItem.title }}</span>
                     <div class="hero-meta">
-                      <span v-if="dailyBoard.items[0].category_name" class="hero-cat">{{ dailyBoard.items[0].category_name }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(dailyBoard.items[0].view_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(dailyBoard.items[0].like_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(dailyBoard.items[0].collect_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(dailyBoard.items[0].comment_count) }}</span>
+                      <span v-if="dailyTopItem.category_name" class="hero-cat">{{ dailyTopItem.category_name }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(dailyTopItem.view_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(dailyTopItem.like_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(dailyTopItem.collect_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(dailyTopItem.comment_count) }}</span>
                     </div>
                   </div>
-                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(dailyBoard.items[0].score) }}</span>
+                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(dailyTopItem.score) }}</span>
                 </div>
               </div>
             </div>
@@ -171,24 +171,24 @@
         </div>
         <template v-else-if="totalBoard.items.length">
           <!-- 第1名封面 -->
-          <NuxtLink :to="`/post/${totalBoard.items[0].slug}`" class="hero-card">
+          <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="totalBoard.items[0].cover_image" :src="totalBoard.items[0].cover_image" :alt="totalBoard.items[0].title" loading="lazy" />
+              <img v-if="totalTopItem.cover_image" :src="totalTopItem.cover_image" :alt="totalTopItem.title" loading="lazy" />
               <div v-else class="hero-placeholder"><Icon name="heroicons:trophy-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
                 <div class="hero-bottom">
                   <div class="hero-info">
-                    <span class="hero-title">{{ totalBoard.items[0].title }}</span>
+                    <span class="hero-title">{{ totalTopItem.title }}</span>
                     <div class="hero-meta">
-                      <span v-if="totalBoard.items[0].category_name" class="hero-cat">{{ totalBoard.items[0].category_name }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(totalBoard.items[0].view_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(totalBoard.items[0].like_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(totalBoard.items[0].collect_count) }}</span>
-                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(totalBoard.items[0].comment_count) }}</span>
+                      <span v-if="totalTopItem.category_name" class="hero-cat">{{ totalTopItem.category_name }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(totalTopItem.view_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(totalTopItem.like_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(totalTopItem.collect_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(totalTopItem.comment_count) }}</span>
                     </div>
                   </div>
-                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(totalBoard.items[0].score) }}</span>
+                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(totalTopItem.score) }}</span>
                 </div>
               </div>
             </div>
@@ -314,6 +314,8 @@ function resolveDailyBoardSubtitle(meta: RankingMeta | null): string {
 
 const dailyBoardTitle = computed(() => resolveDailyBoardTitle(dailyBoard.meta))
 const dailyBoardSubtitle = computed(() => resolveDailyBoardSubtitle(dailyBoard.meta))
+const dailyTopItem = computed(() => dailyBoard.items[0] ?? null)
+const totalTopItem = computed(() => totalBoard.items[0] ?? null)
 
 async function loadBoard(board: Board, rankType: number, limit: number) {
   try {

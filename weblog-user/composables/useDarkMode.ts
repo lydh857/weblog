@@ -1,4 +1,3 @@
-import { useDark, useToggle } from '@vueuse/core'
 import { watch } from 'vue'
 
 const THEME_TRANSITION_ATTR = 'data-theme-switching'

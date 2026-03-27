@@ -62,7 +62,8 @@ function generateToc() {
     items.push({ id, text: h.textContent || '', level: parseInt(h.tagName[1]!) })
   })
   tocItems.value = items
-  if (items.length > 0) activeId.value = items[0].id
+  const firstItem = items[0]
+  if (firstItem) activeId.value = firstItem.id
   nextTick(() => { isVisible.value = true })
 }
 
@@ -81,11 +82,18 @@ function handleScroll() {
     }
   } else {
     for (let i = tocItems.value.length - 1; i >= 0; i--) {
-      const el = document.getElementById(tocItems.value[i].id)
-      if (el && el.getBoundingClientRect().top <= offset) { newId = tocItems.value[i].id; break }
+      const item = tocItems.value[i]
+      if (!item) continue
+      const el = document.getElementById(item.id)
+      if (el && el.getBoundingClientRect().top <= offset) { newId = item.id; break }
     }
   }
-  if (!newId && tocItems.value.length > 0) newId = tocItems.value[0].id
+  if (!newId && tocItems.value.length > 0) {
+    const firstItem = tocItems.value[0]
+    if (firstItem) {
+      newId = firstItem.id
+    }
+  }
   if (newId && newId !== activeId.value) {
     activeId.value = newId
     scrollTocToActive()

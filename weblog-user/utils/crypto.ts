@@ -32,7 +32,8 @@ export function generateRandomPassword(length: number = 12): string {
 
   let password = ''
   for (let i = 0; i < length; i++) {
-    password += chars[random[i] % chars.length]
+    const randomValue = random[i] ?? 0
+    password += chars[randomValue % chars.length] ?? ''
   }
   return password
 }
