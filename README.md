@@ -148,6 +148,18 @@ Write-Output $satoken
 
 将输出的 token 作为工作流 `authToken` 输入，或保存为仓库 Secret `P0_REGRESSION_AUTH_TOKEN`。
 
+### 分支保护生效说明（私有仓库）
+
+- 当前仓库是私有仓库，`Branch protection rules` 在当前套餐下可能显示 `Not enforced`。
+- 即使规则暂未被平台强制执行，也建议按同样标准执行提交流程，避免回归。
+
+### 推荐合并流程（团队约定）
+
+1. 所有改动先提交到功能分支。
+2. 通过 Pull Request 合并到 `master`，不直接向 `master` 推送功能改动。
+3. Pull Request 必须通过 `P0 API Regression` 后再合并。
+4. 合并后同步推送 GitHub 主仓库与 Gitee 镜像仓库。
+
 
 ## 生产部署
 
