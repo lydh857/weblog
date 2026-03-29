@@ -1,4 +1,6 @@
 <template>
+  <!-- 图标 path 为本地静态常量字符串 -->
+  <!-- eslint-disable vue/no-v-html -->
   <svg
     v-if="iconBody"
     class="form-field-icon"
@@ -9,6 +11,7 @@
     aria-hidden="true"
     v-html="iconBody"
   />
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">

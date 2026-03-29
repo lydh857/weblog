@@ -25,7 +25,7 @@ interface SseCallbacks {
  */
 export function ssePost(
   url: string,
-  data: Record<string, unknown>,
+  data: object,
   options?: { signal?: AbortSignal },
 ): SseCallbacks {
   let messageCb: ((text: string) => void) | null = null
@@ -42,7 +42,7 @@ export function ssePost(
 
   async function startSse(
     sseUrl: string,
-    body: Record<string, unknown>,
+    body: object,
     abortSignal: AbortSignal,
   ) {
     try {

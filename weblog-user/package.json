@@ -6,6 +6,8 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },
@@ -26,8 +28,12 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@nuxt/eslint": "^1.15.2",
     "@nuxt/icon": "^2.2.1",
-    "@types/crypto-js": "^4.2.2"
+    "@types/crypto-js": "^4.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "eslint": "^10.1.0",
+    "typescript": "^5.9.3"
   },
   "pnpm": {
     "overrides": {

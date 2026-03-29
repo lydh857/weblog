@@ -65,7 +65,6 @@ function buildStartupThemeInitScript(): string {
     const root = document.documentElement;
     root.classList.add(startupLockClass);
     root.classList.toggle('dark', isDark);
-    root.style.colorScheme = isDark ? 'dark' : 'light';
     root.style.backgroundColor = isDark ? '#101215' : '#f8fafc';
     root.setAttribute('data-startup-theme', isDark ? 'dark' : 'light');
     root.style.setProperty('--startup-mask-bg', isDark ? darkMask : lightMask);

@@ -248,10 +248,10 @@
 import { Plus, ArrowDown, Document, Folder, Edit, Delete, Top, Bottom, DocumentAdd, Check, Search, Sort, FolderAdd } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { ElTree } from 'element-plus'
-import { topicApi, type TopicVO, type SaveTopicParams, type CatalogNode } from '~/api/topic'
-import { postApi, type PostVO } from '~/api/post'
-import { uploadApi } from '~/api/upload'
-import { collectArticleIds, recalculateSort } from '~/utils/topicCatalog'
+import { topicApi, type TopicVO, type SaveTopicParams, type CatalogNode } from '~/api/content/topic'
+import { postApi, type PostVO } from '~/api/content/post'
+import { uploadApi } from '~/api/system/upload'
+import { collectArticleIds, recalculateSort } from '~/utils/content/topicCatalog'
 
 // ========== 表格高度自适应 ==========
 const tableHeight = ref(560)
@@ -677,13 +677,13 @@ function handleNodeDrop() {
 }
 
 function recalculateTree(nodes: (CatalogNode & { __key: string })[], parentId: number, level: number) {
-  for (let i = 0; i < nodes.length; i++) {
-    nodes[i].parentId = parentId
-    nodes[i].level = level
-    nodes[i].sort = i
-    if (nodes[i].children?.length) {
+  for (const [index, node] of nodes.entries()) {
+    node.parentId = parentId
+    node.level = level
+    node.sort = index
+    if (node.children?.length) {
       // 使用 __key 的数字部分作为临时 parentId（因为新节点没有真实 id）
-      recalculateTree(nodes[i].children as (CatalogNode & { __key: string })[], nodes[i].id ?? 0, level + 1)
+      recalculateTree(node.children as (CatalogNode & { __key: string })[], node.id ?? 0, level + 1)
     }
   }
 }
@@ -695,9 +695,8 @@ function recalculateTree(nodes: (CatalogNode & { __key: string })[], parentId: n
  * 编号前缀会替换标题中已有的序号前缀
  */
 function reindexTreeTitles(nodes: (CatalogNode & { __key: string })[], parentPrefix: string) {
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i]
-    const idx = i + 1
+  for (const [index, node] of nodes.entries()) {
+    const idx = index + 1
     const rawTitle = stripTitlePrefix(node.title)
 
     if (!parentPrefix) {
@@ -837,8 +836,7 @@ function handleArticleConfirm() {
     ? getNodeIndex(addArticleTargetNode.value)
     : ''
 
-  for (let i = 0; i < selectedArticles.value.length; i++) {
-    const article = selectedArticles.value[i]
+  for (const article of selectedArticles.value) {
     const childIdx = targetChildren.length + 1
     const prefix = parentIndex ? `${parentIndex}.${childIdx}` : `${childIdx}`
     targetChildren.push({
@@ -862,11 +860,11 @@ function handleArticleConfirm() {
 function getNodeIndex(node: CatalogNode & { __key: string }): string {
   // 简单实现：在 catalogTree 中递归查找
   function findIndex(nodes: (CatalogNode & { __key: string })[], target: string, prefix: string): string {
-    for (let i = 0; i < nodes.length; i++) {
-      const current = prefix ? `${prefix}.${i + 1}` : `${i + 1}`
-      if (nodes[i].__key === target) return current
-      if (nodes[i].children?.length) {
-        const found = findIndex(nodes[i].children as (CatalogNode & { __key: string })[], target, current)
+    for (const [index, currentNode] of nodes.entries()) {
+      const current = prefix ? `${prefix}.${index + 1}` : `${index + 1}`
+      if (currentNode.__key === target) return current
+      if (currentNode.children?.length) {
+        const found = findIndex(currentNode.children as (CatalogNode & { __key: string })[], target, current)
         if (found) return found
       }
     }

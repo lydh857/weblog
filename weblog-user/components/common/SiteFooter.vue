@@ -30,6 +30,7 @@
         <section class="link-group">
           <h4>内容与服务</h4>
           <NuxtLink to="/ranking">热门排行</NuxtLink>
+          <NuxtLink to="/tech-stack">技术栈</NuxtLink>
           <NuxtLink to="/friend-links">友情链接</NuxtLink>
           <button type="button" class="link-btn" @click="openSearchModal">站内搜索</button>
           <button type="button" class="link-btn" @click="openAdApplyModal">广告投放</button>

@@ -185,7 +185,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { systemConfigApi, type SystemConfigVO } from '~/api/system-config'
+import { systemConfigApi, type SystemConfigVO } from '~/api/system/system-config'
 
 const loading = ref(false)
 const saving = ref(false)

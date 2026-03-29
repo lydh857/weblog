@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface TrackPoint {
   x: number
@@ -23,11 +23,11 @@ export interface CaptchaVerifyResult {
 
 export const captchaApi = {
   generate: () =>
-    http.get<any, { data: CaptchaGenerateResult }>('/captcha/generate'),
+    http.get<unknown, { data: CaptchaGenerateResult }>('/captcha/generate'),
 
   verify: (data: { captchaToken: string; sliderPosition: number; slideTrack: TrackPoint[] }) =>
-    http.post<any, { data: CaptchaVerifyResult }>('/captcha/verify', data),
+    http.post<unknown, { data: CaptchaVerifyResult }>('/captcha/verify', data),
 
   refresh: (oldToken: string) =>
-    http.post<any, { data: CaptchaGenerateResult }>('/captcha/refresh', { oldToken }),
+    http.post<unknown, { data: CaptchaGenerateResult }>('/captcha/refresh', { oldToken }),
 }

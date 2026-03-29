@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useMessageStore } from '~/composables/useMessage'
+import { useMessageStore } from '~/composables/modal/useMessage'
 
 const { messages, remove } = useMessageStore()
 

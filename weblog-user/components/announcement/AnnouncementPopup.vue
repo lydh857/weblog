@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="popup-overlay-fade" appear>
+    <Transition name="modal-fade" appear>
       <div v-if="visible && currentAnn" class="popup-overlay">
         <div class="popup-envelope-wrap">
           <div
@@ -16,12 +16,15 @@
                 type="button"
                 class="popup-close"
                 aria-label="关闭"
-                @click.stop="tryClose"
+                @pointerdown="handleCloseAction"
+                @click="handleCloseAction"
               >
                 <Icon name="heroicons:x-mark-20-solid" size="16" />
               </button>
 
               <h3 class="popup-title">{{ currentAnn.title }}</h3>
+              <!-- 已经过 sanitizeHtml 净化 -->
+              <!-- eslint-disable-next-line vue/no-v-html -->
               <div class="popup-body" v-html="sanitize(currentAnn.content)" />
               <p class="popup-time">{{ announcementTimeText }}</p>
               <p class="popup-signature">zhhhkl</p>
@@ -57,13 +60,15 @@
 </template>
 
 <script setup lang="ts">
-import { announcementApi, type AnnouncementVO } from '~/api/ad'
-import { sanitizeHtml } from '~/utils/xss'
+import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
+import { fetchAllAnnouncements } from '~/composables/announcement/useAnnouncementRequestCache'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 const visible = ref(false)
 const popupAnnouncements = ref<AnnouncementVO[]>([])
 const currentIndex = ref(0)
 const envelopeOpen = ref(false)
+const closedByUserInSession = ref(false)
 const route = useRoute()
 
 const DISMISSED_STORAGE_KEY = 'dismissed_announcements_envelope_v2'
@@ -71,6 +76,7 @@ const POPUP_CACHE_STORAGE_KEY = 'announcement_popup_cache_v1'
 const POPUP_CACHE_MAX_AGE = 1000 * 60 * 30
 const FETCH_RETRY_COUNT = 2
 const FETCH_RETRY_DELAY = 260
+const ENVELOPE_HOVER_OPEN_DELAY_MS = 320
 
 let visibilityHandlerAttached = false
 let visibilityChangeHandler: (() => void) | null = null
@@ -78,6 +84,19 @@ let startupDoneHandlerAttached = false
 let startupDoneHandler: (() => void) | null = null
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const isStartupDone = ref(false)
+let popupRequestPromise: Promise<AnnouncementVO[]> | null = null
+let popupIdlePrefetchCancel: (() => void) | null = null
+let interactionPrefetchCleanup: (() => void) | null = null
+let envelopeHoverOpenTimer: ReturnType<typeof window.setTimeout> | null = null
+
+function clearEnvelopeHoverOpenTimer() {
+  if (!import.meta.client || !envelopeHoverOpenTimer) {
+    return
+  }
+
+  window.clearTimeout(envelopeHoverOpenTimer)
+  envelopeHoverOpenTimer = null
+}
 
 const currentAnn = computed(() => popupAnnouncements.value[currentIndex.value] || null)
 const hasNext = computed(() => currentIndex.value < popupAnnouncements.value.length - 1)
@@ -116,10 +135,19 @@ function formatAnnouncementTime(value: string) {
 }
 
 function handleEnvelopeMouseEnter() {
-  envelopeOpen.value = true
+  if (!import.meta.client || !window.matchMedia('(hover: hover)').matches) {
+    return
+  }
+
+  clearEnvelopeHoverOpenTimer()
+  envelopeHoverOpenTimer = window.setTimeout(() => {
+    envelopeOpen.value = true
+    envelopeHoverOpenTimer = null
+  }, ENVELOPE_HOVER_OPEN_DELAY_MS)
 }
 
 function handleEnvelopeMouseLeave() {
+  clearEnvelopeHoverOpenTimer()
   envelopeOpen.value = false
 }
 
@@ -136,6 +164,7 @@ function toggleEnvelopeByTap() {
 }
 
 function showCurrentAnnouncement() {
+  clearEnvelopeHoverOpenTimer()
   envelopeOpen.value = false
 }
 
@@ -153,9 +182,33 @@ function revealPopupIfReady() {
     return
   }
 
+  if (closedByUserInSession.value && !forcePopupPreview.value) {
+    return
+  }
+
   currentIndex.value = 0
   visible.value = true
   showCurrentAnnouncement()
+}
+
+function runWhenBrowserIdle(task: () => void, fallbackDelay = 360): () => void {
+  if (!import.meta.client) {
+    return () => {}
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    const idleId = window.requestIdleCallback(() => {
+      task()
+    }, { timeout: 1400 })
+    return () => {
+      window.cancelIdleCallback(idleId)
+    }
+  }
+
+  const timer = window.setTimeout(task, fallbackDelay)
+  return () => {
+    window.clearTimeout(timer)
+  }
 }
 
 function getDismissedKeys(): Set<string> {
@@ -301,13 +354,16 @@ function tryClose() {
     dismiss(currentAnn.value)
   }
 
-  if (hasNext.value) {
-    goNext()
-    return
-  }
-
+  clearEnvelopeHoverOpenTimer()
+  closedByUserInSession.value = true
   visible.value = false
   envelopeOpen.value = false
+}
+
+function handleCloseAction(event: Event) {
+  event.preventDefault()
+  event.stopPropagation()
+  tryClose()
 }
 
 function filterPopupAnnouncements(source: AnnouncementVO[], dismissed: Set<string>): AnnouncementVO[] {
@@ -347,7 +403,7 @@ async function fetchPopupAnnouncements(): Promise<AnnouncementVO[]> {
         return filteredByType
       }
 
-      const allAnnouncements = await announcementApi.getAll().then(res => res.data || [])
+      const allAnnouncements = await fetchAllAnnouncements()
       const filteredAll = filterPopupAnnouncements(allAnnouncements, dismissed)
       if (filteredAll.length > 0) {
         savePopupCache(filteredAll)
@@ -373,6 +429,68 @@ async function fetchPopupAnnouncements(): Promise<AnnouncementVO[]> {
   return []
 }
 
+function applyPopupAnnouncements(announcements: AnnouncementVO[]) {
+  popupAnnouncements.value = announcements
+  revealPopupIfReady()
+}
+
+function prefetchPopupAnnouncements() {
+  if (!import.meta.client) {
+    return Promise.resolve<AnnouncementVO[]>([])
+  }
+
+  if (popupRequestPromise) {
+    return popupRequestPromise
+  }
+
+  popupRequestPromise = fetchPopupAnnouncements()
+    .then((announcements) => {
+      applyPopupAnnouncements(announcements)
+      return announcements
+    })
+    .finally(() => {
+      popupRequestPromise = null
+    })
+
+  return popupRequestPromise
+}
+
+function clearInteractionPrefetchListeners() {
+  if (!interactionPrefetchCleanup) {
+    return
+  }
+
+  interactionPrefetchCleanup()
+  interactionPrefetchCleanup = null
+}
+
+function setupInteractionPrefetch() {
+  if (!import.meta.client || interactionPrefetchCleanup) {
+    return
+  }
+
+  // 首次真实交互时提权触发请求，避免一直等待 idle 导致公告感知滞后。
+  const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'touchstart']
+  const boostFetch = () => {
+    clearInteractionPrefetchListeners()
+    if (popupIdlePrefetchCancel) {
+      popupIdlePrefetchCancel()
+      popupIdlePrefetchCancel = null
+    }
+    void prefetchPopupAnnouncements()
+  }
+
+  events.forEach((eventName) => {
+    window.addEventListener(eventName, boostFetch, { passive: true, once: true, capture: true })
+  })
+
+  interactionPrefetchCleanup = () => {
+    events.forEach((eventName) => {
+      window.removeEventListener(eventName, boostFetch, true)
+    })
+  }
+}
+
 onMounted(async () => {
   isStartupDone.value = hasStartupDone()
 
@@ -385,7 +503,18 @@ onMounted(async () => {
     startupDoneHandlerAttached = true
   }
 
-  popupAnnouncements.value = await fetchPopupAnnouncements()
+  const dismissed = forcePopupPreview.value ? new Set<string>() : getDismissedKeys()
+  const cachedAnnouncements = filterPopupAnnouncements(readPopupCache(), dismissed)
+  if (cachedAnnouncements.length > 0) {
+    applyPopupAnnouncements(cachedAnnouncements)
+  }
+
+  // 公告请求属于非首屏关键路径：先空闲预取，减少与首屏资源竞争。
+  popupIdlePrefetchCancel = runWhenBrowserIdle(() => {
+    void prefetchPopupAnnouncements()
+    popupIdlePrefetchCancel = null
+  }, 420)
+  setupInteractionPrefetch()
   revealPopupIfReady()
 
   if (import.meta.client && !visibilityHandlerAttached) {
@@ -394,13 +523,10 @@ onMounted(async () => {
         return
       }
 
-      fetchPopupAnnouncements().then((announcements) => {
-        popupAnnouncements.value = announcements
-        if (popupAnnouncements.value.length === 0) {
+      prefetchPopupAnnouncements().then((announcements) => {
+        if (announcements.length === 0) {
           return
         }
-
-        revealPopupIfReady()
       })
     }
 
@@ -421,36 +547,36 @@ onUnmounted(() => {
     startupDoneHandler = null
     startupDoneHandlerAttached = false
   }
+
+  if (popupIdlePrefetchCancel) {
+    popupIdlePrefetchCancel()
+    popupIdlePrefetchCancel = null
+  }
+
+  clearEnvelopeHoverOpenTimer()
+
+  clearInteractionPrefetchListeners()
 })
 </script>
 
 <style scoped lang="scss">
-.popup-overlay-fade-enter-active,
-.popup-overlay-fade-appear-active,
-.popup-overlay-fade-leave-active {
-  transition: opacity 0.24s ease;
-}
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
 
-.popup-overlay-fade-enter-from,
-.popup-overlay-fade-appear-from,
-.popup-overlay-fade-leave-to {
-  opacity: 0;
-}
-
-.popup-overlay-fade-enter-active .popup-envelope-wrap,
-.popup-overlay-fade-appear-active .popup-envelope-wrap {
-  animation: popup-envelope-zoom-in 300ms cubic-bezier(0.22, 0.72, 0.22, 1) both;
-}
-
-@keyframes popup-envelope-zoom-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
+  .popup-envelope-wrap {
+    transition: transform 0.25s;
   }
+}
 
-  to {
-    opacity: 1;
-    transform: scale(1);
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
+  opacity: 0;
+
+  .popup-envelope-wrap {
+    transform: translateY(20px) scale(0.96);
   }
 }
 
@@ -462,10 +588,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background:
-    radial-gradient(circle at 50% 38%, rgba(148, 163, 184, 0.18), transparent 60%),
-    rgba(2, 6, 23, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .popup-envelope-wrap {
@@ -776,6 +904,12 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .modal-fade-enter-active,
+  .modal-fade-leave-active,
+  .modal-fade-appear-active,
+  .modal-fade-enter-active .popup-envelope-wrap,
+  .modal-fade-leave-active .popup-envelope-wrap,
+  .modal-fade-appear-active .popup-envelope-wrap,
   .popup-letter,
   .popup-seal,
   .envelope-face {

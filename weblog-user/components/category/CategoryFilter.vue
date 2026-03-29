@@ -389,8 +389,8 @@
 </template>
 
 <script setup lang="ts">
-import type { CategoryTreeVO } from '~/api/category'
-import type { TagCloudVO } from '~/api/tag'
+import type { CategoryTreeVO } from '~/api/content/category'
+import type { TagCloudVO } from '~/api/content/tag'
 
 interface SubCategoryItem {
   id: number

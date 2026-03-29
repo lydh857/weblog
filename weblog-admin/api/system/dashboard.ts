@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 /** 统计数据基础结构 */
 export interface StatisticsVO {

@@ -119,9 +119,9 @@ import {
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 // CryptoJS 已移除，记住密码功能现在使用明文存储
-import { authApi } from '~/api/auth'
+import { authApi } from '~/api/auth/auth'
 import { useUserStore } from '~/stores/user'
-import { useDarkMode } from '~/composables/useDarkMode'
+import { useDarkMode } from '~/composables/theme/useDarkMode'
 
 definePageMeta({ layout: false })
 

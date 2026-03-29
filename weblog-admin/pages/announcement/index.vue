@@ -132,7 +132,7 @@
 <script setup lang="ts">
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { announcementApi, type AnnouncementVO } from '~/api/announcement'
+import { announcementApi, type AnnouncementVO } from '~/api/marketing/announcement'
 
 const loading = ref(false)
 const records = ref<AnnouncementVO[]>([])

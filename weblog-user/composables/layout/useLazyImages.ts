@@ -40,19 +40,56 @@ export function useLazyImages() {
   onMounted(() => {
     scanImages()
 
+    const pendingNodes = new Set<Element>()
+    let flushRafId: number | null = null
+
+    function flushPendingNodes() {
+      flushRafId = null
+      if (pendingNodes.size === 0) return
+
+      pendingNodes.forEach((node) => {
+        if (node instanceof HTMLImageElement) {
+          if (node.loading === 'lazy') {
+            initImage(node)
+          }
+          return
+        }
+
+        node.querySelectorAll<HTMLImageElement>('img[loading="lazy"]').forEach(initImage)
+      })
+
+      pendingNodes.clear()
+    }
+
+    function scheduleFlushPendingNodes() {
+      if (flushRafId !== null) return
+      flushRafId = window.requestAnimationFrame(flushPendingNodes)
+    }
+
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node instanceof HTMLImageElement && node.loading === 'lazy') {
-            initImage(node)
+            pendingNodes.add(node)
           } else if (node instanceof Element) {
-            node.querySelectorAll<HTMLImageElement>('img[loading="lazy"]').forEach(initImage)
+            pendingNodes.add(node)
           }
         }
+      }
+
+      if (pendingNodes.size > 0) {
+        scheduleFlushPendingNodes()
       }
     })
 
     observer.observe(document.body, { childList: true, subtree: true })
-    onUnmounted(() => observer.disconnect())
+    onUnmounted(() => {
+      observer.disconnect()
+      if (flushRafId !== null) {
+        window.cancelAnimationFrame(flushRafId)
+        flushRafId = null
+      }
+      pendingNodes.clear()
+    })
   })
 }

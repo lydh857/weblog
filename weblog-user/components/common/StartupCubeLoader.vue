@@ -1,6 +1,6 @@
 <template>
   <div class="cube-loader" aria-hidden="true">
-    <img class="cube-image" src="/brand/startup-cube.svg" alt="" />
+    <img class="cube-image" src="/brand/startup-cube.svg" alt="" width="120" height="120" decoding="async" >
     <p class="cube-loader__text">正在加载页面...</p>
   </div>
 </template>

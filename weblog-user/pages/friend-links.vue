@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="friend-links-page">
+  <div class="friend-links-page" :class="{ 'page-entered': pageEntered }">
     <div class="page-header">
       <div class="page-title-row">
         <h1 class="page-title">
@@ -8,7 +8,7 @@
         </h1>
         <p class="page-desc">感谢以下站点的友情支持</p>
       </div>
-      <button class="apply-btn" :disabled="statusLoading" @click="handleApplyClick">
+      <button v-if="!applySwitchLoading && applyEnabled" class="apply-btn" :disabled="statusLoading" @click="handleApplyClick">
         <Icon name="heroicons:link-20-solid" size="18" />
         <span>{{ applyBtnText }}</span>
       </button>
@@ -19,12 +19,14 @@
     <template v-else-if="links.length">
       <div class="links-grid">
         <a
-          v-for="link in pagedLinks"
+          v-for="(link, index) in pagedLinks"
           :key="link.id"
           :href="getSafeHref(link.url) || '#'"
           target="_blank"
           rel="noopener noreferrer"
           class="link-card"
+          :class="{ 'card-entered': listEntered }"
+          :style="{ '--enter-index': index }"
           @click="handleLinkClick($event, link.url)"
         >
           <img
@@ -36,7 +38,7 @@
             loading="lazy"
             @load="onLogoLoad(link.id)"
             @error="onLogoError(link.id)"
-          />
+          >
           <div v-else class="link-logo-placeholder">{{ link.name.charAt(0) }}</div>
           <div class="link-info">
             <span class="link-name">{{ link.name }}</span>
@@ -59,11 +61,11 @@
 </template>
 
 <script setup lang="ts">
-import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
+import { friendLinkApi, type FriendLinkVO } from '~/api/content/friendLink'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { normalizeSafeHref } from '~/utils/urlSafety'
-import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
+import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
 
 useHead({
   title: '友情链接',
@@ -78,7 +80,11 @@ const loading = ref(true)
 const links = ref<FriendLinkVO[]>([])
 const showModal = ref(false)
 const statusLoading = ref(true)
+const applySwitchLoading = ref(true)
+const applyEnabled = ref(true)
 const myLink = ref<FriendLinkVO | null>(null)
+const pageEntered = ref(false)
+const listEntered = ref(false)
 
 const currentPage = ref(1)
 const pageSize = 12
@@ -104,6 +110,8 @@ function handleLinkClick(event: MouseEvent, rawUrl: string | null | undefined) {
 }
 
 const applyBtnText = computed(() => {
+  if (applySwitchLoading.value) return '检查中...'
+  if (!applyEnabled.value) return '申请已关闭'
   if (statusLoading.value) return '检查中...'
   if (!isLoggedIn.value || !myLink.value) return '申请友链'
   switch (myLink.value.status) {
@@ -135,13 +143,41 @@ async function fetchMyStatus() {
   }
 }
 
+async function fetchApplyStatus() {
+  applySwitchLoading.value = true
+  try {
+    const res = await friendLinkApi.getApplyStatus()
+    applyEnabled.value = Boolean(res.data?.enabled)
+  } catch {
+    applyEnabled.value = true
+  } finally {
+    applySwitchLoading.value = false
+  }
+}
+
 function handleApplyClick() {
+  if (applySwitchLoading.value) {
+    return
+  }
+
+  if (!applyEnabled.value) {
+    return
+  }
+
   if (!isLoggedIn.value) { loginModal.open(); return }
   showModal.value = true
 }
 
 function handlePageChange(page: number) {
   currentPage.value = page
+  if (!import.meta.client) {
+    listEntered.value = true
+  } else {
+    listEntered.value = false
+    window.requestAnimationFrame(() => {
+      listEntered.value = true
+    })
+  }
   scrollToTopOnMobilePagination()
 }
 
@@ -151,15 +187,48 @@ function refreshData() {
 }
 
 onMounted(() => {
+  if (import.meta.client) {
+    window.requestAnimationFrame(() => {
+      pageEntered.value = true
+    })
+  }
+
   fetchLinks()
+  fetchApplyStatus()
   fetchMyStatus()
 })
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    listEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    listEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    listEntered.value = true
+  })
+}, { immediate: true })
 </script>
 <style scoped lang="scss">
 .friend-links-page {
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.friend-links-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .page-header {
@@ -244,7 +313,16 @@ onMounted(() => {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition: border-color 0.2s, box-shadow 0.2s, opacity 560ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.card-entered {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition-delay: calc(40ms + min(var(--enter-index), 7) * 50ms);
+  }
+
   .dark & {
     border-color: $color-dark-border;
     background:
@@ -392,6 +470,17 @@ onMounted(() => {
 
   .links-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .friend-links-page,
+  .friend-links-page.page-entered,
+  .link-card,
+  .link-card.card-entered {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 </style>

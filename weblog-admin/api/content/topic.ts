@@ -1,5 +1,5 @@
-import { http } from '~/utils/http'
-import type { PageResult } from '~/api/post'
+import { http } from '~/utils/network/http'
+import type { PageResult } from '~/api/content/post'
 
 // ========== 类型定义 ==========
 

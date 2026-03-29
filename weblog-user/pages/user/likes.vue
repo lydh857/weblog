@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="likes-page">
+  <div class="likes-page" :class="{ 'page-entered': pageEntered }">
     <div class="page-header">
       <NuxtLink to="/user" class="back-link">
         <Icon name="heroicons:arrow-left-20-solid" size="18" /> 个人中心
@@ -31,9 +31,16 @@
     <UnifiedPageLoader v-if="loading" plain :text="''" />
 
     <template v-else-if="posts.length">
-      <article v-for="post in posts" :key="post.id" class="post-card" :class="{ selected: selectedIds.has(post.id), managing }" @click="managing && toggleSelect(post.id)">
+      <article
+        v-for="(post, index) in posts"
+        :key="post.id"
+        class="post-card"
+        :class="{ selected: selectedIds.has(post.id), managing, 'card-entered': listEntered }"
+        :style="{ '--enter-index': index }"
+        @click="managing && toggleSelect(post.id)"
+      >
         <NuxtLink :to="`/post/${post.slug}`" class="card-link" :class="{ disabled: managing }" @click="onCardLinkClick($event)">
-          <div v-if="post.coverImage" class="card-cover"><img :src="post.coverImage" :alt="post.title" loading="lazy" /></div>
+          <div v-if="post.coverImage" class="card-cover"><img :src="post.coverImage" :alt="post.title" loading="lazy" ></div>
           <div class="card-body">
             <h3 class="card-title">{{ post.title }}</h3>
             <p v-if="post.summary" class="card-summary">{{ post.summary }}</p>
@@ -65,13 +72,13 @@
 </template>
 
 <script setup lang="ts">
-import { interactionApi, type MyPostItem } from '~/api/interaction'
+import { interactionApi, type MyPostItem } from '~/api/interaction/interaction'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { formatRelativeTime } from '~/utils/format'
-import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
-import Pagination from '~/components/Pagination.vue'
-import ConfirmDialog from '~/components/ConfirmDialog.vue'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { formatRelativeTime } from '~/utils/content/format'
+import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
+import Pagination from '~/components/common/Pagination.vue'
+import ConfirmDialog from '~/components/common/ConfirmDialog.vue'
 
 useHead({ title: '我的收藏' })
 
@@ -83,6 +90,8 @@ const pageSize = ref(10)
 const total = ref(0)
 const selectedIds = ref<Set<number>>(new Set())
 const managing = ref(false)
+const pageEntered = ref(false)
+const listEntered = ref(false)
 
 const showUnfavConfirm = ref(false)
 const showBatchConfirm = ref(false)
@@ -150,9 +159,48 @@ async function loadData(page = 1) {
 }
 
 onMounted(() => loadData())
+
+onMounted(() => {
+  if (!import.meta.client) {
+    pageEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    pageEntered.value = true
+  })
+})
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    listEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    listEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    listEntered.value = true
+  })
+}, { immediate: true })
 </script>
 <style scoped lang="scss">
 .likes-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.likes-page {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.likes-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
 .page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .back-link { display: inline-flex; align-items: center; gap: .35rem; color: $color-text-muted; text-decoration: none; margin-bottom: .45rem; .dark & { color: $color-dark-text-muted; } }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
@@ -195,6 +243,21 @@ onMounted(() => loadData())
 
 .post-card { position: relative; display: flex; align-items: flex-start; margin-bottom: .75rem; border: 1px solid $color-border; border-radius: 12px; overflow: hidden; padding: .85rem; background: $color-bg; transition: border-color .2s, box-shadow .2s; }
 .post-card { .dark & { border-color: $color-dark-border; background: $color-dark-bg-secondary; } }
+.post-card {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+}
+
+.post-card.card-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color .2s,
+    box-shadow .2s;
+  transition-delay: calc(40ms + min(var(--enter-index), 7) * 50ms);
+}
 .post-card.managing { cursor: pointer; }
 .post-card.selected { border-color: $color-primary; background: rgba($color-primary, .04); }
 .post-card:hover {
@@ -252,5 +315,15 @@ onMounted(() => loadData())
 @media (max-width: $breakpoint-md) {
   .likes-page { padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
   .card-cover { width: 96px; height: 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .likes-page,
+  .post-card,
+  .post-card.card-entered {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 </style>

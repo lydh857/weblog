@@ -30,7 +30,7 @@
           </button>
         </div>
       </div>
-      <div class="sidebar-tree">
+      <div v-custom-scrollbar class="sidebar-tree">
         <TopicSidebarNode
           v-for="node in catalogs"
           :key="node.id"
@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CatalogNode } from '~/api/topic'
+import type { CatalogNode } from '~/api/content/topic'
 
 defineProps<{
   topicTitle: string
@@ -165,7 +165,5 @@ function toggleAllNodes() {
   max-height: calc(80vh - 100px);
   overflow-y: auto;
   padding: 0.5rem 0;
-  &::-webkit-scrollbar { width: 3px; }
-  &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.08); border-radius: 3px; }
 }
 </style>

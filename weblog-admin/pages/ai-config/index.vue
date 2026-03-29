@@ -138,8 +138,8 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { aiApi, type AiConfig, type PromptTemplate } from '~/api/ai'
-import { handleAiError } from '~/utils/aiError'
+import { aiApi, type AiConfig, type PromptTemplate } from '~/api/ai/ai'
+import { handleAiError } from '~/utils/ai/aiError'
 
 const activeTab = ref('config')
 

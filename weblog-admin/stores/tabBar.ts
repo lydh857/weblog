@@ -81,7 +81,8 @@ export const useTabBarStore = defineStore('tabBar', () => {
     // 如果关闭的是当前激活标签，跳转到前一个
     if (activeTab.value === path) {
       const newIdx = Math.min(idx, tabs.value.length - 1)
-      activeTab.value = tabs.value[newIdx].path
+      const targetTab = tabs.value[newIdx] ?? HOME_TAB
+      activeTab.value = targetTab.path
       navigateTo(activeTab.value)
     }
   }

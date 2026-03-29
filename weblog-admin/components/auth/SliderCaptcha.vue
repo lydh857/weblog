@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/captcha'
+import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/auth/captcha'
 
 const props = withDefaults(defineProps<{
   visible: boolean

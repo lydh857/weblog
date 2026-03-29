@@ -1,6 +1,6 @@
 import axios from 'axios'
 import type { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 // ============================================================
 // 安全说明：

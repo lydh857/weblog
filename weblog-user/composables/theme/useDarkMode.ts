@@ -122,6 +122,10 @@ export function useDarkMode() {
       (value) => {
         const cookieValue = value ? 'dark' : 'light'
         const cookie = `weblog-theme=${cookieValue}; Path=/; Max-Age=31536000; SameSite=Lax`
+        const root = document.documentElement
+
+        root.style.backgroundColor = value ? '#101215' : '#f8fafc'
+        root.setAttribute('data-theme', cookieValue)
         document.cookie = cookie
       },
       { immediate: true }

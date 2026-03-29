@@ -49,7 +49,7 @@
           <!-- 第1名封面 -->
           <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="dailyTopItem.cover_image" :src="dailyTopItem.cover_image" :alt="dailyTopItem.title" loading="lazy" />
+              <img v-if="dailyTopItem.cover_image" :src="dailyTopItem.cover_image" :alt="dailyTopItem.title" loading="lazy" >
               <div v-else class="hero-placeholder"><Icon name="heroicons:bolt-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
@@ -74,8 +74,8 @@
             <NuxtLink v-for="(item, idx) in dailyBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
-                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" />
-                <div v-else class="rank-cover-placeholder"></div>
+                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" >
+                <div v-else class="rank-cover-placeholder"/>
               </div>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
@@ -173,7 +173,7 @@
           <!-- 第1名封面 -->
           <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="totalTopItem.cover_image" :src="totalTopItem.cover_image" :alt="totalTopItem.title" loading="lazy" />
+              <img v-if="totalTopItem.cover_image" :src="totalTopItem.cover_image" :alt="totalTopItem.title" loading="lazy" >
               <div v-else class="hero-placeholder"><Icon name="heroicons:trophy-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
@@ -198,8 +198,8 @@
             <NuxtLink v-for="(item, idx) in totalBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
-                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" />
-                <div v-else class="rank-cover-placeholder"></div>
+                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" >
+                <div v-else class="rank-cover-placeholder"/>
               </div>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
@@ -213,7 +213,8 @@
 </template>
 
 <script setup lang="ts">
-import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
+import type { RankingItem, RankingMeta } from '~/api/content/ranking'
+import { fetchCachedSmartRanking } from '~/composables/cache/useNonCriticalApiCache'
 
 interface Board {
   items: RankingItem[]
@@ -319,7 +320,8 @@ const totalTopItem = computed(() => totalBoard.items[0] ?? null)
 
 async function loadBoard(board: Board, rankType: number, limit: number) {
   try {
-    const res = await rankingApi.getSmartWithRecentFallback({ rankType, limit })
+    // 首页榜单属于非关键数据，复用短期缓存并合并并发请求。
+    const res = await fetchCachedSmartRanking({ rankType, limit }, { ttlMs: 45_000 })
     board.items = res.items
     board.meta = res.meta
   } catch {
@@ -778,29 +780,47 @@ onMounted(() => {
 }
 
 .sk-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  position: relative;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+    pointer-events: none;
+  }
 
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.32) 50%, transparent 80%);
+    }
   }
 }
 
-@keyframes sk-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.sk-hero.sk-shimmer {
+  background: rgba(15, 23, 42, 0.22);
+
+  .dark & {
+    background: rgba(30, 41, 59, 0.54);
+  }
+}
+
+@keyframes sk-shimmer-move {
+  0% { transform: translate3d(-140%, 0, 0); }
+  100% { transform: translate3d(140%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-shimmer::after {
+    animation: none;
+  }
 }
 
 .card-empty {

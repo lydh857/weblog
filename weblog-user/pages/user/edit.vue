@@ -12,7 +12,7 @@
       <p class="edit-subtitle">完善你的公开资料和账号安全设置</p>
     </div>
 
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedPageLoader v-if="loading" text="加载中..." plain />
 
     <section
       v-if="!loading && profileData?.profileReviewStatus"
@@ -31,7 +31,7 @@
         <label class="form-label">头像</label>
         <div class="avatar-edit">
           <div class="avatar-preview">
-            <img v-if="showAvatarImage" :src="currentAvatarSrc!" alt="头像" class="avatar-img" @error="handleAvatarImageError" />
+            <img v-if="showAvatarImage" :src="currentAvatarSrc!" alt="头像" class="avatar-img" @error="handleAvatarImageError" >
             <span v-else class="avatar-placeholder">{{ (form.nickname || 'U').charAt(0) }}</span>
           </div>
           <div class="avatar-actions">
@@ -39,7 +39,7 @@
               <Icon name="heroicons:camera-16-solid" size="16" />
               选择并裁剪
             </label>
-            <input id="avatar-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="handleFileSelect" />
+            <input id="avatar-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="handleFileSelect" >
             <p class="avatar-hint">支持 JPG、PNG、WebP，最大 5MB</p>
             <p class="avatar-review-hint">头像将在提交后进入审核，审核通过后生效</p>
             <p v-if="pendingAvatarFile" class="avatar-pending-tip">已选择新头像，点击“提交审核”后生效</p>
@@ -49,7 +49,7 @@
 
       <div class="form-section">
         <label for="nickname" class="form-label">昵称</label>
-        <input id="nickname" v-model="form.nickname" type="text" maxlength="20" placeholder="请输入昵称" class="form-input" />
+        <input id="nickname" v-model="form.nickname" type="text" maxlength="20" placeholder="请输入昵称" class="form-input" >
         <span class="char-count">{{ form.nickname?.length || 0 }}/20</span>
       </div>
 
@@ -92,17 +92,18 @@
       </div>
     </section>
 
-    <div v-if="emailDialogVisible" class="dialog-overlay">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <h3 class="dialog-title">{{ profileData?.needBindEmail ? '绑定邮箱' : '换绑邮箱' }}</h3>
-          <button type="button" class="dialog-close" @click="emailDialogVisible = false"><Icon name="heroicons:x-mark-16-solid" size="18" /></button>
-        </div>
-        <div class="dialog-form">
+    <Transition name="modal-fade" appear>
+      <div v-if="emailDialogVisible" class="dialog-overlay">
+        <div class="dialog-card">
+          <div class="dialog-header">
+            <h3 class="dialog-title">{{ profileData?.needBindEmail ? '绑定邮箱' : '换绑邮箱' }}</h3>
+            <button type="button" class="dialog-close" @click="emailDialogVisible = false"><Icon name="heroicons:x-mark-16-solid" size="18" /></button>
+          </div>
+          <div class="dialog-form">
           <div class="dialog-field email-field-wrap">
             <label>新邮箱</label>
             <div class="input-wrapper" @mouseenter="dlgEmailHover = true" @mouseleave="dlgEmailHover = false">
-              <input v-model="emailForm.email" type="email" placeholder="请输入邮箱" class="form-input" autocomplete="off" @input="onDlgEmailInput" @focus="onDlgEmailInput" @blur="onDlgEmailBlur" />
+              <input v-model="emailForm.email" type="email" placeholder="请输入邮箱" class="form-input" autocomplete="off" @input="onDlgEmailInput" @focus="onDlgEmailInput" @blur="onDlgEmailBlur" >
               <button v-show="dlgEmailHover && emailForm.email" type="button" class="field-clear" tabindex="-1" @mousedown.prevent="emailForm.email = ''; dlgEmailErrors.email = ''"><Icon name="heroicons:x-circle-16-solid" size="16" /></button>
             </div>
             <ul v-show="showDlgEmailSuggestions && dlgEmailSuggestions.length" class="dlg-email-suggestions">
@@ -115,7 +116,7 @@
             <label>验证码</label>
             <div class="code-row">
               <div class="input-wrapper code-input-flex" @mouseenter="dlgEmailCodeHover = true" @mouseleave="dlgEmailCodeHover = false">
-                <input v-model="emailForm.code" type="text" placeholder="请输入验证码" maxlength="6" inputmode="numeric" class="form-input" autocomplete="off" @blur="onDlgEmailCodeBlur" />
+                <input v-model="emailForm.code" type="text" placeholder="请输入验证码" maxlength="6" inputmode="numeric" class="form-input" autocomplete="off" @blur="onDlgEmailCodeBlur" >
                 <button v-show="dlgEmailCodeHover && emailForm.code" type="button" class="field-clear" tabindex="-1" @mousedown.prevent="emailForm.code = ''; dlgEmailErrors.code = ''"><Icon name="heroicons:x-circle-16-solid" size="16" /></button>
               </div>
               <button type="button" class="btn btn-secondary btn-sm code-btn" :disabled="emailCooldown > 0 || emailSending" @click="sendEmailCode">{{ emailCooldown > 0 ? `${emailCooldown}s` : '获取验证码' }}</button>
@@ -123,26 +124,28 @@
             <span class="field-error" :class="{ visible: dlgEmailErrors.code }">{{ dlgEmailErrors.code || '&nbsp;' }}</span>
           </div>
 
-          <div class="dialog-actions">
-            <button type="button" class="btn btn-secondary" @click="emailDialogVisible = false">取消</button>
-            <button type="button" class="btn btn-primary" :disabled="emailSubmitting" @click="submitEmail">{{ emailSubmitting ? '提交中...' : '确认' }}</button>
+            <div class="dialog-actions">
+              <button type="button" class="btn btn-secondary" @click="emailDialogVisible = false">取消</button>
+              <button type="button" class="btn btn-primary" :disabled="emailSubmitting" @click="submitEmail">{{ emailSubmitting ? '提交中...' : '确认' }}</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div v-if="passwordDialogVisible" class="dialog-overlay">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <h3 class="dialog-title">{{ profileData?.hasPassword ? '重置密码' : '设置密码' }}</h3>
-          <button type="button" class="dialog-close" @click="passwordDialogVisible = false"><Icon name="heroicons:x-mark-16-solid" size="18" /></button>
-        </div>
-        <div class="dialog-form">
+    </Transition>
+    <Transition name="modal-fade" appear>
+      <div v-if="passwordDialogVisible" class="dialog-overlay">
+        <div class="dialog-card">
+          <div class="dialog-header">
+            <h3 class="dialog-title">{{ profileData?.hasPassword ? '重置密码' : '设置密码' }}</h3>
+            <button type="button" class="dialog-close" @click="passwordDialogVisible = false"><Icon name="heroicons:x-mark-16-solid" size="18" /></button>
+          </div>
+          <div class="dialog-form">
           <template v-if="profileData?.hasPassword">
             <div class="dialog-field">
               <label>验证码（发送到 {{ profileData?.email }}）</label>
               <div class="code-row">
                 <div class="input-wrapper code-input-flex" @mouseenter="dlgPwdCodeHover = true" @mouseleave="dlgPwdCodeHover = false">
-                  <input v-model="pwdForm.code" type="text" placeholder="请输入验证码" maxlength="6" inputmode="numeric" class="form-input" autocomplete="off" @blur="onDlgPwdCodeBlur" />
+                  <input v-model="pwdForm.code" type="text" placeholder="请输入验证码" maxlength="6" inputmode="numeric" class="form-input" autocomplete="off" @blur="onDlgPwdCodeBlur" >
                   <button v-show="dlgPwdCodeHover && pwdForm.code" type="button" class="field-clear" tabindex="-1" @mousedown.prevent="pwdForm.code = ''; dlgPwdErrors.code = ''"><Icon name="heroicons:x-circle-16-solid" size="16" /></button>
                 </div>
                 <button type="button" class="btn btn-secondary btn-sm code-btn" :disabled="pwdCooldown > 0 || pwdSending" @click="sendPwdCode">{{ pwdCooldown > 0 ? `${pwdCooldown}s` : '获取验证码' }}</button>
@@ -154,7 +157,7 @@
           <div class="dialog-field">
             <label>新密码</label>
             <div class="input-wrapper" @mouseenter="dlgPwd1Hover = true" @mouseleave="dlgPwd1Hover = false">
-              <input v-model="pwdForm.password" :type="showDlgPwd ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" class="form-input input-with-actions" autocomplete="new-password" @blur="onDlgPwdBlur" />
+              <input v-model="pwdForm.password" :type="showDlgPwd ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" class="form-input input-with-actions" autocomplete="new-password" @blur="onDlgPwdBlur" >
               <button v-show="dlgPwd1Hover && pwdForm.password" type="button" class="field-clear with-toggle" tabindex="-1" @mousedown.prevent="pwdForm.password = ''; dlgPwdErrors.password = ''"><Icon name="heroicons:x-circle-16-solid" size="16" /></button>
               <button v-show="dlgPwd1Hover && pwdForm.password" type="button" class="field-toggle" tabindex="-1" @mousedown.prevent="showDlgPwd = !showDlgPwd"><Icon :name="showDlgPwd ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="16" /></button>
             </div>
@@ -168,20 +171,21 @@
           <div class="dialog-field">
             <label>确认密码</label>
             <div class="input-wrapper" @mouseenter="dlgPwd2Hover = true" @mouseleave="dlgPwd2Hover = false">
-              <input v-model="pwdForm.confirmPassword" :type="showDlgConfirmPwd ? 'text' : 'password'" placeholder="请再次输入密码" class="form-input input-with-actions" autocomplete="new-password" @blur="onDlgConfirmPwdBlur" />
+              <input v-model="pwdForm.confirmPassword" :type="showDlgConfirmPwd ? 'text' : 'password'" placeholder="请再次输入密码" class="form-input input-with-actions" autocomplete="new-password" @blur="onDlgConfirmPwdBlur" >
               <button v-show="dlgPwd2Hover && pwdForm.confirmPassword" type="button" class="field-clear with-toggle" tabindex="-1" @mousedown.prevent="pwdForm.confirmPassword = ''; dlgPwdErrors.confirmPassword = ''"><Icon name="heroicons:x-circle-16-solid" size="16" /></button>
               <button v-show="dlgPwd2Hover && pwdForm.confirmPassword" type="button" class="field-toggle" tabindex="-1" @mousedown.prevent="showDlgConfirmPwd = !showDlgConfirmPwd"><Icon :name="showDlgConfirmPwd ? 'heroicons:eye-slash-16-solid' : 'heroicons:eye-16-solid'" size="16" /></button>
             </div>
             <span class="field-error" :class="{ visible: dlgPwdErrors.confirmPassword }">{{ dlgPwdErrors.confirmPassword || '&nbsp;' }}</span>
           </div>
 
-          <div class="dialog-actions">
-            <button type="button" class="btn btn-secondary" @click="passwordDialogVisible = false">取消</button>
-            <button type="button" class="btn btn-primary" :disabled="pwdSubmitting" @click="submitPassword">{{ pwdSubmitting ? '提交中...' : '确认' }}</button>
+            <div class="dialog-actions">
+              <button type="button" class="btn btn-secondary" @click="passwordDialogVisible = false">取消</button>
+              <button type="button" class="btn btn-primary" :disabled="pwdSubmitting" @click="submitPassword">{{ pwdSubmitting ? '提交中...' : '确认' }}</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
     <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
 
@@ -196,10 +200,10 @@
 </template>
 
 <script setup lang="ts">
-import { userApi, type UserProfileVO } from '~/api/user'
-import { authApi } from '~/api/auth'
+import { userApi, type UserProfileVO } from '~/api/auth/user'
+import { authApi } from '~/api/auth/auth'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 useHead({ title: '编辑资料' })
 
@@ -385,16 +389,6 @@ async function sendEmailCode() {
   }
 
   dlgEmailErrors.email = ''
-  emailSending.value = true
-  try {
-    await authApi.checkEmail(emailForm.email)
-  } catch (e: unknown) {
-    dlgEmailErrors.email = getErrorMessage(e, '邮箱地址不可用')
-    emailSending.value = false
-    return
-  }
-  emailSending.value = false
-
   openCaptcha(async (verifyToken: string) => {
     emailSending.value = true
     try {
@@ -875,18 +869,50 @@ onUnmounted(() => {
   inset: 0;
   z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .dialog-card {
+    transition: transform 0.25s;
+  }
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
+  opacity: 0;
+
+  .dialog-card {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 
 .dialog-card {
   width: 100%;
   max-width: 420px;
   background: $color-bg;
-  border-radius: $radius-lg;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   padding: 1.1rem;
+
+  .dark & {
+    border-color: rgba(148, 163, 184, 0.14);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
 }
 
 .dialog-header {

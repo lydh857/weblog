@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue'
-import { useConfirmStore } from '~/composables/useConfirm'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
+import { useConfirmStore } from '~/composables/modal/useConfirm'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
 
 const { visible, options, confirm, cancel } = useConfirmStore()
 
@@ -20,7 +20,7 @@ onUnmounted(() => {
 <template>
   <ClientOnly>
     <Teleport to="body">
-      <Transition name="confirm">
+      <Transition name="modal-fade" appear>
         <div v-if="visible" class="confirm-overlay" @click="cancel">
           <div class="confirm-box" @click.stop>
             <div class="confirm-header">
@@ -48,11 +48,16 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .confirm-overlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: var(--z-confirm);
-  background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; padding: 16px;
+
+  .dark & {
+    background: rgba(0,0,0,0.6);
+  }
 }
 .confirm-box {
   background: #fff; border-radius: 12px; padding: 24px; width: 100%; max-width: 360px;
+  border: 1px solid transparent;
   box-shadow: 0 16px 48px rgba(0,0,0,0.18);
   .dark & {
     background: $color-dark-bg-elevated;
@@ -63,7 +68,13 @@ onUnmounted(() => {
 .confirm-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .confirm-icon { flex-shrink: 0; }
 .icon-info { color: var(--status-info); }
-.icon-warning { color: var(--status-warning); }
+.icon-warning {
+  color: #f59e0b;
+
+  .dark & {
+    color: var(--status-warning);
+  }
+}
 .icon-danger { color: var(--status-danger); }
 .confirm-title {
   margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b;
@@ -95,35 +106,40 @@ onUnmounted(() => {
 .btn-confirm {
   color: #fff; border-color: transparent;
   &.btn-info { background: var(--status-info); }
-  &.btn-warning { background: var(--status-warning); }
+  &.btn-warning {
+    background: #f59e0b;
+    border-color: #f59e0b;
+  }
+  &.btn-warning:hover {
+    background: #d97706;
+    border-color: #d97706;
+  }
   &.btn-danger { background: var(--status-danger); }
+
+  .dark &.btn-warning {
+    background: var(--status-warning);
+    border-color: var(--status-warning);
+  }
 }
 
-/* Transition 动画 — overlay 淡入淡出 + box 弹性缩放 */
-.confirm-enter-active {
-  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+/* Transition 动画 */
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .confirm-box {
+    transition: transform 0.25s;
+  }
 }
-.confirm-enter-active .confirm-box {
-  animation: confirm-pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.confirm-leave-active {
-  transition: opacity 0.2s ease;
-}
-.confirm-leave-active .confirm-box {
-  animation: confirm-pop-out 0.2s ease forwards;
-}
-.confirm-enter-from,
-.confirm-leave-to {
+
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
-}
 
-@keyframes confirm-pop-in {
-  0% { transform: scale(0.75); opacity: 0; }
-  60% { transform: scale(1.02); }
-  100% { transform: scale(1); opacity: 1; }
-}
-@keyframes confirm-pop-out {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(0.85); opacity: 0; }
+  .confirm-box {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 </style>

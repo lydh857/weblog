@@ -1,4 +1,4 @@
-import { advertisementApi, type AdApplyPitOption, type AdPriceRuleVO } from '~/api/advertisement'
+import { advertisementApi, type AdApplyPitOption, type AdPriceRuleVO } from '~/api/marketing/advertisement'
 
 export function useAdApplyConfig() {
   const applyEnabled = useState<boolean>('ad-apply-enabled', () => false)

@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface FriendLinkVO {
   id: number
@@ -27,6 +27,10 @@ export const friendLinkApi = {
   /** 申请友链 */
   applyLink: (data: ApplyLinkForm) =>
     http.post<FriendLinkVO, { data: FriendLinkVO }>('/friend-link/apply', data),
+
+  /** 查询友链申请入口开关 */
+  getApplyStatus: () =>
+    http.get<{ enabled: boolean }, { data: { enabled: boolean } }>('/friend-link/apply-status'),
 
   /** 查询我的友链申请 */
   getMyLink: () =>

@@ -48,7 +48,14 @@
     </div>
 
     <el-tabs v-model="contentTab" class="content-tabs compact-tabs">
-      <el-tab-pane label="广告列表" name="list" />
+      <el-tab-pane name="list">
+        <template #label>
+          <span>广告列表</span>
+          <span v-if="pendingAdvertisementCount > 0" class="compact-tab-count compact-tab-count--warning">
+            {{ pendingAdvertisementCount > 99 ? '99+' : pendingAdvertisementCount }}
+          </span>
+        </template>
+      </el-tab-pane>
       <el-tab-pane label="坑位顺序" name="pitOrder" />
       <el-tab-pane label="时效价格规则" name="rules" />
     </el-tabs>
@@ -217,7 +224,7 @@
     </div>
 
     <template v-if="contentTab === 'list'">
-      <el-table :data="records" v-loading="loading" stripe height="560"
+      <el-table :data="records" v-loading="loading" stripe height="560" :row-class-name="advertisementRowClassName"
         @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" align="center" />
       <el-table-column type="index" label="#" width="50" align="center" />
@@ -289,45 +296,82 @@
       </div>
     </template>
 
-    <el-dialog v-model="detailVisible" title="广告申请详情" width="760px" destroy-on-close>
+    <el-dialog v-model="detailVisible" title="广告申请详情" width="920px" top="4vh" class="application-detail-dialog" destroy-on-close>
       <div v-if="detailRecord" class="detail-body">
-        <div class="detail-grid">
-          <div class="detail-item"><span>标题</span><strong>{{ detailRecord.title }}</strong></div>
-          <div class="detail-item"><span>类型</span><strong>{{ detailRecord.type === 'image' ? '图片' : '代码' }}</strong></div>
-          <div class="detail-item"><span>位置</span><strong>{{ posLabel(detailRecord.position) }}</strong></div>
-          <div class="detail-item"><span>状态</span><strong>{{ statusLabel(detailRecord.status) }}</strong></div>
-          <div class="detail-item"><span>开放坑位</span><strong>{{ detailRecord.pitEnabled ? '是' : '否' }}</strong></div>
-          <div class="detail-item"><span>申请坑位</span><strong>{{ detailPitLabel(detailRecord) }}</strong></div>
-          <div class="detail-item"><span>提交用户</span><strong>{{ detailRecord.advertiserId || '-' }}</strong></div>
-          <div class="detail-item"><span>用户账号</span><strong>{{ detailRecord.advertiserEmail || '-' }}</strong></div>
-          <div class="detail-item"><span>用户昵称</span><strong>{{ detailRecord.advertiserNickname || '-' }}</strong></div>
-          <div class="detail-item"><span>点击量</span><strong>{{ detailRecord.clickCount }}</strong></div>
-          <div class="detail-item"><span>开始时间</span><strong>{{ fmt(detailRecord.startTime) || '-' }}</strong></div>
-          <div class="detail-item"><span>结束时间</span><strong>{{ fmt(detailRecord.endTime) || '-' }}</strong></div>
-          <div class="detail-item"><span>剩余时间</span><strong>{{ detailRecord.endTime ? remainingText(detailRecord.endTime) : '长期投放' }}</strong></div>
-          <div class="detail-item"><span>提交时间</span><strong>{{ fmt(detailRecord.createTime) }}</strong></div>
-          <div class="detail-item detail-item--full"><span>跳转链接</span><strong>{{ detailRecord.linkUrl || '-' }}</strong></div>
-          <div class="detail-item detail-item--full"><span>广告信息</span><strong>{{ detailRecord.adInfo || '-' }}</strong></div>
-          <div v-if="detailRecord.reviewReason" class="detail-item detail-item--full detail-reason-box">
-            <span>拒绝原因</span>
-            <strong>{{ detailRecord.reviewReason }}</strong>
+        <div class="detail-summary">
+          <div class="detail-summary__title-wrap">
+            <h3 class="detail-summary__title">{{ detailRecord.title }}</h3>
+            <div class="detail-summary__meta">
+              <el-tag size="small" effect="plain">{{ detailRecord.type === 'image' ? '图片广告' : '代码广告' }}</el-tag>
+              <el-tag size="small" effect="plain">{{ posLabel(detailRecord.position) }}</el-tag>
+              <el-tag size="small" :type="statusType(detailRecord.status)">{{ statusLabel(detailRecord.status) }}</el-tag>
+              <el-tag size="small" effect="plain">开放坑位：{{ detailRecord.pitEnabled ? '是' : '否' }}</el-tag>
+              <el-tag size="small" effect="plain">申请坑位：{{ detailPitLabel(detailRecord) }}</el-tag>
+            </div>
+          </div>
+          <div class="detail-summary__stat">
+            <span>点击量</span>
+            <strong>{{ detailRecord.clickCount }}</strong>
           </div>
         </div>
 
-        <div class="detail-preview">
-          <template v-if="detailRecord.type === 'image'">
-            <el-image
-              :src="detailRecord.content"
-              fit="contain"
-              :preview-src-list="[detailRecord.content]"
-              preview-teleported
-              class="detail-preview-image"
-            />
-            <div class="detail-preview-tip">点击图片可放大、缩放查看原图比例</div>
-          </template>
-          <template v-else>
-            <pre class="detail-code-preview">{{ detailRecord.content }}</pre>
-          </template>
+        <div class="detail-layout">
+          <section class="detail-preview-panel">
+            <div class="detail-preview">
+              <template v-if="detailRecord.type === 'image'">
+                <el-image
+                  :src="detailRecord.content"
+                  fit="contain"
+                  :preview-src-list="[detailRecord.content]"
+                  preview-teleported
+                  class="detail-preview-image"
+                />
+                <div class="detail-preview-tip">点击图片可放大查看原图比例</div>
+              </template>
+              <template v-else>
+                <pre class="detail-code-preview">{{ detailRecord.content }}</pre>
+              </template>
+            </div>
+          </section>
+
+          <section class="detail-info-panel">
+            <div class="detail-card">
+              <h4>申请人信息</h4>
+              <div class="detail-kv-grid">
+                <div class="detail-kv-row"><span>提交用户</span><strong>{{ detailRecord.advertiserId || '-' }}</strong></div>
+                <div class="detail-kv-row"><span>用户昵称</span><strong>{{ detailRecord.advertiserNickname || '-' }}</strong></div>
+                <div class="detail-kv-row detail-kv-row--full"><span>用户账号</span><strong>{{ detailRecord.advertiserEmail || '-' }}</strong></div>
+              </div>
+            </div>
+
+            <div class="detail-card">
+              <h4>投放时间</h4>
+              <div class="detail-kv-grid">
+                <div class="detail-kv-row"><span>开始时间</span><strong>{{ fmt(detailRecord.startTime) || '-' }}</strong></div>
+                <div class="detail-kv-row"><span>结束时间</span><strong>{{ fmt(detailRecord.endTime) || '-' }}</strong></div>
+                <div class="detail-kv-row"><span>剩余时间</span><strong>{{ detailRecord.endTime ? remainingText(detailRecord.endTime) : '长期投放' }}</strong></div>
+                <div class="detail-kv-row"><span>提交时间</span><strong>{{ fmt(detailRecord.createTime) }}</strong></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="detail-card detail-card--full">
+          <h4>内容信息</h4>
+          <div class="detail-kv-grid detail-kv-grid--single">
+            <div class="detail-kv-row detail-kv-row--full">
+              <span>跳转链接</span>
+              <strong>{{ detailRecord.linkUrl || '-' }}</strong>
+            </div>
+            <div class="detail-kv-row detail-kv-row--full">
+              <span>广告信息</span>
+              <strong>{{ detailRecord.adInfo || '-' }}</strong>
+            </div>
+            <div v-if="detailRecord.reviewReason" class="detail-kv-row detail-kv-row--full detail-reason-row">
+              <span>拒绝原因</span>
+              <strong>{{ detailRecord.reviewReason }}</strong>
+            </div>
+          </div>
         </div>
 
         <div v-if="detailRecord.advertiserId && detailRecord.status === 'pending'" class="detail-review-panel">
@@ -342,7 +386,7 @@
           <el-input
             v-model="detailRejectReason"
             type="textarea"
-            :rows="3"
+            :rows="2"
             maxlength="200"
             show-word-limit
             placeholder="拒绝时请填写原因（通过可不填）"
@@ -584,10 +628,10 @@
 import { Plus, Delete, Search, ArrowDown, Operation } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
-import { advertisementApi, type AdvertisementVO, type AdPriceRuleVO } from '~/api/advertisement'
-import { postApi } from '~/api/post'
-import { uploadApi } from '~/api/upload'
-import ImageCropper from '~/components/ImageCropper.vue'
+import { advertisementApi, type AdvertisementVO, type AdPriceRuleVO } from '~/api/marketing/advertisement'
+import { postApi } from '~/api/content/post'
+import { uploadApi } from '~/api/system/upload'
+import ImageCropper from '~/components/editor/ImageCropper.vue'
 
 const route = useRoute()
 const loading = ref(false)
@@ -603,6 +647,7 @@ const submitting = ref(false)
 const editingId = ref<number | null>(null)
 const selectedIds = ref<number[]>([])
 const selectedRows = ref<AdvertisementVO[]>([])
+const pendingAdvertisementCount = useState<number>('pendingAdvertisementCount', () => 0)
 const disableBatchActivate = computed(() => {
   return selectedRows.value.some(row => row.advertiserId && row.status === 'pending')
 })
@@ -1079,6 +1124,9 @@ function canTogglePit(row: AdvertisementVO) {
 function isApplicationPending(row: AdvertisementVO) {
   return Boolean(row.advertiserId) && row.status === 'pending'
 }
+function advertisementRowClassName({ row }: { row: AdvertisementVO }) {
+  return row.status === 'pending' ? 'pending-highlight-row' : ''
+}
 function canViewApplicationDetail(row: AdvertisementVO) {
   return Boolean(row.advertiserId) && (row.status === 'active' || row.status === 'approved')
 }
@@ -1194,29 +1242,46 @@ async function loadData() {
     total.value = res.data.total
     selectedIds.value = []
     selectedRows.value = []
-    await Promise.all([loadMimicSlotMeta(), loadPitOrderMeta()])
+    await Promise.all([loadPendingAdvertisementCount(), loadMimicSlotMeta(), loadPitOrderMeta()])
   } catch (e: unknown) { ElMessage.error((e as Error).message || '加载失败') } finally { loading.value = false }
+}
+
+async function loadPendingAdvertisementCount() {
+  try {
+    const res = await advertisementApi.list({ pageNum: 1, pageSize: 1, status: 'pending' })
+    pendingAdvertisementCount.value = res.data.total
+  } catch {
+    pendingAdvertisementCount.value = 0
+  }
 }
 
 async function loadPitOrderMeta() {
   pitOrderLoading.value = true
   try {
     const res = await advertisementApi.list({ pageNum: 1, pageSize: 200, status: 'active' })
-    const nextMap: Record<string, AdvertisementVO[]> = {
+    const nextMap: Record<'home_left' | 'post_top' | 'post_bottom' | 'post_list_card', AdvertisementVO[]> = {
       home_left: [],
       post_top: [],
       post_bottom: [],
       post_list_card: [],
     }
 
+    type PitOrderPosition = keyof typeof nextMap
+
     for (const row of res.data.records || []) {
       if (!row || row.advertiserId || !row.pitEnabled || !supportedPitPositions.has(row.position)) {
         continue
       }
-      nextMap[row.position].push(row)
+
+      const position = row.position as PitOrderPosition
+      if (!(position in nextMap)) {
+        continue
+      }
+
+      nextMap[position].push(row)
     }
 
-    Object.keys(nextMap).forEach((position) => {
+    for (const position of Object.keys(nextMap) as PitOrderPosition[]) {
       nextMap[position].sort((a, b) => {
         const left = Number(a.pitIndex || 0)
         const right = Number(b.pitIndex || 0)
@@ -1224,7 +1289,7 @@ async function loadPitOrderMeta() {
         return Number(a.id || 0) - Number(b.id || 0)
       })
       pitOrderRowsMap[position] = nextMap[position]
-    })
+    }
   } catch {
     Object.keys(pitOrderRowsMap).forEach((position) => {
       pitOrderRowsMap[position] = []
@@ -1293,6 +1358,11 @@ async function handlePitDrop(position: string, targetPitId: number) {
   }
 
   const [current] = rows.splice(sourceIndex, 1)
+  if (!current) {
+    resetPitDragState()
+    return
+  }
+
   rows.splice(targetIndex, 0, current)
   pitOrderSaving.value = true
   try {
@@ -1869,6 +1939,26 @@ onMounted(() => {
     margin-bottom: 10px;
   }
 
+  :deep(.el-table__row.pending-highlight-row > td) {
+    background: rgba(245, 158, 11, 0.12) !important;
+  }
+
+  :deep(.el-table__row.pending-highlight-row:hover > td) {
+    background: rgba(245, 158, 11, 0.2) !important;
+  }
+
+  :deep(html.dark .el-table__row.pending-highlight-row > td),
+  :deep(body.dark .el-table__row.pending-highlight-row > td),
+  :deep(.dark .el-table__row.pending-highlight-row > td) {
+    background: rgba(245, 158, 11, 0.16) !important;
+  }
+
+  :deep(html.dark .el-table__row.pending-highlight-row:hover > td),
+  :deep(body.dark .el-table__row.pending-highlight-row:hover > td),
+  :deep(.dark .el-table__row.pending-highlight-row:hover > td) {
+    background: rgba(245, 158, 11, 0.24) !important;
+  }
+
   .pit-order-panel {
     margin-bottom: 12px;
     padding: 12px;
@@ -2170,43 +2260,140 @@ onMounted(() => {
 .detail-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-}
-
-.detail-item {
-  padding: 8px 10px;
+.detail-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--el-fill-color-blank);
+}
+
+.detail-summary__title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.detail-summary__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.detail-summary__meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-summary__stat {
+  min-width: 84px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--admin-primary-soft);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 
   span {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--el-text-color-secondary);
   }
 
   strong {
-    font-size: 13px;
-    color: var(--el-text-color-primary);
-    line-height: 1.5;
-    word-break: break-word;
-  }
-
-  &.detail-item--full {
-    grid-column: 1 / -1;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--el-color-primary);
   }
 }
 
-.detail-reason-box {
-  border-color: var(--el-color-danger-light-7);
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.detail-preview-panel {
+  min-width: 0;
+}
+
+.detail-info-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-card {
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  background: var(--el-fill-color-blank);
+}
+
+.detail-card--full {
+  padding: 10px 12px;
+}
+
+.detail-card h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
+.detail-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.detail-kv-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.detail-kv-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.detail-kv-row--full {
+  grid-column: 1 / -1;
+}
+
+.detail-kv-row span {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.detail-kv-row strong {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.detail-reason-row {
+  padding: 8px 10px;
+  border: 1px solid var(--el-color-danger-light-7);
+  border-radius: 8px;
   background: var(--el-color-danger-light-9);
 }
 
@@ -2215,30 +2402,36 @@ onMounted(() => {
   border-radius: 10px;
   overflow: hidden;
   background: var(--el-fill-color-blank);
-  min-height: 240px;
+  min-height: 160px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
 }
 
 .detail-preview-image {
   width: 100%;
-  min-height: 260px;
-  max-height: 520px;
+  max-height: 220px;
   background: var(--el-fill-color-lighter);
+
+  :deep(.el-image) {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
 
   :deep(.el-image__inner) {
     width: auto;
     max-width: 100%;
     height: auto;
-    max-height: 520px;
+    max-height: 220px;
     object-fit: contain;
   }
 }
 
 .detail-preview-tip {
-  padding: 8px 12px;
+  width: 100%;
+  padding: 6px 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
   border-top: 1px solid var(--el-border-color-light);
@@ -2248,7 +2441,7 @@ onMounted(() => {
 .detail-code-preview {
   margin: 0;
   padding: 12px;
-  max-height: 260px;
+  max-height: 220px;
   overflow: auto;
   font-size: 12px;
   line-height: 1.6;
@@ -2653,8 +2846,23 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .detail-grid {
+  .detail-layout {
     grid-template-columns: 1fr;
+  }
+
+  .detail-kv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-summary {
+    flex-direction: column;
+  }
+
+  .detail-summary__stat {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 7px 10px;
   }
 
   .span-2 {
@@ -2671,6 +2879,13 @@ onMounted(() => {
 
   .code-preview-shell.slot-home_left .code-preview-frame {
     max-width: 240px;
+  }
+}
+
+.application-detail-dialog {
+  :deep(.el-dialog__body) {
+    max-height: calc(92vh - 120px);
+    overflow-y: auto;
   }
 }
 

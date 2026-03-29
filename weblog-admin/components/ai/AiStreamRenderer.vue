@@ -10,6 +10,7 @@
     <div v-if="displayText" class="ai-content">
       <MdPreview
         :model-value="displayText"
+        :sanitize="sanitizePreviewHtml"
         :theme="editorTheme"
         preview-theme="default"
         class="ai-md-preview"
@@ -24,7 +25,8 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import { ensureMdEditorConfigured } from '~/composables/useMdEditor'
+import { ensureMdEditorConfigured } from '~/composables/editor/useMdEditor'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 const MdPreview = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
@@ -41,6 +43,7 @@ const colorMode = useColorMode()
 const editorTheme = computed(() => colorMode.value === 'dark' ? 'dark' : 'light')
 
 const displayText = computed(() => props.text)
+const sanitizePreviewHtml = (html: string) => sanitizeHtml(html)
 </script>
 
 <style scoped>

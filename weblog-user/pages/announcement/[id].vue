@@ -28,6 +28,8 @@
         </div>
       </header>
 
+      <!-- 已经过 sanitizeHtml 净化 -->
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <div class="detail-body" v-html="sanitize(announcement.content)" />
     </article>
 
@@ -40,8 +42,8 @@
 </template>
 
 <script setup lang="ts">
-import { announcementApi, type AnnouncementVO } from '~/api/ad'
-import { sanitizeHtml } from '~/utils/xss'
+import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 const route = useRoute()
 

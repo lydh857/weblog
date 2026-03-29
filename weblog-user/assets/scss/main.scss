@@ -19,6 +19,8 @@ html {
   text-size-adjust: 100%;
   overflow-y: scroll;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--global-scrollbar-thumb) var(--global-scrollbar-track);
 
   @media (min-width: $breakpoint-md) {
     font-size: 17px;
@@ -30,6 +32,7 @@ html {
   &.dark {
     color: $color-dark-text;
     background-color: $color-dark-bg;
+    scrollbar-color: var(--global-scrollbar-thumb) var(--global-scrollbar-track);
   }
 }
 
@@ -109,6 +112,10 @@ html.dark body {
   --status-danger: #dc2626;
   --status-danger-soft-bg: #fef2f2;
   --status-danger-soft-border: #fca5a5;
+  --global-scrollbar-track: #f5f5f5;
+  --global-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --global-scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+  --checkbox-accent: #3b82f6;
 }
 
 html.dark {
@@ -127,6 +134,10 @@ html.dark {
   --status-danger: #fb7185;
   --status-danger-soft-bg: rgba(244, 63, 94, 0.22);
   --status-danger-soft-border: rgba(251, 113, 133, 0.62);
+  --global-scrollbar-track: #101215;
+  --global-scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --global-scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+  --checkbox-accent: #93c5fd;
 }
 
 @media (max-width: $breakpoint-md) {
@@ -163,47 +174,92 @@ img {
   }
 }
 
-/* ===== 全局滚动条样式 ===== */
-
-/* Webkit 内核（Chrome / Safari / Edge） */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ===== 局部自绘滚动条（由 v-custom-scrollbar 指令挂载） ===== */
+.v-custom-scrollbar-host {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
 }
 
-::-webkit-scrollbar-track {
+.v-custom-scrollbar-host::-webkit-scrollbar,
+.v-custom-scrollbar-host::-webkit-scrollbar-button,
+.v-custom-scrollbar-host::-webkit-scrollbar-track,
+.v-custom-scrollbar-host::-webkit-scrollbar-thumb,
+.v-custom-scrollbar-host::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.v-custom-scrollbar-rail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 0;
   background: transparent;
+  opacity: 0.72;
+  user-select: none;
+  transition: width 0.2s ease, opacity 0.2s ease;
+  z-index: 2;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
-  transition: background 0.2s;
+.v-custom-scrollbar-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 12px;
+  height: 100%;
+}
 
-  &:hover {
-    background: rgba(0, 0, 0, 0.25);
+.v-custom-scrollbar-thumb {
+  width: 100%;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.4);
+  transition: background-color 0.2s ease;
+}
+
+.v-custom-scrollbar-rail:hover,
+.v-custom-scrollbar-rail.is-dragging {
+  width: 8px;
+  opacity: 1;
+}
+
+.v-custom-scrollbar-rail:hover .v-custom-scrollbar-thumb,
+.v-custom-scrollbar-rail.is-dragging .v-custom-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.v-custom-scrollbar-rail.is-dark .v-custom-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.v-custom-scrollbar-rail.is-dark:hover .v-custom-scrollbar-thumb,
+.v-custom-scrollbar-rail.is-dark.is-dragging .v-custom-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.58);
+}
+
+@media (pointer: coarse), (max-width: 1024px) {
+  .v-custom-scrollbar-rail {
+    display: none !important;
   }
 }
 
-/* 暗黑模式滚动条 */
-.dark {
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.25);
-    }
+/* 视口滚动条策略：桌面端使用自绘，移动端保留原生 */
+@media (pointer: fine) and (min-width: 1025px) {
+  html,
+  body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none;
   }
-}
 
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
-}
-
-.dark * {
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
 }
 
 /* 隐藏滚动条的工具类 */

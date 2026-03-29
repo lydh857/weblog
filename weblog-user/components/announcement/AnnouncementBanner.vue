@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { announcementApi, type AnnouncementVO } from '~/api/ad'
+import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
 
 const { bannerVisible } = useAnnouncementBar()
 

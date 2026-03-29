@@ -14,7 +14,7 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 const route = useRoute()
 const showStartup = ref(route.path !== '/login')
-let startupTimer: ReturnType<typeof window.setTimeout> | null = null
+let startupTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   if (!showStartup.value) {
@@ -23,14 +23,14 @@ onMounted(() => {
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const duration = prefersReducedMotion ? 220 : 1200
-  startupTimer = window.setTimeout(() => {
+  startupTimer = setTimeout(() => {
     showStartup.value = false
   }, duration)
 })
 
 onBeforeUnmount(() => {
   if (startupTimer) {
-    window.clearTimeout(startupTimer)
+    clearTimeout(startupTimer)
   }
 })
 </script>

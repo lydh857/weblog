@@ -91,7 +91,7 @@
               :aria-expanded="showUserMenu"
               @click="toggleUserMenu"
             >
-              <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" />
+              <img v-if="displayAvatar && !avatarLoadFailed" :src="displayAvatar" alt="头像" class="user-avatar" @error="onAvatarError" >
               <span v-else class="user-avatar-placeholder">{{ displayNickname.charAt(0) }}</span>
             </button>
 
@@ -166,6 +166,10 @@
             <span>公告</span>
             <span v-if="unreadAnnouncementCount > 0" class="mobile-notice-dot" aria-hidden="true" />
           </button>
+          <button class="mobile-link" @click="handleMobileThemeToggle">
+            <Icon :name="isDark ? 'heroicons:sun-20-solid' : 'heroicons:moon-20-solid'" size="16" class="mobile-link__icon" />
+            <span>{{ isDark ? '切换浅色模式' : '切换深色模式' }}</span>
+          </button>
           <template v-if="showLoggedIn">
             <NuxtLink to="/user" class="mobile-link" @click="closeMobileMenu">
               <Icon name="heroicons:user-circle-16-solid" size="16" class="mobile-link__icon" />
@@ -183,8 +187,8 @@
         </div>
       </aside>
     </Transition>
-    <!-- 搜索模态框 -->
-    <SearchModal v-model:visible="searchModal.isVisible.value" />
+    <!-- 搜索弹窗首开按需挂载，挂载后保留以支持完整过渡动画 -->
+    <LazySearchModal v-if="shouldMountSearchModal" v-model:visible="searchModal.isVisible.value" />
     <AnnouncementCenter
       v-model:visible="announcementCenterVisible"
       @unread-change="handleAnnouncementUnreadChange"
@@ -204,20 +208,22 @@
 </template>
 
 <script setup lang="ts">
-import { useDarkMode } from '~/composables/useDarkMode'
+import { useDarkMode } from '~/composables/theme/useDarkMode'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { useSearchModal } from '~/composables/useSearchModal'
-import { useNavScrollLock } from '~/composables/useNavScrollLock'
-import { rankingApi, type RankingItem } from '~/api/ranking'
-import { authApi } from '~/api/auth'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { useSearchModal } from '~/composables/modal/useSearchModal'
+import { useNavScrollLock } from '~/composables/layout/useNavScrollLock'
+import { useNavbarScrollBehavior } from '~/composables/layout/useNavbarScrollBehavior'
+import type { RankingItem } from '~/api/content/ranking'
+import { fetchCachedRanking } from '~/composables/cache/useNonCriticalApiCache'
+import { authApi } from '~/api/auth/auth'
 
 const { bannerVisible: announcementBarVisible } = useAnnouncementBar()
 
 const { isDark, toggleDark } = useDarkMode()
 const userStore = useUserStore()
 const searchModal = useSearchModal()
-const router = useRouter()
+const shouldMountSearchModal = ref(false)
 const route = useRoute()
 const siteConfig = useSiteConfigState()
 const mobileMenuOpen = ref(false)
@@ -233,9 +239,6 @@ const homeNavRankingItems = ref<RankingItem[]>([])
 let hideUserMenuTimer: ReturnType<typeof setTimeout> | null = null
 
 // ===== 导航栏滚动状态 =====
-const isScrolled = ref(false)
-const isNavHidden = ref(false)
-const lastScrollY = ref(0)
 const isHomePage = computed(() => route.path === '/')
 const isNavbarTransparent = computed(() => (isHomePage.value && !isScrolled.value) || forceHomeNavbarTransparent.value)
 const globalLeftAdVisible = ref(false)
@@ -249,6 +252,8 @@ let leftAdMobileScrollTimer: ReturnType<typeof setTimeout> | null = null
 let leftAdHeroRetryCount = 0
 const LEFT_AD_HERO_RETRY_MAX = 30
 const LEFT_AD_MOBILE_HIDE_DELAY = 180
+const HOME_HERO_FALLBACK_HEIGHT = 80
+const isHomeHeroPassed = ref(false)
 
 interface NavLinkItem {
   to: string
@@ -297,6 +302,56 @@ const forceHomeNavbarTransparent = ref(false)
 const shouldRenderNavbar = computed(() => !isHomePage.value || isStartupDone.value)
 const hasPlayedHomeNavEntrance = ref(false)
 let homeNavAnimateTimer: ReturnType<typeof setTimeout> | null = null
+let cancelHomeNavRankingPrefetch: (() => void) | null = null
+let cancelSearchModalChunkPrefetch: (() => void) | null = null
+let searchModalChunkPrefetched = false
+
+watch(() => searchModal.isVisible.value, (opened) => {
+  if (opened) {
+    shouldMountSearchModal.value = true
+  }
+}, { immediate: true })
+
+const {
+  isScrolled,
+  isNavHidden,
+  handleScroll,
+  scheduleHandleScroll,
+  cancelScheduledScroll,
+  resetNavState,
+} = useNavbarScrollBehavior({
+  isHomePage,
+  isHomeHeroPassed,
+  navScrollLocked,
+  onScrollStateSync: syncGlobalLeftAdScrollState,
+  mobileBreakpoint: NAV_MOBILE_BREAKPOINT,
+  toggleScrollDelta: NAV_TOGGLE_SCROLL_DELTA,
+  hideStartY: HOME_HERO_FALLBACK_HEIGHT,
+})
+
+/**
+ * 将非关键请求放到浏览器空闲阶段，降低首屏主线程与网络竞争。
+ * 不支持 requestIdleCallback 时回退到短延时定时器。
+ */
+function runWhenBrowserIdle(task: () => void, fallbackDelay = 280): () => void {
+  if (!import.meta.client) {
+    return () => {}
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    const idleId = window.requestIdleCallback(() => {
+      task()
+    }, { timeout: 1200 })
+    return () => {
+      window.cancelIdleCallback(idleId)
+    }
+  }
+
+  const timer = window.setTimeout(task, fallbackDelay)
+  return () => {
+    window.clearTimeout(timer)
+  }
+}
 
 function hasStartupDone() {
   if (!import.meta.client) {
@@ -324,6 +379,7 @@ function observeHomeHeroForLeftAd() {
 
   const heroEl = document.querySelector<HTMLElement>('.hero-carousel')
   if (!heroEl) {
+    isHomeHeroPassed.value = window.scrollY > HOME_HERO_FALLBACK_HEIGHT
     globalLeftAdVisible.value = false
     if (leftAdHeroRetryCount >= LEFT_AD_HERO_RETRY_MAX) return
     leftAdHeroRetryCount += 1
@@ -337,7 +393,9 @@ function observeHomeHeroForLeftAd() {
   leftAdHeroObserver = new IntersectionObserver((entries) => {
     const entry = entries[0]
     if (!entry) return
-    globalLeftAdVisible.value = !entry.isIntersecting
+    const heroPassed = !entry.isIntersecting
+    isHomeHeroPassed.value = heroPassed
+    globalLeftAdVisible.value = heroPassed
   }, { threshold: 0 })
 
   leftAdHeroObserver.observe(heroEl)
@@ -347,6 +405,7 @@ function refreshGlobalLeftAdVisibility() {
   if (!import.meta.client) return
 
   if (globalLeftAdDismissed.value) {
+    isHomeHeroPassed.value = window.scrollY > HOME_HERO_FALLBACK_HEIGHT
     globalLeftAdVisible.value = false
     isGlobalLeftAdScrollingHidden.value = false
     return
@@ -354,11 +413,13 @@ function refreshGlobalLeftAdVisibility() {
 
   clearLeftAdHeroWatchers()
   if (route.path === '/') {
+    isHomeHeroPassed.value = window.scrollY > HOME_HERO_FALLBACK_HEIGHT
     globalLeftAdVisible.value = false
     observeHomeHeroForLeftAd()
     return
   }
 
+  isHomeHeroPassed.value = true
   globalLeftAdVisible.value = true
 }
 
@@ -401,8 +462,9 @@ async function loadHomeNavRanking() {
   if (homeNavRankingItems.value.length) return
 
   try {
-    const res = await rankingApi.get({ rankType: 4, limit: 5 })
-    homeNavRankingItems.value = (res.data || []).slice(0, 5)
+    // 导航热榜属于非关键数据，优先复用短期缓存并限制最大条数。
+    const items = await fetchCachedRanking({ rankType: 4, limit: 5 }, { ttlMs: 60_000 })
+    homeNavRankingItems.value = items.slice(0, 5)
   } catch {
     homeNavRankingItems.value = []
   }
@@ -429,8 +491,28 @@ function triggerHomeNavItemsEntrance() {
   }, 1100)
 }
 
+async function prefetchSearchModalChunk() {
+  if (!import.meta.client || searchModalChunkPrefetched) {
+    return
+  }
+
+  searchModalChunkPrefetched = true
+  try {
+    // 仅预取代码，不挂载组件：降低首次点击搜索时的交互延迟。
+    await import('~/components/search/SearchModal.vue')
+  } catch {
+    searchModalChunkPrefetched = false
+  }
+}
+
 watch(() => route.path, (path, oldPath) => {
   if (!import.meta.client) return
+
+  const isRouteChanged = Boolean(oldPath) && path !== oldPath
+  if (isRouteChanged) {
+    // 路由切换时先恢复导航可见，避免沿用上一页的隐藏状态。
+    resetNavState({ forceVisible: true })
+  }
 
   const isEnterHomeFromOtherPage = path === '/' && Boolean(oldPath) && oldPath !== '/'
   if (isEnterHomeFromOtherPage) {
@@ -456,8 +538,7 @@ watch(() => route.path, (path, oldPath) => {
   if (isEnterHomeOnMobile) {
     forceHomeNavbarTransparent.value = true
     isScrolled.value = false
-    isNavHidden.value = false
-    lastScrollY.value = 0
+    resetNavState({ forceVisible: true, forceTop: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
 
     if (forceHomeNavbarTimer) {
@@ -496,63 +577,6 @@ watch(shouldShowGlobalLeftAd, (visible) => {
   clearLeftAdMobileScrollTimer()
 })
 
-function handleScroll() {
-  if (document.body.style.position === 'fixed') {
-    return
-  }
-
-  const scrollY = Math.max(window.scrollY, 0)
-  const topVisibleThreshold = window.innerWidth <= NAV_MOBILE_BREAKPOINT ? 6 : 2
-  isScrolled.value = scrollY > 20
-
-  // 评论区 DOM 操作期间跳过方向判断，只同步 lastScrollY
-  if (navScrollLocked.value) {
-    lastScrollY.value = scrollY
-    syncGlobalLeftAdScrollState()
-    return
-  }
-
-  const heroEl = document.querySelector<HTMLElement>('.hero-carousel')
-  const heroRect = heroEl?.getBoundingClientRect()
-  const hideStartY = Math.max(heroRect?.height ?? 0, 80)
-  const hasPassedHero = heroRect ? heroRect.bottom <= 0 : scrollY > hideStartY
-
-  if (scrollY <= topVisibleThreshold) {
-    isNavHidden.value = false
-    lastScrollY.value = 0
-    syncGlobalLeftAdScrollState()
-    return
-  }
-
-  if (isHomePage.value) {
-    if (!hasPassedHero) {
-      isNavHidden.value = false
-      lastScrollY.value = scrollY
-      syncGlobalLeftAdScrollState()
-      return
-    }
-
-    const delta = scrollY - lastScrollY.value
-    if (Math.abs(delta) >= NAV_TOGGLE_SCROLL_DELTA) {
-      isNavHidden.value = delta > 0
-    }
-    lastScrollY.value = scrollY
-    syncGlobalLeftAdScrollState()
-    return
-  }
-
-  if (scrollY > hideStartY) {
-    const delta = scrollY - lastScrollY.value
-    if (Math.abs(delta) >= NAV_TOGGLE_SCROLL_DELTA) {
-      isNavHidden.value = delta > 0
-    }
-  } else {
-    isNavHidden.value = false
-  }
-  lastScrollY.value = scrollY
-  syncGlobalLeftAdScrollState()
-}
-
 function handleWindowResize() {
   if (!import.meta.client) return
   if (window.innerWidth > 768) {
@@ -566,17 +590,31 @@ onMounted(() => {
     window.addEventListener(STARTUP_DONE_EVENT, handleStartupDone)
   }
 
-  window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('scroll', scheduleHandleScroll, { passive: true })
   window.addEventListener('resize', handleWindowResize, { passive: true })
   handleScroll()
   refreshGlobalLeftAdVisibility()
-  void loadHomeNavRanking()
+  cancelHomeNavRankingPrefetch = runWhenBrowserIdle(() => {
+    void loadHomeNavRanking()
+  })
+  cancelSearchModalChunkPrefetch = runWhenBrowserIdle(() => {
+    void prefetchSearchModalChunk()
+  }, 560)
 })
 
 onUnmounted(() => {
   window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
-  window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('scroll', scheduleHandleScroll)
   window.removeEventListener('resize', handleWindowResize)
+  if (cancelHomeNavRankingPrefetch) {
+    cancelHomeNavRankingPrefetch()
+    cancelHomeNavRankingPrefetch = null
+  }
+  if (cancelSearchModalChunkPrefetch) {
+    cancelSearchModalChunkPrefetch()
+    cancelSearchModalChunkPrefetch = null
+  }
+  cancelScheduledScroll()
   clearHomeNavAnimateTimer()
   clearLeftAdMobileScrollTimer()
   if (forceHomeNavbarTimer) {
@@ -716,6 +754,11 @@ function openSearchWithDirectKeyword(title: string) {
 function openAnnouncementCenter() {
   closeMobileMenu()
   announcementCenterVisible.value = true
+}
+
+function handleMobileThemeToggle() {
+  closeMobileMenu()
+  toggleDark()
 }
 
 function handleAnnouncementUnreadChange(count: number) {

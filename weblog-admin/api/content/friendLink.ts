@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface FriendLinkVO {
   id: number
@@ -9,6 +9,9 @@ export interface FriendLinkVO {
   status: string
   sortOrder: number
   applicantUserId: number | null
+  applicantNickname?: string | null
+  applicantEmail?: string | null
+  applicantAvatar?: string | null
   reason: string | null
   lastCheckTime: string
   createTime: string
@@ -49,9 +52,15 @@ export const friendLinkApi = {
   checkLinks: () =>
     http.post<unknown, { data: number }>('/admin/friend-link/check'),
 
+  getApplySwitch: () =>
+    http.get<unknown, { data: { enabled: boolean } }>('/admin/friend-link/apply-switch'),
+
+  setApplySwitch: (enabled: boolean) =>
+    http.put('/admin/friend-link/apply-switch', { enabled }),
+
   approve: (id: number) =>
     http.put<unknown, { data: FriendLinkVO }>(`/admin/friend-link/${id}/approve`),
 
-  reject: (id: number, reason?: string) =>
+  reject: (id: number, reason: string) =>
     http.put<unknown, { data: FriendLinkVO }>(`/admin/friend-link/${id}/reject`, { reason }),
 }

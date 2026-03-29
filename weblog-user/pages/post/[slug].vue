@@ -1,12 +1,12 @@
 <template>
   <div class="post-detail-bg" :style="{ '--sticky-top': stickyTop }">
-    <div class="post-detail-page">
+    <div class="post-detail-page" :class="{ 'page-entered': pageEntered }">
     <UnifiedPageLoader v-if="loading" text="加载中..." />
 
     <template v-else-if="post">
-      <div class="three-col-layout" :key="post.id">
+      <div :key="post.id" class="three-col-layout" :class="{ 'content-entered': contentEntered }">
         <!-- 左侧操作栏 -->
-        <div class="left-sidebar">
+        <div class="left-sidebar detail-enter-block detail-enter-left">
           <div class="left-sidebar-sticky" :style="{ top: stickyTop }">
             <ArticleActionSidebar
               :post-id="post.id"
@@ -25,7 +25,7 @@
         </div>
 
         <!-- 中间内容区 -->
-        <div class="center-content">
+        <div class="center-content detail-enter-block detail-enter-center">
           <div class="post-ad-slot post-ad-slot--top">
             <AdSlotBanner ad-slot="post_top" />
           </div>
@@ -71,6 +71,7 @@
               <MdPreview
                 editor-id="post-preview"
                 :model-value="markdownContent"
+                :sanitize="sanitizeMarkdownPreviewHtml"
                 :theme="editorTheme"
                 :preview-theme="previewTheme"
                 :code-theme="codeTheme"
@@ -113,7 +114,7 @@
           <nav class="post-nav">
             <NuxtLink v-if="prevPost" :to="`/post/${prevPost.slug}`" class="nav-item nav-prev">
               <div class="nav-cover">
-                <img v-if="prevPost.coverImage" :src="prevPost.coverImage" :alt="prevPost.title" loading="lazy" class="nav-cover-img" />
+                <img v-if="prevPost.coverImage" :src="prevPost.coverImage" :alt="prevPost.title" loading="lazy" class="nav-cover-img" >
                 <div class="nav-overlay">
                   <span class="nav-label">
                     <Icon name="heroicons:chevron-left-20-solid" size="18" />
@@ -126,7 +127,7 @@
             <div v-else class="nav-item nav-placeholder" />
             <NuxtLink v-if="nextPost" :to="`/post/${nextPost.slug}`" class="nav-item nav-next">
               <div class="nav-cover">
-                <img v-if="nextPost.coverImage" :src="nextPost.coverImage" :alt="nextPost.title" loading="lazy" class="nav-cover-img" />
+                <img v-if="nextPost.coverImage" :src="nextPost.coverImage" :alt="nextPost.title" loading="lazy" class="nav-cover-img" >
                 <div class="nav-overlay">
                   <span class="nav-label">
                     下一篇
@@ -146,7 +147,7 @@
         </div>
 
         <!-- 右侧目录 + 推荐 -->
-        <div class="right-sidebar">
+        <div class="right-sidebar detail-enter-block detail-enter-right">
           <div class="right-sidebar-sticky" :style="{ top: stickyTop }">
             <ArticleToc content-selector=".post-content .md-editor-preview" />
             <SimilarPosts :post-id="post.id" :category-id="post.categoryId" />
@@ -155,7 +156,7 @@
       </div>
 
       <!-- 移动端 TOC 按钮 -->
-      <button v-if="hasToc" class="toc-fab" @click="tocVisible = !tocVisible" aria-label="目录">
+      <button v-if="hasToc" class="toc-fab" aria-label="目录" @click="tocVisible = !tocVisible">
         <Icon name="heroicons:list-bullet-20-solid" size="20" />
       </button>
 
@@ -165,7 +166,7 @@
         <div class="toc-mobile-panel" :class="{ open: tocVisible }">
           <div class="panel-header">
             <span>文章目录</span>
-            <button @click="tocVisible = false" aria-label="关闭目录">
+            <button aria-label="关闭目录" @click="tocVisible = false">
               <Icon name="heroicons:x-mark-20-solid" size="20" />
             </button>
           </div>
@@ -196,15 +197,16 @@
 <script setup lang="ts">
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import { postApi, type PostVO } from '~/api/post'
-import { categoryApi, type CategoryTreeVO } from '~/api/category'
-import { getTagColor } from '~/utils/tagColor'
-import { useDarkMode } from '~/composables/useDarkMode'
-import { accessApi } from '~/api/access'
-import ReadLimitOverlay from '~/components/ReadLimitOverlay.vue'
+import { postApi, type PostVO } from '~/api/content/post'
+import { categoryApi, type CategoryTreeVO } from '~/api/content/category'
+import { getTagColor } from '~/utils/content/tagColor'
+import { useDarkMode } from '~/composables/theme/useDarkMode'
+import { accessApi } from '~/api/interaction/access'
+import ReadLimitOverlay from '~/components/article/ReadLimitOverlay.vue'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { buildCategoryPathById } from '~/utils/categoryRoute'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { buildCategoryPathById } from '~/utils/navigation/categoryRoute'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 definePageMeta({
   key: route => String(route.params.slug || route.fullPath),
@@ -259,6 +261,8 @@ const nextPost = ref<{ id: number; title: string; slug: string; coverImage?: str
 const tocVisible = ref(false)
 const hasToc = ref(false)
 const commentSectionRef = ref<HTMLElement | null>(null)
+const pageEntered = ref(false)
+const contentEntered = ref(false)
 
 const userStore = useUserStore()
 const loginModal = useLoginModal()
@@ -358,6 +362,7 @@ const previewTheme = computed(() => post.value?.previewTheme || 'default')
 const codeTheme = computed(() => post.value?.codeTheme || 'atom')
 const editorTheme = computed(() => isDark.value ? 'dark' : 'light')
 const markdownContent = computed(() => post.value?.content || '')
+const sanitizeMarkdownPreviewHtml = (html: string) => sanitizeHtml(html)
 
 const categoryPath = computed(() => {
   if (!post.value) return '/category'
@@ -470,6 +475,32 @@ watch(() => post.value?.id, (id) => {
   void checkAndRecordAccess()
 }, { immediate: true })
 
+watch([() => loading.value, () => post.value?.id], ([isLoading, postId]) => {
+  if (isLoading || !postId) {
+    contentEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    contentEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    contentEntered.value = true
+  })
+}, { immediate: true })
+
+onMounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    pageEntered.value = true
+  })
+})
+
 onUnmounted(() => {
   if (tocDetectTimer) {
     clearTimeout(tocDetectTimer)
@@ -492,12 +523,47 @@ onUnmounted(() => {
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: 1rem 1rem 2rem;
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.post-detail-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 .three-col-layout {
   display: flex;
   gap: 1.25rem;
   align-items: flex-start;
   @media (max-width: 1100px) { flex-direction: column; }
+}
+
+.detail-enter-block {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+}
+
+.three-col-layout.content-entered .detail-enter-block {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.three-col-layout.content-entered .detail-enter-left {
+  transition-delay: 40ms;
+}
+
+.three-col-layout.content-entered .detail-enter-center {
+  transition-delay: 90ms;
+}
+
+.three-col-layout.content-entered .detail-enter-right {
+  transition-delay: 140ms;
 }
 
 /* 左侧操作栏 */
@@ -828,4 +894,15 @@ onUnmounted(() => {
 /* 状态 */
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
 .back-link { display: inline-block; margin-top: 1rem; color: $color-primary; text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .post-detail-page,
+  .post-detail-page.page-entered,
+  .detail-enter-block,
+  .three-col-layout.content-entered .detail-enter-block {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 </style>

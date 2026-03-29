@@ -190,10 +190,10 @@
 <script setup lang="ts">
 import { ArrowLeft, ArrowRight, Clock, Timer, Plus, CircleClose } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { postApi, type PostCreateParams } from '~/api/post'
-import { categoryApi, type CategoryVO } from '~/api/category'
-import { tagApi, type TagVO } from '~/api/tag'
-import { uploadApi } from '~/api/upload'
+import { postApi, type PostCreateParams } from '~/api/content/post'
+import { categoryApi, type CategoryVO } from '~/api/content/category'
+import { tagApi, type TagVO } from '~/api/content/tag'
+import { uploadApi } from '~/api/system/upload'
 
 const route = useRoute()
 const router = useRouter()

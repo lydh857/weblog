@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal">
+    <Transition name="modal-fade" appear>
       <div
         v-if="visible"
         class="search-modal-overlay"
@@ -17,9 +17,10 @@
                 type="text"
                 class="search-input"
                 :placeholder="actualInputPlaceholder"
+                :maxlength="maxKeywordLength"
                 autocomplete="off"
                 @input="handleInput"
-              />
+              >
               <span v-if="showPlaceholderFire" class="input-placeholder-with-fire" aria-hidden="true">
                 <span class="input-placeholder-text">{{ inputPlaceholderText }}</span>
                 <span class="placeholder-fire">
@@ -53,6 +54,7 @@
 
           <!-- 搜索内容区域 -->
           <div
+            v-custom-scrollbar="hasKeyword"
             class="search-body"
             :class="{
               'search-body--ranking': !hasKeyword,
@@ -135,12 +137,15 @@
                   @click="handleResultClick"
                 >
                   <div class="result-content">
+                    <!-- 搜索高亮片段已通过 sanitizeHtml 净化 -->
+                    <!-- eslint-disable vue/no-v-html -->
                     <h4 class="result-title" v-html="sanitizeHtml(item.highlightTitle || item.title)" />
                     <p
                       v-if="item.highlightContent || item.summary"
                       class="result-summary"
                       v-html="sanitizeHtml(item.highlightContent || item.summary)"
                     />
+                    <!-- eslint-enable vue/no-v-html -->
                     <div class="result-meta">
                       <span v-if="formatCategoryPath(item)" class="meta-item">
                         <Icon name="heroicons:folder-16-solid" size="12" />
@@ -209,15 +214,16 @@
 </template>
 
 <script setup lang="ts">
-import { searchApi, type SearchHit } from '~/api/search'
-import { sanitizeHtml } from '~/utils/xss'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
-import { useSearchModal } from '~/composables/useSearchModal'
+import type { SearchHit } from '~/api/content/search'
+import { sanitizeHtml } from '~/utils/security/xss'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
+import { useSearchModal } from '~/composables/modal/useSearchModal'
+import { useSearchModalState } from '~/composables/modal/search/useSearchModalState'
 
-// ===== Props / Emits =====
 interface Props {
   visible: boolean
 }
+
 interface Emits {
   (e: 'update:visible', value: boolean): void
 }
@@ -226,251 +232,46 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const searchModal = useSearchModal()
 
-// ===== 状态 =====
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const keyword = ref('')
-const results = ref<SearchHit[]>([])
-const searching = ref(false)
-const activeIndex = ref(-1)
-const hasKeyword = computed(() => keyword.value.trim().length > 0)
-const showShortcutHints = computed(() => hasKeyword.value && !searching.value && results.value.length > 0)
-const hasSearched = ref(false)
-const shouldShowEmpty = computed(() => hasKeyword.value && hasSearched.value && !searching.value && results.value.length === 0)
-const DEFAULT_SEARCH_PLACEHOLDER = '搜索文章...'
-const inputPlaceholderText = ref(DEFAULT_SEARCH_PLACEHOLDER)
-const showPlaceholderFire = computed(() => !keyword.value.trim() && inputPlaceholderText.value !== DEFAULT_SEARCH_PLACEHOLDER)
-const actualInputPlaceholder = computed(() => (showPlaceholderFire.value ? '' : inputPlaceholderText.value))
-let searchRequestId = 0
 
-function invalidateSearchRequest() {
-  searchRequestId += 1
-}
+const {
+  keyword,
+  results,
+  searching,
+  activeIndex,
+  hasKeyword,
+  showShortcutHints,
+  shouldShowEmpty,
+  inputPlaceholderText,
+  maxKeywordLength,
+  showPlaceholderFire,
+  actualInputPlaceholder,
+  history,
+  historyLongPressIndex,
+  isCoarsePointer,
+  handleInput,
+  handleSearchSubmit,
+  clearKeyword: clearKeywordState,
+  addToHistory,
+  removeHistory,
+  clearAllHistory,
+  handleHistoryTagClick,
+  handleHistoryTouchStart,
+  handleHistoryTouchMove,
+  handleHistoryTouchEnd,
+  handleHistoryTouchCancel,
+  handleSearchBodyClick,
+  detectCoarsePointer,
+  openSession,
+  closeSession,
+  dispose,
+} = useSearchModalState({ defaultPlaceholder: '搜索文章...' })
 
-// ===== 搜索历史（localStorage 持久化） =====
-const HISTORY_KEY = 'weblog_search_history'
-const MAX_HISTORY = 10
-const LONG_PRESS_DURATION = 420
-const LONG_PRESS_MOVE_TOLERANCE = 10
-
-const history = ref<string[]>([])
-const historyLongPressIndex = ref<number | null>(null)
-const suppressHistoryClick = ref(false)
-const isCoarsePointer = ref(false)
-let historyLongPressTimer: ReturnType<typeof setTimeout> | null = null
-let longPressStartX = 0
-let longPressStartY = 0
-
-/** 从 localStorage 读取搜索历史 */
-function loadHistory() {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY)
-    if (raw) history.value = JSON.parse(raw)
-  } catch {
-    history.value = []
-  }
-}
-
-/** 保存搜索历史到 localStorage */
-function saveHistory() {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value))
-  } catch {
-    // localStorage 不可用时静默降级
-  }
-}
-
-/** 添加搜索关键词到历史 */
-function addToHistory(kw: string) {
-  const trimmed = kw.trim()
-  if (!trimmed) return
-  // 去重：移除已存在的相同关键词
-  history.value = history.value.filter(item => item !== trimmed)
-  // 添加到头部
-  history.value.unshift(trimmed)
-  // 限制最多 10 条
-  if (history.value.length > MAX_HISTORY) {
-    history.value = history.value.slice(0, MAX_HISTORY)
-  }
-  saveHistory()
-}
-
-/** 删除单条历史 */
-function removeHistory(index: number) {
-  history.value.splice(index, 1)
-  if (historyLongPressIndex.value === index) {
-    historyLongPressIndex.value = null
-  } else if (historyLongPressIndex.value != null && historyLongPressIndex.value > index) {
-    historyLongPressIndex.value -= 1
-  }
-  suppressHistoryClick.value = false
-  saveHistory()
-}
-
-/** 清空全部历史 */
-function clearAllHistory() {
-  history.value = []
-  historyLongPressIndex.value = null
-  suppressHistoryClick.value = false
-  saveHistory()
-}
-
-/** 从历史记录搜索 */
-function searchFromHistory(kw: string) {
-  keyword.value = kw
-  historyLongPressIndex.value = null
-  suppressHistoryClick.value = false
-  doSearch()
-}
-
-function clearHistoryLongPressTimer() {
-  if (historyLongPressTimer) {
-    clearTimeout(historyLongPressTimer)
-    historyLongPressTimer = null
-  }
-}
-
-function handleHistoryTagClick(kw: string, index: number, event: MouseEvent) {
-  if (suppressHistoryClick.value) {
-    suppressHistoryClick.value = false
-    event.preventDefault()
-    return
-  }
-
-  if (historyLongPressIndex.value != null && historyLongPressIndex.value !== index) {
-    historyLongPressIndex.value = null
-  }
-
-  searchFromHistory(kw)
-}
-
-function handleHistoryTouchStart(event: TouchEvent, index: number) {
-  if (!isCoarsePointer.value) {
-    return
-  }
-
-  const touch = event.touches[0]
-  if (!touch) {
-    return
-  }
-
-  clearHistoryLongPressTimer()
-  suppressHistoryClick.value = false
-  longPressStartX = touch.clientX
-  longPressStartY = touch.clientY
-
-  historyLongPressTimer = setTimeout(() => {
-    historyLongPressIndex.value = index
-    suppressHistoryClick.value = true
-    historyLongPressTimer = null
-  }, LONG_PRESS_DURATION)
-}
-
-function handleHistoryTouchMove(event: TouchEvent) {
-  if (!historyLongPressTimer) {
-    return
-  }
-
-  const touch = event.touches[0]
-  if (!touch) {
-    return
-  }
-
-  const deltaX = Math.abs(touch.clientX - longPressStartX)
-  const deltaY = Math.abs(touch.clientY - longPressStartY)
-  if (deltaX > LONG_PRESS_MOVE_TOLERANCE || deltaY > LONG_PRESS_MOVE_TOLERANCE) {
-    clearHistoryLongPressTimer()
-  }
-}
-
-function handleHistoryTouchEnd() {
-  clearHistoryLongPressTimer()
-}
-
-function handleHistoryTouchCancel() {
-  clearHistoryLongPressTimer()
-}
-
-function handleSearchBodyClick(event: MouseEvent) {
-  if (historyLongPressIndex.value == null) {
-    return
-  }
-
-  const target = event.target as HTMLElement | null
-  if (target?.closest('.history-tag')) {
-    return
-  }
-
-  historyLongPressIndex.value = null
-  suppressHistoryClick.value = false
-}
-
-// ===== 搜索逻辑 =====
-/** 输入事件处理（取消自动搜索） */
-function handleInput() {
-  activeIndex.value = -1
-  hasSearched.value = false
-  invalidateSearchRequest()
-  if (!keyword.value.trim()) {
-    results.value = []
-    searching.value = false
-  }
-}
-
-function handleSearchSubmit() {
-  if (!keyword.value.trim()) {
-    const placeholderKeyword = inputPlaceholderText.value.trim()
-    if (!placeholderKeyword || placeholderKeyword === DEFAULT_SEARCH_PLACEHOLDER) {
-      return
-    }
-    keyword.value = placeholderKeyword
-  }
-  void doSearch()
-}
-
-/** 执行搜索 */
-async function doSearch() {
-  const requestId = ++searchRequestId
-  const kw = keyword.value.trim()
-  if (!kw) {
-    hasSearched.value = false
-    results.value = []
-    searching.value = false
-    return
-  }
-
-  hasSearched.value = true
-  searching.value = true
-  try {
-    const res = await searchApi.search({ keyword: kw, pageSize: 20 })
-    if (requestId !== searchRequestId) {
-      return
-    }
-    results.value = res.data.hits
-    activeIndex.value = results.value.length > 0 ? 0 : -1
-  } catch {
-    if (requestId !== searchRequestId) {
-      return
-    }
-    results.value = []
-  } finally {
-    if (requestId === searchRequestId) {
-      searching.value = false
-    }
-  }
-}
-
-/** 清空关键词 */
 function clearKeyword() {
-  invalidateSearchRequest()
-  keyword.value = ''
-  hasSearched.value = false
-  results.value = []
-  activeIndex.value = -1
-  searching.value = false
+  clearKeywordState()
   searchInputRef.value?.focus()
 }
 
-// ===== 键盘操作 =====
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     close()
@@ -483,8 +284,9 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
-  // 仅在有搜索结果时处理上下键
-  if (!hasKeyword.value || results.value.length === 0) return
+  if (!hasKeyword.value || results.value.length === 0) {
+    return
+  }
 
   if (e.key === 'ArrowDown') {
     e.preventDefault()
@@ -499,7 +301,6 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-/** 滚动选中项到可视区域 */
 function scrollActiveIntoView() {
   nextTick(() => {
     const activeEl = document.querySelector('.result-item.active')
@@ -552,53 +353,47 @@ function formatCategoryPath(item: SearchHit): string {
   return ''
 }
 
-// ===== 结果点击 =====
 function handleResultClick() {
   addToHistory(keyword.value.trim())
 }
 
-// ===== 关闭模态框 =====
 function close() {
   searchModal.close()
   emit('update:visible', false)
 }
 
 onMounted(() => {
-  if (typeof window !== 'undefined') {
-    isCoarsePointer.value = window.matchMedia('(pointer: coarse)').matches
-  }
+  detectCoarsePointer()
 })
 
-// ===== 监听显示状态 =====
 let locked = false
 
 watch(() => props.visible, (val) => {
   if (val) {
-    loadHistory()
-    keyword.value = searchModal.initialKeyword.value
-    inputPlaceholderText.value = searchModal.inputPlaceholder.value || DEFAULT_SEARCH_PLACEHOLDER
+    const initialKeyword = searchModal.initialKeyword.value
+    const placeholder = searchModal.inputPlaceholder.value
+    const shouldAutoSearch = searchModal.autoSearchOnOpen.value && initialKeyword.trim().length > 0
+
+    openSession({
+      initialKeyword,
+      placeholder,
+      autoSearch: shouldAutoSearch,
+    })
+
     nextTick(() => {
       searchInputRef.value?.focus()
     })
-    if (searchModal.autoSearchOnOpen.value && keyword.value.trim()) {
-      void doSearch()
+
+    if (shouldAutoSearch) {
       searchModal.autoSearchOnOpen.value = false
     }
+
     if (!locked) {
       lockScroll()
       locked = true
     }
   } else {
-    invalidateSearchRequest()
-    keyword.value = ''
-    hasSearched.value = false
-    inputPlaceholderText.value = DEFAULT_SEARCH_PLACEHOLDER
-    results.value = []
-    activeIndex.value = -1
-    searching.value = false
-    historyLongPressIndex.value = null
-    suppressHistoryClick.value = false
-    clearHistoryLongPressTimer()
+    closeSession()
     if (locked) {
       unlockScroll()
       locked = false
@@ -606,9 +401,8 @@ watch(() => props.visible, (val) => {
   }
 }, { immediate: true })
 
-// 组件卸载时确保恢复滚动
 onUnmounted(() => {
-  clearHistoryLongPressTimer()
+  dispose()
   if (locked) {
     unlockScroll()
     locked = false
@@ -618,23 +412,23 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 /* ===== 过渡动画 ===== */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .search-modal {
+    transition: transform 0.25s;
+  }
 }
 
-.modal-enter-active .search-modal,
-.modal-leave-active .search-modal {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
 
   .search-modal {
-    transform: translateY(-20px) scale(0.98);
-    opacity: 0;
+    transform: translateY(20px) scale(0.96);
   }
 }
 
@@ -676,8 +470,8 @@ onUnmounted(() => {
   flex-direction: column;
   background: $color-bg;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 16px;
-  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 
   .dark & {
@@ -689,8 +483,8 @@ onUnmounted(() => {
     --search-hover-soft: rgba(148, 163, 184, 0.2);
 
     background: var(--search-shell-bg-dark);
-    border-color: rgba(71, 85, 105, 0.55);
-    box-shadow: 0 28px 70px rgba(2, 6, 23, 0.62);
+    border-color: rgba(148, 163, 184, 0.14);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -916,29 +710,6 @@ onUnmounted(() => {
 
 .search-body--results {
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.5);
-  }
-
-  .dark & {
-    scrollbar-color: rgba(148, 163, 184, 0.36) transparent;
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.36);
-    }
-  }
 }
 
 .search-body--ranking {
@@ -1480,10 +1251,12 @@ onUnmounted(() => {
 /* ===== 减少动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
   .placeholder-fire,
-  .modal-enter-active,
-  .modal-leave-active,
-  .modal-enter-active .search-modal,
-  .modal-leave-active .search-modal {
+  .modal-fade-enter-active,
+  .modal-fade-leave-active,
+  .modal-fade-appear-active,
+  .modal-fade-enter-active .search-modal,
+  .modal-fade-leave-active .search-modal,
+  .modal-fade-appear-active .search-modal {
     transition: none;
   }
 }

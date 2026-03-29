@@ -9,7 +9,7 @@
         class="post-card"
       >
         <div v-if="p.coverImage" class="card-cover">
-          <img :src="p.coverImage" :alt="p.title" loading="lazy" />
+          <img :src="p.coverImage" :alt="p.title" loading="lazy" >
         </div>
         <div class="card-body">
           <h4 class="card-title">{{ p.title }}</h4>
@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { postApi, type PostVO } from '~/api/post'
+import { postApi, type PostVO } from '~/api/content/post'
 
 const props = defineProps<{ postId: number; categoryId?: number | null }>()
 

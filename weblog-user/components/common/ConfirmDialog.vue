@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="confirm-fade">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="confirm-overlay" @click.self="handleCancel">
         <div class="confirm-dialog">
           <div class="confirm-icon">
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
   visible: boolean
   message: string
 }>()
@@ -43,17 +43,23 @@ function handleCancel() {
 <style scoped lang="scss">
 .confirm-overlay {
   position: fixed; inset: 0; z-index: var(--z-confirm);
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 .confirm-dialog {
   background: #fff; border-radius: 12px; padding: 1.5rem;
+  border: 1px solid transparent;
   width: 320px; max-width: 90vw;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   text-align: center;
   .dark & {
     background: $color-dark-bg-elevated;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(148, 163, 184, 0.14);
   }
 }
@@ -83,7 +89,23 @@ function handleCancel() {
     &:hover { background: var(--status-danger); }
   }
 }
-.confirm-fade-enter-active { transition: opacity 0.2s; }
-.confirm-fade-leave-active { transition: opacity 0.15s; }
-.confirm-fade-enter-from, .confirm-fade-leave-to { opacity: 0; }
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .confirm-dialog {
+    transition: transform 0.25s;
+  }
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
+  opacity: 0;
+
+  .confirm-dialog {
+    transform: translateY(20px) scale(0.96);
+  }
+}
 </style>

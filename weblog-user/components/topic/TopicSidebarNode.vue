@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CatalogNode } from '~/api/topic'
+import type { CatalogNode } from '~/api/content/topic'
 
 const props = defineProps<{
   node: CatalogNode

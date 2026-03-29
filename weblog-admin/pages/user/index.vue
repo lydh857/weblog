@@ -129,7 +129,13 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane :label="`个人信息审核${pendingProfileReviewCount > 0 ? ` (${pendingProfileReviewCount})` : ''}`" name="reviews">
+      <el-tab-pane name="reviews">
+        <template #label>
+          <span>个人信息审核</span>
+          <span v-if="pendingProfileReviewCount > 0" class="compact-tab-count compact-tab-count--warning">
+            {{ pendingProfileReviewCount > 99 ? '99+' : pendingProfileReviewCount }}
+          </span>
+        </template>
         <div class="toolbar-row">
           <div class="filter-bar">
             <el-input v-model="reviewKeyword" placeholder="搜索昵称/邮箱" clearable style="width: 240px" @clear="handleReviewSearch">
@@ -138,7 +144,7 @@
           </div>
         </div>
 
-        <el-table :data="reviewRecords" v-loading="reviewLoading" stripe height="560">
+        <el-table :data="reviewRecords" v-loading="reviewLoading" stripe height="560" :row-class-name="reviewRowClassName">
           <el-table-column type="index" label="#" width="50" align="center" />
           <el-table-column label="用户" min-width="230">
             <template #default="{ row }">
@@ -226,8 +232,8 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Lock, ArrowDown } from '@element-plus/icons-vue'
-import { userApi, type UserVO } from '~/api/user'
-import { profileReviewApi, type ProfileReviewVO } from '~/api/profileReview'
+import { userApi, type UserVO } from '~/api/auth/user'
+import { profileReviewApi, type ProfileReviewVO } from '~/api/system/profileReview'
 
 const activeTab = ref<'users' | 'reviews'>('users')
 const route = useRoute()
@@ -266,6 +272,10 @@ function statusTagType(s: string) {
 
 function rowClassName({ row }: { row: UserVO }) {
   return row.status === 'locked' ? 'locked-row' : ''
+}
+
+function reviewRowClassName() {
+  return 'pending-highlight-row'
 }
 
 async function loadData() {
@@ -446,7 +456,7 @@ async function handleApproveReview(row: ProfileReviewVO) {
 async function handleRejectReview(row: ProfileReviewVO) {
   let reason = ''
   try {
-    const { value } = await ElMessageBox.prompt(`请输入拒绝「${row.currentNickname}」的原因`, '拒绝审核', {
+    const promptResult = await ElMessageBox.prompt(`请输入拒绝「${row.currentNickname}」的原因`, '拒绝审核', {
       confirmButtonText: '确认拒绝',
       cancelButtonText: '取消',
       inputPlaceholder: '例如：头像不清晰、昵称不合规、简介含敏感词',
@@ -456,7 +466,10 @@ async function handleRejectReview(row: ProfileReviewVO) {
         return true
       },
     })
-    reason = value.trim()
+    const promptValue = (promptResult as { value?: string; inputValue?: string }).value
+      ?? (promptResult as { inputValue?: string }).inputValue
+      ?? ''
+    reason = promptValue.trim()
   } catch {
     return
   }
@@ -661,5 +674,25 @@ onUnmounted(() => {
 // ========== 锁定行高亮 ==========
 :deep(.el-table) .locked-row td.el-table__cell {
   background-color: rgba(245, 158, 11, 0.06) !important;
+}
+
+:deep(.el-table__row.pending-highlight-row > td) {
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
+:deep(.el-table__row.pending-highlight-row:hover > td) {
+  background: rgba(245, 158, 11, 0.2) !important;
+}
+
+:deep(html.dark .el-table__row.pending-highlight-row > td),
+:deep(body.dark .el-table__row.pending-highlight-row > td),
+:deep(.dark .el-table__row.pending-highlight-row > td) {
+  background: rgba(245, 158, 11, 0.16) !important;
+}
+
+:deep(html.dark .el-table__row.pending-highlight-row:hover > td),
+:deep(body.dark .el-table__row.pending-highlight-row:hover > td),
+:deep(.dark .el-table__row.pending-highlight-row:hover > td) {
+  background: rgba(245, 158, 11, 0.24) !important;
 }
 </style>

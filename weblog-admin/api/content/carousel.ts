@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 /** 轮播项 */
 export interface CarouselItem {

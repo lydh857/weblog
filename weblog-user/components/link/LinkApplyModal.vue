@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal-fade">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="modal-overlay" @click.self="closeModal">
         <div class="modal-container">
           <!-- 标题栏 -->
@@ -71,19 +71,19 @@
               <form class="apply-form" @submit.prevent="handleSubmit">
                 <div class="form-item">
                   <label for="link-name">网站名称 <span class="required">*</span></label>
-                  <input id="link-name" v-model="form.name" type="text" placeholder="例如：我的博客" required />
+                  <input id="link-name" v-model="form.name" type="text" maxlength="50" placeholder="例如：我的博客" required >
                 </div>
                 <div class="form-item">
                   <label for="link-url">网站链接 <span class="required">*</span></label>
-                  <input id="link-url" v-model="form.url" type="url" placeholder="https://example.com" required />
+                  <input id="link-url" v-model="form.url" type="url" maxlength="200" placeholder="https://example.com" required >
                 </div>
                 <div class="form-item">
                   <label for="link-logo">网站 Logo <span class="required">*</span></label>
-                  <input id="link-logo" v-model="form.logo" type="url" placeholder="https://example.com/logo.png" required />
+                  <input id="link-logo" v-model="form.logo" type="url" maxlength="500" placeholder="https://example.com/logo.png" required >
                 </div>
                 <div class="form-item">
                   <label for="link-desc">网站介绍 <span class="required">*</span></label>
-                  <textarea id="link-desc" v-model="form.description" placeholder="一句话介绍您的网站" required rows="3" />
+                  <textarea id="link-desc" v-model="form.description" maxlength="200" placeholder="一句话介绍您的网站" required rows="3" />
                 </div>
               </form>
               <div class="step-actions">
@@ -137,7 +137,7 @@
                       alt="Logo"
                       class="preview-logo"
                       @error="logoError = true"
-                    />
+                    >
                     <span v-else class="preview-logo-placeholder">{{ myLink.name?.charAt(0) || '?' }}</span>
                   </div>
                   <div class="preview-row">
@@ -159,10 +159,9 @@
 </template>
 
 <script setup lang="ts">
-import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
+import { friendLinkApi, type FriendLinkVO } from '~/api/content/friendLink'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { normalizeSafeHref } from '~/utils/urlSafety'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{
@@ -172,7 +171,6 @@ const emit = defineEmits<{
 
 const userStore = useUserStore()
 const message = useMessage()
-const loginModal = useLoginModal()
 
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const currentStep = ref(1)
@@ -236,13 +234,43 @@ function closeModal() {
   emit('update:visible', false)
 }
 
+function validateHttpUrl(rawUrl: string, fieldLabel: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return `${fieldLabel}格式不正确`
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return `${fieldLabel}仅支持 http/https`
+  }
+
+  return null
+}
+
 function validateForm(): string | null {
-  if (!form.name.trim()) return '网站名称不能为空'
-  if (!form.url.trim()) return '网站链接不能为空'
-  if (!form.logo.trim()) return '网站 Logo 不能为空'
-  if (!form.description.trim()) return '网站介绍不能为空'
-  try { new URL(form.url) } catch { return '网站链接格式不正确' }
-  try { new URL(form.logo) } catch { return 'Logo 链接格式不正确' }
+  const name = form.name.trim()
+  const url = form.url.trim()
+  const logo = form.logo.trim()
+  const description = form.description.trim()
+
+  if (!name) return '网站名称不能为空'
+  if (!url) return '网站链接不能为空'
+  if (!logo) return '网站 Logo 不能为空'
+  if (!description) return '网站介绍不能为空'
+
+  if (name.length > 50) return '网站名称不能超过50个字符'
+  if (url.length > 200) return '网站链接不能超过200个字符'
+  if (logo.length > 500) return 'Logo 链接不能超过500个字符'
+  if (description.length > 200) return '网站介绍不能超过200个字符'
+
+  const urlError = validateHttpUrl(url, '网站链接')
+  if (urlError) return urlError
+
+  const logoErrorMessage = validateHttpUrl(logo, 'Logo 链接')
+  if (logoErrorMessage) return logoErrorMessage
+
   return null
 }
 
@@ -254,10 +282,17 @@ async function handleSubmit() {
   }
   submitting.value = true
   try {
+    const payload = {
+      name: form.name.trim(),
+      url: form.url.trim(),
+      logo: form.logo.trim(),
+      description: form.description.trim(),
+    }
+
     if (myLink.value) {
-      await friendLinkApi.updateMyLink(form)
+      await friendLinkApi.updateMyLink(payload)
     } else {
-      await friendLinkApi.applyLink(form)
+      await friendLinkApi.applyLink(payload)
     }
     message.success('提交成功')
     emit('success')
@@ -279,12 +314,14 @@ async function handleSubmit() {
 <style scoped lang="scss">
 /* 弹窗动画 */
 .modal-fade-enter-active,
-.modal-fade-leave-active {
+.modal-fade-leave-active,
+.modal-fade-appear-active {
   transition: opacity 0.25s;
   .modal-container { transition: transform 0.25s; }
 }
 .modal-fade-enter-from,
-.modal-fade-leave-to {
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
   .modal-container { transform: translateY(20px) scale(0.96); }
 }
@@ -293,24 +330,31 @@ async function handleSubmit() {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .modal-container {
   background: $color-bg;
   border-radius: 12px;
+  border: 1px solid transparent;
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   .dark & {
     background: $color-dark-bg-secondary;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    border-color: rgba(148, 163, 184, 0.14);
   }
 }
 

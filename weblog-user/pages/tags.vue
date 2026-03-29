@@ -97,8 +97,8 @@
 </template>
 
 <script setup lang="ts">
-import { tagApi, type TagCloudVO } from '~/api/tag'
-import { getTagColor } from '~/utils/tagColor'
+import { tagApi, type TagCloudVO } from '~/api/content/tag'
+import { getTagColor } from '~/utils/content/tagColor'
 
 useHead({
   title: '标签云 - Weblog',

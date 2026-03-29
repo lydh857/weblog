@@ -154,10 +154,10 @@
 <script setup lang="ts">
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { carouselApi, type CarouselItem, type CarouselForm } from '~/api/carousel'
-import { uploadApi } from '~/api/upload'
-import { postApi, type PostVO } from '~/api/post'
-import ImageCropper from '~/components/ImageCropper.vue'
+import { carouselApi, type CarouselItem, type CarouselForm } from '~/api/content/carousel'
+import { uploadApi } from '~/api/system/upload'
+import { postApi, type PostVO } from '~/api/content/post'
+import ImageCropper from '~/components/editor/ImageCropper.vue'
 
 // ===== 列表状态 =====
 const loading = ref(false)

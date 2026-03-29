@@ -1,4 +1,4 @@
-import { siteConfigApi } from '~/api/site-config'
+import { siteConfigApi } from '~/api/system/site-config'
 
 export default defineNuxtPlugin(async () => {
   const state = useSiteConfigState()

@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="cropper-fade">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="cropper-overlay" @click.self="close">
         <section class="ad-cropper-modal" role="dialog" aria-modal="true" aria-label="广告图片裁剪">
           <header class="cropper-header">
@@ -280,14 +280,24 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.cropper-fade-enter-active,
-.cropper-fade-leave-active {
-  transition: opacity 0.2s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .ad-cropper-modal {
+    transition: transform 0.25s;
+  }
 }
 
-.cropper-fade-enter-from,
-.cropper-fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
+
+  .ad-cropper-modal {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 
 .cropper-overlay {
@@ -297,23 +307,28 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .ad-cropper-modal {
   position: relative;
   width: min(920px, 100%);
   border: 1px solid $color-border;
-  border-radius: 14px;
+  border-radius: 12px;
   background: $color-bg;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 
   .dark & {
-    border-color: $color-dark-border;
+    border-color: rgba(148, 163, 184, 0.14);
     background: $color-dark-bg-secondary;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 }
 

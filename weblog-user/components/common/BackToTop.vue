@@ -20,7 +20,7 @@
     </svg>
     <!-- 内圆按钮 -->
     <div class="back-to-top__inner">
-      <Icon name="heroicons:arrow-up-20-solid" size="20" />
+      <Icon name="heroicons:chevron-up-20-solid" size="20" />
     </div>
   </div>
 </template>

@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface SearchHit {
   id: number
@@ -29,5 +29,5 @@ export interface SearchResult {
 
 export const searchApi = {
   search: (params: { keyword: string; pageNum?: number; pageSize?: number }) =>
-    http.get<any, { data: SearchResult }>('/search', { params }),
+    http.get<unknown, { data: SearchResult }>('/search', { params }),
 }

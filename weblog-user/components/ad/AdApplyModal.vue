@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
-    <Transition name="ad-apply-fade">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="ad-apply-overlay" @click.self="closeModal">
-        <section class="ad-apply-modal" role="dialog" aria-modal="true" aria-label="广告投放申请">
+        <section class="ad-apply-modal" :style="modalStyle" role="dialog" aria-modal="true" aria-label="广告投放申请">
           <header class="modal-header">
             <div>
               <h3>广告投放申请</h3>
@@ -36,7 +36,7 @@
             </div>
           </div>
 
-          <div class="modal-body" :class="{ 'modal-body--dense': currentStep === 2 && form.position === 'post_list_card' }">
+          <div v-custom-scrollbar class="modal-body" :class="{ 'modal-body--dense': currentStep === 2 && form.position === 'post_list_card' }">
             <section v-if="currentStep === 1" class="step-content step-content--intro">
               <div v-if="configLoading" class="loading-text">正在加载申请配置...</div>
               <div v-else class="intro-layout">
@@ -120,7 +120,7 @@
                           class="hidden-input"
                           @change="handleImageFileChange"
                         >
-                        <p class="upload-hint">支持 JPG/PNG/WebP；点击预览区上传或重新裁剪。</p>
+                        <p class="upload-hint">支持 JPG/PNG/WebP，且不超过 8MB；点击预览区上传或重新裁剪。</p>
                       </div>
                     </section>
 
@@ -133,7 +133,7 @@
                               type="button"
                               class="custom-select-trigger"
                               :class="{ open: positionSelectOpen }"
-                              @click="toggleSelectMenu('position')"
+                              @click="toggleSelectMenu"
                             >
                               <span>{{ selectedPositionLabel }}</span>
                               <Icon name="heroicons:chevron-down-16-solid" size="16" class="select-arrow" />
@@ -332,7 +332,7 @@
     <div
       v-if="startDatePickerOpen"
       class="datetime-picker-shell"
-      :class="{ 'datetime-picker-shell--drawer': pickerDrawerMode }"
+      :class="{ 'datetime-picker-shell--drawer': pickerDrawerMode, 'is-dark': isDarkTheme }"
       @mousedown.stop.prevent="closeStartDatePicker"
     >
       <div
@@ -380,7 +380,7 @@
           <section class="picker-time-side">
             <section class="picker-time-column">
               <span class="picker-time-label">小时</span>
-              <div ref="pickerHourListRef" class="picker-time-list" role="listbox" aria-label="小时选择">
+              <div ref="pickerHourListRef" v-custom-scrollbar class="picker-time-list" role="listbox" aria-label="小时选择">
                 <button
                   v-for="hour in pickerHourOptions"
                   :key="hour"
@@ -398,7 +398,7 @@
             </section>
             <section class="picker-time-column">
               <span class="picker-time-label">分钟</span>
-              <div ref="pickerMinuteListRef" class="picker-time-list" role="listbox" aria-label="分钟选择">
+              <div ref="pickerMinuteListRef" v-custom-scrollbar class="picker-time-list" role="listbox" aria-label="分钟选择">
                 <button
                   v-for="minute in pickerMinuteOptions"
                   :key="minute"
@@ -427,14 +427,14 @@
       v-if="startDatePickerOpen && pickerYmPanelOpen"
       ref="pickerYmPopupRef"
       class="picker-ym-popup"
-      :class="{ 'picker-ym-popup--drawer': pickerYmDrawerMode }"
+      :class="{ 'picker-ym-popup--drawer': pickerYmDrawerMode, 'is-dark': isDarkTheme }"
       :style="pickerYmPopupStyle"
       @mousedown.self="pickerYmPanelOpen = false"
     >
       <div class="picker-ym-popup-body">
         <section class="picker-ym-column">
           <span class="picker-time-label">年份</span>
-          <div ref="pickerYearListRef" class="picker-time-list" role="listbox" aria-label="年份选择">
+          <div ref="pickerYearListRef" v-custom-scrollbar class="picker-time-list" role="listbox" aria-label="年份选择">
             <button
               v-for="year in pickerYearOptions"
               :key="year"
@@ -452,7 +452,7 @@
         </section>
         <section class="picker-ym-column">
           <span class="picker-time-label">月份</span>
-          <div ref="pickerMonthListRef" class="picker-time-list" role="listbox" aria-label="月份选择">
+          <div ref="pickerMonthListRef" v-custom-scrollbar class="picker-time-list" role="listbox" aria-label="月份选择">
             <button
               v-for="month in pickerMonthOptions"
               :key="month"
@@ -483,11 +483,11 @@
 </template>
 
 <script setup lang="ts">
-import { advertisementApi, type AdApplyPitOption, type AdPriceRuleVO, type AdvertisementVO } from '~/api/advertisement'
-import { uploadApi } from '~/api/upload'
-import { useConfirm } from '~/composables/useConfirm'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
+import { advertisementApi, type AdApplyPitOption, type AdvertisementVO } from '~/api/marketing/advertisement'
+import { uploadApi } from '~/api/system/upload'
+import { useConfirm } from '~/composables/modal/useConfirm'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
 import { useUserStore } from '~/stores/user'
 
 interface AdApplyFormState {
@@ -518,6 +518,7 @@ interface ViewportMetrics {
 }
 
 const adApplyModal = useAdApplyModal()
+const { isDark } = useDarkMode()
 const loginModal = useLoginModal()
 const { confirm } = useConfirm()
 const userStore = useUserStore()
@@ -559,6 +560,8 @@ const pickerMonthListRef = ref<HTMLElement | null>(null)
 const cropperVisible = ref(false)
 const cropperImageSrc = ref('')
 const pendingImageFile = ref<File | null>(null)
+const MAX_UPLOAD_IMAGE_SIZE = 8 * 1024 * 1024
+const ALLOWED_UPLOAD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const pickerPanelPosition = reactive({ top: 0, left: 0 })
 const pickerYmPopupPosition = reactive({ top: 0, left: 0 })
@@ -578,6 +581,22 @@ const pickerYmPopupStyle = computed(() => {
     left: `${pickerYmPopupPosition.left}px`,
   }
 })
+
+const isDarkTheme = computed(() => isDark.value)
+
+const modalMaxWidth = computed(() => {
+  if (currentStep.value === 3) {
+    return 900
+  }
+  if (currentStep.value === 1) {
+    return 980
+  }
+  return 1120
+})
+
+const modalStyle = computed(() => ({
+  '--ad-modal-max-width': `${modalMaxWidth.value}px`,
+}))
 
 let pickerPositionRaf = 0
 
@@ -1371,7 +1390,7 @@ function closeSelectMenus() {
   positionSelectOpen.value = false
 }
 
-function toggleSelectMenu(target: 'position') {
+function toggleSelectMenu() {
   positionSelectOpen.value = !positionSelectOpen.value
 }
 
@@ -1430,6 +1449,23 @@ function triggerImageUpload() {
 function handleImageFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
+
+  if (file.size > MAX_UPLOAD_IMAGE_SIZE) {
+    message.warning('图片大小不能超过 8MB')
+    if (imageInputRef.value) {
+      imageInputRef.value.value = ''
+    }
+    return
+  }
+
+  if (!ALLOWED_UPLOAD_IMAGE_TYPES.has(file.type)) {
+    message.warning('仅支持 JPG、PNG、WebP 格式')
+    if (imageInputRef.value) {
+      imageInputRef.value.value = ''
+    }
+    return
+  }
+
   const reader = new FileReader()
   reader.onload = loadEvent => {
     const source = typeof loadEvent.target?.result === 'string' ? loadEvent.target.result : ''
@@ -1511,6 +1547,14 @@ function validateForm(): string | null {
   }
 
   if (!form.content.trim()) return '请上传广告图片'
+  if (pendingImageFile.value) {
+    if (pendingImageFile.value.size > MAX_UPLOAD_IMAGE_SIZE) {
+      return '图片大小不能超过 8MB'
+    }
+    if (!ALLOWED_UPLOAD_IMAGE_TYPES.has(pendingImageFile.value.type)) {
+      return '仅支持 JPG、PNG、WebP 格式'
+    }
+  }
   if (!pendingImageFile.value) {
     try {
       const parsed = new URL(form.content.trim())
@@ -1751,7 +1795,7 @@ watch(() => visible.value, async opened => {
   }
   closeSelectMenus()
   closeStartDatePicker()
-})
+}, { immediate: true })
 
 onMounted(() => {
   syncPickerYmViewportMode()
@@ -1783,23 +1827,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.ad-apply-fade-enter-active,
-.ad-apply-fade-leave-active {
-  transition: opacity 0.25s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .ad-apply-modal {
+    transition: transform 0.25s;
+  }
 }
 
-.ad-apply-fade-enter-active .ad-apply-modal,
-.ad-apply-fade-leave-active .ad-apply-modal {
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.ad-apply-fade-enter-from,
-.ad-apply-fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
 
   .ad-apply-modal {
     transform: translateY(20px) scale(0.96);
-    opacity: 0;
   }
 }
 
@@ -1811,7 +1855,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .ad-apply-modal {
@@ -1825,16 +1874,17 @@ onUnmounted(() => {
   --flat-media-surface: linear-gradient(180deg, #f3f6fb, #e8edf5);
   --flat-media-dark-overlay: rgba(15, 23, 42, 0.48);
 
-  width: min(1120px, 100%);
-  height: min(840px, calc(100vh - 1rem));
+  width: min(var(--ad-modal-max-width, 1120px), 100%);
+  height: auto;
   max-height: calc(100vh - 1rem);
   border-radius: 12px;
   border: 1px solid var(--flat-border);
   background: var(--flat-surface);
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 
   .dark & {
     --flat-surface: #171b20;
@@ -1849,7 +1899,8 @@ onUnmounted(() => {
 
     border-color: var(--flat-border);
     background: var(--flat-surface);
-    box-shadow: 0 14px 36px rgba(2, 6, 23, 0.5);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    border-color: rgba(148, 163, 184, 0.14);
   }
 }
 
@@ -1958,29 +2009,14 @@ onUnmounted(() => {
   padding: 0.94rem 1rem 1rem;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.42) transparent;
 }
 
 .modal-body--dense {
   padding-bottom: 0.74rem;
 }
 
-.modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.modal-body::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.42);
-  border-radius: 999px;
-}
-
 .step-content {
-  min-height: 220px;
+  animation: step-content-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .loading-text {
@@ -2055,15 +2091,22 @@ onUnmounted(() => {
   }
 }
 
-.step-content--intro {
-  min-height: 520px;
-}
-
 .intro-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
   gap: 0.86rem;
-  min-height: 100%;
+}
+
+@keyframes step-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .intro-main,
@@ -2523,6 +2566,8 @@ onUnmounted(() => {
   --picker-text-muted: #64748b;
   --picker-primary: #2563eb;
   --picker-primary-soft: rgba(37, 99, 235, 0.12);
+  --picker-text-faint: rgba(100, 116, 139, 0.72);
+  --picker-scroll-thumb: rgba(100, 116, 139, 0.35);
 
   position: fixed;
   inset: 0;
@@ -2534,7 +2579,8 @@ onUnmounted(() => {
 }
 
 .datetime-picker-shell--drawer {
-  background: rgba(15, 23, 42, 0.38);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   pointer-events: auto;
   display: flex;
   align-items: flex-end;
@@ -2542,10 +2588,26 @@ onUnmounted(() => {
   padding-top: 18dvh;
 }
 
+.datetime-picker-shell.is-dark {
+  --picker-surface: #171b20;
+  --picker-surface-subtle: #1d232a;
+  --picker-border: #2a313a;
+  --picker-text: #d6dbe4;
+  --picker-text-muted: #9aa5b5;
+  --picker-primary: #60a5fa;
+  --picker-primary-soft: rgba(96, 165, 250, 0.18);
+  --picker-text-faint: rgba(154, 165, 181, 0.74);
+  --picker-scroll-thumb: rgba(148, 163, 184, 0.42);
+}
+
+.datetime-picker-shell--drawer.is-dark {
+  background: rgba(0, 0, 0, 0.6);
+}
+
 :global(html.dark) .datetime-picker-shell--drawer,
 :global(body.dark) .datetime-picker-shell--drawer,
 :global(.dark) .datetime-picker-shell--drawer {
-  background: rgba(2, 6, 23, 0.56);
+  background: rgba(0, 0, 0, 0.6);
 }
 
 :global(html.dark) .datetime-picker-shell,
@@ -2558,6 +2620,8 @@ onUnmounted(() => {
   --picker-text-muted: #9aa5b5;
   --picker-primary: #60a5fa;
   --picker-primary-soft: rgba(96, 165, 250, 0.18);
+  --picker-text-faint: rgba(154, 165, 181, 0.74);
+  --picker-scroll-thumb: rgba(148, 163, 184, 0.42);
 }
 
 .datetime-picker-panel {
@@ -2574,7 +2638,7 @@ onUnmounted(() => {
   isolation: isolate;
   color: var(--picker-text);
   opacity: 1;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   padding: 0.56rem;
   overflow: auto;
   overscroll-behavior: contain;
@@ -2590,7 +2654,7 @@ onUnmounted(() => {
   margin-top: auto;
   border-radius: 20px 20px 0 0;
   border-bottom: none;
-  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.34);
   padding: 0.56rem 0.88rem calc(0.9rem + env(safe-area-inset-bottom));
 }
 
@@ -2624,9 +2688,19 @@ onUnmounted(() => {
   isolation: isolate;
   color: var(--picker-text);
   opacity: 1;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   padding: 0.5rem;
   overflow: auto;
+}
+
+.picker-ym-popup.is-dark {
+  --picker-surface: #171b20;
+  --picker-surface-subtle: #1d232a;
+  --picker-border: #2a313a;
+  --picker-text: #d6dbe4;
+  --picker-text-muted: #9aa5b5;
+  --picker-primary: #60a5fa;
+  --picker-primary-soft: rgba(96, 165, 250, 0.18);
 }
 
 :global(html.dark) .picker-ym-popup,
@@ -2761,7 +2835,7 @@ onUnmounted(() => {
   }
 
   &.muted {
-    color: rgba(100, 116, 139, 0.7);
+    color: var(--picker-text-faint);
   }
 
   &.today {
@@ -2845,17 +2919,14 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.picker-time-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.picker-time-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.picker-time-list::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.35);
-  border-radius: 999px;
+:global(html.dark) .datetime-picker-panel,
+:global(body.dark) .datetime-picker-panel,
+:global(.dark) .datetime-picker-panel,
+:global(html.dark) .picker-ym-popup,
+:global(body.dark) .picker-ym-popup,
+:global(.dark) .picker-ym-popup {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  border-color: rgba(148, 163, 184, 0.14);
 }
 
 .picker-actions {
@@ -3426,6 +3497,14 @@ onUnmounted(() => {
 
   .step-label {
     font-size: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-apply-modal,
+  .step-content {
+    transition: none;
+    animation: none;
   }
 }
 </style>

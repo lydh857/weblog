@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface LoginParams {
   email: string
@@ -33,12 +33,12 @@ export interface LoginResult {
 
 export const authApi = {
   login: async (data: LoginParams, verifyToken?: string) => {
-    return http.post<any, { data: LoginResult }>('/portal/auth/login', data, verifyToken ? {
+    return http.post<unknown, { data: LoginResult }>('/portal/auth/login', data, verifyToken ? {
       headers: { 'X-Captcha-Token': verifyToken },
     } : undefined)
   },
   loginByCode: (data: CodeLoginParams, verifyToken: string) =>
-    http.post<any, { data: LoginResult }>('/portal/auth/login-by-code', data, {
+    http.post<unknown, { data: LoginResult }>('/portal/auth/login-by-code', data, {
       headers: { 'X-Captcha-Token': verifyToken },
     }),
   register: async (data: RegisterParams, code: string, verifyToken: string) => {
@@ -60,10 +60,10 @@ export const authApi = {
   },
   logout: () => http.post('/portal/auth/logout'),
   rememberLogin: async () => {
-    return http.post<any, { data: LoginResult }>('/portal/auth/remember-login', {})
+    return http.post<unknown, { data: LoginResult }>('/portal/auth/remember-login', {})
   },
   getGithubAuthUrl: (redirectUri: string) =>
-    http.get<any, { data: string }>('/portal/oauth/github/authorize', { params: { redirectUri } }),
+    http.get<unknown, { data: string }>('/portal/oauth/github/authorize', { params: { redirectUri } }),
   githubCallback: (code: string, state: string) =>
-    http.post<any, { data: LoginResult }>('/portal/oauth/github/callback', null, { params: { code, state } }),
+    http.post<unknown, { data: LoginResult }>('/portal/oauth/github/callback', null, { params: { code, state } }),
 }

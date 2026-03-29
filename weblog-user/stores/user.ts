@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { setToken, removeToken, syncUserCookie } from '~/utils/http'
-import { userApi } from '~/api/user'
+import { setToken, removeToken, syncUserCookie } from '~/utils/network/http'
+import { userApi } from '~/api/auth/user'
 
 interface UserInfo {
   userId: number | null

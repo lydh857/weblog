@@ -1,5 +1,6 @@
 <template>
-  <BaseModal :visible="modalVisible" :show-close="true" :mask-closable="true" width="420px"
+  <BaseModal
+:visible="modalVisible" :show-close="true" :mask-closable="true" width="420px"
     @update:visible="v => { if (!v) loginModal.close() }" @close="loginModal.close()">
     <template #header>
       <div class="modal-logo">
@@ -17,7 +18,7 @@
 
     <div ref="contentRef" class="login-modal-body">
       <Transition name="fade-slide" mode="out-in">
-        <p class="subtitle" :key="modeTitle">{{ modeTitle }}</p>
+        <p :key="modeTitle" class="subtitle">{{ modeTitle }}</p>
       </Transition>
 
       <!-- 登录模式切换 Tab -->
@@ -27,11 +28,11 @@
         <span class="tab-indicator" :class="{ 'at-right': mode === 'password' }" />
       </div>
 
-      <form v-show="mode !== 'reset'" @submit.prevent="handleSubmit" class="auth-form">
+      <form v-show="mode !== 'reset'" class="auth-form" @submit.prevent="handleSubmit">
         <!-- 隐藏的 dummy input，吸收 Chrome 对注册表单的自动填充 -->
         <template v-if="mode === 'register'">
-          <input type="email" autocomplete="username" aria-hidden="true" tabindex="-1" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none" />
-          <input type="password" autocomplete="current-password" aria-hidden="true" tabindex="-1" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none" />
+          <input type="email" autocomplete="username" aria-hidden="true" tabindex="-1" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none" >
+          <input type="password" autocomplete="current-password" aria-hidden="true" tabindex="-1" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none" >
         </template>
 
         <!-- 昵称（注册时） -->
@@ -39,8 +40,8 @@
           <label for="lm-nickname">昵称</label>
           <div class="input-wrapper" @mouseenter="nicknameHover = true" @mouseleave="nicknameHover = false">
             <FormFieldIcon name="user-16-solid" size="18" class="input-icon" />
-            <input id="lm-nickname" v-model="form.nickname" type="text" placeholder="请输入昵称" maxlength="20" autocomplete="off" />
-            <button v-show="nicknameHover && form.nickname" type="button" class="clear-btn" @mousedown.prevent="clearField('nickname')" tabindex="-1">
+            <input id="lm-nickname" v-model="form.nickname" type="text" placeholder="请输入昵称" maxlength="20" autocomplete="off" >
+            <button v-show="nicknameHover && form.nickname" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearField('nickname')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
@@ -51,8 +52,8 @@
           <label for="lm-email">邮箱</label>
           <div class="input-wrapper" @mouseenter="emailHover = true" @mouseleave="emailHover = false">
             <FormFieldIcon name="envelope-16-solid" size="18" class="input-icon" />
-            <input id="lm-email" v-model="form.email" type="email" placeholder="请输入邮箱" required :autocomplete="mode === 'register' ? 'off' : 'email'" @input="onEmailInput" @blur="onEmailBlur" @focus="onEmailFocus" />
-            <button v-show="emailHover && form.email" type="button" class="clear-btn" @mousedown.prevent="clearField('email')" tabindex="-1">
+            <input id="lm-email" v-model="form.email" type="email" placeholder="请输入邮箱" required :autocomplete="mode === 'register' ? 'off' : 'email'" @input="onEmailInput" @blur="onEmailBlur" @focus="onEmailFocus" >
+            <button v-show="emailHover && form.email" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearField('email')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
@@ -64,7 +65,7 @@
               <li class="recent-label">最近使用</li>
               <li v-for="e in filteredRecentEmails" :key="e" class="recent-item" @mousedown.prevent="selectRecentEmail(e)">
                 <span class="recent-email-text">{{ e }}</span>
-                <button type="button" class="recent-remove" @mousedown.prevent.stop="removeRecentEmail(e)" tabindex="-1">
+                <button type="button" class="recent-remove" tabindex="-1" @mousedown.prevent.stop="removeRecentEmail(e)">
                   <Icon name="heroicons:x-mark-16-solid" size="14" />
                 </button>
               </li>
@@ -81,12 +82,12 @@
               <div class="code-row">
                 <div class="input-wrapper code-input-wrapper" @mouseenter="codeHover = true" @mouseleave="codeHover = false">
                   <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
-                  <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" :tabindex="mode === 'password' ? -1 : undefined" />
-                  <button v-show="codeHover && form.code" type="button" class="clear-btn" @mousedown.prevent="clearField('code')" tabindex="-1">
+                  <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" :tabindex="mode === 'password' ? -1 : undefined" >
+                  <button v-show="codeHover && form.code" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearField('code')">
                     <FormFieldIcon name="x-circle-16-solid" size="16" />
                   </button>
                 </div>
-                <button type="button" class="send-code-btn" :disabled="codeCooldown > 0 || sendingCode" @click="handleSendCode" :tabindex="mode === 'password' ? -1 : undefined">
+                <button type="button" class="send-code-btn" :disabled="codeCooldown > 0 || sendingCode" :tabindex="mode === 'password' ? -1 : undefined" @click="handleSendCode">
                   <Icon v-if="sendingCode" name="heroicons:arrow-path-16-solid" size="14" class="spin" />
                   {{ codeCooldown > 0 ? `${codeCooldown}s` : '获取验证码' }}
                 </button>
@@ -99,11 +100,11 @@
               <label for="lm-password">密码</label>
               <div class="input-wrapper" @mouseenter="pwdHover = true" @mouseleave="pwdHover = false">
                 <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
-                <input id="lm-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="请输入密码" autocomplete="current-password" class="no-browser-eye" :tabindex="mode === 'code' ? -1 : undefined" @keyup.enter="handleSubmit" @blur="validateField('password')" />
-                <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('password')" tabindex="-1">
+                <input id="lm-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="请输入密码" autocomplete="current-password" class="no-browser-eye" :tabindex="mode === 'code' ? -1 : undefined" @keyup.enter="handleSubmit" @blur="validateField('password')" >
+                <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" tabindex="-1" @mousedown.prevent="clearField('password')">
                   <FormFieldIcon name="x-circle-16-solid" size="16" />
                 </button>
-                <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" @mousedown.prevent="togglePwd" tabindex="-1">
+                <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" tabindex="-1" @mousedown.prevent="togglePwd">
                   <FormFieldIcon :name="showPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
                 </button>
               </div>
@@ -119,8 +120,8 @@
             <div class="code-row">
               <div class="input-wrapper code-input-wrapper" @mouseenter="codeHover = true" @mouseleave="codeHover = false">
                 <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
-                <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" />
-                <button v-show="codeHover && form.code" type="button" class="clear-btn" @mousedown.prevent="clearField('code')" tabindex="-1">
+                <input v-model="form.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" >
+                <button v-show="codeHover && form.code" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearField('code')">
                   <FormFieldIcon name="x-circle-16-solid" size="16" />
                 </button>
               </div>
@@ -136,11 +137,11 @@
             <label for="lm-reg-password">密码</label>
             <div class="input-wrapper" @mouseenter="pwdHover = true" @mouseleave="pwdHover = false">
               <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
-              <input id="lm-reg-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" @keyup.enter="handleSubmit" @blur="validateField('password')" />
-              <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('password')" tabindex="-1">
+              <input id="lm-reg-password" ref="pwdInputRef" v-model="form.password" :type="showPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" @keyup.enter="handleSubmit" @blur="validateField('password')" >
+              <button v-show="pwdHover && form.password" type="button" class="clear-btn with-toggle" tabindex="-1" @mousedown.prevent="clearField('password')">
                 <FormFieldIcon name="x-circle-16-solid" size="16" />
               </button>
-              <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" @mousedown.prevent="togglePwd" tabindex="-1">
+              <button v-show="pwdHover && form.password" type="button" class="toggle-pwd" tabindex="-1" @mousedown.prevent="togglePwd">
                 <FormFieldIcon :name="showPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
               </button>
             </div>
@@ -159,11 +160,11 @@
           <label for="lm-confirmPassword">确认密码</label>
           <div class="input-wrapper" @mouseenter="confirmPwdHover = true" @mouseleave="confirmPwdHover = false">
             <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
-            <input id="lm-confirmPassword" ref="confirmPwdInputRef" v-model="form.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'" placeholder="请再次输入密码" autocomplete="new-password" class="no-browser-eye" @blur="validateField('confirmPassword')" />
-            <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearField('confirmPassword')" tabindex="-1">
+            <input id="lm-confirmPassword" ref="confirmPwdInputRef" v-model="form.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'" placeholder="请再次输入密码" autocomplete="new-password" class="no-browser-eye" @blur="validateField('confirmPassword')" >
+            <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="clear-btn with-toggle" tabindex="-1" @mousedown.prevent="clearField('confirmPassword')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
-            <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="toggle-pwd" @mousedown.prevent="toggleConfirmPwd" tabindex="-1">
+            <button v-show="confirmPwdHover && form.confirmPassword" type="button" class="toggle-pwd" tabindex="-1" @mousedown.prevent="toggleConfirmPwd">
               <FormFieldIcon :name="showConfirmPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
@@ -175,10 +176,10 @@
           <p class="code-hint" :class="{ 'is-hidden': mode !== 'code' }">首次通过验证码登录将自动创建账号</p>
           <div class="remember-row" :class="{ 'is-hidden': mode !== 'password' }">
             <label class="remember-me">
-              <input type="checkbox" v-model="rememberMe" :tabindex="mode !== 'password' ? -1 : undefined" />
+              <input v-model="rememberMe" type="checkbox" :tabindex="mode !== 'password' ? -1 : undefined" >
               <span>记住我</span>
             </label>
-            <button type="button" class="forgot-pwd-btn" @click="enterResetMode" :tabindex="mode !== 'password' ? -1 : undefined">忘记密码？</button>
+            <button type="button" class="forgot-pwd-btn" :tabindex="mode !== 'password' ? -1 : undefined" @click="enterResetMode">忘记密码？</button>
           </div>
         </div>
 
@@ -190,13 +191,13 @@
       </form>
 
       <!-- 重置密码表单 -->
-      <form v-show="mode === 'reset'" @submit.prevent="handleResetSubmit" class="auth-form">
+      <form v-show="mode === 'reset'" class="auth-form" @submit.prevent="handleResetSubmit">
         <div class="form-group email-group">
           <label>邮箱</label>
           <div class="input-wrapper" @mouseenter="resetEmailHover = true" @mouseleave="resetEmailHover = false">
             <FormFieldIcon name="envelope-16-solid" size="18" class="input-icon" />
-            <input v-model="resetForm.email" type="email" placeholder="请输入注册邮箱" autocomplete="off" @input="onResetEmailInput" @blur="onResetEmailBlur" @focus="onResetEmailInput" />
-            <button v-show="resetEmailHover && resetForm.email" type="button" class="clear-btn" @mousedown.prevent="clearResetField('email')" tabindex="-1">
+            <input v-model="resetForm.email" type="email" placeholder="请输入注册邮箱" autocomplete="off" @input="onResetEmailInput" @blur="onResetEmailBlur" @focus="onResetEmailInput" >
+            <button v-show="resetEmailHover && resetForm.email" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearResetField('email')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
           </div>
@@ -213,8 +214,8 @@
           <div class="code-row">
             <div class="input-wrapper code-input-wrapper" @mouseenter="resetCodeHover = true" @mouseleave="resetCodeHover = false">
               <FormFieldIcon name="shield-check-16-solid" size="18" class="input-icon" />
-              <input v-model="resetForm.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" />
-              <button v-show="resetCodeHover && resetForm.code" type="button" class="clear-btn" @mousedown.prevent="clearResetField('code')" tabindex="-1">
+              <input v-model="resetForm.code" type="text" placeholder="请输入验证码" maxlength="6" autocomplete="off" inputmode="numeric" >
+              <button v-show="resetCodeHover && resetForm.code" type="button" class="clear-btn" tabindex="-1" @mousedown.prevent="clearResetField('code')">
                 <FormFieldIcon name="x-circle-16-solid" size="16" />
               </button>
             </div>
@@ -230,11 +231,11 @@
           <label>新密码</label>
           <div class="input-wrapper" @mouseenter="resetPwdHover = true" @mouseleave="resetPwdHover = false">
             <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
-            <input ref="resetPwdInputRef" v-model="resetForm.password" :type="showResetPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" />
-            <button v-show="resetPwdHover && resetForm.password" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearResetField('password')" tabindex="-1">
+            <input ref="resetPwdInputRef" v-model="resetForm.password" :type="showResetPassword ? 'text' : 'password'" placeholder="至少8位，含大小写字母和数字" autocomplete="new-password" class="no-browser-eye" >
+            <button v-show="resetPwdHover && resetForm.password" type="button" class="clear-btn with-toggle" tabindex="-1" @mousedown.prevent="clearResetField('password')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
-            <button v-show="resetPwdHover && resetForm.password" type="button" class="toggle-pwd" @mousedown.prevent="toggleResetPwd" tabindex="-1">
+            <button v-show="resetPwdHover && resetForm.password" type="button" class="toggle-pwd" tabindex="-1" @mousedown.prevent="toggleResetPwd">
               <FormFieldIcon :name="showResetPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
@@ -251,11 +252,11 @@
           <label>确认新密码</label>
           <div class="input-wrapper" @mouseenter="resetConfirmPwdHover = true" @mouseleave="resetConfirmPwdHover = false">
             <FormFieldIcon name="lock-closed-16-solid" size="18" class="input-icon" />
-            <input ref="resetConfirmPwdInputRef" v-model="resetForm.confirmPassword" :type="showResetConfirmPassword ? 'text' : 'password'" placeholder="请再次输入新密码" autocomplete="new-password" class="no-browser-eye" />
-            <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="clear-btn with-toggle" @mousedown.prevent="clearResetField('confirmPassword')" tabindex="-1">
+            <input ref="resetConfirmPwdInputRef" v-model="resetForm.confirmPassword" :type="showResetConfirmPassword ? 'text' : 'password'" placeholder="请再次输入新密码" autocomplete="new-password" class="no-browser-eye" >
+            <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="clear-btn with-toggle" tabindex="-1" @mousedown.prevent="clearResetField('confirmPassword')">
               <FormFieldIcon name="x-circle-16-solid" size="16" />
             </button>
-            <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="toggle-pwd" @mousedown.prevent="toggleResetConfirmPwd" tabindex="-1">
+            <button v-show="resetConfirmPwdHover && resetForm.confirmPassword" type="button" class="toggle-pwd" tabindex="-1" @mousedown.prevent="toggleResetConfirmPwd">
               <FormFieldIcon :name="showResetConfirmPassword ? 'eye-slash-16-solid' : 'eye-16-solid'" size="18" />
             </button>
           </div>
@@ -295,29 +296,19 @@
 </template>
 
 <script setup lang="ts">
-import { authApi } from '~/api/auth'
+import { authApi } from '~/api/auth/auth'
+import { useCaptchaActionRunner } from '~/composables/modal/login/useCaptchaActionRunner'
+import { useLoginModalFormValidation } from '~/composables/modal/login/useLoginModalFormValidation'
+import { useLoginModalGithubOAuth } from '~/composables/modal/login/useLoginModalGithubOAuth'
+import BaseModal from '~/components/ui/modal/BaseModal.vue'
+import FormFieldIcon from '~/components/ui/icon/FormFieldIcon.vue'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import type { LoginModalMode } from '~/composables/modal/useLoginModal'
+import { useUserStore } from '~/stores/user'
+import { getErrorCode, getErrorMessage } from '~/utils/security/error'
 
 // 滑块验证码
 const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
-
-// 动态导入 crypto-js，避免打进首屏 bundle
-let _AES: any = null
-let _Utf8: any = null
-async function getCrypto() {
-  if (!_AES || !_Utf8) {
-    const [aes, utf8] = await Promise.all([import('crypto-js/aes'), import('crypto-js/enc-utf8')])
-    _AES = aes.default || aes; _Utf8 = utf8.default || utf8
-  }
-  return { AES: _AES, Utf8: _Utf8 }
-}
-import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import type { LoginModalMode } from '~/composables/useLoginModal'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
-import BaseModal from '~/components/ui/modal/BaseModal.vue'
-import FormFieldIcon from '~/components/ui/icon/FormFieldIcon.vue'
-import { saveNavContext } from '~/utils/navContext'
-import { normalizeSafeHref } from '~/utils/urlSafety'
 
 const loginModal = useLoginModal()
 const message = useMessage()
@@ -332,7 +323,6 @@ const COOLDOWN_KEY_PREFIX = 'weblog_code_cooldown_'
 const EMAIL_KEY = 'weblog_login_email'
 const RECENT_EMAILS_KEY = 'weblog_recent_emails'
 const ACCOUNT_LOCKED_CODE = 40103
-const GITHUB_OAUTH_HOSTS = new Set(['github.com', 'www.github.com'])
 
 const userStore = useUserStore()
 
@@ -385,6 +375,21 @@ const form = reactive({
 
 const errors = reactive({ email: '', password: '', confirmPassword: '', code: '' })
 
+const { validateField, validateResetForm, validateSubmitForm } = useLoginModalFormValidation({
+  mode,
+  form,
+  errors,
+  resetForm,
+  resetErrors,
+})
+
+const { runCaptchaAction } = useCaptchaActionRunner(openCaptcha)
+const { githubLoading, handleGithubLogin: startGithubLogin } = useLoginModalGithubOAuth({
+  onError: (errorMessage: string) => {
+    message.error(errorMessage)
+  },
+})
+
 const modeTitle = computed(() => {
   if (mode.value === 'register') return '创建新账号'
   if (mode.value === 'reset') return '重置密码'
@@ -414,7 +419,7 @@ watch(() => loginModal.visible.value, async (v) => {
       }
     }
   }
-})
+}, { immediate: true })
 
 watch(() => form.email, (val) => {
   const email = val.trim()
@@ -584,31 +589,6 @@ function clearField(field: 'email' | 'password' | 'confirmPassword' | 'nickname'
   }
 }
 
-function validateField(field: 'email' | 'password' | 'confirmPassword') {
-  if (field === 'email') {
-    if (!form.email) errors.email = '请输入邮箱'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = '请输入有效的邮箱地址'
-    else errors.email = ''
-  }
-  if (field === 'password') {
-    if (mode.value === 'code') { errors.password = ''; return }
-    if (!form.password) errors.password = '请输入密码'
-    else if (form.password.length < 8) errors.password = '密码至少8位'
-    else if (mode.value === 'register') {
-      if (!/[a-z]/.test(form.password) || !/[A-Z]/.test(form.password)) errors.password = '密码需包含大小写字母'
-      else if (!/\d/.test(form.password)) errors.password = '密码需包含数字'
-      else errors.password = ''
-    } else errors.password = ''
-  }
-  if (field === 'confirmPassword') {
-    if (mode.value === 'register') {
-      if (!form.confirmPassword) errors.confirmPassword = '请再次输入密码'
-      else if (form.password !== form.confirmPassword) errors.confirmPassword = '两次密码不一致'
-      else errors.confirmPassword = ''
-    }
-  }
-}
-
 function togglePwd() {
   showPassword.value = !showPassword.value
   nextTick(() => { const input = pwdInputRef.value; if (input) { input.focus(); input.setSelectionRange(form.password.length, form.password.length) } })
@@ -683,14 +663,22 @@ async function handleResetSendCode() {
     resetErrors.email = '请输入有效的邮箱地址'; return
   }
   resetErrors.email = ''; resetErrors.code = ''
-  // 先弹出滑块验证
-  openCaptcha(async (verifyToken: string) => {
-    resetSendingCode.value = true
-    try {
-      await authApi.sendCode({ email: resetForm.email, scene: 'forgot-password' }, verifyToken)
-      startResetCooldown(60); message.success('验证码已发送')
-    } catch (e: any) { resetErrors.code = e.message || '发送失败' }
-    finally { resetSendingCode.value = false }
+  runCaptchaAction({
+    onStart: () => {
+      resetSendingCode.value = true
+    },
+    onFinally: () => {
+      resetSendingCode.value = false
+    },
+    action: async (verifyToken: string) => {
+      try {
+        await authApi.sendCode({ email: resetForm.email, scene: 'forgot-password' }, verifyToken)
+        startResetCooldown(60)
+        message.success('验证码已发送')
+      } catch (error: unknown) {
+        resetErrors.code = getErrorMessage(error, '发送失败')
+      }
+    },
   })
 }
 
@@ -712,33 +700,27 @@ const resetPwdLevel = computed(() => {
 const resetPwdColor = computed(() => ['', 'var(--status-danger)', 'var(--status-warning)', 'var(--status-info)', 'var(--status-success)'][resetPwdLevel.value])
 const resetPwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][resetPwdLevel.value])
 
-function validateResetForm(): boolean {
-  let valid = true
-  resetErrors.email = ''; resetErrors.code = ''; resetErrors.password = ''; resetErrors.confirmPassword = ''
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetForm.email)) { resetErrors.email = '请输入有效的邮箱地址'; valid = false }
-  if (!resetForm.code || resetForm.code.length !== 6) { resetErrors.code = '请输入6位验证码'; valid = false }
-  if (resetForm.password.length < 8) { resetErrors.password = '密码至少8位'; valid = false }
-  else {
-    if (!/[a-z]/.test(resetForm.password) || !/[A-Z]/.test(resetForm.password)) { resetErrors.password = '密码需包含大小写字母'; valid = false }
-    else if (!/\d/.test(resetForm.password)) { resetErrors.password = '密码需包含数字'; valid = false }
-  }
-  if (resetForm.password !== resetForm.confirmPassword) { resetErrors.confirmPassword = '两次密码不一致'; valid = false }
-  return valid
-}
-
 async function handleResetSubmit() {
   if (!validateResetForm()) return
-  openCaptcha(async (verifyToken: string) => {
-    resetSubmitting.value = true
-    try {
-      await authApi.forgotPassword({ email: resetForm.email, code: resetForm.code, password: resetForm.password }, verifyToken)
-      message.success('密码重置成功，请登录')
-      setTimeout(() => {
-        mode.value = 'password'; form.email = resetForm.email
-        resetForm.email = ''; resetForm.code = ''; resetForm.password = ''; resetForm.confirmPassword = ''
-      }, 1500)
-    } catch (e: any) { message.error(e.message || '重置失败') }
-    finally { resetSubmitting.value = false }
+  runCaptchaAction({
+    onStart: () => {
+      resetSubmitting.value = true
+    },
+    onFinally: () => {
+      resetSubmitting.value = false
+    },
+    action: async (verifyToken: string) => {
+      try {
+        await authApi.forgotPassword({ email: resetForm.email, code: resetForm.code, password: resetForm.password }, verifyToken)
+        message.success('密码重置成功，请登录')
+        setTimeout(() => {
+          mode.value = 'password'; form.email = resetForm.email
+          resetForm.email = ''; resetForm.code = ''; resetForm.password = ''; resetForm.confirmPassword = ''
+        }, 1500)
+      } catch (error: unknown) {
+        message.error(getErrorMessage(error, '重置失败'))
+      }
+    },
   })
 }
 
@@ -787,14 +769,21 @@ function toggleRegister() {
 async function handleSendCode() {
   if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { errors.email = '请输入有效的邮箱地址'; return }
   errors.email = ''; errors.code = ''
-  // 先弹出滑块验证
-  openCaptcha(async (verifyToken: string) => {
-    sendingCode.value = true
-    try {
-      await authApi.sendCode({ email: form.email, scene: getCooldownScene() as 'login' | 'register' }, verifyToken)
-      saveEmail(); startCooldown(60); message.success('验证码已发送')
-    } catch (e: any) { errors.code = e.message || '发送失败' }
-    finally { sendingCode.value = false }
+  runCaptchaAction({
+    onStart: () => {
+      sendingCode.value = true
+    },
+    onFinally: () => {
+      sendingCode.value = false
+    },
+    action: async (verifyToken: string) => {
+      try {
+        await authApi.sendCode({ email: form.email, scene: getCooldownScene() as 'login' | 'register' }, verifyToken)
+        saveEmail(); startCooldown(60); message.success('验证码已发送')
+      } catch (error: unknown) {
+        errors.code = getErrorMessage(error, '发送失败')
+      }
+    },
   })
 }
 
@@ -849,122 +838,122 @@ async function autoLogin() {
   }
 }
 
-// ===== 表单验证 =====
-function validate(): boolean {
-  let valid = true
-  errors.email = ''; errors.password = ''; errors.confirmPassword = ''; errors.code = ''
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { errors.email = '请输入有效的邮箱地址'; valid = false }
-  if (mode.value === 'code') {
-    if (!form.code || form.code.length !== 6) { errors.code = '请输入6位验证码'; valid = false }
-  } else {
-    if (form.password.length < 8) { errors.password = '密码至少8位'; valid = false }
-    else if (mode.value === 'register') {
-      if (!/[a-z]/.test(form.password) || !/[A-Z]/.test(form.password)) { errors.password = '密码需包含大小写字母'; valid = false }
-      else if (!/\d/.test(form.password)) { errors.password = '密码需包含数字'; valid = false }
-    }
-    if (mode.value === 'register') {
-      if (!form.code || form.code.length !== 6) { errors.code = '请输入6位验证码'; valid = false }
-      if (form.password !== form.confirmPassword) { errors.confirmPassword = '两次密码不一致'; valid = false }
-    }
-  }
-  return valid
-}
-
 let lastSubmitTime = 0
+const submitSuccess = ref(false)
+
+function handleAuthError(error: unknown, fallback = '操作失败，请稍后重试') {
+  const errorCode = getErrorCode(error)
+  if (String(errorCode) === String(ACCOUNT_LOCKED_CODE)) {
+    accountLocked.value = true
+    message.error(getErrorMessage(error, '账号已锁定，请稍后再试'))
+    return
+  }
+  message.error(getErrorMessage(error, fallback))
+}
 
 async function handleSubmit() {
   const now = Date.now()
   if (now - lastSubmitTime < 1000) return
   lastSubmitTime = now
   if (accountLocked.value) { message.error('账号已锁定，请稍后再试'); return }
-  if (!validate()) return
+  if (!validateSubmitForm()) return
   submitting.value = true
   try {
     if (mode.value === 'password') {
-      // 密码登录需要先通过滑块验证
       submitting.value = false
-      openCaptcha(async (verifyToken: string) => {
-        submitting.value = true
-        try {
-          const res = await authApi.login({ email: form.email, password: form.password, rememberMe: rememberMe.value }, verifyToken)
-          addRecentEmail(form.email); submitSuccess.value = true; message.success('登录成功')
-          userStore.setUser(res.data); await saveCredentials(); try { localStorage.removeItem(EMAIL_KEY) } catch {}
-          await new Promise(r => setTimeout(r, 400))
-          loginModal.onLoginSuccess()
-        } catch (e: any) {
-          if (e.code === ACCOUNT_LOCKED_CODE) { accountLocked.value = true; message.error(e.message || '账号已锁定，请稍后再试') }
-          else message.error(e.message || '操作失败，请稍后重试')
-        } finally { submitting.value = false; submitSuccess.value = false }
+      runCaptchaAction({
+        onStart: () => {
+          submitting.value = true
+        },
+        onFinally: () => {
+          submitting.value = false
+          submitSuccess.value = false
+        },
+        action: async (verifyToken: string) => {
+          try {
+            const res = await authApi.login({ email: form.email, password: form.password, rememberMe: rememberMe.value }, verifyToken)
+            addRecentEmail(form.email)
+            submitSuccess.value = true
+            message.success('登录成功')
+            userStore.setUser(res.data)
+            await saveCredentials()
+            try { localStorage.removeItem(EMAIL_KEY) } catch {}
+            await new Promise(r => setTimeout(r, 400))
+            loginModal.onLoginSuccess()
+          } catch (error: unknown) {
+            handleAuthError(error)
+          }
+        },
       })
       return
-    } else if (mode.value === 'code') {
+    }
+
+    if (mode.value === 'code') {
       submitting.value = false
-      openCaptcha(async (verifyToken: string) => {
-        submitting.value = true
-        try {
-          const res = await authApi.loginByCode({ email: form.email, code: form.code }, verifyToken)
-          addRecentEmail(form.email); submitSuccess.value = true; message.success('登录成功')
-          userStore.setUser(res.data); try { localStorage.removeItem(EMAIL_KEY) } catch {}
-          await new Promise(r => setTimeout(r, 400))
-          loginModal.onLoginSuccess()
-        } catch (e: any) {
-          if (e.code === ACCOUNT_LOCKED_CODE) { accountLocked.value = true; message.error(e.message || '账号已锁定，请稍后再试') }
-          else message.error(e.message || '操作失败，请稍后重试')
-        } finally { submitting.value = false; submitSuccess.value = false }
+      runCaptchaAction({
+        onStart: () => {
+          submitting.value = true
+        },
+        onFinally: () => {
+          submitting.value = false
+          submitSuccess.value = false
+        },
+        action: async (verifyToken: string) => {
+          try {
+            const res = await authApi.loginByCode({ email: form.email, code: form.code }, verifyToken)
+            addRecentEmail(form.email)
+            submitSuccess.value = true
+            message.success('登录成功')
+            userStore.setUser(res.data)
+            try { localStorage.removeItem(EMAIL_KEY) } catch {}
+            await new Promise(r => setTimeout(r, 400))
+            loginModal.onLoginSuccess()
+          } catch (error: unknown) {
+            handleAuthError(error)
+          }
+        },
       })
       return
-    } else {
-      // 注册需要先通过滑块验证
-      submitting.value = false
-      openCaptcha(async (verifyToken: string) => {
+    }
+
+    submitting.value = false
+    runCaptchaAction({
+      onStart: () => {
         submitting.value = true
+      },
+      onFinally: () => {
+        submitting.value = false
+        submitSuccess.value = false
+      },
+      action: async (verifyToken: string) => {
         try {
           await authApi.register({ email: form.email, password: form.password, nickname: form.nickname || undefined }, form.code, verifyToken)
-          addRecentEmail(form.email); submitSuccess.value = true; message.success('注册成功，请登录')
+          addRecentEmail(form.email)
+          submitSuccess.value = true
+          message.success('注册成功，请登录')
           await new Promise(r => setTimeout(r, 400))
           submitSuccess.value = false
           mode.value = 'code'; form.password = ''; form.confirmPassword = ''; form.code = ''
-        } catch (e: any) {
-          message.error(e.message || '操作失败，请稍后重试')
-        } finally { submitting.value = false; submitSuccess.value = false }
-      })
-      return
-    }
-  } catch (e: any) {
-    if (e.code === ACCOUNT_LOCKED_CODE) { accountLocked.value = true; message.error(e.message || '账号已锁定，请稍后再试') }
-    else message.error(e.message || '操作失败，请稍后重试')
-  } finally { submitting.value = false; submitSuccess.value = false }
+        } catch (error: unknown) {
+          handleAuthError(error)
+        }
+      },
+    })
+    return
+  } catch (error: unknown) {
+    handleAuthError(error)
+  } finally {
+    submitting.value = false
+    submitSuccess.value = false
+  }
 }
 
-const githubLoading = ref(false)
-const submitSuccess = ref(false)
-
 async function handleGithubLogin() {
-  githubLoading.value = true
-  try {
-    // 记录返回页面与滚动位置，OAuth 回调后恢复
-    const r = useRoute()
-    saveNavContext({
-      path: r.path,
-      fullPath: r.fullPath,
-      scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
-    })
-    const redirectUri = window.location.origin + '/oauth/github/callback'
-    const res = await authApi.getGithubAuthUrl(redirectUri)
-    const authUrl = normalizeSafeHref(res.data)
-    if (!authUrl) {
-      throw new Error('无效的 OAuth 地址')
-    }
-
-    const authHost = new URL(authUrl).host.toLowerCase()
-    if (!GITHUB_OAUTH_HOSTS.has(authHost)) {
-      throw new Error('无效的 OAuth 域名')
-    }
-
-    window.location.href = authUrl
-  } catch {
-    message.error('GitHub 登录暂不可用'); githubLoading.value = false
-  }
+  const routeState = useRoute()
+  await startGithubLogin({
+    path: routeState.path,
+    fullPath: routeState.fullPath,
+  })
 }
 
 onUnmounted(() => { if (cooldownTimer) clearInterval(cooldownTimer); if (resetCooldownTimer) clearInterval(resetCooldownTimer) })
@@ -1181,7 +1170,7 @@ watch(() => loginModal.visible.value, (v) => {
 }
 .remember-me {
   display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; color: #64748b;
-  input[type="checkbox"] { accent-color: #3b82f6; cursor: pointer; }
+  input[type="checkbox"] { accent-color: var(--checkbox-accent); cursor: pointer; }
   .dark & { color: $color-dark-text-muted; }
 }
 .remember-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }

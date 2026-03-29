@@ -1,3 +1,33 @@
+const cspPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https: http: ws: wss:",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
+// CSP 灰度阶段：report-only（默认）/ dual（同时下发）/ enforce（仅强制）
+const cspStage = (import.meta.env.NUXT_CSP_STAGE || 'report-only').toLowerCase()
+
+const securityHeaders: Record<string, string> = {
+  'X-Frame-Options': 'SAMEORIGIN',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+}
+
+if (cspStage === 'enforce' || cspStage === 'dual') {
+  securityHeaders['Content-Security-Policy'] = cspPolicy
+}
+
+if (cspStage === 'report-only' || cspStage === 'dual') {
+  securityHeaders['Content-Security-Policy-Report-Only'] = cspPolicy
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-02-11',
   // SSR 模式
@@ -22,6 +52,31 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@pinia/nuxt',
     '@nuxt/icon',
+    '@nuxt/eslint',
+  ],
+
+  imports: {
+    dirs: [
+      'composables/**',
+      'utils/**',
+    ],
+  },
+
+  // 组件目录按领域拆分，保持组件名不变便于渐进迁移。
+  components: [
+    { path: '~/components/ad', pathPrefix: false },
+    { path: '~/components/announcement', pathPrefix: false },
+    { path: '~/components/article', pathPrefix: false },
+    { path: '~/components/auth', pathPrefix: false },
+    { path: '~/components/category', pathPrefix: false },
+    { path: '~/components/common', pathPrefix: false },
+    { path: '~/components/home', pathPrefix: false },
+    { path: '~/components/link', pathPrefix: false },
+    { path: '~/components/ranking', pathPrefix: false },
+    { path: '~/components/search', pathPrefix: false },
+    { path: '~/components/topic', pathPrefix: false },
+    { path: '~/components/user', pathPrefix: false },
+    { path: '~/components/ui', prefix: 'Ui' },
   ],
 
   // SCSS 全局变量
@@ -48,15 +103,9 @@ export default defineNuxtConfig({
 
   // 页面缓存配置（SWR - Stale-While-Revalidate）
   routeRules: {
-    // 基础安全响应头（先以 Report-Only 观察 CSP）
+    // 基础安全响应头（CSP 通过 NUXT_CSP_STAGE 灰度）
     '/**': {
-      headers: {
-        'X-Frame-Options': 'SAMEORIGIN',
-        'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: http: ws: wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
-      },
+      headers: securityHeaders,
     },
     // 首页缓存 10 分钟
     '/': { swr: 600 },

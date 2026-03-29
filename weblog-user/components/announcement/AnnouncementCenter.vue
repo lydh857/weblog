@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="notice-center">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="notice-overlay" @click.self="close">
         <section class="notice-panel" role="dialog" aria-modal="true" aria-label="公告列表">
           <header class="notice-header">
@@ -63,9 +63,10 @@
 </template>
 
 <script setup lang="ts">
-import { announcementApi, type AnnouncementVO } from '~/api/ad'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
-import { formatRelativeTime } from '~/utils/format'
+import type { AnnouncementVO } from '~/api/marketing/ad'
+import { fetchAllAnnouncements } from '~/composables/announcement/useAnnouncementRequestCache'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
+import { formatRelativeTime } from '~/utils/content/format'
 
 interface Props {
   visible: boolean
@@ -162,8 +163,7 @@ async function fetchAnnouncements(force = false) {
 
   loading.value = true
   try {
-    const res = await announcementApi.getAll()
-    announcements.value = res.data || []
+    announcements.value = await fetchAllAnnouncements({ force })
     loaded.value = true
   } catch {
     announcements.value = []
@@ -201,12 +201,24 @@ watch(unreadCount, (value) => {
   emit('unread-change', value)
 }, { immediate: true })
 
-onMounted(async () => {
+let prefetchTimer: ReturnType<typeof window.setTimeout> | null = null
+
+onMounted(() => {
   loadReadIds()
-  await fetchAnnouncements(true)
+
+  // 公告中心默认是隐藏态，将首轮全量拉取延后到首屏稳定后再执行。
+  prefetchTimer = window.setTimeout(() => {
+    prefetchTimer = null
+    if (loaded.value || loading.value) return
+    void fetchAnnouncements(true)
+  }, 280)
 })
 
 onUnmounted(() => {
+  if (prefetchTimer) {
+    window.clearTimeout(prefetchTimer)
+    prefetchTimer = null
+  }
   if (!locked) return
   unlockScroll()
   locked = false
@@ -214,26 +226,40 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.notice-center-enter-active,
-.notice-center-leave-active {
-  transition: opacity 0.2s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .notice-panel {
+    transition: transform 0.25s;
+  }
 }
 
-.notice-center-enter-from,
-.notice-center-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
+
+  .notice-panel {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 
 .notice-overlay {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  background: rgba(15, 23, 42, 0.35);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .notice-panel {
@@ -243,14 +269,14 @@ onUnmounted(() => {
   flex-direction: column;
   background: $color-bg;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 16px;
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.24);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 
   .dark & {
     background: $color-dark-bg-secondary;
-    border-color: rgba(71, 85, 105, 0.55);
-    box-shadow: 0 20px 48px rgba(2, 6, 23, 0.62);
+    border-color: rgba(148, 163, 184, 0.14);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 }
 

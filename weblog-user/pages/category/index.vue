@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="category-page">
+  <div class="category-page" :class="{ 'page-entered': pageEntered }">
     <!-- 筛选器 -->
     <CategoryFilter
       :categories="categories"
@@ -22,9 +22,21 @@
 
     <!-- 文章列表：双列布局 -->
     <section v-else-if="posts.length" class="post-grid">
-      <template v-for="item in postGridItems" :key="item.key">
-        <ArticleCard v-if="item.type === 'post'" :post="item.post" />
-        <AdMimicCard v-else :ad="item.ad" />
+      <template v-for="(item, index) in postGridItems" :key="item.key">
+        <ArticleCard
+          v-if="item.type === 'post'"
+          :post="item.post"
+          class="grid-enter-item"
+          :class="{ 'card-entered': listEntered }"
+          :style="{ '--enter-index': index }"
+        />
+        <AdMimicCard
+          v-else
+          :ad="item.ad"
+          class="grid-enter-item"
+          :class="{ 'card-entered': listEntered }"
+          :style="{ '--enter-index': index }"
+        />
       </template>
     </section>
 
@@ -48,12 +60,13 @@
 </template>
 
 <script setup lang="ts">
-import { categoryApi, type CategoryTreeVO } from '~/api/category'
-import { tagApi, type TagCloudVO } from '~/api/tag'
-import { postApi, type PostVO } from '~/api/post'
-import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
-import { buildCategoryPathById, findCategoryBySlug } from '~/utils/categoryRoute'
-import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
+import { categoryApi, type CategoryTreeVO } from '~/api/content/category'
+import { tagApi, type TagCloudVO } from '~/api/content/tag'
+import { postApi, type PostVO } from '~/api/content/post'
+import type { AdvertisementVO } from '~/api/marketing/advertisement'
+import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
+import { buildCategoryPathById, findCategoryBySlug } from '~/utils/navigation/categoryRoute'
+import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
 
 definePageMeta({
   path: '/category/:slug?',
@@ -93,6 +106,8 @@ const listCardAds = ref<AdvertisementVO[]>([])
 const total = ref(0)
 const pageCount = ref(0)
 const loading = ref(true)
+const pageEntered = ref(false)
+const listEntered = ref(false)
 const MIN_SKELETON_MS = 220
 let fetchPostsRequestId = 0
 
@@ -171,15 +186,6 @@ async function syncQueryParams() {
   if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
   if (filters.pageNum !== 1) query.pageNum = String(filters.pageNum)
   await router.replace({ query })
-}
-
-function buildSeoQuery(options?: { keepTag?: boolean }): Record<string, string> {
-  const query: Record<string, string> = {}
-  if (options?.keepTag && filters.tagId !== null) query.tagId = String(filters.tagId)
-  if (filters.sortBy !== 'recommended') query.sortBy = filters.sortBy
-  if (filters.pageSize !== 20) query.pageSize = String(filters.pageSize)
-  if (filters.pageNum !== 1) query.pageNum = String(filters.pageNum)
-  return query
 }
 
 function buildCategoryRouteQuery(
@@ -264,8 +270,8 @@ async function fetchPosts() {
 
 async function fetchListCardAds() {
   try {
-    const res = await advertisementApi.getBySlot('post_list_card')
-    listCardAds.value = res.data || []
+    // 分类页与首页共用同一广告位，走短期缓存减少重复请求。
+    listCardAds.value = await fetchCachedAdSlot('post_list_card', { ttlMs: 45_000 })
   } catch {
     listCardAds.value = []
   }
@@ -333,6 +339,12 @@ watch(() => route.fullPath, () => {
 })
 
 onMounted(async () => {
+  if (import.meta.client) {
+    window.requestAnimationFrame(() => {
+      pageEntered.value = true
+    })
+  }
+
   parseQueryParams()
   const [catRes] = await Promise.all([categoryApi.tree(), fetchListCardAds()])
   categories.value = catRes.data
@@ -358,6 +370,22 @@ onMounted(async () => {
 
   await Promise.all([fetchTags(), fetchPosts()])
 })
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    listEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    listEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    listEntered.value = true
+  })
+}, { immediate: true })
 </script>
 
 <style lang="scss" scoped>
@@ -365,6 +393,16 @@ onMounted(async () => {
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.category-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 /* 双列文章列表 */
@@ -374,6 +412,18 @@ onMounted(async () => {
   gap: 1.25rem;
 
   > * { min-width: 0; }
+}
+
+:deep(.grid-enter-item) {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+}
+
+:deep(.grid-enter-item.card-entered) {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(40ms + min(var(--enter-index), 7) * 50ms);
 }
 
 /* 空状态 */
@@ -412,6 +462,22 @@ onMounted(async () => {
 
   .post-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-page,
+  .category-page.page-entered {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  :deep(.grid-enter-item),
+  :deep(.grid-enter-item.card-entered) {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 </style>

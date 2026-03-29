@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import type { RankingItem } from '~/api/ranking'
+import type { RankingItem } from '~/api/content/ranking'
 
 interface Props {
   items: RankingItem[]

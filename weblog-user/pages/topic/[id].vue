@@ -1,13 +1,13 @@
 <template>
   <div class="topic-detail-bg" :style="{ '--sticky-top': stickyTop }">
-    <div class="topic-detail-page">
-      <!-- 加载中 -->
-      <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <div class="topic-detail-page" :class="{ 'page-entered': pageEntered }">
+      <!-- 加载中（静态占位，避免进入页时动画打断阅读） -->
+      <div v-if="loading" class="topic-loading-placeholder" aria-live="polite">加载中...</div>
 
       <template v-else-if="topic">
-        <div class="three-col-layout">
+        <div class="three-col-layout" :class="{ 'content-entered': contentEntered }">
           <!-- 左侧：专题目录 -->
-          <div class="left-sidebar" :class="{ collapsed: leftCollapsed }">
+          <div class="left-sidebar detail-enter-block detail-enter-left" :class="{ collapsed: leftCollapsed }">
             <div class="left-sidebar-sticky" :style="{ top: stickyTop }">
               <TopicSidebar
                 v-model:collapsed="leftCollapsed"
@@ -20,10 +20,9 @@
           </div>
 
           <!-- 中间：文章正文 -->
-          <div class="center-content">
+          <div class="center-content detail-enter-block detail-enter-center">
             <!-- 当前文章 -->
-            <UnifiedPageLoader v-if="articleLoading" compact text="加载文章中..." />
-            <template v-else-if="currentPost">
+            <template v-if="currentPost">
               <div class="post-ad-slot post-ad-slot--top">
                 <AdSlotBanner ad-slot="post_top" />
               </div>
@@ -52,6 +51,7 @@
                   <MdPreview
                     editor-id="topic-preview"
                     :model-value="currentPost.content || ''"
+                    :sanitize="sanitizeMarkdownPreviewHtml"
                     :theme="editorTheme"
                     :preview-theme="currentPost.previewTheme || 'default'"
                     :code-theme="currentPost.codeTheme || 'atom'"
@@ -75,7 +75,7 @@
                   @click="handleCatalogSelect(prevArticle!)"
                 >
                   <div class="nav-cover">
-                    <img v-if="prevArticle.coverImage" :src="prevArticle.coverImage" :alt="prevArticle.title" loading="lazy" class="nav-cover-img" />
+                    <img v-if="prevArticle.coverImage" :src="prevArticle.coverImage" :alt="prevArticle.title" loading="lazy" class="nav-cover-img" >
                     <div class="nav-overlay">
                       <span class="nav-label">
                         <Icon name="heroicons:chevron-left-20-solid" size="18" />
@@ -92,7 +92,7 @@
                   @click="handleCatalogSelect(nextArticle!)"
                 >
                   <div class="nav-cover">
-                    <img v-if="nextArticle.coverImage" :src="nextArticle.coverImage" :alt="nextArticle.title" loading="lazy" class="nav-cover-img" />
+                    <img v-if="nextArticle.coverImage" :src="nextArticle.coverImage" :alt="nextArticle.title" loading="lazy" class="nav-cover-img" >
                     <div class="nav-overlay">
                       <span class="nav-label">
                         下一篇
@@ -106,14 +106,14 @@
               </nav>
             </template>
 
-            <div v-else class="empty-article">
+            <div v-else-if="!articleLoading" class="empty-article">
               <Icon name="heroicons:document-text-20-solid" size="32" />
               <p>请从左侧目录选择文章</p>
             </div>
           </div>
 
           <!-- 右侧：文章目录（可收缩） -->
-          <div class="right-sidebar" :class="{ collapsed: rightCollapsed }">
+          <div class="right-sidebar detail-enter-block detail-enter-right" :class="{ collapsed: rightCollapsed }">
             <div class="right-sidebar-sticky" :style="{ top: stickyTop }">
               <!-- 收缩按钮（始终渲染，CSS 控制动画） -->
               <button
@@ -134,8 +134,8 @@
                 </div>
                 <ArticleToc
                   v-if="currentPost"
-                  content-selector=".post-content .md-editor-preview"
                   :key="currentArticleId ?? 'none'"
+                  content-selector=".post-content .md-editor-preview"
                 />
               </div>
             </div>
@@ -192,8 +192,8 @@
             <div class="mobile-panel-body mobile-panel-body--toc">
               <ArticleToc
                 v-if="currentPost"
-                content-selector=".post-content .md-editor-preview"
                 :key="`mobile-toc-${currentArticleId || 'none'}`"
+                content-selector=".post-content .md-editor-preview"
               />
             </div>
           </div>
@@ -211,9 +211,10 @@
 <script setup lang="ts">
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import { topicApi, type TopicDetail, type CatalogNode } from '~/api/topic'
-import { postApi, type PostVO } from '~/api/post'
-import { useDarkMode } from '~/composables/useDarkMode'
+import { topicApi, type TopicDetail, type CatalogNode } from '~/api/content/topic'
+import { postApi, type PostVO } from '~/api/content/post'
+import { useDarkMode } from '~/composables/theme/useDarkMode'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 const route = useRoute()
 
@@ -238,6 +239,7 @@ const stickyTop = computed(() => {
   return 'calc(var(--layout-navbar-height, 60px) + 10px)'
 })
 const editorTheme = computed(() => isDark.value ? 'dark' : 'light')
+const sanitizeMarkdownPreviewHtml = (html: string) => sanitizeHtml(html)
 
 const topic = ref<TopicDetail | null>(null)
 const catalogs = ref<CatalogNode[]>([])
@@ -245,6 +247,8 @@ const currentPost = ref<PostVO | null>(null)
 const currentArticleId = ref<number | null>(null)
 const loading = ref(true)
 const articleLoading = ref(false)
+const pageEntered = ref(false)
+const contentEntered = ref(false)
 const mobileCatalogVisible = ref(false)
 const mobileTocVisible = ref(false)
 let topicRequestId = 0
@@ -428,10 +432,29 @@ onMounted(async () => {
   if (import.meta.client) {
     window.addEventListener('resize', handleWindowResize)
     handleWindowResize()
+    window.requestAnimationFrame(() => {
+      pageEntered.value = true
+    })
   }
 
   await loadTopicDetail()
 })
+
+watch([() => loading.value, () => topic.value?.id], ([isLoading, topicValueId]) => {
+  if (isLoading || !topicValueId) {
+    contentEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    contentEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    contentEntered.value = true
+  })
+}, { immediate: true })
 
 watch(() => route.params.id, () => {
   void loadTopicDetail()
@@ -445,6 +468,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+.topic-loading-placeholder {
+  min-height: 44vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: $color-text-muted;
+
+  .dark & {
+    color: $color-dark-text-muted;
+  }
+}
+
 .topic-detail-bg {
   background: #f5f5f5;
   min-height: 100vh;
@@ -457,6 +493,16 @@ onUnmounted(() => {
   --topic-sidebar-collapsed-width: 40px;
   margin: 0 auto;
   padding: var(--layout-page-padding-y) var(--layout-page-padding-x) calc(var(--layout-page-padding-y) + 1rem);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topic-detail-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .three-col-layout {
@@ -468,6 +514,31 @@ onUnmounted(() => {
     flex-direction: column;
     .left-sidebar, .right-sidebar { display: none; }
   }
+}
+
+.detail-enter-block {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+}
+
+.three-col-layout.content-entered .detail-enter-block {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.three-col-layout.content-entered .detail-enter-left {
+  transition-delay: 40ms;
+}
+
+.three-col-layout.content-entered .detail-enter-center {
+  transition-delay: 90ms;
+}
+
+.three-col-layout.content-entered .detail-enter-right {
+  transition-delay: 140ms;
 }
 
 /* 左侧专题目录 */
@@ -1014,4 +1085,15 @@ onUnmounted(() => {
 
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
 .back-link { display: inline-block; margin-top: 1rem; color: $color-primary; text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-detail-page,
+  .topic-detail-page.page-entered,
+  .detail-enter-block,
+  .three-col-layout.content-entered .detail-enter-block {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 </style>

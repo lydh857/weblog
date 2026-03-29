@@ -96,7 +96,7 @@
         maxlength="4"
         @input="onJumpInput"
         @keyup.enter="handleJump"
-      />
+      >
       <span class="jump-label">页</span>
     </div>
   </div>
@@ -107,6 +107,7 @@ interface Props {
   total: number
   currentPage: number
   pageSize: number
+  // eslint-disable-next-line vue/require-default-prop
   pageCount?: number
   pageSizeOptions?: number[]
 }

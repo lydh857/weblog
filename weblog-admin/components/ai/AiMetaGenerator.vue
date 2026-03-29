@@ -131,8 +131,8 @@
 <script setup lang="ts">
 import { MagicStick, ArrowDown, Loading, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { aiApi, type AiMetaResult, type TagSuggestion, type CategorySuggestion } from '~/api/ai'
-import { handleAiError } from '~/utils/aiError'
+import { aiApi, type AiMetaResult, type TagSuggestion, type CategorySuggestion } from '~/api/ai/ai'
+import { handleAiError } from '~/utils/ai/aiError'
 import AiMetaCard from './AiMetaCard.vue'
 
 const MAX_TAGS = 5
@@ -213,8 +213,9 @@ async function handleGenerateAll() {
     const tagNames = (res.data.tags || []).slice(0, Math.max(0, slots)).map(t => t.name)
     selectedTags.value = new Set(tagNames)
     // 默认选第一个分类
-    if (res.data.categories?.length) {
-      selectedCategory.value = getCatKey(res.data.categories[0])
+    const firstCategory = res.data.categories?.[0]
+    if (firstCategory) {
+      selectedCategory.value = getCatKey(firstCategory)
     }
   } catch (e) {
     const err = e as { message?: string }
@@ -268,7 +269,8 @@ async function handleRegenerate(type: string) {
         const catRes = await aiApi.regenerateCategories(data)
         if (result.value) {
           result.value.categories = catRes.data
-          if (catRes.data.length) selectedCategory.value = getCatKey(catRes.data[0])
+          const firstCategory = catRes.data[0]
+          if (firstCategory) selectedCategory.value = getCatKey(firstCategory)
         }
         break
       }

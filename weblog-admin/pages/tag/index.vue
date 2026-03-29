@@ -139,7 +139,7 @@
 import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { tagApi, type TagVO, type BatchTagItem } from '~/api/tag'
+import { tagApi, type TagVO, type BatchTagItem } from '~/api/content/tag'
 
 const loading = ref(false)
 const allTags = ref<TagVO[]>([])
@@ -263,7 +263,9 @@ async function handleSubmitBatch() {
       slug: t.slug || undefined,
     }))
     if (tags.length === 1) {
-      await tagApi.create({ name: tags[0].name, slug: tags[0].slug })
+      const firstTag = tags[0]
+      if (!firstTag) return
+      await tagApi.create({ name: firstTag.name, slug: firstTag.slug })
     } else {
       await tagApi.batchCreate(tags)
     }

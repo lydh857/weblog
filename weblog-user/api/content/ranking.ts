@@ -1,5 +1,5 @@
-import { http } from '~/utils/http'
-import { postApi, type PostVO } from '~/api/post'
+import { http } from '~/utils/network/http'
+import { postApi, type PostVO } from '~/api/content/post'
 
 export interface RankingItem {
   rank_num: number

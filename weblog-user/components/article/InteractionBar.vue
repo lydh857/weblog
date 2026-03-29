@@ -1,22 +1,24 @@
 <template>
   <div class="interaction-bar">
-    <button class="action-btn" :class="{ active: liked }" @click="handleLike" aria-label="点赞">
-      <Icon :name="liked ? 'heroicons:heart-20-solid' : 'heroicons:heart-20-solid'" size="22"
+    <button class="action-btn" :class="{ active: liked }" aria-label="点赞" @click="handleLike">
+      <Icon
+:name="liked ? 'heroicons:heart-20-solid' : 'heroicons:heart-20-solid'" size="22"
         :class="{ 'like-active': liked }" />
       <span class="action-count">{{ likeCount }}</span>
       <span class="action-label">点赞</span>
     </button>
-    <button class="action-btn" :class="{ active: favorited }" @click="handleFavorite" aria-label="收藏">
-      <Icon :name="favorited ? 'heroicons:bookmark-20-solid' : 'heroicons:bookmark-20-solid'" size="22"
+    <button class="action-btn" :class="{ active: favorited }" aria-label="收藏" @click="handleFavorite">
+      <Icon
+:name="favorited ? 'heroicons:bookmark-20-solid' : 'heroicons:bookmark-20-solid'" size="22"
         :class="{ 'fav-active': favorited }" />
       <span class="action-label">{{ favorited ? '已收藏' : '收藏' }}</span>
     </button>
-    <button class="action-btn" @click="$emit('scrollToComments')" aria-label="评论">
+    <button class="action-btn" aria-label="评论" @click="$emit('scrollToComments')">
       <Icon name="heroicons:chat-bubble-left-20-solid" size="22" />
       <span class="action-count">{{ commentCount }}</span>
       <span class="action-label">评论</span>
     </button>
-    <button class="action-btn" @click="handleShare" aria-label="分享">
+    <button class="action-btn" aria-label="分享" @click="handleShare">
       <Icon name="heroicons:share-20-solid" size="22" />
       <span class="action-label">分享</span>
     </button>
@@ -33,9 +35,9 @@
 </template>
 
 <script setup lang="ts">
-import { interactionApi } from '~/api/interaction'
+import { interactionApi } from '~/api/interaction/interaction'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 const props = defineProps<{
   postId: number

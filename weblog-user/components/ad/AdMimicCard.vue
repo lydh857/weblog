@@ -47,10 +47,10 @@
 </template>
 
 <script setup lang="ts">
-import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { advertisementApi, type AdvertisementVO } from '~/api/marketing/advertisement'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 import { useUserStore } from '~/stores/user'
-import { normalizeSafeHref } from '~/utils/urlSafety'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
 
 const props = defineProps<{
   ad: AdvertisementVO

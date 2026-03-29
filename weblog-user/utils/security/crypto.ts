@@ -3,15 +3,6 @@
  * 登录密码现在直接传输（HTTPS 加密）
  */
 
-function getRsaPublicKey(): string {
-  try {
-    const config = useRuntimeConfig()
-    return config.public.rsaPublicKey as string || ''
-  } catch {
-    return ''
-  }
-}
-
 /**
  * 加密密码（现在直接返回明文，由 HTTPS 加密传输）
  */

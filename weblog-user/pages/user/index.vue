@@ -1,5 +1,5 @@
 <template>
-  <div class="user-center">
+  <div class="user-center" :class="{ 'page-entered': pageEntered, 'content-entered': contentEntered }">
     <header class="page-header">
       <h1 class="page-title">
         <Icon name="heroicons:user-circle-20-solid" size="22" />
@@ -13,7 +13,7 @@
     <template v-else-if="profile">
       <section class="profile-card">
         <div class="profile-avatar">
-          <img v-if="showProfileAvatar" :src="profile.avatar!" alt="用户头像" class="avatar-img" @error="handleProfileAvatarError" />
+          <img v-if="showProfileAvatar" :src="profile.avatar!" alt="用户头像" class="avatar-img" @error="handleProfileAvatarError" >
           <span v-else class="avatar-placeholder">{{ (profile.nickname || 'U').charAt(0) }}</span>
         </div>
         <div class="profile-info">
@@ -60,9 +60,9 @@
 </template>
 
 <script setup lang="ts">
-import { userApi, type UserProfileVO } from '~/api/user'
+import { userApi, type UserProfileVO } from '~/api/auth/user'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 useHead({ title: '个人中心' })
 
@@ -70,6 +70,8 @@ const userStore = useUserStore()
 const profile = ref<UserProfileVO | null>(null)
 const loading = ref(true)
 const profileAvatarLoadFailed = ref(false)
+const pageEntered = ref(false)
+const contentEntered = ref(false)
 
 const showProfileAvatar = computed(() => !!profile.value?.avatar && !profileAvatarLoadFailed.value)
 
@@ -85,6 +87,13 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(async () => {
+  if (import.meta.client) {
+    void prefetchComponents('/user/edit')
+    window.requestAnimationFrame(() => {
+      pageEntered.value = true
+    })
+  }
+
   if (!userStore.isLoggedIn) {
     loading.value = false
     return
@@ -98,6 +107,22 @@ onMounted(async () => {
   }
 })
 
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    contentEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    contentEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    contentEntered.value = true
+  })
+}, { immediate: true })
+
 watch(() => profile.value?.avatar, () => {
   profileAvatarLoadFailed.value = false
 })
@@ -105,6 +130,18 @@ watch(() => profile.value?.avatar, () => {
 
 <style scoped lang="scss">
 .user-center { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.user-center {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.user-center.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
 .page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .page-title {
   margin: 0;
@@ -163,6 +200,32 @@ watch(() => profile.value?.avatar, () => {
 .edit-btn { display: inline-flex; align-items: center; gap: .375rem; padding: .5rem 1.1rem; border-radius: 10px; background: $color-primary; color: #fff; text-decoration: none; min-height: 40px; }
 
 .quick-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
+.profile-card,
+.quick-card {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+
+.user-center.content-entered .profile-card,
+.user-center.content-entered .quick-card {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.user-center.content-entered .profile-card {
+  transition-delay: 40ms;
+}
+
+.user-center.content-entered .quick-card:nth-child(1) {
+  transition-delay: 90ms;
+}
+
+.user-center.content-entered .quick-card:nth-child(2) {
+  transition-delay: 140ms;
+}
 .quick-card {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -204,5 +267,15 @@ watch(() => profile.value?.avatar, () => {
   .profile-card { grid-template-columns: 1fr; text-align: center; }
   .profile-avatar, .edit-btn { justify-self: center; }
   .quick-links { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-center,
+  .profile-card,
+  .quick-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 </style>

@@ -5,8 +5,8 @@
       class="sidebar-btn"
       :class="{ active: liked, 'animate-pop': likeAnimating }"
       title="点赞"
-      @click="handleLike"
       aria-label="点赞"
+      @click="handleLike"
     >
       <Icon name="heroicons:heart-20-solid" size="20" :class="{ 'liked-icon': liked }" />
       <span v-if="displayLikeCount > 0" class="btn-count">{{ formatCount(displayLikeCount) }}</span>
@@ -16,19 +16,19 @@
       class="sidebar-btn"
       :class="{ active: favorited, 'animate-pop': favAnimating }"
       title="收藏"
-      @click="handleFavorite"
       aria-label="收藏"
+      @click="handleFavorite"
     >
       <Icon name="heroicons:bookmark-20-solid" size="20" :class="{ 'fav-icon': favorited }" />
       <span v-if="displayCollectCount > 0" class="btn-count">{{ formatCount(displayCollectCount) }}</span>
     </button>
     <!-- 评论 -->
-    <button class="sidebar-btn" title="前往评论区" @click="$emit('scrollToComments')" aria-label="前往评论区">
+    <button class="sidebar-btn" title="前往评论区" aria-label="前往评论区" @click="$emit('scrollToComments')">
       <Icon name="heroicons:chat-bubble-left-20-solid" size="20" />
       <span v-if="commentCount > 0" class="btn-count">{{ formatCount(commentCount) }}</span>
     </button>
     <!-- 分享 -->
-    <button class="sidebar-btn" title="分享文章" @click="handleShare" aria-label="分享文章">
+    <button class="sidebar-btn" title="分享文章" aria-label="分享文章" @click="handleShare">
       <Icon name="heroicons:share-20-solid" size="20" />
     </button>
     <!-- 分隔线 -->
@@ -38,8 +38,8 @@
       class="sidebar-btn nav-btn"
       title="上一篇"
       :class="{ disabled: !prevSlug }"
-      @click="navigatePrev"
       aria-label="上一篇"
+      @click="navigatePrev"
     >
       <Icon name="heroicons:chevron-up-20-solid" size="20" />
     </button>
@@ -48,8 +48,8 @@
       class="sidebar-btn nav-btn"
       title="下一篇"
       :class="{ disabled: !nextSlug }"
-      @click="navigateNext"
       aria-label="下一篇"
+      @click="navigateNext"
     >
       <Icon name="heroicons:chevron-down-20-solid" size="20" />
     </button>
@@ -67,9 +67,9 @@
 </template>
 
 <script setup lang="ts">
-import { interactionApi } from '~/api/interaction'
+import { interactionApi } from '~/api/interaction/interaction'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 const props = defineProps<{
   postId: number

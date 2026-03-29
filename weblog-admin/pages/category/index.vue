@@ -96,7 +96,7 @@
 import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { categoryApi, type CategoryVO } from '~/api/category'
+import { categoryApi, type CategoryVO } from '~/api/content/category'
 
 const loading = ref(false)
 const categories = ref<CategoryVO[]>([])

@@ -1,6 +1,6 @@
 <template>
   <div class="topic-list-bg">
-    <div class="topic-list-page">
+    <div class="topic-list-page" :class="{ 'page-entered': pageEntered }">
       <header class="page-header">
         <div class="page-title-row">
           <h1 class="page-title">
@@ -19,10 +19,12 @@
         <!-- 专题列表 -->
         <div v-if="topics.length" class="topic-grid">
           <NuxtLink
-            v-for="item in topics"
+            v-for="(item, index) in topics"
             :key="item.id"
             :to="`/topic/${item.id}`"
             class="topic-card"
+            :class="{ 'card-entered': listEntered }"
+            :style="{ '--enter-index': index }"
           >
             <div class="card-cover">
               <img
@@ -34,7 +36,7 @@
                 :class="{ 'cover-img--loaded': loadedCoverIds.has(item.id) }"
                 @load="handleCoverLoad(item.id)"
                 @error="handleCoverError(item.id)"
-              />
+              >
               <div v-else class="cover-placeholder">
                 <Icon name="heroicons:book-open-20-solid" size="32" />
               </div>
@@ -75,8 +77,8 @@
 </template>
 
 <script setup lang="ts">
-import { topicApi, type TopicItem } from '~/api/topic'
-import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
+import { topicApi, type TopicItem } from '~/api/content/topic'
+import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
 
 useHead({ title: '专题' })
 
@@ -85,6 +87,8 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(6)
 const loading = ref(true)
+const pageEntered = ref(false)
+const listEntered = ref(false)
 const MIN_SKELETON_MS = 220
 let fetchTopicsRequestId = 0
 const coverImageErrors = reactive<Record<number, boolean>>({})
@@ -154,7 +158,31 @@ function formatDate(dateStr: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-onMounted(() => fetchTopics())
+onMounted(() => {
+  if (import.meta.client) {
+    window.requestAnimationFrame(() => {
+      pageEntered.value = true
+    })
+  }
+
+  void fetchTopics()
+})
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    listEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    listEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    listEntered.value = true
+  })
+}, { immediate: true })
 </script>
 
 <style scoped lang="scss">
@@ -168,6 +196,16 @@ onMounted(() => fetchTopics())
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding: var(--layout-page-padding-y) var(--layout-page-padding-x) 3rem;
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topic-list-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .page-header {
@@ -236,11 +274,19 @@ onMounted(() => fetchTopics())
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition: border-color 0.2s, opacity 560ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+
+  &.card-entered {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition-delay: calc(40ms + min(var(--enter-index), 7) * 50ms);
+  }
+
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-    .cover-img--loaded { transform: scale(1.05); }
   }
   .dark & {
     background: $color-dark-bg-secondary;
@@ -267,14 +313,12 @@ onMounted(() => fetchTopics())
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transform: scale(1.03);
   filter: blur(2px);
-  transition: opacity 0.28s ease, transform 0.35s ease, filter 0.28s ease;
+  transition: opacity 0.28s ease, filter 0.28s ease;
 }
 
 .cover-img--loaded {
   opacity: 1;
-  transform: scale(1);
   filter: blur(0);
 }
 
@@ -369,5 +413,16 @@ onMounted(() => fetchTopics())
 
 :deep(.dark .topic-page-skeleton.variant-topic .skeleton-item) {
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-list-page,
+  .topic-list-page.page-entered,
+  .topic-card,
+  .topic-card.card-entered {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 </style>

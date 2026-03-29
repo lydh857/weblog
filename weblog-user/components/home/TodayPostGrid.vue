@@ -51,7 +51,7 @@
             :alt="post.title"
             loading="lazy"
             @error="handleImageError(post.id, $event)"
-          />
+          >
           <div v-else class="cover-placeholder" />
         </div>
         <!-- 渐变遮罩 -->
@@ -73,8 +73,8 @@
 </template>
 
 <script setup lang="ts">
-import { postApi, type PostVO } from '~/api/post'
-import { formatRelativeTime } from '~/utils/format'
+import { postApi, type PostVO } from '~/api/content/post'
+import { formatRelativeTime } from '~/utils/content/format'
 
 const posts = ref<PostVO[]>([])
 const scrollRef = ref<HTMLElement>()
@@ -193,26 +193,29 @@ onUnmounted(() => {
 }
 
 .sk-circle {
+  position: relative;
+  overflow: hidden;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  background: rgba(148, 163, 184, 0.18);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+  }
 
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.32) 50%, transparent 80%);
+    }
   }
 }
 
@@ -301,23 +304,25 @@ onUnmounted(() => {
 .grid-card-skeleton__cover {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+  }
 
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.3) 50%, transparent 80%);
+    }
   }
 }
 
@@ -497,6 +502,11 @@ onUnmounted(() => {
 
 /* ===== 减少动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
+  .sk-circle::after,
+  .grid-card-skeleton__cover::after {
+    animation: none;
+  }
+
   .grid-card {
     transition: none;
   }
@@ -506,8 +516,8 @@ onUnmounted(() => {
   }
 }
 
-@keyframes sk-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes sk-shimmer-move {
+  0% { transform: translate3d(-140%, 0, 0); }
+  100% { transform: translate3d(140%, 0, 0); }
 }
 </style>

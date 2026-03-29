@@ -192,8 +192,8 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { mediaApi, type MediaStatsVO, type MediaVO } from '~/api/media'
-import { uploadApi } from '~/api/upload'
+import { mediaApi, type MediaStatsVO, type MediaVO } from '~/api/content/media'
+import { uploadApi } from '~/api/system/upload'
 
 const loading = ref(false)
 const mediaList = ref<MediaVO[]>([])

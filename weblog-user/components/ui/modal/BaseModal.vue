@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
-import { lockScroll, unlockScroll } from '~/composables/useScrollLock'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -53,13 +53,13 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="modal">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="modal-overlay" :style="{ zIndex }" @click="onMaskClick">
         <div class="modal-content" :style="{ width: typeof width === 'number' ? `${width}px` : width }" @click.stop>
           <div v-if="title || showClose" class="modal-header">
             <h3 v-if="title" class="modal-title">{{ title }}</h3>
             <slot name="header" />
-            <button v-if="showClose" type="button" class="modal-close touch-target" @click="close" aria-label="关闭">&times;</button>
+            <button v-if="showClose" type="button" class="modal-close touch-target" aria-label="关闭" @click="close">&times;</button>
           </div>
           <div class="modal-body"><slot /></div>
           <div v-if="$slots.footer" class="modal-footer"><slot name="footer" /></div>
@@ -72,8 +72,12 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; padding: 16px;
+
+  .dark & {
+    background: rgba(0,0,0,0.6);
+  }
 }
 .modal-content {
   background: #fff; border-radius: 12px; max-width: 90vw; max-height: calc(100vh - 40px);
@@ -111,30 +115,23 @@ onUnmounted(() => {
 }
 
 /* Transition 动画 */
-.modal-enter-active {
-  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.modal-enter-active .modal-content {
-  animation: modal-pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-leave-active .modal-content {
-  animation: modal-pop-out 0.2s ease forwards;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .modal-content {
+    transition: transform 0.25s;
+  }
 }
 
-@keyframes modal-pop-in {
-  0% { transform: scale(0.8) translateY(20px); opacity: 0; }
-  60% { transform: scale(1.01) translateY(-2px); }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
-}
-@keyframes modal-pop-out {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(0.9) translateY(10px); opacity: 0; }
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
+  opacity: 0;
+
+  .modal-content {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 </style>

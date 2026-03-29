@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface AdvertisementVO {
   id: number
@@ -22,7 +22,7 @@ export interface AnnouncementVO {
 
 export const adApi = {
   getByPosition: (position: string) =>
-    http.get<any, { data: AdvertisementVO[] }>('/portal/advertisement', { params: { position } }),
+    http.get<unknown, { data: AdvertisementVO[] }>('/portal/advertisement', { params: { position } }),
   recordClick: (id: number) =>
     http.post(`/portal/advertisement/${id}/click`),
 }

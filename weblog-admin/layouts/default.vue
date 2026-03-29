@@ -55,7 +55,14 @@
         </el-menu-item>
         <el-menu-item index="/friend-link">
           <el-icon><Link /></el-icon>
-          <template #title>友链管理</template>
+          <template #title>
+            <span class="menu-title-with-badge">
+              友链管理
+              <span v-if="pendingFriendLinkCount > 0" class="menu-count-badge menu-count-badge--warning">
+                {{ pendingFriendLinkCount > 99 ? '99+' : pendingFriendLinkCount }}
+              </span>
+            </span>
+          </template>
         </el-menu-item>
         <el-menu-item index="/comment">
           <el-icon><ChatDotRound /></el-icon>
@@ -66,18 +73,22 @@
           <template #title>
             <span class="menu-title-with-badge">
               用户管理
-              <el-badge
-                v-if="pendingProfileReviewCount > 0"
-                :value="pendingProfileReviewCount > 99 ? '99+' : pendingProfileReviewCount"
-                type="danger"
-                class="menu-review-badge"
-              />
+              <span v-if="pendingProfileReviewCount > 0" class="menu-count-badge menu-count-badge--warning">
+                {{ pendingProfileReviewCount > 99 ? '99+' : pendingProfileReviewCount }}
+              </span>
             </span>
           </template>
         </el-menu-item>
         <el-menu-item index="/advertisement">
           <el-icon><Promotion /></el-icon>
-          <template #title>广告管理</template>
+          <template #title>
+            <span class="menu-title-with-badge">
+              广告管理
+              <span v-if="pendingAdvertisementCount > 0" class="menu-count-badge menu-count-badge--warning">
+                {{ pendingAdvertisementCount > 99 ? '99+' : pendingAdvertisementCount }}
+              </span>
+            </span>
+          </template>
         </el-menu-item>
         <el-menu-item index="/announcement">
           <el-icon><Bell /></el-icon>
@@ -154,9 +165,11 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '~/stores/user'
-import { useDarkMode } from '~/composables/useDarkMode'
-import { authApi } from '~/api/auth'
-import { profileReviewApi } from '~/api/profileReview'
+import { useDarkMode } from '~/composables/theme/useDarkMode'
+import { authApi } from '~/api/auth/auth'
+import { profileReviewApi } from '~/api/system/profileReview'
+import { friendLinkApi } from '~/api/content/friendLink'
+import { advertisementApi } from '~/api/marketing/advertisement'
 
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
@@ -164,6 +177,8 @@ const userStore = useUserStore()
 const { isDark, toggleDark } = useDarkMode()
 const isCollapsed = ref(false)
 const pendingProfileReviewCount = useState<number>('pendingProfileReviewCount', () => 0)
+const pendingAdvertisementCount = useState<number>('pendingAdvertisementCount', () => 0)
+const pendingFriendLinkCount = useState<number>('pendingFriendLinkCount', () => 0)
 
 function getPortalTargetUrl() {
   const configured = String(runtimeConfig.public.portalBaseUrl || '').trim()
@@ -198,6 +213,32 @@ async function loadPendingReviewCount() {
   }
 }
 
+async function loadPendingAdvertisementCount() {
+  try {
+    const res = await advertisementApi.list({ pageNum: 1, pageSize: 1, status: 'pending' })
+    pendingAdvertisementCount.value = res.data.total
+  } catch {
+    pendingAdvertisementCount.value = 0
+  }
+}
+
+async function loadPendingFriendLinkCount() {
+  try {
+    const res = await friendLinkApi.listAll()
+    pendingFriendLinkCount.value = res.data.filter(item => item.status === 'pending').length
+  } catch {
+    pendingFriendLinkCount.value = 0
+  }
+}
+
+async function loadMenuBadges() {
+  await Promise.all([
+    loadPendingReviewCount(),
+    loadPendingAdvertisementCount(),
+    loadPendingFriendLinkCount(),
+  ])
+}
+
 async function handleCommand(command: string) {
   if (command === 'portal') {
     window.open(getPortalTargetUrl(), '_blank', 'noopener,noreferrer')
@@ -217,13 +258,13 @@ async function handleCommand(command: string) {
 }
 
 watch(() => route.path, (path) => {
-  if (path.startsWith('/user')) {
-    loadPendingReviewCount()
+  if (path.startsWith('/user') || path.startsWith('/advertisement') || path.startsWith('/friend-link')) {
+    loadMenuBadges()
   }
 })
 
 onMounted(() => {
-  loadPendingReviewCount()
+  loadMenuBadges()
 })
 </script>
 
@@ -291,10 +332,22 @@ onMounted(() => {
   gap: 6px;
 }
 
-.menu-review-badge {
-  :deep(.el-badge__content) {
-    transform: scale(0.92);
-  }
+.menu-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  color: #fff;
+}
+
+.menu-count-badge--warning {
+  background: var(--el-color-warning);
 }
 
 .fade-enter-active,

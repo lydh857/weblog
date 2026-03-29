@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { sanitizeHtml } from '~/utils/xss'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 const props = defineProps<{
   /** 需要安全渲染的 HTML 字符串 */

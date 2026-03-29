@@ -50,7 +50,10 @@
               </div>
             </div>
 
-            <div v-if="!sectionMounted.post" class="post-defer-placeholder" aria-hidden="true" />
+            <div v-if="!sectionMounted.post" class="post-grid post-grid--defer" aria-hidden="true">
+              <!-- 保持与已挂载加载态一致的骨架高度，避免占位切换导致明显位移 -->
+              <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
+            </div>
 
             <div v-else-if="loading && !posts.length" class="post-grid">
               <UnifiedSkeleton class="home-load-more-skeleton" variant="article" :count="8" />
@@ -92,8 +95,9 @@
 </template>
 
 <script setup lang="ts">
-import { postApi, type PostVO } from '~/api/post'
-import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
+import { postApi, type PostVO } from '~/api/content/post'
+import type { AdvertisementVO } from '~/api/marketing/advertisement'
+import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
 
 useHead({ title: 'Weblog - 首页' })
 
@@ -272,8 +276,9 @@ function initSectionObserver() {
       sectionObserver?.unobserve(entry.target)
     })
   }, {
-    threshold: 0.2,
-    rootMargin: '0px'
+    // 提前在视口外触发挂载，让占位到真实内容的切换尽量发生在屏幕外。
+    threshold: 0.01,
+    rootMargin: '280px 0px'
   })
 
   const sections: Array<[HomeSectionKey, HTMLElement | null]> = [
@@ -296,8 +301,8 @@ function initSectionObserver() {
 
 async function loadListCardAds() {
   try {
-    const res = await advertisementApi.getBySlot('post_list_card')
-    listCardAds.value = res.data || []
+    // 首页拟态卡广告属于非关键数据，使用短期缓存避免重复请求。
+    listCardAds.value = await fetchCachedAdSlot('post_list_card', { ttlMs: 45_000 })
   } catch {
     listCardAds.value = []
   }
@@ -407,8 +412,7 @@ onUnmounted(() => {
   }
 }
 
-.section-defer-placeholder,
-.post-defer-placeholder {
+.section-defer-placeholder {
   border-radius: $radius-lg;
   border: 1px solid rgba(148, 163, 184, 0.24);
   background: rgba(248, 250, 252, 0.92);
@@ -419,14 +423,12 @@ onUnmounted(() => {
   }
 }
 
-.section-defer-placeholder,
-.post-defer-placeholder {
+.section-defer-placeholder {
   position: relative;
   overflow: hidden;
 }
 
-.section-defer-placeholder::after,
-.post-defer-placeholder::after {
+.section-defer-placeholder::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -435,8 +437,7 @@ onUnmounted(() => {
   animation: homeSkeletonSweep 1.35s ease-in-out infinite;
 }
 
-.dark .section-defer-placeholder::after,
-.dark .post-defer-placeholder::after {
+.dark .section-defer-placeholder::after {
   background: linear-gradient(105deg, transparent 35%, rgba(148, 163, 184, 0.2) 50%, transparent 65%);
 }
 
@@ -446,24 +447,23 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .section-defer-placeholder::after,
-  .post-defer-placeholder::after {
+  .section-defer-placeholder::after {
     animation: none;
   }
 }
 
 .section-defer-placeholder {
-  min-height: 236px;
+  min-height: 272px;
   margin-bottom: $spacing-xl;
 }
 
 .section-defer-placeholder--ranking {
-  min-height: 520px;
+  min-height: 612px;
   margin-top: $spacing-xl;
 }
 
-.post-defer-placeholder {
-  min-height: 280px;
+.post-grid--defer {
+  pointer-events: none;
 }
 
 /* ===== 文章列表 ===== */
@@ -545,6 +545,16 @@ onUnmounted(() => {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
 }
 
+:deep(.home-post-card .cover-image) {
+  transform: none;
+  transition: opacity 0.28s ease, filter 0.28s ease;
+}
+
+:deep(.home-post-card .cover-image--loaded),
+:deep(.home-post-card.article-card:hover .cover-image--loaded) {
+  transform: none;
+}
+
 .dark :deep(.home-post-card.article-card:hover) {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
@@ -612,15 +622,21 @@ onUnmounted(() => {
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
     color: #94a3b8;
+    box-shadow: 0 2px 10px rgba(2, 6, 23, 0.32);
 
     &::before {
-      background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
+      background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.2), transparent);
     }
 
     &:hover {
-      border-color: $color-primary;
-      color: $color-primary;
-      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+      border-color: rgba(148, 163, 184, 0.52);
+      color: $color-dark-text;
+      background: rgba(23, 27, 32, 0.95);
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.4);
+    }
+
+    &:active {
+      box-shadow: 0 2px 8px rgba(2, 6, 23, 0.45);
     }
   }
 }
@@ -648,15 +664,11 @@ onUnmounted(() => {
   .home-content { padding: 1.25rem 1rem; }
 
   .section-defer-placeholder {
-    min-height: 200px;
+    min-height: 228px;
   }
 
   .section-defer-placeholder--ranking {
-    min-height: 460px;
-  }
-
-  .post-defer-placeholder {
-    min-height: 240px;
+    min-height: 560px;
   }
 
   .post-grid {
@@ -671,15 +683,11 @@ onUnmounted(() => {
 
 @media (max-width: 480px) {
   .section-defer-placeholder {
-    min-height: 180px;
+    min-height: 208px;
   }
 
   .section-defer-placeholder--ranking {
-    min-height: 360px;
-  }
-
-  .post-defer-placeholder {
-    min-height: 220px;
+    min-height: 500px;
   }
 
 }

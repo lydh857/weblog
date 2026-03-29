@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
-    <Transition name="cropper-fade">
-      <div v-if="visible" class="cropper-overlay" @click.self="close">
+    <Transition name="modal-fade" appear>
+      <div v-if="visible" class="cropper-overlay" :class="{ 'cropper-overlay--dark': isDarkMode }" @click.self="close">
         <section class="avatar-cropper-modal" role="dialog" aria-modal="true" aria-label="头像裁剪">
           <header class="cropper-header">
             <div>
@@ -116,6 +116,19 @@ let cropper: Cropper | null = null
 let localBlobUrl: string | null = null
 let scaleX = 1
 let scaleY = 1
+const isDarkMode = ref(false)
+let themeObserver: MutationObserver | null = null
+
+function updateDarkModeState() {
+  if (!import.meta.client) {
+    isDarkMode.value = false
+    return
+  }
+
+  const htmlEl = document.documentElement
+  const bodyEl = document.body
+  isDarkMode.value = htmlEl.classList.contains('dark') || bodyEl.classList.contains('dark') || htmlEl.getAttribute('data-theme') === 'dark'
+}
 
 function close() {
   visible.value = false
@@ -334,18 +347,49 @@ watch(() => props.imageSrc, value => {
 
 onUnmounted(() => {
   destroyCropper()
+  themeObserver?.disconnect()
+  themeObserver = null
+})
+
+onMounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+
+  updateDarkModeState()
+  themeObserver = new MutationObserver(() => {
+    updateDarkModeState()
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme'],
+  })
+  themeObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme'],
+  })
 })
 </script>
 
 <style scoped lang="scss">
-.cropper-fade-enter-active,
-.cropper-fade-leave-active {
-  transition: opacity 0.2s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .avatar-cropper-modal {
+    transition: transform 0.25s;
+  }
 }
 
-.cropper-fade-enter-from,
-.cropper-fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
+
+  .avatar-cropper-modal {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 
 .cropper-overlay {
@@ -355,22 +399,31 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.cropper-overlay--dark {
+  background: rgba(0, 0, 0, 0.6);
 }
 
 .avatar-cropper-modal {
   width: min(960px, 100%);
   border: 1px solid $color-border;
-  border-radius: 14px;
+  border-radius: 12px;
   background: $color-bg;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 
   .dark & {
-    border-color: $color-dark-border;
+    border-color: rgba(148, 163, 184, 0.14);
     background: $color-dark-bg-secondary;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -389,12 +442,20 @@ onUnmounted(() => {
   h3 {
     margin: 0;
     font-size: 1rem;
+
+    .dark & {
+      color: $color-dark-text;
+    }
   }
 
   p {
     margin: 0.28rem 0 0;
     font-size: 0.82rem;
     color: $color-text-muted;
+
+    .dark & {
+      color: $color-dark-text-muted;
+    }
   }
 }
 
@@ -518,6 +579,10 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   cursor: pointer;
+
+  .dark & {
+    color: $color-dark-text-muted;
+  }
 }
 
 .preview-panel {
@@ -529,6 +594,11 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.45rem;
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+  }
 }
 
 .preview-label {
@@ -548,6 +618,31 @@ onUnmounted(() => {
     border-color: $color-dark-border;
     background: #0b1220;
   }
+}
+
+.cropper-overlay--dark .preview-panel {
+  border-color: #2a313a;
+  background: #101215;
+}
+
+.cropper-overlay--dark .preview-label,
+.cropper-overlay--dark .preview-hint {
+  color: #9aa5b5;
+}
+
+.cropper-overlay--dark .preview-canvas {
+  border-color: #2a313a;
+  background: #0b1220;
+}
+
+:global(html.dark) .preview-panel {
+  border-color: #2a313a;
+  background: #101215;
+}
+
+:global(html.dark) .preview-canvas {
+  border-color: #2a313a;
+  background: #0b1220;
 }
 
 .preview-hint {

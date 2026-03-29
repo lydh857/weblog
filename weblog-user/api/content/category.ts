@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface CategoryTreeVO {
   id: number
@@ -10,5 +10,5 @@ export interface CategoryTreeVO {
 }
 
 export const categoryApi = {
-  tree: () => http.get<any, { data: CategoryTreeVO[] }>('/portal/category/tree'),
+  tree: () => http.get<unknown, { data: CategoryTreeVO[] }>('/portal/category/tree'),
 }

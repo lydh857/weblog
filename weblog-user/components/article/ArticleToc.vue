@@ -4,12 +4,12 @@
       <!-- 目录标题 -->
       <div class="toc-header">
         <span class="toc-title">目录</span>
-        <button class="print-btn" title="打印文章" @click="printArticle" aria-label="打印文章">
+        <button class="print-btn" title="打印文章" aria-label="打印文章" @click="printArticle">
           <Icon name="heroicons:printer-20-solid" size="16" />
         </button>
       </div>
       <!-- 目录列表 -->
-      <div v-if="tocItems.length > 0" ref="tocListRef" class="toc-items">
+      <div v-if="tocItems.length > 0" ref="tocListRef" v-custom-scrollbar class="toc-items">
         <div
           v-for="item in tocItems"
           :key="item.id"
@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { sanitizeHtml, sanitizeText } from '~/utils/xss'
+import { sanitizeHtml, sanitizeText } from '~/utils/security/xss'
 
 interface TocItem {
   id: string
@@ -251,8 +251,6 @@ onUnmounted(() => {
   mask-image: linear-gradient(to bottom, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 4px, black calc(100% - 4px), transparent 100%);
   padding-top: 2px; padding-bottom: 2px;
-  &::-webkit-scrollbar { width: 2px; }
-  &::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 2px; }
 }
 .toc-item {
   font-size: 0.8rem;

@@ -14,7 +14,7 @@
     <!-- 主评论表单 -->
     <div ref="formRef" class="comment-form">
       <div class="form-avatar">
-        <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
+        <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
         <span v-else class="avatar-ph" :class="{ guest: !isLoggedIn }">
           <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
           <Icon v-else name="heroicons:user-circle-20-solid" size="40" />
@@ -36,7 +36,7 @@
         </div>
         <div class="comment-toolbar">
           <div class="toolbar-left">
-            <button ref="mainEmojiBtnRef" type="button" class="emoji-toggle" @click.stop="openEmoji('main')" aria-label="表情">
+            <button ref="mainEmojiBtnRef" type="button" class="emoji-toggle" aria-label="表情" @click.stop="openEmoji('main')">
               <Icon name="heroicons:face-smile-20-solid" size="20" />
             </button>
             <span v-if="replyTo" class="reply-hint">
@@ -68,7 +68,7 @@
           <div v-for="comment in comments" :key="comment.id" class="comment-item" :class="{ topped: comment.isTop }">
             <div class="comment-main">
               <div class="comment-avatar">
-                <img v-if="showCommentAvatar(comment)" :src="comment.avatar || ''" :alt="comment.nickname" @error="markAvatarLoadError(comment.id)" />
+                <img v-if="showCommentAvatar(comment)" :src="comment.avatar || ''" :alt="comment.nickname" @error="markAvatarLoadError(comment.id)" >
                 <span v-else class="avatar-ph">{{ getAvatarText(comment.nickname) }}</span>
               </div>
               <div class="comment-body">
@@ -94,7 +94,7 @@
                 <Transition name="reply-form">
                   <div v-if="inlineReplyId === comment.id" class="inline-reply-form">
                     <div class="form-avatar sm">
-                      <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
+                      <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
                       <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
                         <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
                         <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
@@ -115,7 +115,7 @@
                         />
                       </div>
                       <div class="inline-toolbar">
-                        <button type="button" class="emoji-toggle sm" @click.stop="openEmoji('inline', $event)" aria-label="表情">
+                        <button type="button" class="emoji-toggle sm" aria-label="表情" @click.stop="openEmoji('inline', $event)">
                           <Icon name="heroicons:face-smile-20-solid" size="16" />
                         </button>
                         <button
@@ -133,7 +133,7 @@
                 <div v-if="getReplyData(comment).list.length" class="replies">
                   <div v-for="reply in getReplyData(comment).list" :key="reply.id" class="reply-item">
                     <div class="comment-avatar sm">
-                      <img v-if="showCommentAvatar(reply)" :src="reply.avatar || ''" :alt="reply.nickname" @error="markAvatarLoadError(reply.id)" />
+                      <img v-if="showCommentAvatar(reply)" :src="reply.avatar || ''" :alt="reply.nickname" @error="markAvatarLoadError(reply.id)" >
                       <span v-else class="avatar-ph sm">{{ getAvatarText(reply.nickname) }}</span>
                     </div>
                     <div class="comment-body">
@@ -165,7 +165,7 @@
                       <Transition name="reply-form">
                         <div v-if="inlineReplyId === reply.id" class="inline-reply-form">
                           <div class="form-avatar sm">
-                            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
+                            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
                             <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
                               <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
                               <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
@@ -186,7 +186,7 @@
                               />
                             </div>
                             <div class="inline-toolbar">
-                              <button type="button" class="emoji-toggle sm" @click.stop="openEmoji('inline', $event)" aria-label="表情">
+                              <button type="button" class="emoji-toggle sm" aria-label="表情" @click.stop="openEmoji('inline', $event)">
                                 <Icon name="heroicons:face-smile-20-solid" size="16" />
                               </button>
                               <button class="submit-btn sm" :disabled="!inlineComment.trim() || submitting" @click="submitInlineReply(comment, reply)">回复</button>
@@ -257,7 +257,7 @@
       <div v-if="showBottomBar" class="bottom-comment-bar" :style="bottomBarStyle">
         <div class="bottom-bar-inner">
           <div class="form-avatar sm">
-            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" />
+            <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
             <span v-else class="avatar-ph sm" :class="{ guest: !isLoggedIn }">
               <template v-if="isLoggedIn">{{ getAvatarText(userStore.userInfo.nickname) }}</template>
               <Icon v-else name="heroicons:user-circle-20-solid" size="32" />
@@ -269,8 +269,8 @@
             :placeholder="replyTo ? `回复 @${replyTo.nickname}...` : '写下你的评论...'"
             maxlength="500"
             @focus="handleBottomFocus"
-          />
-          <button ref="bottomEmojiBtnRef" type="button" class="emoji-toggle sm" @click.stop="openEmoji('bottom')" aria-label="表情">
+          >
+          <button ref="bottomEmojiBtnRef" type="button" class="emoji-toggle sm" aria-label="表情" @click.stop="openEmoji('bottom')">
             <Icon name="heroicons:face-smile-20-solid" size="18" />
           </button>
           <button class="bottom-send" :disabled="!newComment.trim() || submitting" @click="submitComment('main')">
@@ -290,7 +290,7 @@
           :class="{ 'position-top': emojiOnTop && !isEmojiDrawerMode, 'drawer-mode': isEmojiDrawerMode }"
           :style="emojiPopupStyle"
         >
-          <div class="emoji-grid">
+          <div v-custom-scrollbar class="emoji-grid">
             <button v-for="emoji in currentEmojis" :key="emoji" class="emoji-btn" @click="insertEmoji(emoji)">{{ emoji }}</button>
           </div>
           <div class="emoji-tabs">
@@ -306,12 +306,12 @@
 </template>
 
 <script setup lang="ts">
-import { commentApi, type CommentVO } from '~/api/comment'
+import { commentApi, type CommentVO } from '~/api/content/comment'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { useMessage } from '~/composables/useMessage'
-import { useNavScrollLock } from '~/composables/useNavScrollLock'
-import { formatRelativeTime } from '~/utils/format'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { useMessage } from '~/composables/modal/useMessage'
+import { useNavScrollLock } from '~/composables/layout/useNavScrollLock'
+import { formatRelativeTime } from '~/utils/content/format'
 
 const props = defineProps<{ postId: number }>()
 const userStore = useUserStore()
@@ -1150,8 +1150,6 @@ onUnmounted(() => {
 @keyframes emojiPopDown { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .emoji-grid {
   display: flex; flex-wrap: wrap; padding: 0.5rem; max-height: 220px; overflow-y: auto;
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 4px; }
 }
 .emoji-btn {
   width: 40px; height: 40px; border: none; background: none; font-size: 1.4rem; cursor: pointer;

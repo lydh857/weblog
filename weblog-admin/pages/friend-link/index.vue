@@ -13,13 +13,19 @@
               <el-dropdown-menu>
                 <el-dropdown-item command="active">启用</el-dropdown-item>
                 <el-dropdown-item command="inactive">停用</el-dropdown-item>
-                <el-dropdown-item command="delete" divided>
+                <el-dropdown-item command="delete" divided :disabled="hasPendingSelected">
                   <span style="color: var(--el-color-danger)">删除</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </template>
+        <el-tooltip content="控制用户端友链申请入口" placement="top">
+          <div class="apply-switch">
+            <span class="switch-label">申请入口</span>
+            <el-switch v-model="applyEnabled" :loading="switchLoading" @change="handleApplySwitchChange" />
+          </div>
+        </el-tooltip>
         <el-button :loading="checking" @click="handleCheckLinks">检测链接</el-button>
         <el-button type="primary" @click="openDialog()">
           <el-icon><Plus /></el-icon> 新建友链
@@ -32,45 +38,44 @@
       <el-tab-pane name="">
         <template #label>
           <span>全部</span>
-          <span class="compact-tab-count">{{ links.length }}</span>
+          <span v-if="links.length > 0" class="compact-tab-count">{{ links.length }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="pending">
         <template #label>
           <span>待审核</span>
           <span v-if="pendingCount > 0" class="compact-tab-count compact-tab-count--warning">{{ pendingCount }}</span>
-          <span v-else class="compact-tab-count">0</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="active">
         <template #label>
           <span>正常</span>
-          <span class="compact-tab-count">{{ countByStatus('active') }}</span>
+          <span v-if="countByStatus('active') > 0" class="compact-tab-count">{{ countByStatus('active') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="inactive">
         <template #label>
           <span>停用</span>
-          <span class="compact-tab-count">{{ countByStatus('inactive') }}</span>
+          <span v-if="countByStatus('inactive') > 0" class="compact-tab-count">{{ countByStatus('inactive') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="broken">
         <template #label>
           <span>失效</span>
-          <span class="compact-tab-count">{{ countByStatus('broken') }}</span>
+          <span v-if="countByStatus('broken') > 0" class="compact-tab-count">{{ countByStatus('broken') }}</span>
         </template>
       </el-tab-pane>
       <el-tab-pane name="rejected">
         <template #label>
           <span>已拒绝</span>
-          <span class="compact-tab-count">{{ countByStatus('rejected') }}</span>
+          <span v-if="countByStatus('rejected') > 0" class="compact-tab-count">{{ countByStatus('rejected') }}</span>
         </template>
       </el-tab-pane>
     </el-tabs>
 
-    <el-table :data="filteredLinks" v-loading="loading" stripe height="560"
+    <el-table :data="filteredLinks" v-loading="loading" stripe height="560" :row-class-name="friendLinkRowClassName"
       @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="40" align="center" />
+      <el-table-column type="selection" width="40" align="center" :selectable="isRowSelectable" />
       <el-table-column type="index" label="#" width="50" align="center" />
       <el-table-column label="网站" min-width="200">
         <template #default="{ row }">
@@ -116,7 +121,7 @@
         <template #default="{ row }">
           <el-button v-if="row.status === 'pending'" text type="warning" size="small" @click="openAuditDialog(row)">审核</el-button>
           <el-button text type="primary" size="small" @click="openDialog(row)">编辑</el-button>
-          <el-button text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-if="row.status !== 'pending'" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -190,6 +195,18 @@
           <div class="audit-card__meta">
             <span>申请时间：{{ formatTime(auditingLink.createTime) }}</span>
           </div>
+          <div v-if="auditingLink.applicantUserId" class="audit-applicant">
+            <div class="audit-applicant__header">申请用户信息</div>
+            <div class="audit-applicant__body">
+              <el-avatar v-if="auditingLink.applicantAvatar" :size="28" :src="auditingLink.applicantAvatar" />
+              <el-avatar v-else :size="28">{{ auditingLink.applicantNickname?.charAt(0) || 'U' }}</el-avatar>
+              <div class="audit-applicant__meta">
+                <p><span>ID：</span>{{ auditingLink.applicantUserId }}</p>
+                <p><span>昵称：</span>{{ auditingLink.applicantNickname || '-' }}</p>
+                <p><span>邮箱：</span>{{ auditingLink.applicantEmail || '-' }}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 拒绝原因 -->
@@ -201,7 +218,7 @@
             :rows="3"
             maxlength="500"
             show-word-limit
-            placeholder="选填，仅拒绝时需要"
+            placeholder="拒绝时必填"
           />
         </div>
       </template>
@@ -218,7 +235,7 @@
 import { Plus, ArrowDown, TopRight } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { friendLinkApi, type FriendLinkVO } from '~/api/friendLink'
+import { friendLinkApi, type FriendLinkVO } from '~/api/content/friendLink'
 
 const route = useRoute()
 const loading = ref(false)
@@ -231,6 +248,9 @@ const selectedIds = ref<number[]>([])
 const checking = ref(false)
 const statusFilter = ref('')
 const supportedStatusFilter = new Set(['', 'pending', 'active', 'inactive', 'broken', 'rejected'])
+const applyEnabled = ref(false)
+const switchLoading = ref(false)
+const pendingFriendLinkCount = useState<number>('pendingFriendLinkCount', () => 0)
 
 // 审核弹窗
 const auditDialogVisible = ref(false)
@@ -270,8 +290,19 @@ const filteredLinks = computed(() => {
   return links.value.filter(l => l.status === statusFilter.value)
 })
 
+const selectedRows = computed(() => links.value.filter(link => selectedIds.value.includes(link.id)))
+const hasPendingSelected = computed(() => selectedRows.value.some(row => row.status === 'pending'))
+
 function handleTabChange() {
   // tab 切换不需要重新请求，纯前端筛选
+}
+
+function isRowSelectable(row: FriendLinkVO) {
+  return row.status !== 'pending'
+}
+
+function friendLinkRowClassName({ row }: { row: FriendLinkVO }) {
+  return row.status === 'pending' ? 'pending-highlight-row' : ''
 }
 
 async function loadData() {
@@ -280,10 +311,37 @@ async function loadData() {
   try {
     const res = await friendLinkApi.listAll()
     links.value = res.data
+    pendingFriendLinkCount.value = res.data.filter(item => item.status === 'pending').length
   } catch (e: unknown) {
     ElMessage.error((e as Error).message || '加载失败')
+    pendingFriendLinkCount.value = 0
   } finally {
     loading.value = false
+  }
+}
+
+async function loadApplySwitch() {
+  switchLoading.value = true
+  try {
+    const res = await friendLinkApi.getApplySwitch()
+    applyEnabled.value = Boolean(res.data.enabled)
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '加载申请开关失败')
+  } finally {
+    switchLoading.value = false
+  }
+}
+
+async function handleApplySwitchChange(val: boolean | string | number) {
+  switchLoading.value = true
+  try {
+    await friendLinkApi.setApplySwitch(Boolean(val))
+    ElMessage.success(Boolean(val) ? '已开放友链申请入口' : '已关闭友链申请入口')
+  } catch (e: unknown) {
+    applyEnabled.value = !Boolean(val)
+    ElMessage.error((e as Error).message || '设置申请开关失败')
+  } finally {
+    switchLoading.value = false
   }
 }
 
@@ -335,6 +393,11 @@ async function handleSubmit() {
 }
 
 async function handleDelete(row: FriendLinkVO) {
+  if (row.status === 'pending') {
+    ElMessage.warning('待审核友链不允许删除，请先审核')
+    return
+  }
+
   await ElMessageBox.confirm(`确定删除友链「${row.name}」？`, '提示', { type: 'warning' })
   try {
     await friendLinkApi.delete(row.id)
@@ -394,6 +457,11 @@ async function handleCheckLinks() {
 }
 
 async function handleBatchDelete() {
+  if (selectedRows.value.some(row => row.status === 'pending')) {
+    ElMessage.warning('已选中待审核友链，无法执行删除')
+    return
+  }
+
   await ElMessageBox.confirm(`确定批量删除选中的 ${selectedIds.value.length} 条友链？`, '批量删除', { type: 'warning' })
   try {
     await friendLinkApi.batchDelete(selectedIds.value)
@@ -414,13 +482,26 @@ function openAuditDialog(row: FriendLinkVO) {
 
 async function handleAuditAction(action: 'approve' | 'reject') {
   if (!auditingLink.value) return
+
+  const reason = rejectReason.value.trim()
+  if (action === 'reject') {
+    if (!reason) {
+      ElMessage.warning('拒绝时必须填写拒绝原因')
+      return
+    }
+    if (reason.length > 500) {
+      ElMessage.warning('拒绝原因不能超过500字')
+      return
+    }
+  }
+
   auditing.value = true
   try {
     if (action === 'approve') {
       await friendLinkApi.approve(auditingLink.value.id)
       ElMessage.success('已通过')
     } else {
-      await friendLinkApi.reject(auditingLink.value.id, rejectReason.value || undefined)
+      await friendLinkApi.reject(auditingLink.value.id, reason)
       ElMessage.success('已拒绝')
     }
     auditDialogVisible.value = false
@@ -438,12 +519,28 @@ onMounted(() => {
     statusFilter.value = queryStatus
   }
   loadData()
+  loadApplySwitch()
 })
 </script>
 
 <style scoped lang="scss">
 .friend-link-page {
   .full-width { width: 100%; }
+}
+
+.apply-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-blank);
+}
+
+.switch-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 // 状态筛选 Tab
@@ -455,6 +552,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+:deep(.el-table__row.pending-highlight-row > td) {
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
+:deep(.el-table__row.pending-highlight-row:hover > td) {
+  background: rgba(245, 158, 11, 0.2) !important;
+}
+
+:deep(html.dark .el-table__row.pending-highlight-row > td),
+:deep(body.dark .el-table__row.pending-highlight-row > td),
+:deep(.dark .el-table__row.pending-highlight-row > td) {
+  background: rgba(245, 158, 11, 0.16) !important;
+}
+
+:deep(html.dark .el-table__row.pending-highlight-row:hover > td),
+:deep(body.dark .el-table__row.pending-highlight-row:hover > td),
+:deep(.dark .el-table__row.pending-highlight-row:hover > td) {
+  background: rgba(245, 158, 11, 0.24) !important;
 }
 
 .source-pill {
@@ -592,6 +709,38 @@ onMounted(() => {
     font-weight: 500;
     color: var(--el-text-color-regular);
     margin-bottom: 8px;
+  }
+}
+
+.audit-applicant {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--el-border-color);
+
+  &__header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    margin-bottom: 8px;
+  }
+
+  &__body {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  &__meta {
+    p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--el-text-color-regular);
+      line-height: 1.6;
+    }
+
+    span {
+      color: var(--el-text-color-secondary);
+    }
   }
 }
 

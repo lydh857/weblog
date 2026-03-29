@@ -239,7 +239,7 @@ import {
   type CategoryDistVO,
   type CommentStatsVO,
   type AiTokenUsageVO
-} from '~/api/dashboard'
+} from '~/api/system/dashboard'
 
 // 数据格式化
 function formatNumber(n: number): string {
@@ -415,7 +415,7 @@ interface TodoTask {
   label: string
   count: number
   path: string
-  query?: Record<string, string>
+  query?: Record<string, string | undefined>
   tone: 'primary' | 'warning' | 'success' | 'info'
 }
 
@@ -561,7 +561,7 @@ function setChartRef(key: string, el: HTMLDivElement) {
   if (el) chartRefs.set(key, el)
 }
 
-function handleQuickNavigate(path: string, query?: Record<string, string>) {
+function handleQuickNavigate(path: string, query?: Record<string, string | undefined>) {
   if (query) {
     navigateTo({ path, query })
     return

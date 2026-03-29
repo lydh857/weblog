@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 /** 轮播项视图对象 */
 export interface CarouselVO {
@@ -18,5 +18,5 @@ export interface CarouselVO {
 export const carouselApi = {
   /** 门户端：获取启用的轮播列表 */
   listPortal: () =>
-    http.get<any, { data: CarouselVO[] }>('/portal/carousel'),
+    http.get<unknown, { data: CarouselVO[] }>('/portal/carousel'),
 }

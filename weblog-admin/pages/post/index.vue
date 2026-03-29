@@ -363,9 +363,9 @@
 <script setup lang="ts">
 import { EditPen, Box, Search, Timer, Delete, Picture, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { postApi, type PostVO } from '~/api/post'
-import { categoryApi, type CategoryVO } from '~/api/category'
-import { tagApi, type TagVO } from '~/api/tag'
+import { postApi, type PostVO } from '~/api/content/post'
+import { categoryApi, type CategoryVO } from '~/api/content/category'
+import { tagApi, type TagVO } from '~/api/content/tag'
 
 // ========== 主列表 ==========
 const loading = ref(false)

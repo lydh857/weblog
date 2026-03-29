@@ -1,4 +1,4 @@
-import type { CategoryTreeVO } from '~/api/category'
+import type { CategoryTreeVO } from '~/api/content/category'
 
 export interface CategoryRouteMatch {
   category: CategoryTreeVO | null

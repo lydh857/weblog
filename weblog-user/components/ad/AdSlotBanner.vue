@@ -77,6 +77,8 @@
                   <span v-if="ad.adInfo && !isImageFailed(ad.id)" class="ad-info">{{ ad.adInfo }}</span>
                 </div>
               </template>
+              <!-- 已经过 DOMPurify 白名单净化 -->
+              <!-- eslint-disable-next-line vue/no-v-html -->
               <div v-else class="ad-code" v-html="sanitize(ad.content)" />
             </div>
           </div>
@@ -122,10 +124,11 @@
 
 <script setup lang="ts">
 import DOMPurify from 'dompurify'
-import { advertisementApi, type AdvertisementVO } from '~/api/advertisement'
-import { useLoginModal } from '~/composables/useLoginModal'
+import { advertisementApi, type AdvertisementVO } from '~/api/marketing/advertisement'
+import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 import { useUserStore } from '~/stores/user'
-import { normalizeSafeHref } from '~/utils/urlSafety'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
 
 interface BannerAd extends AdvertisementVO {
   safeLinkUrl: string | null
@@ -451,10 +454,11 @@ onMounted(async () => {
   void loadAdApplyConfig()
   void loadMyApplicationStatus()
   try {
-    const res = await advertisementApi.getBySlot(props.adSlot)
+    // 广告位数据使用短期缓存：避免同一路由阶段重复挂载导致重复拉取。
+    const cachedAds = await fetchCachedAdSlot(props.adSlot, { ttlMs: 30_000 })
     failedImageIds.value = new Set()
     imageRatioMap.value = {}
-    ads.value = (res.data || []).map(item => ({
+    ads.value = cachedAds.map(item => ({
       ...item,
       safeLinkUrl: normalizeSafeHref(item.linkUrl)
     }))

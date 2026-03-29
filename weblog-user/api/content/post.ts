@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface PostVO {
   id: number
@@ -55,21 +55,21 @@ export interface PostDetailResult {
 export const postApi = {
   /** 文章列表 */
   list: (params: { pageNum?: number; pageSize?: number; categoryId?: number; tagId?: number; categorySlug?: string; tagSlug?: string; sortBy?: string }) =>
-    http.get<any, { data: PageResult<PostVO> }>('/portal/post', { params }),
+    http.get<unknown, { data: PageResult<PostVO> }>('/portal/post', { params }),
 
   /** 文章详情（含上下篇） */
   detail: (slug: string) =>
-    http.get<any, { data: PostDetailResult }>(`/portal/post/${slug}`),
+    http.get<unknown, { data: PostDetailResult }>(`/portal/post/${slug}`),
 
   /** 今日发布文章列表 */
   listToday: (limit = 8) =>
-    http.get<any, { data: PostVO[] }>('/portal/post/today', { params: { limit } }),
+    http.get<unknown, { data: PostVO[] }>('/portal/post/today', { params: { limit } }),
 
   /** 最近发布文章列表 */
   listRecent: (limit = 10) =>
-    http.get<any, { data: PostVO[] }>('/portal/post/recent', { params: { limit } }),
+    http.get<unknown, { data: PostVO[] }>('/portal/post/recent', { params: { limit } }),
 
   /** 相关文章推荐 */
   getSimilarPosts: (postId: number) =>
-    http.get<any, { data: PostVO[] }>(`/portal/post/${postId}/similar`),
+    http.get<unknown, { data: PostVO[] }>(`/portal/post/${postId}/similar`),
 }

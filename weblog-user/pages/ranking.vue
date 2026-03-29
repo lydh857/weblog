@@ -67,7 +67,12 @@
 
       <div v-if="items.length" class="footer">
         <button class="more-btn" :disabled="loading || loadingMore || !hasMore" @click="loadMore">
-          <Icon v-if="loadingMore" name="heroicons:arrow-path-20-solid" size="16" class="spin" />
+          <Icon
+            :name="loadingMore ? 'heroicons:arrow-path-20-solid' : (hasMore ? 'heroicons:arrow-down-circle-20-solid' : 'heroicons:check-circle-20-solid')"
+            size="16"
+            class="more-btn-icon"
+            :class="{ spin: loadingMore }"
+          />
           {{ loadingMore ? '加载中...' : (hasMore ? '加载更多' : '已加载全部') }}
         </button>
       </div>
@@ -77,7 +82,7 @@
 
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
-import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/content/ranking'
 
 useHead({ title: '排行榜 - Weblog' })
 
@@ -619,16 +624,56 @@ onMounted(() => {
 }
 
 .more-btn {
-  border: 1px solid $color-border;
-  border-radius: 999px;
-  padding: 0.52rem 1.1rem;
-  background: $color-bg;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  transition: all 0.2s;
-  &:hover:not(:disabled) { border-color: $color-primary; color: $color-primary; }
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border: 1px solid $color-border;
+  border-radius: 999px;
+  background: $color-bg;
+  color: $color-text-muted;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+
+  .more-btn-icon {
+    transition: transform 0.5s ease;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.8), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.8s ease;
+  }
+
+  &:hover:not(:disabled) {
+    color: $color-primary;
+    border-color: $color-primary;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+
+    &::before {
+      transform: translateX(100%);
+    }
+
+    .more-btn-icon {
+      transform: rotate(180deg);
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
   &:disabled {
     cursor: not-allowed;
     opacity: 0.6;
@@ -636,13 +681,27 @@ onMounted(() => {
 
   .dark & {
     border-color: $color-dark-border;
-    background: $color-dark-bg;
-    color: $color-dark-text-muted;
+    background: $color-dark-bg-secondary;
+    color: #94a3b8;
+    box-shadow: 0 2px 10px rgba(2, 6, 23, 0.32);
+
+    &::before {
+      background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.2), transparent);
+    }
 
     &:hover:not(:disabled) {
-      border-color: rgba(147, 197, 253, 0.52);
+      border-color: rgba(148, 163, 184, 0.52);
       color: $color-dark-text;
-      background: rgba(148, 163, 184, 0.12);
+      background: rgba(23, 27, 32, 0.95);
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.4);
+
+      &::before {
+        transform: translateX(100%);
+      }
+    }
+
+    &:active:not(:disabled) {
+      box-shadow: 0 2px 8px rgba(2, 6, 23, 0.45);
     }
   }
 }

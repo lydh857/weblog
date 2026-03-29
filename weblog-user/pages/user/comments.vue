@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="comments-page">
+  <div class="comments-page" :class="{ 'page-entered': pageEntered }">
     <div class="page-header">
       <NuxtLink to="/user" class="back-link">
         <Icon name="heroicons:arrow-left-20-solid" size="18" /> 个人中心
@@ -31,7 +31,14 @@
     <UnifiedPageLoader v-if="loading" plain :text="''" />
 
     <template v-else-if="comments.length">
-      <div v-for="comment in comments" :key="comment.id" class="comment-card" :class="{ selected: selectedIds.has(comment.id), managing }" @click="managing && toggleSelect(comment.id)">
+      <div
+        v-for="(comment, index) in comments"
+        :key="comment.id"
+        class="comment-card"
+        :class="{ selected: selectedIds.has(comment.id), managing, 'card-entered': listEntered }"
+        :style="{ '--enter-index': index }"
+        @click="managing && toggleSelect(comment.id)"
+      >
         <div class="row-top">
           <NuxtLink v-if="comment.postSlug" :to="`/post/${comment.postSlug}#comment-${comment.id}`" class="post-link" @click.stop>
             {{ comment.postTitle || '未知文章' }}
@@ -65,13 +72,13 @@
 </template>
 
 <script setup lang="ts">
-import { commentApi, type CommentVO } from '~/api/comment'
+import { commentApi, type CommentVO } from '~/api/content/comment'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { formatRelativeTime } from '~/utils/format'
-import { scrollToTopOnMobilePagination } from '~/utils/paginationScroll'
-import Pagination from '~/components/Pagination.vue'
-import ConfirmDialog from '~/components/ConfirmDialog.vue'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { formatRelativeTime } from '~/utils/content/format'
+import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
+import Pagination from '~/components/common/Pagination.vue'
+import ConfirmDialog from '~/components/common/ConfirmDialog.vue'
 
 useHead({ title: '我的评论' })
 
@@ -83,6 +90,8 @@ const pageSize = ref(10)
 const total = ref(0)
 const selectedIds = ref<Set<number>>(new Set())
 const managing = ref(false)
+const pageEntered = ref(false)
+const listEntered = ref(false)
 
 const showDeleteConfirm = ref(false)
 const showBatchConfirm = ref(false)
@@ -149,10 +158,49 @@ async function loadData(page = 1) {
 }
 
 onMounted(() => loadData())
+
+onMounted(() => {
+  if (!import.meta.client) {
+    pageEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    pageEntered.value = true
+  })
+})
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    listEntered.value = false
+    return
+  }
+
+  if (!import.meta.client) {
+    listEntered.value = true
+    return
+  }
+
+  window.requestAnimationFrame(() => {
+    listEntered.value = true
+  })
+}, { immediate: true })
 </script>
 
 <style scoped lang="scss">
 .comments-page { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--layout-page-padding-y) var(--layout-page-padding-x); }
+.comments-page {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition:
+    opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.comments-page.page-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
 .page-header { margin-bottom: var(--layout-page-header-margin-bottom); }
 .back-link { display: inline-flex; align-items: center; gap: .375rem; color: $color-text-muted; text-decoration: none; margin-bottom: .5rem; .dark & { color: $color-dark-text-muted; } }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
@@ -190,6 +238,21 @@ onMounted(() => loadData())
   }
 }
 .comment-card { position: relative; padding: .75rem .9rem; margin-bottom: .5rem; border: 1px solid $color-border; border-radius: 12px; background: $color-bg; transition: border-color .2s, box-shadow .2s; .dark & { border-color: $color-dark-border; background: $color-dark-bg-secondary; } }
+.comment-card {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+}
+
+.comment-card.card-entered {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color .2s,
+    box-shadow .2s;
+  transition-delay: calc(40ms + min(var(--enter-index), 7) * 50ms);
+}
 .comment-card.managing { cursor: pointer; }
 .comment-card.selected { border-color: $color-primary; background: rgba($color-primary,.03); }
 .comment-card:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 8px 18px rgba(59,130,246,.08); .dark & { border-color: rgba(148,163,184,.46); box-shadow: 0 8px 18px rgba(2, 6, 23, .35); } }
@@ -240,4 +303,14 @@ onMounted(() => loadData())
 }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .comments-page,
+  .comment-card,
+  .comment-card.card-entered {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 </style>

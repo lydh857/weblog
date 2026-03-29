@@ -19,10 +19,11 @@
 </template>
 
 <script setup lang="ts">
-import { authApi } from '~/api/auth'
+import { authApi } from '~/api/auth/auth'
 import { useUserStore } from '~/stores/user'
-import { useLoginModal } from '~/composables/useLoginModal'
-import { consumeNavContext } from '~/utils/navContext'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
+import { consumeNavContext } from '~/utils/navigation/navContext'
+import { getErrorMessage } from '~/utils/security/error'
 
 useHead({ title: 'GitHub 登录中...' })
 
@@ -59,8 +60,8 @@ onMounted(async () => {
         requestAnimationFrame(() => window.scrollTo({ top: ctx.scrollY }))
       })
     }
-  } catch (e: any) {
-    error.value = e.message || 'GitHub 登录失败'
+  } catch (e: unknown) {
+    error.value = getErrorMessage(e, 'GitHub 登录失败')
   }
 })
 </script>

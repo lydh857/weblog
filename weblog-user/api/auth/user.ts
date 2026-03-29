@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export interface UserProfileVO {
   userId: number
@@ -27,17 +27,17 @@ export interface UpdateProfileRequest {
 export const userApi = {
   /** 获取个人资料 */
   getProfile: () =>
-    http.get<any, { data: UserProfileVO }>('/portal/user/profile'),
+    http.get<unknown, { data: UserProfileVO }>('/portal/user/profile'),
 
   /** 更新个人资料 */
   updateProfile: (data: UpdateProfileRequest) =>
-    http.put<any, { data: void }>('/portal/user/profile', data),
+    http.put<unknown, { data: void }>('/portal/user/profile', data),
 
   /** 上传头像 */
   uploadAvatar: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return http.post<any, { data: string }>('/portal/user/avatar', formData, {
+    return http.post<unknown, { data: string }>('/portal/user/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },

@@ -68,7 +68,7 @@
             :alt="post.title"
             loading="lazy"
             @error="handleImageError(post.post_id, $event)"
-          />
+          >
           <div v-else class="cover-placeholder" />
         </div>
         <!-- 渐变遮罩 -->
@@ -101,8 +101,9 @@
 </template>
 
 <script setup lang="ts">
-import { rankingApi, type RankingItem } from '~/api/ranking'
-import { formatCount } from '~/utils/format'
+import type { RankingItem } from '~/api/content/ranking'
+import { fetchCachedRanking } from '~/composables/cache/useNonCriticalApiCache'
+import { formatCount } from '~/utils/content/format'
 
 const posts = ref<RankingItem[]>([])
 const scrollRef = ref<HTMLElement>()
@@ -111,6 +112,7 @@ const canScrollRight = ref(false)
 const canScroll = ref(false)
 const loaded = ref(false)
 const imageErrorMap = ref<Record<number, boolean>>({})
+const scrollStepWidth = ref(296)
 // 直接根据滚动状态切换"查看更多"
 const showViewMore = computed(() => !canScrollRight.value && canScroll.value)
 
@@ -133,6 +135,12 @@ function handleImageError(postId: number, event: Event) {
 function updateScrollState() {
   const el = scrollRef.value
   if (!el) return
+
+  // 统一在滚动状态刷新阶段读取一次布局，避免点击箭头时再触发同步回流。
+  const firstCard = el.querySelector<HTMLElement>('.grid-card')
+  const cardWidth = firstCard?.clientWidth || 280
+  scrollStepWidth.value = cardWidth + 16
+
   canScrollLeft.value = el.scrollLeft > 0
   canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
   canScroll.value = el.scrollWidth > el.clientWidth
@@ -141,14 +149,13 @@ function updateScrollState() {
 function scrollBy(direction: number) {
   const el = scrollRef.value
   if (!el) return
-  const cardWidth = el.querySelector('.grid-card')?.clientWidth || 280
-  el.scrollBy({ left: direction * (cardWidth + 16), behavior: 'smooth' })
+  el.scrollBy({ left: direction * scrollStepWidth.value, behavior: 'smooth' })
 }
 
 async function loadHotPosts() {
   try {
-    const res = await rankingApi.get({ rankType: 4, limit: 8 })
-    posts.value = res.data
+    // 热门卡片是首页次级内容，使用短期缓存减少重复请求。
+    posts.value = await fetchCachedRanking({ rankType: 4, limit: 8 }, { ttlMs: 45_000 })
     imageErrorMap.value = {}
   } catch {
     posts.value = []
@@ -222,51 +229,57 @@ onUnmounted(() => {
 }
 
 .sk-circle {
+  position: relative;
+  overflow: hidden;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  background: rgba(148, 163, 184, 0.18);
   flex-shrink: 0;
 
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+  }
+
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.32) 50%, transparent 80%);
+    }
   }
 }
 
 .sk-pill {
+  position: relative;
+  overflow: hidden;
   width: 74px;
   height: 32px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  background: rgba(148, 163, 184, 0.18);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+  }
 
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.32) 50%, transparent 80%);
+    }
   }
 }
 
@@ -413,23 +426,25 @@ onUnmounted(() => {
 .grid-card-skeleton__cover {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.3) 50%,
-    rgba(148, 163, 184, 0.16) 100%
-  );
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+  }
 
   .dark & {
-    background: linear-gradient(
-      90deg,
-      rgba(71, 85, 105, 0.24) 0%,
-      rgba(100, 116, 139, 0.4) 50%,
-      rgba(71, 85, 105, 0.24) 100%
-    );
-    background-size: 200% 100%;
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.3) 50%, transparent 80%);
+    }
   }
 }
 
@@ -644,6 +659,12 @@ onUnmounted(() => {
 
 /* ===== 减少动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
+  .sk-circle::after,
+  .sk-pill::after,
+  .grid-card-skeleton__cover::after {
+    animation: none;
+  }
+
   .grid-card {
     transition: none;
   }
@@ -653,8 +674,8 @@ onUnmounted(() => {
   }
 }
 
-@keyframes sk-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes sk-shimmer-move {
+  0% { transform: translate3d(-140%, 0, 0); }
+  100% { transform: translate3d(140%, 0, 0); }
 }
 </style>

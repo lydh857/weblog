@@ -135,10 +135,10 @@
 import { defineAsyncComponent } from 'vue'
 import type { ExposeParam, Footers, ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import { uploadApi } from '~/api/upload'
-import { calculateMdStats, calculateHtmlStats, countCharsAndLines } from '~/composables/useEditorStats'
-import { applyFormat } from '~/composables/useEditorFormat'
-import { ensureMdEditorConfigured } from '~/composables/useMdEditor'
+import { uploadApi } from '~/api/system/upload'
+import { calculateMdStats, calculateHtmlStats, countCharsAndLines } from '~/composables/editor/useEditorStats'
+import { applyFormat } from '~/composables/editor/useEditorFormat'
+import { ensureMdEditorConfigured } from '~/composables/editor/useMdEditor'
 
 const MdEditor = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
@@ -359,7 +359,7 @@ function doFormat(action: string) {
 }
 
 // ========== AI 写作助手 ==========
-const aiChatBubbleRef = ref<InstanceType<typeof import('./ai/AiChatBubble.vue')['default']>>()
+const aiChatBubbleRef = ref<InstanceType<typeof import('../ai/AiChatBubble.vue')['default']>>()
 const currentSelectedText = ref('')
 
 function doAiAction(action: string) {

@@ -16,7 +16,7 @@
         :class="{ 'cover-image--loaded': imageLoaded }"
         @load="handleImageLoad"
         @error="handleImageError"
-      />
+      >
       <div v-else class="cover-placeholder">
         <span class="placeholder-char">{{ titleFirstChar }}</span>
       </div>
@@ -66,7 +66,7 @@
             :src="post.authorAvatar"
             :alt="post.authorNickname"
             class="author-avatar"
-          />
+          >
           <div v-else class="author-avatar-placeholder">
             {{ post.authorNickname.charAt(0) }}
           </div>
@@ -78,8 +78,8 @@
 </template>
 
 <script setup lang="ts">
-import type { PostVO } from '~/api/post'
-import { formatRelativeTime, formatCount } from '~/utils/format'
+import type { PostVO } from '~/api/content/post'
+import { formatRelativeTime, formatCount } from '~/utils/content/format'
 
 interface Props {
   post: PostVO
@@ -238,19 +238,13 @@ function handleImageError(e: Event) {
     display: block;
     object-fit: cover;
     opacity: 0;
-    transform: scale(1.03);
     filter: blur(2px);
-    transition: opacity 0.28s ease, transform 0.35s ease, filter 0.28s ease;
+    transition: opacity 0.28s ease, filter 0.28s ease;
   }
 
   .cover-image--loaded {
     opacity: 1;
-    transform: scale(1);
     filter: blur(0);
-  }
-
-  .article-card:hover & .cover-image--loaded {
-    transform: scale(1.05);
   }
 }
 

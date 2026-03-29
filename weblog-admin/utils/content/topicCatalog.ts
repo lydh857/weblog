@@ -1,4 +1,4 @@
-import type { CatalogNode } from '~/api/topic'
+import type { CatalogNode } from '~/api/content/topic'
 
 /**
  * 递归收集树中所有非 null 的 articleId
@@ -76,7 +76,7 @@ export function buildTree(nodes: CatalogNode[]): CatalogNode[] {
  * 按数组顺序重新赋值 sort（0, 1, 2, ...）
  */
 export function recalculateSort(siblings: CatalogNode[]): void {
-  for (let i = 0; i < siblings.length; i++) {
-    siblings[i].sort = i
-  }
+  siblings.forEach((sibling, index) => {
+    sibling.sort = index
+  })
 }

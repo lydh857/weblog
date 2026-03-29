@@ -66,7 +66,7 @@ withDefaults(defineProps<{
 
 <style scoped lang="scss">
 .unified-skeleton {
-  --sk-shimmer: linear-gradient(
+  --sk-shimmer-overlay: linear-gradient(
     90deg,
     rgba(148, 163, 184, 0.16) 0%,
     rgba(148, 163, 184, 0.3) 50%,
@@ -149,9 +149,28 @@ withDefaults(defineProps<{
 
 .variant-article .skeleton-cover,
 .variant-friend-link .skeleton-avatar {
-  background: var(--sk-shimmer);
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.variant-topic .skeleton-topic-cover,
+.variant-topic .skeleton-line {
+  position: relative;
+  overflow: hidden;
+}
+
+.variant-article .skeleton-cover::after,
+.variant-friend-link .skeleton-avatar::after,
+.variant-topic .skeleton-topic-cover::after,
+.variant-topic .skeleton-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sk-shimmer-overlay);
+  transform: translate3d(-140%, 0, 0);
+  animation: sk-shimmer-move 1.4s linear infinite;
+  will-change: transform;
+  pointer-events: none;
 }
 
 .variant-article .skeleton-line,
@@ -282,7 +301,7 @@ withDefaults(defineProps<{
     radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
     radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
     linear-gradient(180deg, #171b20, #101215);
-  --sk-shimmer: linear-gradient(
+  --sk-shimmer-overlay: linear-gradient(
     90deg,
     rgba(71, 85, 105, 0.24) 0%,
     rgba(100, 116, 139, 0.4) 50%,
@@ -304,25 +323,21 @@ withDefaults(defineProps<{
   background: rgba(100, 116, 139, 0.3);
 }
 
+.dark .variant-article .skeleton-cover,
+.dark .variant-friend-link .skeleton-avatar,
+.dark .variant-topic .skeleton-topic-cover,
+.dark .variant-topic .skeleton-line {
+  background: rgba(71, 85, 105, 0.32);
+}
+
 .dark .variant-article .skeleton-meta-row .skeleton-line,
 .dark .variant-friend-link .skeleton-meta-row .skeleton-line {
   background: rgba(100, 116, 139, 0.28);
 }
 
-.variant-topic .skeleton-topic-cover,
-.variant-topic .skeleton-line {
-  background: var(--sk-shimmer);
-  background-size: 200% 100%;
-  animation: sk-shimmer 1.4s linear infinite;
-}
-
-.dark .variant-topic .skeleton-line {
-  background: var(--sk-shimmer);
-}
-
-@keyframes sk-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes sk-shimmer-move {
+  0% { transform: translate3d(-140%, 0, 0); }
+  100% { transform: translate3d(140%, 0, 0); }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -374,10 +389,10 @@ withDefaults(defineProps<{
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .variant-article .skeleton-cover,
-  .variant-friend-link .skeleton-avatar,
-  .variant-topic .skeleton-topic-cover,
-  .variant-topic .skeleton-line {
+  .variant-article .skeleton-cover::after,
+  .variant-friend-link .skeleton-avatar::after,
+  .variant-topic .skeleton-topic-cover::after,
+  .variant-topic .skeleton-line::after {
     animation: none;
   }
 }

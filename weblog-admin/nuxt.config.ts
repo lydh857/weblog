@@ -10,6 +10,21 @@ export default defineNuxtConfig({
     '@nuxt/image',
   ],
 
+  imports: {
+    dirs: [
+      'composables/**',
+      'utils/**',
+    ],
+  },
+
+  // 按领域拆分组件目录，保持现有组件命名习惯。
+  components: [
+    { path: '~/components/ai', pathPrefix: false },
+    { path: '~/components/auth', pathPrefix: false },
+    { path: '~/components/common', pathPrefix: false },
+    { path: '~/components/editor', pathPrefix: false },
+  ],
+
   css: ['~/assets/scss/main.scss'],
 
   vite: {

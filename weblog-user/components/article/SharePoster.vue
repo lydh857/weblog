@@ -1,11 +1,11 @@
 <template>
   <Teleport to="body">
-    <Transition name="poster-fade" appear>
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="poster-overlay" @click.self="$emit('close')">
         <div class="poster-modal">
           <div class="poster-header">
             <h3>分享海报</h3>
-            <button class="close-btn" @click="$emit('close')" aria-label="关闭">
+            <button class="close-btn" aria-label="关闭" @click="$emit('close')">
               <Icon name="heroicons:x-mark-20-solid" size="20" />
             </button>
           </div>
@@ -230,14 +230,25 @@ function copyLink() {
 
 <style scoped lang="scss">
 .poster-overlay {
-  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0, 0, 0, 0.6);
+  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; padding: 1rem;
+
+  .dark & {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 .poster-modal {
-  background: $color-bg; border-radius: $radius-lg; padding: 1.5rem; max-width: 420px; width: 100%;
+  background: $color-bg; border-radius: 12px; padding: 1.5rem; max-width: 420px; width: 100%;
+  border: 1px solid transparent;
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
-  .dark & { background: $color-dark-bg-secondary; }
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: rgba(148, 163, 184, 0.14);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
 }
 .poster-header {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;
@@ -266,34 +277,27 @@ function copyLink() {
 }
 .tip { text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #22c55e; }
 
-.poster-fade-enter-active,
-.poster-fade-leave-active {
-  transition: opacity 220ms ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .poster-modal {
+    transition: transform 0.25s;
+  }
 }
 
-.poster-fade-enter-from,
-.poster-fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
   opacity: 0;
-}
 
-.poster-fade-enter-active .poster-modal,
-.poster-fade-leave-active .poster-modal {
-  transition: transform 260ms cubic-bezier(0.22, 0.8, 0.36, 1), opacity 220ms ease;
-}
-
-.poster-fade-enter-from .poster-modal,
-.poster-fade-leave-to .poster-modal {
-  transform: translateY(18px) scale(0.98);
-  opacity: 0;
+  .poster-modal {
+    transform: translateY(20px) scale(0.96);
+  }
 }
 
 @media (max-width: $breakpoint-md) {
-  .poster-fade-enter-from .poster-modal,
-  .poster-fade-leave-to .poster-modal {
-    transform: translateY(28px);
-    opacity: 0;
-  }
-
   .poster-overlay {
     align-items: flex-end;
     padding: 0.5rem 0.5rem 0;
@@ -327,10 +331,12 @@ function copyLink() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .poster-fade-enter-active,
-  .poster-fade-leave-active,
-  .poster-fade-enter-active .poster-modal,
-  .poster-fade-leave-active .poster-modal {
+  .modal-fade-enter-active,
+  .modal-fade-leave-active,
+  .modal-fade-appear-active,
+  .modal-fade-enter-active .poster-modal,
+  .modal-fade-leave-active .poster-modal,
+  .modal-fade-appear-active .poster-modal {
     transition: none;
   }
 }

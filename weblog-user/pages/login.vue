@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { useLoginModal } from '~/composables/useLoginModal'
+import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 useHead({ title: '登录' })
 

@@ -130,9 +130,9 @@
 <script setup lang="ts">
 import { ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { commentApi, type CommentVO } from '~/api/comment'
-import { aiApi } from '~/api/ai'
-import { handleAiError } from '~/utils/aiError'
+import { commentApi, type CommentVO } from '~/api/content/comment'
+import { aiApi } from '~/api/ai/ai'
+import { handleAiError } from '~/utils/ai/aiError'
 
 const loading = ref(false)
 const records = ref<CommentVO[]>([])

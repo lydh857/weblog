@@ -1,5 +1,5 @@
-import { http } from '~/utils/http'
-import { ssePost } from '~/utils/sse'
+import { http } from '~/utils/network/http'
+import { ssePost } from '~/utils/network/sse'
 
 // ========== 请求类型 ==========
 

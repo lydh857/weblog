@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/captcha'
+import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/auth/captcha'
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -232,7 +232,7 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="captcha-fade">
+    <Transition name="modal-fade" appear>
       <div v-if="visible" class="captcha-overlay" :class="{ 'captcha-overlay--dark': isDarkMode }" @click.self="close">
         <div class="captcha-modal">
           <!-- 标题栏 -->
@@ -332,7 +332,7 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .captcha-overlay {
-  --captcha-overlay-bg: rgba(0, 0, 0, 0.5);
+  --captcha-overlay-bg: rgba(0, 0, 0, 0.4);
   --captcha-modal-bg: #ffffff;
   --captcha-modal-border: transparent;
   --captcha-modal-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -353,14 +353,14 @@ onUnmounted(() => {
   position: fixed; inset: 0; z-index: var(--z-captcha);
   display: flex; align-items: center; justify-content: center;
   background: var(--captcha-overlay-bg);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 
 }
 
 .captcha-overlay--dark {
-  --captcha-overlay-bg: rgba(0, 0, 0, 0.5);
+  --captcha-overlay-bg: rgba(0, 0, 0, 0.6);
   --captcha-modal-bg: linear-gradient(180deg, #171b20, #101215);
-  --captcha-modal-border: rgba(148, 163, 184, 0.2);
+  --captcha-modal-border: rgba(148, 163, 184, 0.14);
   --captcha-modal-shadow: 0 16px 36px rgba(2, 6, 23, 0.48);
   --captcha-header-bg: linear-gradient(180deg, rgba(8, 10, 14, 0.96), rgba(20, 24, 31, 0.96));
   --captcha-header-text: #f8fafc;
@@ -378,10 +378,15 @@ onUnmounted(() => {
 }
 
 .captcha-modal {
-  background: var(--captcha-modal-bg); border-radius: 8px; overflow: hidden;
+  background: var(--captcha-modal-bg); border-radius: 12px; overflow: hidden;
   border: 1px solid var(--captcha-modal-border);
-  box-shadow: var(--captcha-modal-shadow);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   user-select: none; touch-action: none;
+
+  .dark & {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    border-color: rgba(148, 163, 184, 0.14);
+  }
 }
 
 .captcha-header {
@@ -539,6 +544,23 @@ onUnmounted(() => {
 .captcha-result-fade-enter-from, .captcha-result-fade-leave-to { opacity: 0; }
 
 // 整体淡入淡出
-.captcha-fade-enter-active, .captcha-fade-leave-active { transition: opacity 0.25s ease; }
-.captcha-fade-enter-from, .captcha-fade-leave-to { opacity: 0; }
+.modal-fade-enter-active,
+.modal-fade-leave-active,
+.modal-fade-appear-active {
+  transition: opacity 0.25s;
+
+  .captcha-modal {
+    transition: transform 0.25s;
+  }
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to,
+.modal-fade-appear-from {
+  opacity: 0;
+
+  .captcha-modal {
+    transform: translateY(20px) scale(0.96);
+  }
+}
 </style>

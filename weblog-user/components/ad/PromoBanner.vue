@@ -10,10 +10,12 @@
           class="promo-link"
           @click="recordClick(item.id)"
         >
-          <img :src="item.content" :alt="item.title" class="promo-image" loading="lazy" />
+          <img :src="item.content" :alt="item.title" class="promo-image" loading="lazy" >
         </a>
-        <img v-else :src="item.content" :alt="item.title" class="promo-image" loading="lazy" />
+        <img v-else :src="item.content" :alt="item.title" class="promo-image" loading="lazy" >
       </template>
+      <!-- 已经过 DOMPurify 白名单净化 -->
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <div v-else-if="item.type === 'code'" class="promo-code" v-html="sanitize(item.content)" />
       <span class="promo-label">推广</span>
     </div>
@@ -21,9 +23,9 @@
 </template>
 
 <script setup lang="ts">
-import { adApi, type AdvertisementVO } from '~/api/ad'
+import { adApi, type AdvertisementVO } from '~/api/marketing/ad'
 import DOMPurify from 'dompurify'
-import { normalizeSafeHref } from '~/utils/urlSafety'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
 
 const props = defineProps<{ position: string }>()
 

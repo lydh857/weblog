@@ -10,7 +10,7 @@
     @touchend="handleTouchEnd"
   >
     <!-- 加载占位：仅用于锁定高度，避免刷新时页面跳动 -->
-    <div v-if="!loaded" class="carousel-placeholder" aria-hidden="true"></div>
+    <div v-if="!loaded" class="carousel-placeholder" aria-hidden="true"/>
 
     <template v-else>
       <!-- 轮播幻灯片 -->
@@ -35,7 +35,7 @@
             decoding="async"
             @load="handleImageLoad(index)"
             @error="handleImageError(index)"
-          />
+          >
           <div v-else class="slide-bg slide-bg--placeholder" />
           <!-- 渐变遮罩 -->
           <div class="slide-overlay" />
@@ -43,7 +43,7 @@
       </div>
 
       <!-- 文字叠加层（点击整个轮播跳转） -->
-      <div class="carousel-content" :key="currentIndex" @click="handleSlideClick(currentSlide!)">
+      <div :key="currentIndex" class="carousel-content" @click="handleSlideClick(currentSlide!)">
         <h1 class="carousel-title">{{ currentSlide?.title }}</h1>
         <p v-if="currentSlide?.description" class="carousel-desc">
           {{ currentSlide.description }}
@@ -72,8 +72,8 @@
         >
           <span
             v-if="index === currentIndex"
-            class="indicator-progress"
             :key="progressKey"
+            class="indicator-progress"
             :style="{ animationPlayState: isPaused ? 'paused' : 'running' }"
           />
         </button>
@@ -83,8 +83,8 @@
 </template>
 
 <script setup lang="ts">
-import { carouselApi, type CarouselVO } from '~/api/carousel'
-import { normalizeSafeHref } from '~/utils/urlSafety'
+import { carouselApi, type CarouselVO } from '~/api/content/carousel'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
 
 // ===== 状态 =====
 const slides = ref<CarouselVO[]>([])

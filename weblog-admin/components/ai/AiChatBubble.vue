@@ -184,8 +184,8 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { aiApi, type ChatMessage } from '~/api/ai'
-import { handleAiError } from '~/utils/aiError'
+import { aiApi, type ChatMessage } from '~/api/ai/ai'
+import { handleAiError } from '~/utils/ai/aiError'
 
 // 扩展消息类型：assistant 消息支持多结果
 interface BubbleMessage extends ChatMessage {
@@ -196,13 +196,20 @@ interface BubbleMessage extends ChatMessage {
   _actionParams?: Record<string, unknown>
 }
 
+type ToolbarAction = 'continue' | 'polish' | 'rewrite' | 'translate'
+type WritingAction = ToolbarAction | 'chat'
+
+function isToolbarAction(action: string): action is ToolbarAction {
+  return action === 'continue' || action === 'polish' || action === 'rewrite' || action === 'translate'
+}
+
 // 快捷功能图标
 const IconContinue = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M5 12h14M12 5l7 7-7 7' })])
 const IconPolish = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' })])
 const IconRewrite = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M17 1l4 4-4 4' }), h('path', { d: 'M3 11V9a4 4 0 0 1 4-4h14' }), h('path', { d: 'M7 23l-4-4 4-4' }), h('path', { d: 'M21 13v2a4 4 0 0 1-4 4H3' })])
 const IconTranslate = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1' }), h('path', { d: 'M22 22l-5-10-5 10M14 18h6' })])
 
-const quickActions = [
+const quickActions: Array<{ key: ToolbarAction; label: string; icon: () => ReturnType<typeof h>; needSelection: boolean }> = [
   { key: 'continue', label: '续写', icon: IconContinue, needSelection: false },
   { key: 'polish', label: '润色', icon: IconPolish, needSelection: true },
   { key: 'rewrite', label: '改写', icon: IconRewrite, needSelection: true },
@@ -236,7 +243,7 @@ const hasSelection = computed(() => !!props.selectedText?.trim())
 function getActiveContent(msg: BubbleMessage): string {
   let text = ''
   if (msg.contents && msg.contents.length > 0) {
-    text = msg.contents[msg.activeIndex ?? 0]
+    text = msg.contents[msg.activeIndex ?? 0] ?? ''
   } else {
     text = msg.content
   }
@@ -256,7 +263,7 @@ function switchResult(msg: BubbleMessage, delta: number) {
   const idx = (msg.activeIndex ?? 0) + delta
   if (idx < 0 || idx >= msg.contents.length) return
   msg.activeIndex = idx
-  msg.content = msg.contents[idx]
+  msg.content = msg.contents[idx] ?? ''
 }
 
 // ========== 悬浮球拖拽 ==========
@@ -336,13 +343,16 @@ function calcInitialChatPos(): { left: number; top: number; maxHeight?: number }
   )
 
   let bestDir: Direction
+  const firstVertical = verticalFit[0]
+  const firstHorizontal = horizontalFit[0]
   if (verticalFit.length > 0) {
-    bestDir = verticalFit[0].dir
+    bestDir = firstVertical?.dir ?? 'above'
   } else if (horizontalFit.length > 0) {
-    bestDir = horizontalFit[0].dir
+    bestDir = firstHorizontal?.dir ?? 'left'
   } else {
     // 都放不下，选空间最大的方向
-    bestDir = candidates.sort((a, b) => b.space - a.space)[0].dir
+    const topCandidate = [...candidates].sort((a, b) => b.space - a.space)[0]
+    bestDir = topCandidate?.dir ?? 'below'
   }
 
   let left: number
@@ -518,6 +528,7 @@ function getQuestionPreview(msgIdx: number): string {
 function jumpToQuestion(qIdx: number) {
   currentQuestionIdx.value = qIdx
   const msgIdx = userMsgIndices.value[qIdx]
+  if (typeof msgIdx !== 'number') return
   const el = msgRefs.value.get(msgIdx)
   if (el && chatBodyRef.value) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -530,6 +541,10 @@ watch(() => messages.value.length, () => {
 
 // ========== 外部调用 ==========
 function openWithAction(action: string) {
+  if (!isToolbarAction(action)) {
+    return
+  }
+
   chatWindowPos.x = -1
   chatWindowPos.y = -1
   chatVisible.value = true
@@ -544,6 +559,10 @@ function openWithAction(action: string) {
 }
 
 function handleQuickAction(action: string) {
+  if (!isToolbarAction(action)) {
+    return
+  }
+
   if (action !== 'continue' && !hasSelection.value) {
     ElMessage.warning('请先在编辑器中选中文字')
     return
@@ -571,9 +590,14 @@ function startSseStream(
   sse
     .onMessage((chunk: string) => {
       const msg = messages.value[assistantIdx]
+      if (!msg) {
+        return
+      }
+
       if (msg.contents) {
-        msg.contents[contentIdx] += chunk
-        msg.content = msg.contents[contentIdx]
+        const currentContent = msg.contents[contentIdx] ?? ''
+        msg.contents[contentIdx] = currentContent + chunk
+        msg.content = msg.contents[contentIdx] ?? ''
       } else {
         msg.content += chunk
       }
@@ -589,7 +613,7 @@ function startSseStream(
 }
 
 // ========== 创建写作 SSE ==========
-function createWritingSse(action: string, params: Record<string, unknown>): ReturnType<typeof aiApi.writingContinue> | null {
+function createWritingSse(action: WritingAction, params: Record<string, unknown>): ReturnType<typeof aiApi.writingContinue> | null {
   switch (action) {
     case 'continue':
       return aiApi.writingContinue({ context: params.context as string })
@@ -607,12 +631,16 @@ function createWritingSse(action: string, params: Record<string, unknown>): Retu
 }
 
 function executeWritingAction(action: string) {
+  if (!isToolbarAction(action)) {
+    return
+  }
+
   if (streaming.value) return
 
   const text = props.selectedText || ''
   const context = props.editorContext || ''
 
-  const actionLabels: Record<string, string> = {
+  const actionLabels: Record<ToolbarAction, string> = {
     continue: '请续写以下内容',
     polish: '请润色以下文字',
     rewrite: '请改写以下文字',
@@ -685,6 +713,7 @@ function handleSend() {
 function handleRegenerate(msgIdx: number) {
   if (streaming.value) return
   const msg = messages.value[msgIdx]
+  if (!msg) return
   if (msg.role !== 'assistant' || !msg._action) return
 
   // 初始化 contents 数组（兼容旧消息）
@@ -701,7 +730,7 @@ function handleRegenerate(msgIdx: number) {
   scrollToBottom()
 
   // 对 chat 类型，需要重建 history（截取到该消息之前）
-  let params = { ...msg._actionParams }
+  let params: Record<string, unknown> = { ...(msg._actionParams ?? {}) }
   if (msg._action === 'chat') {
     const history = messages.value.slice(0, msgIdx).map(m => ({
       role: m.role,
@@ -710,9 +739,9 @@ function handleRegenerate(msgIdx: number) {
     params = { ...params, history }
   }
 
-  const sse = createWritingSse(msg._action, params)
+  const sse = createWritingSse(msg._action as WritingAction, params)
   if (!sse) { streaming.value = false; return }
-  startSseStream(sse, msgIdx, msg.activeIndex!)
+  startSseStream(sse, msgIdx, msg.activeIndex ?? 0)
 }
 
 function handleInputKeydown(e: KeyboardEvent) {

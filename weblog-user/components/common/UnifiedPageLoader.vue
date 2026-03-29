@@ -40,7 +40,9 @@ withDefaults(defineProps<{
     linear-gradient(180deg, rgba(244, 248, 255, 0.86), rgba(237, 242, 251, 0.9));
 }
 
-:global(html.dark) .unified-page-loader {
+:global(html.dark) .unified-page-loader,
+:global(body.dark) .unified-page-loader,
+:global(.dark) .unified-page-loader {
   border-color: rgba(71, 85, 105, 0.55);
   background:
     radial-gradient(circle at 50% 0%, rgba(91, 141, 239, 0.22), transparent 58%),
@@ -56,7 +58,9 @@ withDefaults(defineProps<{
   animation: unified-page-loader-spin 0.8s linear infinite;
 }
 
-:global(html.dark) .unified-page-loader__spinner {
+:global(html.dark) .unified-page-loader__spinner,
+:global(body.dark) .unified-page-loader__spinner,
+:global(.dark) .unified-page-loader__spinner {
   border-color: rgba(148, 163, 184, 0.26);
   border-top-color: #93b4f4;
 }
@@ -69,7 +73,9 @@ withDefaults(defineProps<{
   letter-spacing: 0.4px;
 }
 
-:global(html.dark) .unified-page-loader__text {
+:global(html.dark) .unified-page-loader__text,
+:global(body.dark) .unified-page-loader__text,
+:global(.dark) .unified-page-loader__text {
   color: #aac6fa;
 }
 
@@ -86,7 +92,9 @@ withDefaults(defineProps<{
   min-height: 160px;
 }
 
-:global(html.dark) .unified-page-loader--plain {
+:global(html.dark) .unified-page-loader--plain,
+:global(body.dark) .unified-page-loader--plain,
+:global(.dark) .unified-page-loader--plain {
   border: none;
   background: transparent;
 }

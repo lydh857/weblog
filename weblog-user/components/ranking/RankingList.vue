@@ -22,6 +22,7 @@
     <!-- 内容区域（相对定位容器） -->
     <div
       ref="rankingBodyRef"
+      v-custom-scrollbar
       class="ranking-body"
       @touchstart="handleTouchStart"
       @touchmove="handleTouchMove"
@@ -63,7 +64,7 @@
               :alt="item.title"
               loading="lazy"
               @error="handleCoverError(item.post_id, $event)"
-            />
+            >
             <div v-else class="item-cover-placeholder" />
           </div>
           <div class="item-content">
@@ -108,7 +109,7 @@
 
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
-import { rankingApi, type RankingItem, type RankingMeta } from '~/api/ranking'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/content/ranking'
 
 interface Props {
   maxItems?: number

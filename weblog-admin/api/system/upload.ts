@@ -1,4 +1,4 @@
-import { http } from '~/utils/http'
+import { http } from '~/utils/network/http'
 
 export const uploadApi = {
   /** 上传图片，返回 URL */
