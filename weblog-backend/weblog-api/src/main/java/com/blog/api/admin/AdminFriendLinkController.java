@@ -6,16 +6,25 @@ import com.blog.common.result.ResultCode;
 import com.blog.content.entity.FriendLink;
 import com.blog.content.service.FriendLinkService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.system.entity.User;
+import com.blog.system.mapper.UserMapper;
+import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 
@@ -28,36 +37,65 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 @RequiredArgsConstructor
 public class AdminFriendLinkController {
 
+    private static final String FRIEND_LINK_APPLY_SWITCH_KEY = "friend_link_apply_enabled";
     private final FriendLinkService friendLinkService;
+    private final UserMapper userMapper;
+    private final SystemConfigService systemConfigService;
     private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "rejected");
 
     @Operation(summary = "获取所有友链")
     @GetMapping
-    public Result<List<FriendLink>> listAll() {
-        return Result.success(friendLinkService.listAll());
+    public Result<List<FriendLinkAdminVO>> listAll() {
+        List<FriendLink> links = friendLinkService.listAll();
+        List<Long> applicantIds = links.stream()
+                .map(FriendLink::getApplicantUserId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, User> applicantMap;
+        if (applicantIds.isEmpty()) {
+            applicantMap = Collections.emptyMap();
+        } else {
+            applicantMap = userMapper.selectBatchIds(applicantIds)
+                    .stream()
+                    .collect(Collectors.toMap(User::getId, user -> user, (left, right) -> left, HashMap::new));
+        }
+
+        List<FriendLinkAdminVO> records = links.stream()
+                .map(link -> toAdminVO(link, applicantMap.get(link.getApplicantUserId())))
+                .collect(Collectors.toList());
+
+        return Result.success(records);
     }
 
     @Operation(summary = "获取友链详情")
     @GetMapping("/{id}")
-    public Result<FriendLink> getById(@PathVariable Long id) {
-        return Result.success(friendLinkService.getById(id));
+    public Result<FriendLinkAdminVO> getById(@PathVariable Long id) {
+        FriendLink link = friendLinkService.getById(id);
+        User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
+        return Result.success(toAdminVO(link, applicant));
     }
 
     @Operation(summary = "创建友链")
     @PostMapping
     @AuditLog(module = "友链管理", operation = "CREATE", description = "创建友链")
-    public Result<FriendLink> create(@RequestBody FriendLinkRequest req) {
-        return Result.success(friendLinkService.create(
-                req.getName(), req.getUrl(), req.getLogo(), req.getDescription(), req.getSortOrder()));
+    public Result<FriendLinkAdminVO> create(@RequestBody FriendLinkRequest req) {
+        FriendLink link = friendLinkService.create(
+                req.getName(), req.getUrl(), req.getLogo(), req.getDescription(), req.getSortOrder());
+        User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
+        return Result.success(toAdminVO(link, applicant));
     }
 
     @Operation(summary = "更新友链")
     @PutMapping("/{id}")
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "更新友链")
-    public Result<FriendLink> update(@PathVariable Long id, @RequestBody FriendLinkRequest req) {
-        return Result.success(friendLinkService.update(
+    public Result<FriendLinkAdminVO> update(@PathVariable Long id, @RequestBody FriendLinkRequest req) {
+        FriendLink link = friendLinkService.update(
                 id, req.getName(), req.getUrl(), req.getLogo(), req.getDescription(),
-                req.getStatus(), req.getSortOrder()));
+                req.getStatus(), req.getSortOrder());
+        User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
+        return Result.success(toAdminVO(link, applicant));
     }
 
     @Operation(summary = "删除友链")
@@ -108,19 +146,71 @@ public class AdminFriendLinkController {
         return Result.success(changed);
     }
 
+    @Operation(summary = "获取友链申请开关状态")
+    @GetMapping("/apply-switch")
+    public Result<Map<String, Object>> getApplySwitch() {
+        String val = systemConfigService.getValue(FRIEND_LINK_APPLY_SWITCH_KEY);
+        return Result.success(Map.of("enabled", "true".equals(val)));
+    }
+
+    @Operation(summary = "设置友链申请开关")
+    @PutMapping("/apply-switch")
+    @AuditLog(module = "友链管理", operation = "UPDATE", description = "设置友链申请开关")
+    public Result<Void> setApplySwitch(@RequestBody Map<String, Object> body) {
+        boolean enabled = body != null && Boolean.TRUE.equals(body.get("enabled"));
+        String val = enabled ? "true" : "false";
+        systemConfigService.createIfAbsent(FRIEND_LINK_APPLY_SWITCH_KEY, val, "友链申请入口开关");
+        systemConfigService.batchUpdate(Map.of(FRIEND_LINK_APPLY_SWITCH_KEY, val));
+        return Result.success();
+    }
+
     @Operation(summary = "审核通过友链申请")
     @PutMapping("/{id}/approve")
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "审核通过友链申请")
-    public Result<FriendLink> approve(@PathVariable Long id) {
-        return Result.success(friendLinkService.approveLink(id));
+    public Result<FriendLinkAdminVO> approve(@PathVariable Long id) {
+        FriendLink link = friendLinkService.approveLink(id);
+        User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
+        return Result.success(toAdminVO(link, applicant));
     }
 
     @Operation(summary = "拒绝友链申请")
     @PutMapping("/{id}/reject")
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "拒绝友链申请")
-    public Result<FriendLink> reject(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+    public Result<FriendLinkAdminVO> reject(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
         String reason = body != null ? body.get("reason") : null;
-        return Result.success(friendLinkService.rejectLink(id, reason));
+        FriendLink link = friendLinkService.rejectLink(id, reason);
+        User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
+        return Result.success(toAdminVO(link, applicant));
+    }
+
+    private FriendLinkAdminVO toAdminVO(FriendLink link, User applicant) {
+        FriendLinkAdminVO vo = new FriendLinkAdminVO();
+        BeanUtils.copyProperties(link, vo);
+        if (applicant != null) {
+            vo.setApplicantNickname(applicant.getNickname());
+            vo.setApplicantEmail(applicant.getEmail());
+            vo.setApplicantAvatar(applicant.getAvatar());
+        }
+        return vo;
+    }
+
+    @Data
+    public static class FriendLinkAdminVO {
+        private Long id;
+        private String name;
+        private String url;
+        private String logo;
+        private String description;
+        private String status;
+        private Integer sortOrder;
+        private Long applicantUserId;
+        private String reason;
+        private LocalDateTime lastCheckTime;
+        private LocalDateTime createTime;
+        private LocalDateTime updateTime;
+        private String applicantNickname;
+        private String applicantEmail;
+        private String applicantAvatar;
     }
 
     @Data

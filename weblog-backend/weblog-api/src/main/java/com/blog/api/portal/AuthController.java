@@ -1,9 +1,12 @@
 package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.blog.common.exception.BusinessException;
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
+import com.blog.common.result.ResultCode;
 import com.blog.common.util.ValidateUtil;
+import com.blog.infra.redis.RedisService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.*;
@@ -23,9 +26,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.IDN;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用户端认证接口
@@ -39,6 +45,7 @@ public class AuthController {
     private final AuthService authService;
     private final EmailCodeService emailCodeService;
     private final CaptchaService captchaService;
+    private final RedisService redisService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
     private static final String PORTAL_REMEMBER_COOKIE = "Portal-Remember-Token";
@@ -46,6 +53,23 @@ public class AuthController {
     private static final int MAX_EMAIL_LENGTH = 100;
     private static final int MAX_CODE_LENGTH = 12;
     private static final int MAX_PASSWORD_LENGTH = 128;
+    private static final int MAX_DOMAIN_LENGTH = 253;
+    private static final int CHECK_EMAIL_DOMAIN_RATE_CAPACITY = 3;
+    private static final int CHECK_EMAIL_DOMAIN_RATE_SECONDS = 60;
+    private static final String CHECK_EMAIL_DOMAIN_RATE_KEY_PREFIX = "auth:check-email:domain:";
+    private static final int AUTH_USER_RATE_SECONDS = 300;
+    private static final String AUTH_USER_RATE_KEY_PREFIX = "auth:user-rate:";
+    private static final int DNS_CACHE_VALID_SECONDS = 1800;
+    private static final int DNS_CACHE_INVALID_SECONDS = 600;
+    private static final String DNS_CACHE_KEY_PREFIX = "auth:check-email:dns-cache:";
+    private static final String DNS_FAIL_KEY = "auth:check-email:dns-fail";
+    private static final String DNS_CIRCUIT_OPEN_KEY = "auth:check-email:dns-circuit:open";
+    private static final int DNS_FAIL_THRESHOLD = 6;
+    private static final int DNS_FAIL_WINDOW_SECONDS = 60;
+    private static final int DNS_CIRCUIT_OPEN_SECONDS = 120;
+    private static final Set<String> INTERNAL_DOMAIN_SUFFIXES = Set.of(
+            "localhost", "local", "internal", "lan", "home", "localdomain", "corp"
+    );
 
     @Operation(summary = "用户注册", description = "通过邮箱和密码注册新用户，需要邮箱验证码")
     @PostMapping("/register")
@@ -57,6 +81,11 @@ public class AuthController {
                                  HttpServletRequest request) {
         String clientIp = IpUtil.getClientIp(request);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+
+        String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
+        req.setEmail(email);
+        enforceEmailActionRateLimit("register", email, 8, AUTH_USER_RATE_SECONDS);
+
         authService.registerWithCode(req, code);
         return Result.success();
     }
@@ -72,6 +101,11 @@ public class AuthController {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+
+        String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
+        req.setEmail(email);
+        enforceEmailActionRateLimit("login-password", email, 10, AUTH_USER_RATE_SECONDS);
+
         LoginResponse loginResponse = authService.login(req, clientIp, userAgent);
 
         syncRememberCookie(response, request, loginResponse.getRememberToken(), req.isRememberMe());
@@ -90,7 +124,12 @@ public class AuthController {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
-        LoginResponse loginResponse = authService.loginByCode(req.getEmail(), req.getCode(), clientIp, userAgent);
+
+        String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
+        req.setEmail(email);
+        enforceEmailActionRateLimit("login-code", email, 10, AUTH_USER_RATE_SECONDS);
+
+        LoginResponse loginResponse = authService.loginByCode(email, req.getCode(), clientIp, userAgent);
 
         clearRememberCookie(response, request);
         loginResponse.setRememberToken(null);
@@ -105,12 +144,18 @@ public class AuthController {
                                  HttpServletRequest request) {
         String clientIp = IpUtil.getClientIp(request);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
-        String scene = req.getScene();
+
+        String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
+        req.setEmail(email);
+
+        String scene = req.getScene() == null ? "" : req.getScene().trim().toLowerCase(Locale.ROOT);
         if (!java.util.Set.of("login", "register", "bind", "change-email", "reset-pwd", "forgot-password").contains(scene)) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "无效的场景参数");
+            throw new BusinessException(ResultCode.PARAM_INVALID, "无效的场景参数");
         }
-        emailCodeService.sendCode(req.getEmail(), scene);
+        req.setScene(scene);
+        enforceEmailActionRateLimit("send-code:" + scene, email, 6, AUTH_USER_RATE_SECONDS);
+
+        emailCodeService.sendCode(email, scene);
         return Result.success();
     }
 
@@ -119,8 +164,7 @@ public class AuthController {
     @RateLimit(key = "refreshToken", capacity = 10, seconds = 60)
     public Result<RefreshTokenResponse> refreshToken(HttpServletRequest request) {
         if (!StpUtil.isLogin()) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.UNAUTHORIZED, "Refresh token 无效或已过期");
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "Refresh token 无效或已过期");
         }
         StpUtil.renewTimeout(1800);
         return Result.success(new RefreshTokenResponse(true));
@@ -143,8 +187,7 @@ public class AuthController {
                                                HttpServletResponse response) {
         String token = readCookie(request, PORTAL_REMEMBER_COOKIE);
         if (token == null || token.isBlank()) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "token 不能为空");
+            throw new BusinessException(ResultCode.PARAM_MISSING, "token 不能为空");
         }
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
@@ -185,26 +228,24 @@ public class AuthController {
     @Operation(summary = "检查邮箱可用性", description = "验证邮箱格式和域名MX记录")
     @PostMapping("/check-email")
     @RateLimit(key = "checkEmail", capacity = 10, seconds = 60)
-    public Result<Void> checkEmail(@RequestBody Map<String, String> body) {
+    public Result<Void> checkEmail(@RequestBody Map<String, String> body,
+                                   @RequestHeader(value = "X-Captcha-Token", required = false) String verifyToken,
+                                   HttpServletRequest request) {
+        if (verifyToken == null || verifyToken.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, "缺少验证码令牌");
+        }
+
+        String clientIp = IpUtil.getClientIp(request);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+
         String email = normalizeEmailField(body, "email");
-        String domain = email.substring(email.indexOf('@') + 1);
-        try {
-            var env = new java.util.Hashtable<String, String>();
-            env.put("com.sun.jndi.dns.timeout.initial", "3000");
-            env.put("com.sun.jndi.dns.timeout.retries", "1");
-            var ctx = new javax.naming.directory.InitialDirContext(env);
-            var attrs = ctx.getAttributes("dns:/" + domain, new String[]{"MX"});
-            var mx = attrs.get("MX");
-            if (mx == null || mx.size() == 0) {
-                throw new com.blog.common.exception.BusinessException(
-                        com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
-            }
-            ctx.close();
-        } catch (com.blog.common.exception.BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
+        enforceEmailActionRateLimit("check-email", email, 8, AUTH_USER_RATE_SECONDS);
+
+        String domain = normalizeAndValidateDomain(email.substring(email.indexOf('@') + 1));
+        enforceCheckEmailDomainRateLimit(clientIp, domain);
+
+        if (!checkDomainMxWithProtection(domain)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
         }
         return Result.success();
     }
@@ -218,60 +259,218 @@ public class AuthController {
         String clientIp = IpUtil.getClientIp(request);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         String email = normalizeEmailField(body, "email");
+        enforceEmailActionRateLimit("forgot-password", email, 6, AUTH_USER_RATE_SECONDS);
+
         String code = normalizeCodeField(body, "code");
         String password = getRequiredPassword(body, "password");
         authService.forgotPassword(email, code, password);
         return Result.success();
     }
 
+    private String normalizeEmailValue(String email, String emptyMessage) {
+        if (email == null || email.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, emptyMessage);
+        }
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        if (normalized.length() > MAX_EMAIL_LENGTH) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱长度不能超过" + MAX_EMAIL_LENGTH + "个字符");
+        }
+        if (!ValidateUtil.isValidEmail(normalized)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱格式不正确");
+        }
+        return normalized;
+    }
+
     private String normalizeEmailField(Map<String, String> body, String field) {
-        String email = getRequiredText(body, field, "邮箱不能为空");
-        if (email.length() > MAX_EMAIL_LENGTH) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱长度不能超过" + MAX_EMAIL_LENGTH + "个字符");
+        return normalizeEmailValue(getRequiredText(body, field, "邮箱不能为空"), "邮箱不能为空");
+    }
+
+    private String normalizeAndValidateDomain(String rawDomain) {
+        String domain = rawDomain == null ? "" : rawDomain.trim().toLowerCase(Locale.ROOT);
+        if (domain.isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
         }
-        if (!ValidateUtil.isValidEmail(email)) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "邮箱格式不正确");
+        if (domain.length() > MAX_DOMAIN_LENGTH) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
         }
-        return email.toLowerCase(Locale.ROOT);
+
+        String asciiDomain;
+        try {
+            asciiDomain = IDN.toASCII(domain, IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
+        }
+
+        if (asciiDomain.isEmpty()
+                || asciiDomain.length() > MAX_DOMAIN_LENGTH
+                || asciiDomain.startsWith(".")
+                || asciiDomain.endsWith(".")
+                || asciiDomain.contains("..")
+                || !asciiDomain.contains(".")) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
+        }
+
+        if (!asciiDomain.matches("^[a-z0-9.-]+$") || hasInvalidDomainLabel(asciiDomain)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
+        }
+
+        if (isIpLiteral(asciiDomain) || isInternalDomain(asciiDomain)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "邮箱域名无效，请检查邮箱地址");
+        }
+
+        return asciiDomain;
+    }
+
+    private boolean hasInvalidDomainLabel(String domain) {
+        String[] labels = domain.split("\\.");
+        if (labels.length < 2) {
+            return true;
+        }
+        for (String label : labels) {
+            if (label.isEmpty() || label.length() > 63 || label.startsWith("-") || label.endsWith("-")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isInternalDomain(String domain) {
+        for (String suffix : INTERNAL_DOMAIN_SUFFIXES) {
+            if (domain.equals(suffix) || domain.endsWith("." + suffix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isIpLiteral(String domain) {
+        if (domain.matches("^\\d{1,3}(?:\\.\\d{1,3}){3}$")) {
+            String[] parts = domain.split("\\.");
+            for (String part : parts) {
+                int value = Integer.parseInt(part);
+                if (value < 0 || value > 255) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return domain.startsWith("[") && domain.endsWith("]");
+    }
+
+    private void enforceCheckEmailDomainRateLimit(String clientIp, String domain) {
+        String key = CHECK_EMAIL_DOMAIN_RATE_KEY_PREFIX + clientIp + ":" + domain;
+        long count = redisService.incrementWithExpire(key, CHECK_EMAIL_DOMAIN_RATE_SECONDS);
+        if (count > CHECK_EMAIL_DOMAIN_RATE_CAPACITY) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "请求过于频繁，请稍后再试");
+        }
+    }
+
+    private void enforceEmailActionRateLimit(String action, String email, int capacity, int seconds) {
+        String key = AUTH_USER_RATE_KEY_PREFIX + action + ":" + email;
+        long count = redisService.incrementWithExpire(key, seconds);
+        if (count > capacity) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "请求过于频繁，请稍后再试");
+        }
+    }
+
+    private boolean checkDomainMxWithProtection(String domain) {
+        if (Boolean.TRUE.equals(redisService.hasKey(DNS_CIRCUIT_OPEN_KEY))) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "邮箱校验服务繁忙，请稍后再试");
+        }
+
+        String cacheKey = DNS_CACHE_KEY_PREFIX + domain;
+        String cached = redisService.get(cacheKey);
+        if ("1".equals(cached)) {
+            return true;
+        }
+        if ("0".equals(cached)) {
+            return false;
+        }
+
+        try {
+            boolean hasMx = queryDomainHasMx(domain);
+            redisService.set(cacheKey, hasMx ? "1" : "0", hasMx ? DNS_CACHE_VALID_SECONDS : DNS_CACHE_INVALID_SECONDS, TimeUnit.SECONDS);
+            redisService.delete(DNS_FAIL_KEY);
+            return hasMx;
+        } catch (javax.naming.NamingException e) {
+            if (isDnsInfraException(e)) {
+                openDnsCircuitIfNeeded();
+                throw new BusinessException(ResultCode.RATE_LIMIT, "邮箱校验服务繁忙，请稍后再试");
+            }
+
+            redisService.set(cacheKey, "0", DNS_CACHE_INVALID_SECONDS, TimeUnit.SECONDS);
+            return false;
+        } catch (Exception e) {
+            openDnsCircuitIfNeeded();
+            throw new BusinessException(ResultCode.RATE_LIMIT, "邮箱校验服务繁忙，请稍后再试");
+        }
+    }
+
+    private boolean queryDomainHasMx(String domain) throws javax.naming.NamingException {
+        var env = new java.util.Hashtable<String, String>();
+        env.put("com.sun.jndi.dns.timeout.initial", "3000");
+        env.put("com.sun.jndi.dns.timeout.retries", "1");
+
+        javax.naming.directory.InitialDirContext ctx = null;
+        try {
+            ctx = new javax.naming.directory.InitialDirContext(env);
+            var attrs = ctx.getAttributes("dns:/" + domain, new String[]{"MX"});
+            var mx = attrs.get("MX");
+            return mx != null && mx.size() > 0;
+        } finally {
+            if (ctx != null) {
+                try {
+                    ctx.close();
+                } catch (Exception ignored) {
+                    // ignore close exception
+                }
+            }
+        }
+    }
+
+    private boolean isDnsInfraException(javax.naming.NamingException e) {
+        return e instanceof javax.naming.CommunicationException
+                || e instanceof javax.naming.ServiceUnavailableException
+                || e instanceof javax.naming.TimeLimitExceededException;
+    }
+
+    private void openDnsCircuitIfNeeded() {
+        long failCount = redisService.incrementWithExpire(DNS_FAIL_KEY, DNS_FAIL_WINDOW_SECONDS);
+        if (failCount >= DNS_FAIL_THRESHOLD) {
+            redisService.set(DNS_CIRCUIT_OPEN_KEY, "1", DNS_CIRCUIT_OPEN_SECONDS, TimeUnit.SECONDS);
+            redisService.delete(DNS_FAIL_KEY);
+        }
     }
 
     private String normalizeCodeField(Map<String, String> body, String field) {
         String code = getRequiredText(body, field, "验证码不能为空");
         if (code.length() > MAX_CODE_LENGTH) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "验证码格式不正确");
+            throw new BusinessException(ResultCode.PARAM_INVALID, "验证码格式不正确");
         }
         return code;
     }
 
     private String getRequiredPassword(Map<String, String> body, String field) {
         if (body == null) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "请求参数不能为空");
+            throw new BusinessException(ResultCode.PARAM_MISSING, "请求参数不能为空");
         }
         String value = body.get(field);
         if (value == null || value.isBlank()) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "新密码不能为空");
+            throw new BusinessException(ResultCode.PARAM_MISSING, "新密码不能为空");
         }
         if (value.length() > MAX_PASSWORD_LENGTH) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_INVALID, "密码长度不能超过" + MAX_PASSWORD_LENGTH + "个字符");
+            throw new BusinessException(ResultCode.PARAM_INVALID, "密码长度不能超过" + MAX_PASSWORD_LENGTH + "个字符");
         }
         return value;
     }
 
     private String getRequiredText(Map<String, String> body, String field, String message) {
         if (body == null) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, "请求参数不能为空");
+            throw new BusinessException(ResultCode.PARAM_MISSING, "请求参数不能为空");
         }
         String value = body.get(field);
         if (value == null || value.trim().isEmpty()) {
-            throw new com.blog.common.exception.BusinessException(
-                    com.blog.common.result.ResultCode.PARAM_MISSING, message);
+            throw new BusinessException(ResultCode.PARAM_MISSING, message);
         }
         return value.trim();
     }

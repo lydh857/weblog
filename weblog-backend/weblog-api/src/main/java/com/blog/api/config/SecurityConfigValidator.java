@@ -36,6 +36,9 @@ public class SecurityConfigValidator {
     @Value("${captcha.secret-key:}")
     private String captchaSecretKey;
 
+    @Value("${blog.security.dev-bypass-enabled:false}")
+    private boolean devBypassEnabled;
+
     public SecurityConfigValidator(Environment environment) {
         this.environment = environment;
     }
@@ -44,6 +47,25 @@ public class SecurityConfigValidator {
     public void validate() {
         validateSecret("JWT_SECRET", jwtSecretKey, 32);
         validateSecret("CAPTCHA_SECRET_KEY", captchaSecretKey, 32);
+        validateDevBypassForProd();
+        validateTrustedProxiesForProd();
+    }
+
+    private void validateDevBypassForProd() {
+        if (isProdProfile() && devBypassEnabled) {
+            throw new IllegalStateException("生产环境禁止开启 blog.security.dev-bypass-enabled");
+        }
+    }
+
+    private void validateTrustedProxiesForProd() {
+        if (!isProdProfile()) {
+            return;
+        }
+
+        String trustedProxies = System.getenv("TRUSTED_PROXY_IPS");
+        if (!StringUtils.hasText(trustedProxies)) {
+            throw new IllegalStateException("生产环境必须配置 TRUSTED_PROXY_IPS，防止伪造代理头导致 IP 识别失真");
+        }
     }
 
     private void validateSecret(String keyName, String value, int minLength) {

@@ -7,6 +7,8 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -32,6 +34,12 @@ public class RateLimitAspect {
 
     @Autowired(required = false)
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private Environment environment;
+
+    @Value("${blog.security.dev-bypass-enabled:false}")
+    private boolean devBypassEnabled;
 
     /**
      * 本地令牌桶缓存（单机部署足够，集群部署需改为 Redis）
@@ -67,8 +75,8 @@ public class RateLimitAspect {
     public Object around(ProceedingJoinPoint joinPoint, RateLimit rateLimit) throws Throwable {
         String clientIp = getClientIp();
 
-        // 本地开发 IP 跳过限流
-        if (rateLimit.perIp() && LOCAL_IP_WHITELIST.contains(clientIp)) {
+        // 仅在开发/测试环境且显式开启时允许跳过
+        if (rateLimit.perIp() && shouldBypassForDev(clientIp)) {
             return joinPoint.proceed();
         }
 
@@ -143,6 +151,26 @@ public class RateLimitAspect {
             return "unknown";
         }
         return IpUtil.getClientIp(attrs.getRequest());
+    }
+
+    private boolean shouldBypassForDev(String clientIp) {
+        if (!devBypassEnabled || !LOCAL_IP_WHITELIST.contains(clientIp)) {
+            return false;
+        }
+
+        String[] profiles = environment.getActiveProfiles();
+        if (profiles == null || profiles.length == 0) {
+            return false;
+        }
+
+        for (String profile : profiles) {
+            if ("dev".equalsIgnoreCase(profile)
+                    || "test".equalsIgnoreCase(profile)
+                    || "local".equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

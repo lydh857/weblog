@@ -9,6 +9,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,6 +31,7 @@ public class CaptchaServiceImpl implements CaptchaService {
     private final TokenGenerator tokenGenerator;
     private final RedisService redisService;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     // ===== 统一模糊错误信息 =====
     private static final String MSG_VERIFY_FAIL = "验证失败，请重试";
@@ -39,6 +42,9 @@ public class CaptchaServiceImpl implements CaptchaService {
     private static final java.util.Set<String> LOCAL_IP_WHITELIST = java.util.Set.of(
             "127.0.0.1", "0:0:0:0:0:0:0:1", "::1", "localhost"
     );
+
+    @Value("${blog.security.dev-bypass-enabled:false}")
+    private boolean devBypassEnabled;
 
     // ===== 生成验证码 =====
 
@@ -229,14 +235,14 @@ public class CaptchaServiceImpl implements CaptchaService {
     }
 
     private boolean isBlacklisted(String clientIp) {
-        if (LOCAL_IP_WHITELIST.contains(clientIp)) {
+        if (shouldBypassForDev(clientIp)) {
             return false;
         }
         return Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_PREFIX + clientIp));
     }
 
     private void recordFailure(String clientIp) {
-        if (LOCAL_IP_WHITELIST.contains(clientIp)) {
+        if (shouldBypassForDev(clientIp)) {
             return;
         }
         long count = redisService.incrementWithExpire(FAIL_COUNT_PREFIX + clientIp, BLACKLIST_WINDOW_SECONDS);
@@ -246,6 +252,26 @@ public class CaptchaServiceImpl implements CaptchaService {
             redisService.delete(FAIL_COUNT_PREFIX + clientIp);
             log.warn("IP {} 已加入黑名单 {}s", clientIp, BLACKLIST_DURATION_SECONDS);
         }
+    }
+
+    private boolean shouldBypassForDev(String clientIp) {
+        if (!devBypassEnabled || !LOCAL_IP_WHITELIST.contains(clientIp)) {
+            return false;
+        }
+
+        String[] profiles = environment.getActiveProfiles();
+        if (profiles == null || profiles.length == 0) {
+            return false;
+        }
+
+        for (String profile : profiles) {
+            if ("dev".equalsIgnoreCase(profile)
+                    || "test".equalsIgnoreCase(profile)
+                    || "local".equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ===== 干扰缺口 =====

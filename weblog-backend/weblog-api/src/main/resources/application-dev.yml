@@ -46,6 +46,7 @@ blog:
   cors:
     allowed-origins: http://localhost:3000,http://localhost:3001
   security:
+    dev-bypass-enabled: true
     referer-enabled: true
     allowed-origins: http://localhost:3000,http://localhost:3001
     log-cleanup:

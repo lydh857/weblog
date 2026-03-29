@@ -43,6 +43,10 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select("SELECT COUNT(1) FROM t_post WHERE id = #{id} AND is_deleted = 0")
     int existsById(@Param("id") Long id);
 
+    /** 文章是否可在前台访问（未软删除、已发布、未禁用） */
+    @Select("SELECT COUNT(1) FROM t_post WHERE id = #{id} AND is_deleted = 0 AND status = 'published' AND (is_disabled = 0 OR is_disabled IS NULL)")
+    int existsReadableById(@Param("id") Long id);
+
     /** 批量查询存在的文章ID（未软删除） */
     @Select("<script>" +
             "SELECT id FROM t_post WHERE is_deleted = 0 AND id IN " +

@@ -117,6 +117,8 @@ blog:
       keep-alive-seconds: 60
   # 安全配置
   security:
+    # 仅开发/测试可开启本地限流与验证码绕过
+    dev-bypass-enabled: false
     # HSTS（生产环境 HTTPS 时启用）
     hsts-enabled: ${HSTS_ENABLED:false}
     # 敏感操作二次验证

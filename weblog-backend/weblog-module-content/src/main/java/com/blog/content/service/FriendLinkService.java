@@ -340,6 +340,9 @@ public class FriendLinkService {
         }
         link.setStatus("rejected");
         String sanitizedReason = sanitizeRejectReason(reason);
+        if (sanitizedReason == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "拒绝原因不能为空");
+        }
         link.setReason(sanitizedReason);
         friendLinkMapper.updateById(link);
         log.info("友链审核拒绝: id={}, name={}, reason={}", id, link.getName(), sanitizedReason);

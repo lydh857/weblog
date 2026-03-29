@@ -1,6 +1,7 @@
 package com.blog.infra.security.util;
 
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
 
 /**
@@ -37,6 +38,19 @@ public final class XssUtil {
     private static final Safelist TEXT_SAFELIST = Safelist.none();
 
     /**
+     * Markdown 中内嵌 HTML 的结构化白名单
+     */
+    private static final Safelist MARKDOWN_HTML_SAFELIST = Safelist.relaxed()
+            .addTags("pre", "code", "span", "details", "summary")
+            .addAttributes("code", "class")
+            .addAttributes("span", "class")
+            .addAttributes("pre", "class")
+            .addAttributes("a", "target", "rel", "title")
+            .addProtocols("a", "href", "http", "https", "mailto")
+            .addProtocols("img", "src", "http", "https")
+            .preserveRelativeLinks(true);
+
+    /**
      * 清理 Markdown 源码（最小化清理，保留原始格式）
      * 只去除 script/style 标签和 on* 事件属性，保留其他所有内容
      * 适用于文章内容等需要保留 Markdown 格式和内嵌 HTML 的场景
@@ -48,16 +62,10 @@ public final class XssUtil {
         if (markdown == null || markdown.isEmpty()) {
             return markdown;
         }
-        // 去除 <script>...</script> 和 <style>...</style>（含多行）
-        String cleaned = markdown.replaceAll("(?is)<script[^>]*>.*?</script>", "");
-        cleaned = cleaned.replaceAll("(?is)<style[^>]*>.*?</style>", "");
-        // 去除 on* 事件属性（如 onclick, onerror 等）
-        cleaned = cleaned.replaceAll("(?i)\\s+on\\w+\\s*=\\s*([\"']).*?\\1", "");
-        cleaned = cleaned.replaceAll("(?i)\\s+on\\w+\\s*=\\s*[^\\s>]+", "");
-        // 去除 javascript: 协议
-        cleaned = cleaned.replaceAll("(?i)href\\s*=\\s*([\"'])\\s*javascript:.*?\\1", "href=$1#$1");
-        cleaned = cleaned.replaceAll("(?i)src\\s*=\\s*([\"'])\\s*javascript:.*?\\1", "src=$1#$1");
-        return cleaned;
+
+        String normalized = markdown.replace("\u0000", "");
+        Document.OutputSettings outputSettings = new Document.OutputSettings().prettyPrint(false);
+        return Jsoup.clean(normalized, "", MARKDOWN_HTML_SAFELIST, outputSettings);
     }
 
     /**

@@ -99,6 +99,7 @@ blog:
   cors:
     allowed-origins: ${CORS_ORIGINS:https://yourdomain.com}
   security:
+    dev-bypass-enabled: false
     hsts-enabled: true
     referer-enabled: true
     sensitive-words:

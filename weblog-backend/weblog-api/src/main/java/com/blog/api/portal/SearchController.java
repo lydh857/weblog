@@ -23,7 +23,7 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 @RequiredArgsConstructor
 public class SearchController {
 
-    private static final int MAX_KEYWORD_LENGTH = 100;
+    private static final int MAX_KEYWORD_LENGTH = 80;
 
     private final PostSearchService postSearchService;
 
@@ -49,6 +49,24 @@ public class SearchController {
         if (normalizedKeyword.length() > MAX_KEYWORD_LENGTH) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "搜索关键词长度不能超过" + MAX_KEYWORD_LENGTH + "个字符");
         }
+
+        if (containsControlChars(normalizedKeyword)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "搜索关键词包含非法控制字符");
+        }
+
         return Result.success(postSearchService.search(normalizedKeyword, pageNum, pageSize));
+    }
+
+    private boolean containsControlChars(String input) {
+        if (input == null || input.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < input.length(); i++) {
+            char ch = input.charAt(i);
+            if ((ch >= 0x00 && ch <= 0x1F) || ch == 0x7F) {
+                return true;
+            }
+        }
+        return false;
     }
 }
