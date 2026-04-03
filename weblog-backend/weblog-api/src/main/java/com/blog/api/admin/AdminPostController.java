@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.*;
 import com.blog.content.service.PostService;
 import com.blog.infra.security.audit.AuditLog;
@@ -15,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端文章接口
@@ -155,8 +155,8 @@ public class AdminPostController {
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) String keyword) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        return Result.success(postService.pageDeleted(pageNum, pageSize, keyword));
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        return Result.success(postService.pageDeleted(pageParams.pageNum(), pageParams.pageSize(), keyword));
     }
 
     @Operation(summary = "获取文章详情")
@@ -175,8 +175,8 @@ public class AdminPostController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean isDisabled,
             @RequestParam(required = false) Long tagId) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        return Result.success(postService.page(pageNum, pageSize, categoryId, status, null, keyword, isDisabled, tagId));
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        return Result.success(postService.page(pageParams.pageNum(), pageParams.pageSize(), categoryId, status, null, keyword, isDisabled, tagId));
     }
 
     // ========== 回收站 ==========

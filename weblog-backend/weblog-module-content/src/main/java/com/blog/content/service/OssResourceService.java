@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.entity.OssResource;
 import com.blog.content.mapper.OssResourceMapper;
@@ -145,6 +146,7 @@ public class OssResourceService {
      * 分页查询资源列表
      */
     public IPage<OssResource> page(int pageNum, int pageSize, Long uploaderId, String usageType) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<OssResource> wrapper = new LambdaQueryWrapper<>();
         if (uploaderId != null) {
             wrapper.eq(OssResource::getUploaderId, uploaderId);
@@ -153,7 +155,7 @@ public class OssResourceService {
             wrapper.eq(OssResource::getUsageType, usageType);
         }
         wrapper.orderByDesc(OssResource::getCreateTime);
-        return ossResourceMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return ossResourceMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**
@@ -165,6 +167,7 @@ public class OssResourceService {
                                                      Long uploaderId, String usageType,
                                                      String referenceStatus,
                                                      Set<String> referencedUrls) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<OssResource> wrapper = new LambdaQueryWrapper<>();
         if (uploaderId != null) {
             wrapper.eq(OssResource::getUploaderId, uploaderId);
@@ -176,7 +179,7 @@ public class OssResourceService {
         if ("referenced".equals(referenceStatus)) {
             if (referencedUrls.isEmpty()) {
                 // 没有任何引用 URL，直接返回空页
-                return new Page<>(pageNum, pageSize, 0);
+                return new Page<>(pageParams.pageNum(), pageParams.pageSize(), 0);
             }
             wrapper.in(OssResource::getUrl, referencedUrls);
         } else if ("unreferenced".equals(referenceStatus)) {
@@ -186,7 +189,7 @@ public class OssResourceService {
         }
 
         wrapper.orderByDesc(OssResource::getCreateTime);
-        return ossResourceMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return ossResourceMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**

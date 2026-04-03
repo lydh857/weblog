@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
 import com.blog.infra.redis.RedisCounterUtil;
@@ -22,7 +23,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端评论服务 - 聚合 interaction/system/content 模块
@@ -46,7 +46,7 @@ public class AdminCommentService {
   public Map<String, Object> listComments(int pageNum, int pageSize,
                                            String status, Long postId,
                                            String postTitle, Boolean isTop) {
-    pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
 
     // 按文章标题搜索：先查匹配的 postId 集合
     Set<Long> matchedPostIds = null;
@@ -57,7 +57,7 @@ public class AdminCommentService {
               .select(Post::getId));
       matchedPostIds = matchedPosts.stream().map(Post::getId).collect(Collectors.toSet());
       if (matchedPostIds.isEmpty()) {
-        return Map.of("records", List.of(), "total", 0L, "current", (long) pageNum, "pages", 0L);
+        return Map.of("records", List.of(), "total", 0L, "current", (long) pageParams.pageNum(), "pages", 0L);
       }
     }
 
@@ -77,7 +77,7 @@ public class AdminCommentService {
     // 注：此处 last() 内容为固定 SQL，不含用户输入，无注入风险
     wrapper.last("ORDER BY FIELD(status, 'pending', 'approved', 'rejected') ASC, create_time DESC");
 
-    IPage<Comment> page = commentMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+    IPage<Comment> page = commentMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
 
     // 填充用户信息
     Set<Long> userIds = page.getRecords().stream()

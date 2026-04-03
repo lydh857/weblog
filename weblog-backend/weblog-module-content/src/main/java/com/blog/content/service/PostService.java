@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.security.util.XssUtil;
 import com.blog.content.dto.PostAutoSaveRequest;
 import com.blog.content.dto.PostCreateRequest;
@@ -323,6 +324,7 @@ public class PostService {
     }
 
     public IPage<PostVO> page(int pageNum, int pageSize, Long categoryId, String status, Long authorId, String keyword, Boolean isDisabled, Long tagId) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         // 如果有 tagId 筛选，先查出关联的 postId 列表
         List<Long> postIds = null;
         if (tagId != null) {
@@ -330,7 +332,7 @@ public class PostService {
                     new LambdaQueryWrapper<PostTag>().eq(PostTag::getTagId, tagId));
             postIds = pts.stream().map(PostTag::getPostId).collect(Collectors.toList());
             if (postIds.isEmpty()) {
-                Page<PostVO> empty = new Page<>(pageNum, pageSize, 0);
+                Page<PostVO> empty = new Page<>(pageParams.pageNum(), pageParams.pageSize(), 0);
                 empty.setRecords(Collections.emptyList());
                 return empty;
             }
@@ -358,7 +360,7 @@ public class PostService {
         }
         wrapper.orderByDesc(Post::getIsTop).orderByDesc(Post::getCreateTime);
 
-        IPage<Post> page = postMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        IPage<Post> page = postMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
         return convertPageWithRelations(page);
     }
 
@@ -695,6 +697,7 @@ public class PostService {
      * 用户端分页查询（支持排序方式切换）
      */
     public IPage<PostVO> portalPage(int pageNum, int pageSize, Long categoryId, Long tagId, String sortBy) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         // 如果有 tagId 筛选，先查出关联的 postId 列表
         List<Long> postIds = null;
         if (tagId != null) {
@@ -702,7 +705,7 @@ public class PostService {
                     new LambdaQueryWrapper<PostTag>().eq(PostTag::getTagId, tagId));
             postIds = pts.stream().map(PostTag::getPostId).collect(Collectors.toList());
             if (postIds.isEmpty()) {
-                Page<PostVO> empty = new Page<>(pageNum, pageSize, 0);
+                Page<PostVO> empty = new Page<>(pageParams.pageNum(), pageParams.pageSize(), 0);
                 empty.setRecords(Collections.emptyList());
                 return empty;
             }
@@ -743,7 +746,7 @@ public class PostService {
             wrapper.orderByDesc(Post::getCreateTime);
         }
 
-        IPage<Post> page = postMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        IPage<Post> page = postMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
         return convertPageWithRelations(page);
     }
 
@@ -1182,7 +1185,8 @@ public class PostService {
      * 分页查询回收站（已软删除的文章）
      */
     public IPage<PostVO> pageDeleted(int pageNum, int pageSize, String keyword) {
-        Page<Post> page = new Page<>(pageNum, pageSize);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        Page<Post> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
         IPage<Post> result = postMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
         return convertPageWithRelations(result);
     }

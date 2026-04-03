@@ -49,9 +49,10 @@ public class CaptchaServiceImpl implements CaptchaService {
     // ===== 生成验证码 =====
 
     @Override
-    public CaptchaGenerateVO generateCaptcha(String clientIp) {
+    public CaptchaGenerateVO generateCaptcha(CaptchaRiskContext context) {
+        String clientIp = safeClientIp(context);
         // 黑名单检查
-        checkBlacklist(clientIp);
+        checkBlacklist(context);
 
         String captchaToken = UUID.randomUUID().toString();
         PuzzleShape shape = PuzzleShape.random();
@@ -103,9 +104,10 @@ public class CaptchaServiceImpl implements CaptchaService {
     // ===== 验证滑块 =====
 
     @Override
-    public CaptchaVerifyVO verifyCaptcha(CaptchaVerifyRequest request, String clientIp) {
+    public CaptchaVerifyVO verifyCaptcha(CaptchaVerifyRequest request, CaptchaRiskContext context) {
+        String clientIp = safeClientIp(context);
         // 黑名单检查
-        if (isBlacklisted(clientIp)) {
+        if (isBlacklisted(context)) {
             return CaptchaVerifyVO.builder().success(false).message(MSG_BLACKLISTED).build();
         }
 
@@ -124,10 +126,22 @@ public class CaptchaServiceImpl implements CaptchaService {
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
+        if (!checkSolveDuration(data)) {
+            log.warn("验证提交过快，token: {}, IP: {}", request.getCaptchaToken(), clientIp);
+            recordFailure(context);
+            return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
+        }
+
+        if (!checkTrackAndSliderConsistency(request)) {
+            log.warn("轨迹与滑块位置不一致，token: {}, IP: {}", request.getCaptchaToken(), clientIp);
+            recordFailure(context);
+            return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
+        }
+
         // IP 校验
         if (!clientIp.equals(data.getClientIp())) {
             log.warn("验证码 IP 不匹配，存储: {}, 请求: {}", data.getClientIp(), clientIp);
-            recordFailure(clientIp);
+            recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
@@ -135,7 +149,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         if (!trackAnalyzer.validate(request.getSlideTrack())) {
             log.warn("轨迹异常，token: {}, IP: {}, 轨迹点数: {}", request.getCaptchaToken(), clientIp,
                     request.getSlideTrack() != null ? request.getSlideTrack().size() : 0);
-            recordFailure(clientIp);
+            recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
@@ -143,7 +157,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         int offset = Math.abs(request.getSliderPosition() - data.getTargetPosition());
         if (offset > ACCURACY_THRESHOLD) {
             log.warn("位置偏差过大: {}px, token: {}", offset, request.getCaptchaToken());
-            recordFailure(clientIp);
+            recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
@@ -157,6 +171,8 @@ public class CaptchaServiceImpl implements CaptchaService {
                 .build();
         saveToRedis(VERIFY_TOKEN_PREFIX + tokenResult.tokenId(), tokenData, VERIFY_TOKEN_EXPIRE_SECONDS);
 
+        clearFailureCounters(context);
+
         log.info("验证码校验成功，IP: {}", clientIp);
 
         return CaptchaVerifyVO.builder()
@@ -169,11 +185,11 @@ public class CaptchaServiceImpl implements CaptchaService {
     // ===== 刷新验证码 =====
 
     @Override
-    public CaptchaGenerateVO refreshCaptcha(String oldToken, String clientIp) {
+    public CaptchaGenerateVO refreshCaptcha(String oldToken, CaptchaRiskContext context) {
         if (StringUtils.hasText(oldToken)) {
             redisService.delete(CAPTCHA_DATA_PREFIX + oldToken);
         }
-        return generateCaptcha(clientIp);
+        return generateCaptcha(context);
     }
 
     // ===== 校验 Verify_Token =====
@@ -228,29 +244,131 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     // ===== 黑名单 =====
 
-    private void checkBlacklist(String clientIp) {
-        if (isBlacklisted(clientIp)) {
+    private void checkBlacklist(CaptchaRiskContext context) {
+        if (isBlacklisted(context)) {
             throw new BusinessException(ResultCode.RATE_LIMIT, MSG_BLACKLISTED);
         }
     }
 
-    private boolean isBlacklisted(String clientIp) {
+    private boolean isBlacklisted(CaptchaRiskContext context) {
+        String clientIp = safeClientIp(context);
         if (shouldBypassForDev(clientIp)) {
             return false;
         }
-        return Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_PREFIX + clientIp));
+
+        if (Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_PREFIX + clientIp))
+                || Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_IP_PREFIX + clientIp))) {
+            return true;
+        }
+
+        String deviceFingerprint = normalizeDimensionValue(context != null ? context.getDeviceFingerprint() : null);
+        if (deviceFingerprint != null && Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_DEVICE_PREFIX + deviceFingerprint))) {
+            return true;
+        }
+
+        String sessionId = normalizeDimensionValue(context != null ? context.getSessionId() : null);
+        return sessionId != null && Boolean.TRUE.equals(redisService.hasKey(BLACKLIST_SESSION_PREFIX + sessionId));
     }
 
-    private void recordFailure(String clientIp) {
+    private void recordFailure(CaptchaRiskContext context) {
+        String clientIp = safeClientIp(context);
         if (shouldBypassForDev(clientIp)) {
             return;
         }
-        long count = redisService.incrementWithExpire(FAIL_COUNT_PREFIX + clientIp, BLACKLIST_WINDOW_SECONDS);
-        if (count >= BLACKLIST_THRESHOLD) {
-            String reason = "验证码验证失败次数过多（" + count + "次）";
-            redisService.set(BLACKLIST_PREFIX + clientIp, reason, BLACKLIST_DURATION_SECONDS, TimeUnit.SECONDS);
-            redisService.delete(FAIL_COUNT_PREFIX + clientIp);
-            log.warn("IP {} 已加入黑名单 {}s", clientIp, BLACKLIST_DURATION_SECONDS);
+
+        increaseAndMaybeBlacklist(
+                FAIL_COUNT_PREFIX + clientIp,
+                BLACKLIST_PREFIX + clientIp,
+                BLACKLIST_THRESHOLD,
+                "legacy-ip",
+                clientIp
+        );
+
+        increaseAndMaybeBlacklist(
+                FAIL_COUNT_IP_PREFIX + clientIp,
+                BLACKLIST_IP_PREFIX + clientIp,
+                BLACKLIST_THRESHOLD,
+                "ip",
+                clientIp
+        );
+
+        String deviceFingerprint = normalizeDimensionValue(context != null ? context.getDeviceFingerprint() : null);
+        if (deviceFingerprint != null) {
+            increaseAndMaybeBlacklist(
+                    FAIL_COUNT_DEVICE_PREFIX + deviceFingerprint,
+                    BLACKLIST_DEVICE_PREFIX + deviceFingerprint,
+                    BLACKLIST_DEVICE_THRESHOLD,
+                    "device",
+                    maskDimension(deviceFingerprint)
+            );
+        }
+
+        String sessionId = normalizeDimensionValue(context != null ? context.getSessionId() : null);
+        if (sessionId != null) {
+            increaseAndMaybeBlacklist(
+                    FAIL_COUNT_SESSION_PREFIX + sessionId,
+                    BLACKLIST_SESSION_PREFIX + sessionId,
+                    BLACKLIST_SESSION_THRESHOLD,
+                    "session",
+                    maskDimension(sessionId)
+            );
+        }
+    }
+
+    private void clearFailureCounters(CaptchaRiskContext context) {
+        String clientIp = safeClientIp(context);
+        redisService.delete(FAIL_COUNT_PREFIX + clientIp);
+        redisService.delete(FAIL_COUNT_IP_PREFIX + clientIp);
+
+        String deviceFingerprint = normalizeDimensionValue(context != null ? context.getDeviceFingerprint() : null);
+        if (deviceFingerprint != null) {
+            redisService.delete(FAIL_COUNT_DEVICE_PREFIX + deviceFingerprint);
+        }
+
+        String sessionId = normalizeDimensionValue(context != null ? context.getSessionId() : null);
+        if (sessionId != null) {
+            redisService.delete(FAIL_COUNT_SESSION_PREFIX + sessionId);
+        }
+    }
+
+    private String safeClientIp(CaptchaRiskContext context) {
+        if (context == null || !StringUtils.hasText(context.getClientIp())) {
+            return "unknown";
+        }
+        return context.getClientIp();
+    }
+
+    private String normalizeDimensionValue(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String normalized = raw.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String maskDimension(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "unknown";
+        }
+        String normalized = value.trim();
+        if (normalized.length() <= 8) {
+            return normalized;
+        }
+        return normalized.substring(0, 8);
+    }
+
+    private void increaseAndMaybeBlacklist(String failKey,
+                                           String blacklistKey,
+                                           int threshold,
+                                           String dimensionType,
+                                           String dimensionValue) {
+        long count = redisService.incrementWithExpire(failKey, BLACKLIST_WINDOW_SECONDS);
+        if (count >= threshold) {
+            String reason = "验证码验证失败次数过多（" + dimensionType + "=" + dimensionValue + "，" + count + "次）";
+            redisService.set(blacklistKey, reason, BLACKLIST_DURATION_SECONDS, TimeUnit.SECONDS);
+            redisService.delete(failKey);
+            log.warn("验证码黑名单触发: type={}, value={}, threshold={}, duration={}s",
+                    dimensionType, dimensionValue, threshold, BLACKLIST_DURATION_SECONDS);
         }
     }
 
@@ -278,7 +396,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     private void drawDecoyCutouts(BufferedImage bg, int targetX, int targetY, PuzzleShape correctShape) {
         int minDist = PUZZLE_WIDTH + 20;
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             PuzzleShape decoyShape = PuzzleShape.randomExcept(correctShape);
             int dx, dy;
             int attempts = 0;
@@ -289,6 +407,26 @@ public class CaptchaServiceImpl implements CaptchaService {
             } while ((Math.abs(dx - targetX) < minDist || Math.abs(dy - targetY) < minDist) && attempts < 50);
             imageService.drawDecoyCutout(bg, dx, dy, decoyShape);
         }
+    }
+
+    private boolean checkSolveDuration(CaptchaData data) {
+        long now = System.currentTimeMillis();
+        long duration = now - data.getCreateTime();
+        return duration >= MIN_SOLVE_TIME_MS;
+    }
+
+    private boolean checkTrackAndSliderConsistency(CaptchaVerifyRequest request) {
+        if (request.getSlideTrack() == null || request.getSlideTrack().isEmpty() || request.getSliderPosition() == null) {
+            return false;
+        }
+
+        TrackPoint first = request.getSlideTrack().get(0);
+        TrackPoint last = request.getSlideTrack().get(request.getSlideTrack().size() - 1);
+        if (Math.abs(first.getX()) > TRACK_START_X_TOLERANCE) {
+            return false;
+        }
+
+        return Math.abs(last.getX() - request.getSliderPosition()) <= TRACK_END_POSITION_TOLERANCE;
     }
 
     // ===== JSON 工具 =====

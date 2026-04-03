@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.common.util.PageParamUtil;
 import com.blog.system.dto.LoginLogVO;
 import com.blog.system.entity.LoginLog;
 import com.blog.system.mapper.LoginLogMapper;
@@ -51,8 +52,9 @@ public class LoginLogService {
      * 查询当前用户的登录日志
      */
     public IPage<LoginLogVO> getMyLoginLogs(int pageNum, int pageSize) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         Long userId = StpUtil.getLoginIdAsLong();
-        Page<LoginLog> page = new Page<>(pageNum, pageSize);
+        Page<LoginLog> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
 
         LambdaQueryWrapper<LoginLog> wrapper = new LambdaQueryWrapper<LoginLog>()
                 .eq(LoginLog::getUserId, userId)
@@ -70,7 +72,8 @@ public class LoginLogService {
      * 查询所有用户的登录日志（管理端）
      */
     public IPage<LoginLogVO> getAllLoginLogs(int pageNum, int pageSize, String email, String loginType, String result) {
-        Page<LoginLog> page = new Page<>(pageNum, pageSize);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        Page<LoginLog> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
 
         LambdaQueryWrapper<LoginLog> wrapper = new LambdaQueryWrapper<LoginLog>()
                 .like(email != null, LoginLog::getEmail, email)

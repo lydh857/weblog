@@ -3,6 +3,7 @@ package com.blog.api.portal;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.result.Result;
 import com.blog.common.util.IpUtil;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.PostVO;
 import com.blog.content.entity.Category;
 import com.blog.content.service.CategoryService;
@@ -20,8 +21,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 用户端文章接口
@@ -48,8 +47,7 @@ public class PortalPostController {
             @Parameter(description = "分类Slug") @RequestParam(required = false) String categorySlug,
             @Parameter(description = "标签Slug") @RequestParam(required = false) String tagSlug,
             @Parameter(description = "排序方式：latest-最新 / hottest-最热") @RequestParam(required = false) String sortBy) {
-        pageNum = Math.max(pageNum, 1);
-        pageSize = (int) Math.max(1, Math.min(pageSize, MAX_PAGE_SIZE));
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         // slug 优先级高于 id
         if (categorySlug != null && !categorySlug.isBlank() && categoryId == null) {
             Category cat = categoryService.getBySlug(categorySlug);
@@ -59,7 +57,7 @@ public class PortalPostController {
             com.blog.content.entity.Tag tag = tagService.getBySlug(tagSlug);
             tagId = tag.getId();
         }
-        return Result.success(postService.portalPage(pageNum, pageSize, categoryId, tagId, sortBy));
+        return Result.success(postService.portalPage(pageParams.pageNum(), pageParams.pageSize(), categoryId, tagId, sortBy));
     }
 
     @Operation(summary = "文章详情（含上下篇导航、阅读计数）")

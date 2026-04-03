@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.result.Result;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.entity.Announcement;
 import com.blog.content.service.AnnouncementService;
 import com.blog.infra.security.audit.AuditLog;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端 - 公告管理
@@ -38,8 +38,8 @@ public class AdminAnnouncementController {
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        IPage<Announcement> page = announcementService.listPage(pageNum, pageSize, status, type);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        IPage<Announcement> page = announcementService.listPage(pageParams.pageNum(), pageParams.pageSize(), status, type);
         return Result.success(Map.of(
                 "records", page.getRecords(),
                 "total", page.getTotal(),

@@ -2,7 +2,10 @@ package com.blog.interaction.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -159,23 +162,31 @@ public class AccessControlService {
     }
 
     private int cleanupKeysByPrefix(String prefix) {
-        Set<String> keys = redisTemplate.keys(prefix + "*");
-        if (keys == null || keys.isEmpty()) {
-            return 0;
-        }
-
         LocalDate thresholdDate = LocalDate.now().minusDays(ACCESS_KEY_KEEP_DAYS);
-        int removed = 0;
-        for (String key : keys) {
-            LocalDate keyDate = parseDateFromAccessKey(key, prefix);
-            if (keyDate != null && keyDate.isBefore(thresholdDate)) {
-                Boolean deleted = redisTemplate.delete(key);
-                if (Boolean.TRUE.equals(deleted)) {
-                    removed++;
+        Long removed = redisTemplate.execute((RedisCallback<Long>) connection -> {
+            long deleted = 0L;
+            ScanOptions options = ScanOptions.scanOptions()
+                    .match(prefix + "*")
+                    .count(200)
+                    .build();
+
+            try (Cursor<byte[]> cursor = connection.scan(options)) {
+                while (cursor.hasNext()) {
+                    byte[] rawKey = cursor.next();
+                    String key = new String(rawKey, StandardCharsets.UTF_8);
+                    LocalDate keyDate = parseDateFromAccessKey(key, prefix);
+                    if (keyDate != null && keyDate.isBefore(thresholdDate)) {
+                        deleted += connection.del(rawKey);
+                    }
                 }
+            } catch (Exception e) {
+                log.warn("访问控制历史键扫描清理异常: prefix={}", prefix, e);
             }
-        }
-        return removed;
+
+            return deleted;
+        });
+
+        return removed == null ? 0 : removed.intValue();
     }
 
     private LocalDate parseDateFromAccessKey(String key, String prefix) {

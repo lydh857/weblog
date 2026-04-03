@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.redis.RedisCounterUtil;
 import com.blog.interaction.entity.UserFavorite;
 import com.blog.interaction.mapper.UserFavoriteMapper;
@@ -154,8 +155,9 @@ public class FavoriteService {
      * 获取用户收藏的文章ID列表（分页）
      */
     public IPage<UserFavorite> getUserFavorites(Long userId, int pageNum, int pageSize) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         return userFavoriteMapper.selectPage(
-                new Page<>(pageNum, pageSize),
+                new Page<>(pageParams.pageNum(), pageParams.pageSize()),
                 new LambdaQueryWrapper<UserFavorite>()
                         .eq(UserFavorite::getUserId, userId)
                         .orderByDesc(UserFavorite::getCreateTime));

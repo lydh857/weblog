@@ -8,6 +8,7 @@ import com.blog.content.entity.Announcement;
 import com.blog.content.mapper.AnnouncementMapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -86,6 +87,7 @@ public class AnnouncementService {
      * 分页查询公告（管理端）
      */
     public IPage<Announcement> listPage(int pageNum, int pageSize, String status, String type) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<Announcement> wrapper = new LambdaQueryWrapper<>();
         if (status != null && !status.isEmpty()) {
             wrapper.eq(Announcement::getStatus, status);
@@ -96,7 +98,7 @@ public class AnnouncementService {
             wrapper.eq(Announcement::getType, normalizedType);
         }
         wrapper.orderByDesc(Announcement::getCreateTime);
-        return announcementMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return announcementMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**

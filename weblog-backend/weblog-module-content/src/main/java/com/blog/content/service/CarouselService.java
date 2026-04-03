@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.CarouselCreateRequest;
 import com.blog.content.dto.CarouselUpdateRequest;
 import com.blog.content.dto.CarouselVO;
@@ -75,9 +76,10 @@ public class CarouselService {
    * 管理端分页查询（合并文章信息）
    */
   public IPage<CarouselVO> pageAdmin(int pageNum, int pageSize) {
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
     LambdaQueryWrapper<Carousel> wrapper = new LambdaQueryWrapper<>();
     wrapper.orderByDesc(Carousel::getSortOrder);
-    IPage<Carousel> page = carouselMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+    IPage<Carousel> page = carouselMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
 
     // 批量查询关联文章
     List<Long> articleIds = page.getRecords().stream()

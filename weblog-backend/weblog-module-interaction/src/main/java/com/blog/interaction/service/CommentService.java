@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.redis.RedisCounterUtil;
 import com.blog.interaction.dto.CreateCommentRequest;
@@ -163,6 +164,7 @@ public class CommentService {
      * @param sort "hot"=最热（点赞数降序），其他=最新（时间降序）
      */
     public IPage<Comment> getTopLevelComments(Long postId, int pageNum, int pageSize, String sort) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getPostId, postId)
                 .eq(Comment::getParentId, 0L)
@@ -173,7 +175,7 @@ public class CommentService {
         } else {
             wrapper.orderByDesc(Comment::getCreateTime);
         }
-        return commentMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return commentMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**
@@ -191,8 +193,9 @@ public class CommentService {
      * 分页获取指定父评论的回复列表
      */
     public IPage<Comment> getRepliesPage(Long parentId, int pageNum, int pageSize) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         return commentMapper.selectPage(
-                new Page<>(pageNum, pageSize),
+                new Page<>(pageParams.pageNum(), pageParams.pageSize()),
                 new LambdaQueryWrapper<Comment>()
                         .eq(Comment::getParentId, parentId)
                         .eq(Comment::getStatus, "approved")
@@ -204,8 +207,9 @@ public class CommentService {
      * 获取用户的评论列表（分页）
      */
     public IPage<Comment> getMyComments(Long userId, int pageNum, int pageSize) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         return commentMapper.selectPage(
-                new Page<>(pageNum, pageSize),
+                new Page<>(pageParams.pageNum(), pageParams.pageSize()),
                 new LambdaQueryWrapper<Comment>()
                         .eq(Comment::getUserId, userId)
                         .orderByDesc(Comment::getCreateTime));

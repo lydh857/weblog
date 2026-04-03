@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.dto.MediaVO;
 import com.blog.content.entity.OssResource;
@@ -22,8 +23,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端媒体资源管理接口
@@ -68,7 +67,7 @@ public class AdminMediaController {
       @RequestParam(required = false) String referenceStatus) {
     checkOssEnabled();
     StpUtil.checkLogin();
-    pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
     Long userId = StpUtil.getLoginIdAsLong();
     boolean isAdmin = StpUtil.hasRole("admin");
     Long uploaderId = isAdmin ? null : userId;
@@ -87,10 +86,10 @@ public class AdminMediaController {
     if (referenceStatus != null && !referenceStatus.isEmpty()) {
       // 按引用状态筛选：在数据库层过滤，避免内存加载
       page = ossResourceService.pageByReferenceStatus(
-          pageNum, pageSize, uploaderId, usageType, referenceStatus, referencedUrls);
+          pageParams.pageNum(), pageParams.pageSize(), uploaderId, usageType, referenceStatus, referencedUrls);
     } else {
       // 无引用状态筛选：正常分页查询
-      page = ossResourceService.page(pageNum, pageSize, uploaderId, usageType);
+      page = ossResourceService.page(pageParams.pageNum(), pageParams.pageSize(), uploaderId, usageType);
     }
 
     IPage<MediaVO> voPage = page.convert(r -> toMediaVO(r, referencedUrls, detailMap));

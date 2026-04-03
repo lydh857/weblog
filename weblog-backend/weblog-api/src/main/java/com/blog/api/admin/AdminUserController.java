@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.system.dto.UserVO;
@@ -26,7 +27,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端 - 用户管理
@@ -67,7 +67,7 @@ public class AdminUserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status) {
 
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (keyword != null && !keyword.isEmpty()) {
             wrapper.and(w -> w.like(User::getEmail, keyword)
@@ -81,7 +81,7 @@ public class AdminUserController {
         }
         wrapper.orderByDesc(User::getCreateTime);
 
-        IPage<User> page = userMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        IPage<User> page = userMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
 
         // 转为 VO，隐藏 lastLoginIp、failedLoginAttempts 等敏感字段
         List<UserVO> records = page.getRecords().stream().map(u -> {

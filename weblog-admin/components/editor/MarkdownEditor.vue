@@ -9,6 +9,9 @@
       :preview-theme="currentPreviewTheme"
       :code-theme="currentCodeTheme"
       :show-code-row-number="true"
+      :no-highlight="true"
+      :no-mermaid="true"
+      :no-katex="true"
       :toolbars="toolbarItems"
       :footers="footerItems"
       :style="{ height }"
@@ -142,20 +145,20 @@ import { ensureMdEditorConfigured } from '~/composables/editor/useMdEditor'
 
 const MdEditor = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
-  const module = await import('md-editor-v3')
-  return module.MdEditor
+  const module = await import('md-editor-v3/lib/es/MdEditor.mjs')
+  return module.default
 })
 
 const DropdownToolbar = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
-  const module = await import('md-editor-v3')
-  return module.DropdownToolbar
+  const module = await import('md-editor-v3/lib/es/DropdownToolbar.mjs')
+  return module.default
 })
 
 const NormalToolbar = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
-  const module = await import('md-editor-v3')
-  return module.NormalToolbar
+  const module = await import('md-editor-v3/lib/es/NormalToolbar.mjs')
+  return module.default
 })
 
 const props = withDefaults(defineProps<{
@@ -221,12 +224,12 @@ const toolbarItems: ToolbarNames[] = [
   '-',
   'title', 'sub', 'sup', 'quote', 'unorderedList', 'orderedList', 'task',
   '-',
-  'codeRow', 'code', 'link', 'image', 'table', 'mermaid', 'katex',
+  'codeRow', 'code', 'link', 'image', 'table',
   '-',
   'revoke', 'next', 'save',
   '=',
   0, 1, 2,
-  'prettier', 'pageFullscreen', 'fullscreen', 'preview', 'previewOnly', 'htmlPreview', 'catalog', 'github',
+  'pageFullscreen', 'fullscreen', 'preview', 'previewOnly', 'catalog', 'github',
 ]
 
 // ========== 页脚配置 ==========

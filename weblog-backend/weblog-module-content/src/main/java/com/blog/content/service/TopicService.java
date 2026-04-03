@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.CatalogNode;
 import com.blog.content.dto.SaveTopicReqVO;
 import com.blog.content.dto.TopicRespVO;
@@ -38,7 +39,8 @@ public class TopicService {
      * 分页查询专题列表（含文章数）
      */
     public IPage<TopicRespVO> getTopicPage(int pageNum, int pageSize, String keyword, Boolean isPublish, Boolean isTop) {
-        Page<?> page = new Page<>(pageNum, pageSize);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        Page<?> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
         IPage<Map<String, Object>> rawPage = topicMapper.selectPageWithArticleCount(page, keyword, isPublish, isTop);
         return rawPage.convert(this::mapToRespVO);
     }
@@ -194,7 +196,8 @@ public class TopicService {
      * 分页查询已删除专题（回收站）
      */
     public IPage<Topic> pageDeleted(int pageNum, int pageSize, String keyword) {
-        Page<Topic> page = new Page<>(pageNum, pageSize);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        Page<Topic> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
         return topicMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
     }
 

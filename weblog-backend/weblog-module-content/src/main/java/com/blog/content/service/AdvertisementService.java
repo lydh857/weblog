@@ -13,6 +13,7 @@ import com.blog.content.mapper.AdvertisementMapper;
 import com.blog.content.mapper.PostMapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
@@ -171,6 +172,7 @@ public class AdvertisementService {
      * 分页查询广告（管理端）
      */
     public IPage<Advertisement> listPage(int pageNum, int pageSize, String status, String position) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<Advertisement> wrapper = new LambdaQueryWrapper<>();
         if (status != null && !status.isEmpty()) {
             wrapper.eq(Advertisement::getStatus, status);
@@ -180,7 +182,7 @@ public class AdvertisementService {
             wrapper.in(Advertisement::getPosition, buildCandidatePositions(normalized));
         }
         wrapper.orderByDesc(Advertisement::getCreateTime);
-        return advertisementMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return advertisementMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**
@@ -754,7 +756,8 @@ public class AdvertisementService {
      * 分页查询已删除广告（回收站）
      */
     public IPage<Advertisement> pageDeleted(int pageNum, int pageSize, String keyword) {
-        Page<Advertisement> page = new Page<>(pageNum, pageSize);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        Page<Advertisement> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
         return advertisementMapper.selectDeletedPage(page, StrUtil.isBlank(keyword) ? null : keyword);
     }
 

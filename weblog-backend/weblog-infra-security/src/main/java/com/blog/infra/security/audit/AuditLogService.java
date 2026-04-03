@@ -3,6 +3,7 @@ package com.blog.infra.security.audit;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.common.util.PageParamUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class AuditLogService {
     public IPage<AuditLogEntry> page(int pageNum, int pageSize,
                                      String operation, Long userId,
                                      LocalDateTime startTime, LocalDateTime endTime) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<AuditLogEntry> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(operation != null, AuditLogEntry::getOperation, operation)
                .eq(userId != null, AuditLogEntry::getUserId, userId)
@@ -33,19 +35,20 @@ public class AuditLogService {
                .le(endTime != null, AuditLogEntry::getCreateTime, endTime)
                .orderByDesc(AuditLogEntry::getCreateTime);
 
-        return auditLogMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return auditLogMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**
      * 按 IP 查询登录日志（用于检测异常登录）
      */
     public IPage<AuditLogEntry> queryByIp(String ipAddress, int pageNum, int pageSize) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<AuditLogEntry> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AuditLogEntry::getIpAddress, ipAddress)
                .eq(AuditLogEntry::getOperation, "LOGIN")
                .orderByDesc(AuditLogEntry::getCreateTime);
 
-        return auditLogMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return auditLogMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**
@@ -54,6 +57,7 @@ public class AuditLogService {
     public IPage<AuditLogEntry> pageForAdmin(int pageNum, int pageSize,
                                              String operation, String module,
                                              String username, String ipAddress) {
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         LambdaQueryWrapper<AuditLogEntry> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(operation), AuditLogEntry::getOperation, operation)
                .like(StringUtils.hasText(module), AuditLogEntry::getModule, module)
@@ -61,7 +65,7 @@ public class AuditLogService {
                .like(StringUtils.hasText(ipAddress), AuditLogEntry::getIpAddress, ipAddress)
                .orderByDesc(AuditLogEntry::getCreateTime);
 
-        return auditLogMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return auditLogMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
     }
 
     /**

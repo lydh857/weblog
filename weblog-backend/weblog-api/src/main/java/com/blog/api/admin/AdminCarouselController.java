@@ -2,6 +2,7 @@ package com.blog.api.admin;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.result.Result;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.CarouselCreateRequest;
 import com.blog.content.dto.CarouselUpdateRequest;
 import com.blog.content.dto.CarouselVO;
@@ -15,8 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端 - 轮播配置管理
@@ -34,8 +33,8 @@ public class AdminCarouselController {
   public Result<Map<String, Object>> list(
     @RequestParam(defaultValue = "1") int pageNum,
     @RequestParam(defaultValue = "20") int pageSize) {
-    pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-    IPage<CarouselVO> page = carouselService.pageAdmin(pageNum, pageSize);
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+    IPage<CarouselVO> page = carouselService.pageAdmin(pageParams.pageNum(), pageParams.pageSize());
     return Result.success(Map.of(
       "records", page.getRecords(),
       "total", page.getTotal(),

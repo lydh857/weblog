@@ -3,14 +3,17 @@ package com.blog.api.portal;
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
 import com.blog.infra.captcha.model.CaptchaGenerateVO;
+import com.blog.infra.captcha.model.CaptchaRiskContext;
 import com.blog.infra.captcha.model.CaptchaRefreshRequest;
 import com.blog.infra.captcha.model.CaptchaVerifyRequest;
 import com.blog.infra.captcha.model.CaptchaVerifyVO;
 import com.blog.infra.captcha.service.CaptchaService;
+import com.blog.api.portal.support.DeviceFingerprintService;
 import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -25,27 +28,38 @@ import org.springframework.web.bind.annotation.*;
 public class CaptchaController {
 
     private final CaptchaService captchaService;
+    private final DeviceFingerprintService deviceFingerprintService;
 
     @Operation(summary = "生成验证码")
     @GetMapping("/generate")
     @RateLimit(key = "captchaGenerate", capacity = 10, seconds = 60)
-    public Result<CaptchaGenerateVO> generate(HttpServletRequest request) {
-        return Result.success(captchaService.generateCaptcha(IpUtil.getClientIp(request)));
+    public Result<CaptchaGenerateVO> generate(HttpServletRequest request, HttpServletResponse response) {
+        return Result.success(captchaService.generateCaptcha(buildRiskContext(request, response)));
     }
 
     @Operation(summary = "验证滑块")
     @PostMapping("/verify")
     @RateLimit(key = "captchaVerify", capacity = 20, seconds = 60)
     public Result<CaptchaVerifyVO> verify(@Valid @RequestBody CaptchaVerifyRequest req,
-                                          HttpServletRequest request) {
-        return Result.success(captchaService.verifyCaptcha(req, IpUtil.getClientIp(request)));
+                                          HttpServletRequest request,
+                                          HttpServletResponse response) {
+        return Result.success(captchaService.verifyCaptcha(req, buildRiskContext(request, response)));
     }
 
     @Operation(summary = "刷新验证码")
     @PostMapping("/refresh")
     @RateLimit(key = "captchaGenerate", capacity = 10, seconds = 60)
     public Result<CaptchaGenerateVO> refresh(@Valid @RequestBody CaptchaRefreshRequest req,
-                                             HttpServletRequest request) {
-        return Result.success(captchaService.refreshCaptcha(req.getOldToken(), IpUtil.getClientIp(request)));
+                                             HttpServletRequest request,
+                                             HttpServletResponse response) {
+        return Result.success(captchaService.refreshCaptcha(req.getOldToken(), buildRiskContext(request, response)));
+    }
+
+    private CaptchaRiskContext buildRiskContext(HttpServletRequest request, HttpServletResponse response) {
+        return CaptchaRiskContext.builder()
+                .clientIp(IpUtil.getClientIp(request))
+                .deviceFingerprint(deviceFingerprintService.resolveFingerprint(request, response))
+                .sessionId(request.getSession(true).getId())
+                .build();
     }
 }

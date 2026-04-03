@@ -2,6 +2,7 @@ package com.blog.api.portal;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.result.Result;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.CatalogNode;
 import com.blog.content.dto.TopicRespVO;
 import com.blog.content.entity.Post;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 用户端 - 专题接口
@@ -39,8 +38,8 @@ public class PortalTopicController {
     public Result<Map<String, Object>> list(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "12") int pageSize) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        IPage<TopicRespVO> page = topicService.getTopicPage(pageNum, pageSize, null, true, null);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        IPage<TopicRespVO> page = topicService.getTopicPage(pageParams.pageNum(), pageParams.pageSize(), null, true, null);
         return Result.success(Map.of(
                 "records", page.getRecords(),
                 "total", page.getTotal(),

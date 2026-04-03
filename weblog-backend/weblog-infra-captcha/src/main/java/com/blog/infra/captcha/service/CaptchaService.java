@@ -1,6 +1,7 @@
 package com.blog.infra.captcha.service;
 
 import com.blog.infra.captcha.model.CaptchaGenerateVO;
+import com.blog.infra.captcha.model.CaptchaRiskContext;
 import com.blog.infra.captcha.model.CaptchaVerifyRequest;
 import com.blog.infra.captcha.model.CaptchaVerifyVO;
 
@@ -12,17 +13,17 @@ public interface CaptchaService {
     /**
      * 生成验证码（含黑名单检查、图片生成、Redis 存储）
      */
-    CaptchaGenerateVO generateCaptcha(String clientIp);
+    CaptchaGenerateVO generateCaptcha(CaptchaRiskContext context);
 
     /**
      * 验证滑块（数据获取删除、IP 校验、轨迹分析、位置校验、生成 verifyToken）
      */
-    CaptchaVerifyVO verifyCaptcha(CaptchaVerifyRequest request, String clientIp);
+    CaptchaVerifyVO verifyCaptcha(CaptchaVerifyRequest request, CaptchaRiskContext context);
 
     /**
      * 刷新验证码（删除旧数据、生成新验证码）
      */
-    CaptchaGenerateVO refreshCaptcha(String oldToken, String clientIp);
+    CaptchaGenerateVO refreshCaptcha(String oldToken, CaptchaRiskContext context);
 
     /**
      * 校验 Verify_Token（签名校验、IP 校验、一次性删除）

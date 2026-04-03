@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.common.result.Result;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.content.entity.Advertisement;
 import com.blog.content.service.AdPitBindingService;
 import com.blog.content.service.AdvertisementService;
@@ -31,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 
 /**
  * 管理端 - 广告管理
@@ -67,8 +67,8 @@ public class AdminAdvertisementController {
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String position) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
-        IPage<Advertisement> page = advertisementService.listPage(pageNum, pageSize, status, position);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        IPage<Advertisement> page = advertisementService.listPage(pageParams.pageNum(), pageParams.pageSize(), status, position);
         List<Advertisement> records = page.getRecords();
         attachAdvertiserInfo(records);
         attachReviewReasons(records);

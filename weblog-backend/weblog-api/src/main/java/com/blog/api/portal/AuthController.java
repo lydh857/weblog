@@ -6,6 +6,7 @@ import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.ValidateUtil;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.redis.RedisService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
@@ -222,7 +223,8 @@ public class AuthController {
     public Result<com.baomidou.mybatisplus.core.metadata.IPage<LoginLogVO>> getMyLoginLogs(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
-        return Result.success(loginLogService.getMyLoginLogs(pageNum, pageSize));
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        return Result.success(loginLogService.getMyLoginLogs(pageParams.pageNum(), pageParams.pageSize()));
     }
 
     @Operation(summary = "检查邮箱可用性", description = "验证邮箱格式和域名MX记录")

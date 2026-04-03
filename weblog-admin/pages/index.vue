@@ -222,7 +222,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick, type Component } from 'vue'
 import { Document, View, User, ChatDotSquare } from '@element-plus/icons-vue'
-import type { ECharts } from 'echarts/core'
+import { init as initEcharts, graphic, use as useEcharts, type ECharts } from 'echarts/core'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import {
   getArticleStatistics,
   getPvStatistics,
@@ -356,42 +359,19 @@ const aiTrendMax = computed(() => {
   return Math.max(...aiRecentTrend.value.map(item => getAiTrendTotal(item)), 1)
 })
 
-type EchartsCoreModule = typeof import('echarts/core')
-
-let echartsInit: EchartsCoreModule['init'] | null = null
-let echartsGraphic: EchartsCoreModule['graphic'] | null = null
-let echartsReadyPromise: Promise<void> | null = null
+useEcharts([
+  BarChart,
+  LineChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+  CanvasRenderer,
+])
 
 async function ensureEchartsReady() {
-  if (!echartsReadyPromise) {
-    echartsReadyPromise = (async () => {
-      const [core, charts, components, renderers] = await Promise.all([
-        import('echarts/core'),
-        import('echarts/charts'),
-        import('echarts/components'),
-        import('echarts/renderers'),
-      ])
-
-      core.use([
-        charts.BarChart,
-        charts.LineChart,
-        charts.PieChart,
-        components.TitleComponent,
-        components.TooltipComponent,
-        components.GridComponent,
-        components.LegendComponent,
-        renderers.CanvasRenderer,
-      ])
-
-      echartsInit = core.init
-      echartsGraphic = core.graphic
-    })().catch((error) => {
-      echartsReadyPromise = null
-      throw error
-    })
-  }
-
-  return echartsReadyPromise
+  return Promise.resolve()
 }
 
 // 卡片配置
@@ -648,12 +628,10 @@ async function renderChart(config: ChartConfig) {
     return
   }
 
-  if (!echartsInit || !echartsGraphic) return
-
   const dark = isDarkMode()
   let instance = chartInstances.get(config.key)
   if (!instance) {
-    instance = echartsInit(el)
+    instance = initEcharts(el)
     chartInstances.set(config.key, instance)
   }
 
@@ -680,7 +658,7 @@ async function renderChart(config: ChartConfig) {
       itemStyle: { color: config.color, borderRadius: config.chartType === 'bar' ? [4, 4, 0, 0] : 0 },
       lineStyle: config.chartType === 'line' ? { width: 2, color: config.color } : undefined,
       areaStyle: config.chartType === 'line' ? {
-        color: new echartsGraphic.LinearGradient(0, 0, 0, 1, [
+        color: new graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: config.color + '40' },
           { offset: 1, color: config.color + '05' }
         ])
@@ -705,11 +683,9 @@ async function renderCategoryChart() {
     return
   }
 
-  if (!echartsInit) return
-
   const dark = isDarkMode()
   if (categoryChartInstance) categoryChartInstance.dispose()
-  categoryChartInstance = echartsInit(categoryChartRef.value)
+  categoryChartInstance = initEcharts(categoryChartRef.value)
 
   const data = categoryDist.value.map(item => ({ name: item.name, value: item.count }))
 

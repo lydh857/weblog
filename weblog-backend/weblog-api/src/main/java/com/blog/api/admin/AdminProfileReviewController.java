@@ -10,6 +10,7 @@ import com.blog.content.mapper.OssResourceMapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.system.entity.User;
 import com.blog.system.entity.UserProfileReview;
@@ -30,7 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 import static com.blog.common.constant.CommonConstant.PROFILE_REVIEW_PENDING;
 
 @Tag(name = "管理端-个人信息审核", description = "个人头像/昵称/简介审核")
@@ -64,7 +64,7 @@ public class AdminProfileReviewController {
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) String keyword) {
-        pageSize = (int) Math.min(pageSize, MAX_PAGE_SIZE);
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
 
         LambdaQueryWrapper<UserProfileReview> wrapper = new LambdaQueryWrapper<UserProfileReview>()
                 .eq(UserProfileReview::getStatus, PROFILE_REVIEW_PENDING)
@@ -81,13 +81,13 @@ public class AdminProfileReviewController {
                 return Result.success(Map.of(
                         "records", List.of(),
                         "total", 0,
-                        "current", (long) pageNum,
+                        "current", (long) pageParams.pageNum(),
                         "pages", 0));
             }
             wrapper.in(UserProfileReview::getUserId, matchedUserIds);
         }
 
-        IPage<UserProfileReview> page = userProfileReviewMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        IPage<UserProfileReview> page = userProfileReviewMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
 
         Set<Long> userIds = page.getRecords().stream()
                 .map(UserProfileReview::getUserId)

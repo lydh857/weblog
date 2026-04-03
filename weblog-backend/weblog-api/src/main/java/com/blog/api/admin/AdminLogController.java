@@ -1,6 +1,7 @@
 package com.blog.api.admin;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.common.util.PageParamUtil;
 import com.blog.common.result.Result;
 import com.blog.infra.security.audit.AuditLogEntry;
 import com.blog.infra.security.audit.AuditLogService;
@@ -36,7 +37,8 @@ public class AdminLogController {
       @RequestParam(required = false) String email,
       @RequestParam(required = false) String loginType,
       @RequestParam(required = false) String result) {
-    return Result.success(loginLogService.getAllLoginLogs(pageNum, pageSize, email, loginType, result));
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+    return Result.success(loginLogService.getAllLoginLogs(pageParams.pageNum(), pageParams.pageSize(), email, loginType, result));
   }
 
   @Operation(summary = "查询审计日志")
@@ -49,6 +51,7 @@ public class AdminLogController {
       @RequestParam(required = false) String module,
       @RequestParam(required = false) String username,
       @RequestParam(required = false) String ipAddress) {
-    return Result.success(auditLogService.pageForAdmin(pageNum, pageSize, operation, module, username, ipAddress));
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+    return Result.success(auditLogService.pageForAdmin(pageParams.pageNum(), pageParams.pageSize(), operation, module, username, ipAddress));
   }
 }

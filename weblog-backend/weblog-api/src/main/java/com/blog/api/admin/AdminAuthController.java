@@ -3,6 +3,7 @@ package com.blog.api.admin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
+import com.blog.common.util.PageParamUtil;
 import com.blog.infra.captcha.service.CaptchaService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
@@ -151,7 +152,8 @@ public class AdminAuthController {
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String loginType,
             @RequestParam(required = false) String result) {
-        return Result.success(loginLogService.getAllLoginLogs(pageNum, pageSize, email, loginType, result));
+        PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+        return Result.success(loginLogService.getAllLoginLogs(pageParams.pageNum(), pageParams.pageSize(), email, loginType, result));
     }
 
     private void syncRememberCookie(HttpServletResponse response,

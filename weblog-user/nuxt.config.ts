@@ -1,13 +1,15 @@
 const cspPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "script-src 'self'",
+  "style-src 'self' https://fonts.googleapis.com",
   "img-src 'self' data: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https: http: ws: wss:",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
+  "report-uri /api/security/csp/report",
+  "report-to csp-endpoint",
 ].join('; ')
 
 // CSP 灰度阶段：report-only（默认）/ dual（同时下发）/ enforce（仅强制）
@@ -18,6 +20,8 @@ const securityHeaders: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Reporting-Endpoints': 'csp-endpoint="/api/security/csp/report"',
+  'Report-To': '{"group":"csp-endpoint","max_age":10886400,"endpoints":[{"url":"/api/security/csp/report"}]}',
 }
 
 if (cspStage === 'enforce' || cspStage === 'dual') {
