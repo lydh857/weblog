@@ -1,26 +1,27 @@
 <#
+用途：执行 Portal 关键接口的 P0 回归校验，并输出可归档 JSON 结果。
 Usage:
 
 1) strict mode (recommended)
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091"
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091"
 
 2) legacy replies paging compatibility
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AllowLegacyRepliesPaging
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AllowLegacyRepliesPaging
 
 3) authenticated checks (my/comment batch/favorite batch)
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AuthToken "<Satoken>"
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AuthToken "<Satoken>"
 
 4) authenticated checks with forbidden comment assertion
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AuthToken "<Satoken>" -ForbiddenCommentId 123
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -AuthToken "<Satoken>" -ForbiddenCommentId 123
 
 5) write machine-readable summary json
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -SummaryJsonPath "docs/p0-api-regression-result.json"
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -SummaryJsonPath "docs/p0-api-regression-result.json"
 
 6) malformed comment like cache tolerance check
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -CheckMalformedCommentLike -MalformedCheckPostId 1 -MalformedCheckCommentId 1 -MalformedExpectedLikeCount 12
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -CheckMalformedCommentLike -MalformedCheckPostId 1 -MalformedCheckCommentId 1 -MalformedExpectedLikeCount 12
 
 7) fail fast when authenticated checks are required but token missing
-powershell -ExecutionPolicy Bypass -File "docs/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -RequireAuthChecks
+powershell -ExecutionPolicy Bypass -File "scripts/p0-api-regression.ps1" -BaseUrl "http://127.0.0.1:9091" -RequireAuthChecks
 #>
 
 param(

@@ -13,9 +13,12 @@
 docker-data/
 database/*
 !database/weblog.sql
+!database/sql/
+!database/sql/init/
+!database/sql/init/*.sql
 # 文档文件夹（如果是临时文档）
 docs/*
-!docs/p0-api-regression.ps1
+!scripts/p0-api-regression.ps1
 *.txt
 !weblog-backend/weblog-infra-security/src/main/resources/sensitive/sensi_words.txt
 *.md

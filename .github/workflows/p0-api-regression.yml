@@ -3,6 +3,7 @@ name: P0 API Regression
 on:
   schedule:
     - cron: '0 18 * * *'
+    - cron: '0 2 1 * *'
   pull_request:
     branches:
       - master
@@ -70,6 +71,7 @@ jobs:
       REDIS_PASSWORD: ""
       JWT_SECRET: ci-jwt-secret-key-2026-at-least-32-characters
       CAPTCHA_SECRET_KEY: ci-captcha-secret-key-2026-at-least-32-characters
+      BLOG_SECURITY_DEV_BYPASS_ENABLED: false
       GITHUB_CLIENT_ID: ci-github-client-id
       GITHUB_CLIENT_SECRET: ci-github-client-secret
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
@@ -89,12 +91,18 @@ jobs:
       - name: Install mysql client
         run: sudo apt-get update && sudo apt-get install -y mysql-client redis-tools
 
+      - name: Run security unit tests
+        run: |
+          mvn -f weblog-backend/pom.xml -pl weblog-api -am -Dtest=PageParamUtilSecurityTest -Dsurefire.failIfNoSpecifiedTests=false test
+          mvn -f weblog-backend/pom.xml -pl weblog-infra-captcha -am -Dtest=TrackAnalyzerSecurityTest -Dsurefire.failIfNoSpecifiedTests=false test
+
       - name: Init MySQL schema
         run: |
           mysql -h127.0.0.1 -P3307 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS weblog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
           mysql -h127.0.0.1 -P3307 -uroot -proot -e "CREATE USER IF NOT EXISTS 'blog_user'@'%' IDENTIFIED BY 'blog_pass';"
           mysql -h127.0.0.1 -P3307 -uroot -proot -e "GRANT ALL PRIVILEGES ON weblog.* TO 'blog_user'@'%'; FLUSH PRIVILEGES;"
-          mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/weblog.sql
+          mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/sql/init/02-schema.sql
+          mysql -h127.0.0.1 -P3307 -uroot -proot weblog < database/sql/init/03-data.sql
 
       - name: Build backend
         run: |
@@ -230,7 +238,17 @@ jobs:
             $scriptArgs.MalformedExpectedLikeCount = [long]$env:INPUT_MALFORMED_EXPECTED_LIKE_COUNT
           }
 
-          & ./docs/p0-api-regression.ps1 @scriptArgs
+          & ./scripts/p0-api-regression.ps1 @scriptArgs
+
+      - name: Run captcha attack regression script
+        shell: pwsh
+        run: |
+          & ./scripts/captcha-attack-regression.ps1 `
+            -BaseUrl 'http://127.0.0.1:9091' `
+            -SummaryJsonPath 'docs/captcha-attack-regression-result.json' `
+            -ReportTextPath 'docs/captcha-attack-regression-report.txt' `
+            -FailOnUnexpectedSuccess `
+            -RequireBlacklistActivation
 
       - name: Upload backend log
         if: always()
@@ -245,6 +263,17 @@ jobs:
         with:
           name: p0-api-regression-summary
           path: docs/p0-api-regression-result.json
+          if-no-files-found: warn
+
+      - name: Upload captcha attack summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captcha-attack-regression-summary
+          path: |
+            docs/captcha-attack-regression-result.json
+            docs/captcha-attack-regression-report.txt
+            scripts/captcha-attack-report-template.json
           if-no-files-found: warn
 
       - name: Stop backend
