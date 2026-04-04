@@ -19,9 +19,6 @@
   </Transition>
   <MessageContainer />
   <ConfirmDialog />
-  <!-- 登录与广告申请弹窗首开按需挂载，挂载后保留以支持完整过渡动画 -->
-  <LazyLoginModal v-if="shouldMountLoginModal" />
-  <LazyAdApplyModal v-if="shouldMountAdApplyModal" />
   <BackToTop />
   <GlobalScrollbar />
 </template>
@@ -34,10 +31,6 @@ import GlobalScrollbar from '~/components/common/GlobalScrollbar.vue'
 import StartupCubeLoader from '~/components/common/StartupCubeLoader.vue'
 
 const route = useRoute()
-const loginModal = useLoginModal()
-const adApplyModal = useAdApplyModal()
-const shouldMountLoginModal = ref(false)
-const shouldMountAdApplyModal = ref(false)
 const showStartup = ref(route.path !== '/error')
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const STARTUP_FADE_MS = 220
@@ -55,18 +48,6 @@ let startupFallbackTimer: ReturnType<typeof window.setTimeout> | null = null
 let startupReadyRafId: number | null = null
 let startupReadyRafTailId: number | null = null
 let startupLoadListener: (() => void) | null = null
-
-watch(() => loginModal.visible.value, (opened) => {
-  if (opened) {
-    shouldMountLoginModal.value = true
-  }
-}, { immediate: true })
-
-watch(() => adApplyModal.visible.value, (opened) => {
-  if (opened) {
-    shouldMountAdApplyModal.value = true
-  }
-}, { immediate: true })
 
 function markStartupDone() {
   const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }

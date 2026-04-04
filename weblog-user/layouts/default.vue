@@ -189,6 +189,8 @@
     </Transition>
     <!-- 搜索弹窗首开按需挂载，挂载后保留以支持完整过渡动画 -->
     <LazySearchModal v-if="shouldMountSearchModal" v-model:visible="searchModal.isVisible.value" />
+    <LazyLoginModal v-if="shouldMountLoginModal" />
+    <LazyAdApplyModal v-if="shouldMountAdApplyModal" />
     <LazyAnnouncementCenter
       v-model:visible="announcementCenterVisible"
       @unread-change="handleAnnouncementUnreadChange"
@@ -222,6 +224,10 @@ const { isDark, toggleDark } = useDarkMode()
 const userStore = useUserStore()
 const searchModal = useSearchModal()
 const shouldMountSearchModal = ref(false)
+const loginModal = useLoginModal()
+const adApplyModal = useAdApplyModal()
+const shouldMountLoginModal = ref(false)
+const shouldMountAdApplyModal = ref(false)
 const route = useRoute()
 const siteConfig = useSiteConfigState()
 const mobileMenuOpen = ref(false)
@@ -231,7 +237,6 @@ const unreadAnnouncementCount = ref(0)
 const navAuthRef = ref<HTMLElement | null>(null)
 const message = useMessage()
 const { confirm } = useConfirm()
-const loginModal = useLoginModal()
 const { locked: navScrollLocked } = useNavScrollLock()
 const homeNavRankingItems = ref<RankingItem[]>([])
 let hideUserMenuTimer: ReturnType<typeof setTimeout> | null = null
@@ -323,6 +328,18 @@ async function getAuthApi() {
 watch(() => searchModal.isVisible.value, (opened) => {
   if (opened) {
     shouldMountSearchModal.value = true
+  }
+}, { immediate: true })
+
+watch(() => loginModal.visible.value, (opened) => {
+  if (opened) {
+    shouldMountLoginModal.value = true
+  }
+}, { immediate: true })
+
+watch(() => adApplyModal.visible.value, (opened) => {
+  if (opened) {
+    shouldMountAdApplyModal.value = true
   }
 }, { immediate: true })
 
