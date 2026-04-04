@@ -95,9 +95,8 @@
 </template>
 
 <script setup lang="ts">
-import { postApi, type PostVO } from '~/api/content/post'
+import type { PostVO } from '~/api/content/post'
 import type { AdvertisementVO } from '~/api/marketing/advertisement'
-import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
 
 useHead({ title: 'Weblog - 首页' })
 
@@ -153,6 +152,26 @@ type PostGridItem =
   | { key: string; type: 'ad'; ad: AdvertisementVO }
 
 const listCardAdPool = computed(() => listCardAds.value.filter(item => item.type === 'image' && Boolean(item.content)))
+
+type PostApi = typeof import('~/api/content/post')['postApi']
+type FetchCachedAdSlot = typeof import('~/composables/cache/useNonCriticalApiCache')['fetchCachedAdSlot']
+
+let postApiPromise: Promise<PostApi> | null = null
+let fetchCachedAdSlotPromise: Promise<FetchCachedAdSlot> | null = null
+
+async function getPostApi(): Promise<PostApi> {
+  if (!postApiPromise) {
+    postApiPromise = import('~/api/content/post').then(module => module.postApi)
+  }
+  return postApiPromise
+}
+
+async function getFetchCachedAdSlot(): Promise<FetchCachedAdSlot> {
+  if (!fetchCachedAdSlotPromise) {
+    fetchCachedAdSlotPromise = import('~/composables/cache/useNonCriticalApiCache').then(module => module.fetchCachedAdSlot)
+  }
+  return fetchCachedAdSlotPromise
+}
 
 function resolveListCardAd(pageNo: number): AdvertisementVO | null {
   const pool = listCardAdPool.value
@@ -301,6 +320,7 @@ function initSectionObserver() {
 
 async function loadListCardAds() {
   try {
+    const fetchCachedAdSlot = await getFetchCachedAdSlot()
     // 首页拟态卡广告属于非关键数据，使用短期缓存避免重复请求。
     listCardAds.value = await fetchCachedAdSlot('post_list_card', { ttlMs: 45_000 })
   } catch {
@@ -314,6 +334,7 @@ async function loadPosts() {
   const startAt = Date.now()
   loading.value = true
   try {
+    const postApi = await getPostApi()
     const res = await postApi.list({ pageNum: 1, pageSize })
     posts.value = res.data.records
     noMore.value = res.data.records.length < pageSize || res.data.pages <= 1
@@ -334,6 +355,7 @@ async function loadMore() {
   const startAt = Date.now()
   loadingMore.value = true
   try {
+    const postApi = await getPostApi()
     const nextPage = currentPage.value + 1
     const res = await postApi.list({ pageNum: nextPage, pageSize })
     const appendedPosts = res.data.records

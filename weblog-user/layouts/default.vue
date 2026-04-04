@@ -189,7 +189,7 @@
     </Transition>
     <!-- 搜索弹窗首开按需挂载，挂载后保留以支持完整过渡动画 -->
     <LazySearchModal v-if="shouldMountSearchModal" v-model:visible="searchModal.isVisible.value" />
-    <AnnouncementCenter
+    <LazyAnnouncementCenter
       v-model:visible="announcementCenterVisible"
       @unread-change="handleAnnouncementUnreadChange"
     />
