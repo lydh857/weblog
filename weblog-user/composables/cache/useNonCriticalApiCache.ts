@@ -1,5 +1,5 @@
-import { advertisementApi, type AdvertisementVO } from '~/api/marketing/advertisement'
-import { rankingApi, type RankingItem, type RankingResolvedResult } from '~/api/content/ranking'
+import type { AdvertisementVO } from '~/api/marketing/advertisement'
+import type { RankingItem, RankingResolvedResult } from '~/api/content/ranking'
 
 interface CacheOptions {
   ttlMs?: number
@@ -28,6 +28,26 @@ const smartRankingPendingMap = new Map<string, Promise<RankingResolvedResult>>()
 
 const adSlotCacheMap = new Map<string, MemoryCacheEntry<AdvertisementVO[]>>()
 const adSlotPendingMap = new Map<string, Promise<AdvertisementVO[]>>()
+
+type RankingApi = typeof import('~/api/content/ranking')['rankingApi']
+type AdvertisementApi = typeof import('~/api/marketing/advertisement')['advertisementApi']
+
+let rankingApiPromise: Promise<RankingApi> | null = null
+let advertisementApiPromise: Promise<AdvertisementApi> | null = null
+
+async function getRankingApi(): Promise<RankingApi> {
+  if (!rankingApiPromise) {
+    rankingApiPromise = import('~/api/content/ranking').then(module => module.rankingApi)
+  }
+  return rankingApiPromise
+}
+
+async function getAdvertisementApi(): Promise<AdvertisementApi> {
+  if (!advertisementApiPromise) {
+    advertisementApiPromise = import('~/api/marketing/advertisement').then(module => module.advertisementApi)
+  }
+  return advertisementApiPromise
+}
 
 function normalizeTtl(ttlMs?: number): number {
   if (typeof ttlMs === 'number' && Number.isFinite(ttlMs) && ttlMs > 0) {
@@ -114,6 +134,8 @@ export async function fetchCachedRanking(
   query: RankingQuery,
   options: CacheOptions = {},
 ): Promise<RankingItem[]> {
+  const rankingApi = await getRankingApi()
+
   if (import.meta.server) {
     const res = await rankingApi.get(query)
     return cloneRankingItems(normalizeRankingItems(res.data))
@@ -162,6 +184,8 @@ export async function fetchCachedSmartRanking(
   query: RankingQuery,
   options: CacheOptions = {},
 ): Promise<RankingResolvedResult> {
+  const rankingApi = await getRankingApi()
+
   if (import.meta.server) {
     const result = await rankingApi.getSmartWithRecentFallback(query)
     return cloneRankingResolvedResult(result)
@@ -213,6 +237,8 @@ export async function fetchCachedAdSlot(
   if (!normalizedSlot) {
     return []
   }
+
+  const advertisementApi = await getAdvertisementApi()
 
   if (import.meta.server) {
     const res = await advertisementApi.getBySlot(normalizedSlot)

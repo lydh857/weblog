@@ -215,8 +215,6 @@ import { useSearchModal } from '~/composables/modal/useSearchModal'
 import { useNavScrollLock } from '~/composables/layout/useNavScrollLock'
 import { useNavbarScrollBehavior } from '~/composables/layout/useNavbarScrollBehavior'
 import type { RankingItem } from '~/api/content/ranking'
-import { fetchCachedRanking } from '~/composables/cache/useNonCriticalApiCache'
-import { authApi } from '~/api/auth/auth'
 
 const { bannerVisible: announcementBarVisible } = useAnnouncementBar()
 
@@ -305,6 +303,22 @@ let homeNavAnimateTimer: ReturnType<typeof setTimeout> | null = null
 let cancelHomeNavRankingPrefetch: (() => void) | null = null
 let cancelSearchModalChunkPrefetch: (() => void) | null = null
 let searchModalChunkPrefetched = false
+let fetchCachedRankingPromise: Promise<typeof import('~/composables/cache/useNonCriticalApiCache')['fetchCachedRanking']> | null = null
+let authApiPromise: Promise<typeof import('~/api/auth/auth')['authApi']> | null = null
+
+async function getFetchCachedRanking() {
+  if (!fetchCachedRankingPromise) {
+    fetchCachedRankingPromise = import('~/composables/cache/useNonCriticalApiCache').then(module => module.fetchCachedRanking)
+  }
+  return fetchCachedRankingPromise
+}
+
+async function getAuthApi() {
+  if (!authApiPromise) {
+    authApiPromise = import('~/api/auth/auth').then(module => module.authApi)
+  }
+  return authApiPromise
+}
 
 watch(() => searchModal.isVisible.value, (opened) => {
   if (opened) {
@@ -462,6 +476,7 @@ async function loadHomeNavRanking() {
   if (homeNavRankingItems.value.length) return
 
   try {
+    const fetchCachedRanking = await getFetchCachedRanking()
     // 导航热榜属于非关键数据，优先复用短期缓存并限制最大条数。
     const items = await fetchCachedRanking({ rankType: 4, limit: 5 }, { ttlMs: 60_000 })
     homeNavRankingItems.value = items.slice(0, 5)
@@ -778,6 +793,7 @@ async function handleLogout() {
   const shouldRedirectHome = route.path.startsWith('/user')
 
   try {
+    const authApi = await getAuthApi()
     await authApi.logout()
   } catch {}
 
