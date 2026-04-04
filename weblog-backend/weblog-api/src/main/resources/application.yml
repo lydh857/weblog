@@ -136,6 +136,29 @@ blog:
       cron: "0 30 4 * * ?"
       login-log-retention-days: 180
       audit-log-retention-days: 180
+      archive-enabled: true
+      archive-batch-size: 20000
+    attack-alert:
+      slow-query-warn-ms: 500
+      adaptive-threshold-enabled: true
+      adaptive-threshold-alpha: 0.25
+      adaptive-threshold-multiplier: 2.2
+      adaptive-threshold-min: 60
+    data-governance:
+      enabled: true
+      cron: "0 40 4 * * ?"
+      user-view-log-retention-days: 180
+      post-ranking-retention-days: 180
+      post-read-daily-retention-days: 365
+      orphan-check-enabled: true
+      collation-check-enabled: true
+      collation-baseline: utf8mb4_0900_ai_ci
+      notify-on-anomaly: false
+      capacity:
+        user-view-log-warn-rows: 5000000
+        post-ranking-warn-rows: 500000
+        login-log-warn-rows: 3000000
+        audit-log-warn-rows: 3000000
   # 文件上传配置
   upload:
     # 最大文件大小（MB）

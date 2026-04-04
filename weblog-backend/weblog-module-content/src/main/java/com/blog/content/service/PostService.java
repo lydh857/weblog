@@ -325,19 +325,6 @@ public class PostService {
 
     public IPage<PostVO> page(int pageNum, int pageSize, Long categoryId, String status, Long authorId, String keyword, Boolean isDisabled, Long tagId) {
         PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
-        // 如果有 tagId 筛选，先查出关联的 postId 列表
-        List<Long> postIds = null;
-        if (tagId != null) {
-            List<PostTag> pts = postTagMapper.selectList(
-                    new LambdaQueryWrapper<PostTag>().eq(PostTag::getTagId, tagId));
-            postIds = pts.stream().map(PostTag::getPostId).collect(Collectors.toList());
-            if (postIds.isEmpty()) {
-                Page<PostVO> empty = new Page<>(pageParams.pageNum(), pageParams.pageSize(), 0);
-                empty.setRecords(Collections.emptyList());
-                return empty;
-            }
-        }
-
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {
             wrapper.and(w -> w.eq(Post::getCategoryId, categoryId)
@@ -355,8 +342,8 @@ public class PostService {
         if (isDisabled != null) {
             wrapper.eq(Post::getIsDisabled, isDisabled);
         }
-        if (postIds != null) {
-            wrapper.in(Post::getId, postIds);
+        if (tagId != null) {
+            wrapper.apply("EXISTS (SELECT 1 FROM t_post_tag pt WHERE pt.post_id = t_post.id AND pt.tag_id = {0})", tagId);
         }
         wrapper.orderByDesc(Post::getIsTop).orderByDesc(Post::getCreateTime);
 

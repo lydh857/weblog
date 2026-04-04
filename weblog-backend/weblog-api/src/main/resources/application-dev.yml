@@ -49,11 +49,34 @@ blog:
     dev-bypass-enabled: true
     referer-enabled: true
     allowed-origins: http://localhost:3000,http://localhost:3001
+    attack-alert:
+      slow-query-warn-ms: 300
+      adaptive-threshold-enabled: true
+      adaptive-threshold-alpha: 0.3
+      adaptive-threshold-multiplier: 2.0
+      adaptive-threshold-min: 20
     log-cleanup:
       enabled: true
       cron: "0 30 4 * * ?"
       login-log-retention-days: 30
       audit-log-retention-days: 30
+      archive-enabled: true
+      archive-batch-size: 5000
+    data-governance:
+      enabled: true
+      cron: "0 40 4 * * ?"
+      user-view-log-retention-days: 30
+      post-ranking-retention-days: 45
+      post-read-daily-retention-days: 90
+      orphan-check-enabled: true
+      collation-check-enabled: true
+      collation-baseline: utf8mb4_0900_ai_ci
+      notify-on-anomaly: false
+      capacity:
+        user-view-log-warn-rows: 300000
+        post-ranking-warn-rows: 100000
+        login-log-warn-rows: 300000
+        audit-log-warn-rows: 300000
   ai:
     enabled: false
     async:

@@ -208,6 +208,33 @@ CREATE TABLE `t_audit_log`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 1946 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '审计日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for t_audit_log_archive
+-- ----------------------------
+DROP TABLE IF EXISTS `t_audit_log_archive`;
+CREATE TABLE `t_audit_log_archive`  (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `origin_id` bigint NOT NULL COMMENT '原始审计日志ID',
+  `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户名',
+  `operation` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '操作类型（LOGIN/LOGOUT/CREATE/UPDATE/DELETE）',
+  `module` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作模块',
+  `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作描述',
+  `request_method` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '请求方法',
+  `request_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '请求URL',
+  `request_params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '请求参数（脱敏）',
+  `response_code` int NULL DEFAULT NULL COMMENT '响应状态码',
+  `ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'IP地址',
+  `user_agent` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'UserAgent',
+  `execution_time` bigint NULL DEFAULT NULL COMMENT '执行时间（毫秒）',
+  `create_time` datetime NULL DEFAULT NULL COMMENT '原始创建时间',
+  `archived_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_origin_id`(`origin_id` ASC) USING BTREE,
+  INDEX `idx_origin_time`(`create_time` ASC) USING BTREE,
+  INDEX `idx_archived_time`(`archived_time` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '审计日志归档表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
 -- Table structure for t_carousel
 -- ----------------------------
 DROP TABLE IF EXISTS `t_carousel`;
@@ -341,6 +368,29 @@ CREATE TABLE `t_login_log`  (
   INDEX `idx_login_type_result_time`(`login_type` ASC, `result` ASC, `create_time` ASC) USING BTREE,
   INDEX `idx_result_time_ip`(`result` ASC, `create_time` ASC, `ip` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 402 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '登录日志表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for t_login_log_archive
+-- ----------------------------
+DROP TABLE IF EXISTS `t_login_log_archive`;
+CREATE TABLE `t_login_log_archive`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `origin_id` bigint NOT NULL COMMENT '原始登录日志ID',
+  `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID',
+  `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '用户邮箱',
+  `login_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '登录类型: user(用户端), admin(管理端)',
+  `result` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '登录结果: success, failed',
+  `fail_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '失败原因',
+  `ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '客户端IP',
+  `user_agent` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'User-Agent',
+  `create_time` datetime NULL DEFAULT NULL COMMENT '原始登录时间',
+  `archived_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_origin_id`(`origin_id` ASC) USING BTREE,
+  INDEX `idx_origin_time`(`create_time` ASC) USING BTREE,
+  INDEX `idx_result_time_ip`(`result` ASC, `create_time` ASC, `ip` ASC) USING BTREE,
+  INDEX `idx_archived_time`(`archived_time` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '登录日志归档表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_oss_resource
