@@ -19,15 +19,13 @@
   </Transition>
   <MessageContainer />
   <ConfirmDialog />
-  <BackToTop />
-  <GlobalScrollbar />
+  <LazyBackToTop />
+  <LazyGlobalScrollbar />
 </template>
 
 <script setup lang="ts">
 import MessageContainer from '~/components/ui/message/MessageContainer.vue'
 import ConfirmDialog from '~/components/ui/confirm/ConfirmDialog.vue'
-import BackToTop from '~/components/common/BackToTop.vue'
-import GlobalScrollbar from '~/components/common/GlobalScrollbar.vue'
 import StartupCubeLoader from '~/components/common/StartupCubeLoader.vue'
 
 const route = useRoute()

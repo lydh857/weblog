@@ -205,7 +205,7 @@
       </aside>
     </Transition>
     <LazyAnnouncementPopup />
-    <SiteFooter />
+    <LazySiteFooter />
   </div>
 </template>
 
