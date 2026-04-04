@@ -2,11 +2,13 @@ package com.blog.api.config;
 
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
+import com.blog.common.util.LogMaskUtil;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotRoleException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,9 +25,11 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public Result<Void> handleBusinessException(BusinessException e) {
-        log.warn("业务异常: {}", e.getMessage());
-        return Result.fail(e.getCode(), e.getMessage());
+    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+        HttpStatus status = resolveBusinessHttpStatus(e.getCode());
+        String message = LogMaskUtil.mask(e.getMessage());
+        log.warn("业务异常: code={}, status={}, message={}", e.getCode(), status.value(), message);
+        return ResponseEntity.status(status).body(Result.fail(e.getCode(), e.getMessage()));
     }
 
     @ExceptionHandler(NotLoginException.class)
@@ -79,5 +83,25 @@ public class GlobalExceptionHandler {
         log.error("系统异常: ", e);
         // 生产环境不暴露堆栈信息
         return Result.fail("系统繁忙，请稍后重试");
+    }
+
+    private HttpStatus resolveBusinessHttpStatus(int businessCode) {
+        if (businessCode >= 400 && businessCode < 600) {
+            HttpStatus direct = HttpStatus.resolve(businessCode);
+            if (direct != null) {
+                return direct;
+            }
+        }
+        if (businessCode >= 42000 && businessCode < 43000) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        if (businessCode >= 40000 && businessCode < 60000) {
+            int statusCode = businessCode / 100;
+            HttpStatus mapped = HttpStatus.resolve(statusCode);
+            if (mapped != null) {
+                return mapped;
+            }
+        }
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 }

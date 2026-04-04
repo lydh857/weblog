@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.common.util.ValidateUtil;
 import com.blog.system.dto.LoginRequest;
@@ -72,7 +73,7 @@ public class AuthService {
         user.setFailedLoginAttempts(0);
 
         userMapper.insert(user);
-        log.info("用户注册成功: email={}", req.getEmail());
+        log.info("用户注册成功: email={}", DesensitizeUtil.email(req.getEmail()));
     }
 
     /**
@@ -173,7 +174,7 @@ public class AuthService {
             user.setStatus("enabled");
             user.setFailedLoginAttempts(0);
             userMapper.insert(user);
-            log.info("验证码登录自动注册: email={}", email);
+            log.info("验证码登录自动注册: email={}", DesensitizeUtil.email(email));
             emailService.sendInitialPasswordAsync(email, rawPassword);
         }
 
@@ -257,7 +258,7 @@ public class AuthService {
                 .eq(User::getId, user.getId())
                 .set(User::getPassword, PasswordUtil.encode(decryptedPassword)));
         rememberTokenService.invalidateAllUserTokens(user.getId());
-        log.info("忘记密码重置成功: email={}", email);
+        log.info("忘记密码重置成功: email={}", DesensitizeUtil.email(email));
     }
 
     /**
@@ -317,7 +318,7 @@ public class AuthService {
         User latest = userMapper.selectById(user.getId());
         if (latest != null && "locked".equals(latest.getStatus())) {
             Integer attempts = latest.getFailedLoginAttempts() == null ? 0 : latest.getFailedLoginAttempts();
-            log.warn("账户锁定: email={}, 连续失败{}次", user.getEmail(), attempts);
+            log.warn("账户锁定: email={}, 连续失败{}次", DesensitizeUtil.email(user.getEmail()), attempts);
         }
     }
 

@@ -2,6 +2,8 @@ package com.blog.system.service;
 
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
+import com.blog.common.util.LogMaskUtil;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.util.Properties;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 邮件发送服务
@@ -96,12 +99,14 @@ public class EmailService {
 
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("验证码邮件发送成功: to={}", toEmail);
+            log.info("验证码邮件发送成功: to={}", DesensitizeUtil.email(toEmail));
         } catch (MessagingException | java.io.UnsupportedEncodingException e) {
-            log.error("验证码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+            log.error("验证码邮件发送失败: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()));
             throw new BusinessException(ResultCode.VERIFY_CODE_SEND_FAIL, "验证码发送失败，请稍后重试");
         } catch (Exception e) {
-            log.error("验证码邮件发送异常: to={}, error={}", toEmail, e.getMessage(), e);
+            log.error("验证码邮件发送异常: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()), e);
             throw new BusinessException(ResultCode.VERIFY_CODE_SEND_FAIL, "验证码发送失败，请检查邮箱地址是否正确");
         }
     }
@@ -137,9 +142,10 @@ public class EmailService {
 
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("重置密码邮件发送成功: to={}", toEmail);
+            log.info("重置密码邮件发送成功: to={}", DesensitizeUtil.email(toEmail));
         } catch (Exception e) {
-            log.error("重置密码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+            log.error("重置密码邮件发送失败: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()));
             throw new BusinessException(ResultCode.VERIFY_CODE_SEND_FAIL, "重置密码邮件发送失败");
         }
     }
@@ -175,10 +181,11 @@ public class EmailService {
 
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("初始密码邮件发送成功: to={}", toEmail);
+            log.info("初始密码邮件发送成功: to={}", DesensitizeUtil.email(toEmail));
         } catch (Exception e) {
             // 初始密码邮件发送失败不影响登录流程，仅记录日志
-            log.error("初始密码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+            log.error("初始密码邮件发送失败: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()));
         }
     }
 
@@ -190,7 +197,8 @@ public class EmailService {
         try {
             sendResetPassword(toEmail, password);
         } catch (Exception e) {
-            log.error("异步重置密码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+            log.error("异步重置密码邮件发送失败: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()));
         }
     }
 
@@ -202,7 +210,8 @@ public class EmailService {
         try {
             sendInitialPassword(toEmail, password);
         } catch (Exception e) {
-            log.error("异步初始密码邮件发送失败: to={}, error={}", toEmail, e.getMessage());
+            log.error("异步初始密码邮件发送失败: to={}, error={}",
+                    DesensitizeUtil.email(toEmail), LogMaskUtil.mask(e.getMessage()));
         }
     }
 
@@ -247,9 +256,12 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(content, false);
             mailSender.send(message);
-            log.warn("安全告警邮件已发送: subject={}, recipients={}", subject, toList);
+            String maskedRecipients = toList.stream()
+                    .map(DesensitizeUtil::email)
+                    .collect(Collectors.joining(","));
+            log.warn("安全告警邮件已发送: subject={}, recipients={}", subject, maskedRecipients);
         } catch (Exception e) {
-            log.error("发送安全告警邮件失败: subject={}, error={}", subject, e.getMessage(), e);
+            log.error("发送安全告警邮件失败: subject={}, error={}", subject, LogMaskUtil.mask(e.getMessage()), e);
         }
     }
 }

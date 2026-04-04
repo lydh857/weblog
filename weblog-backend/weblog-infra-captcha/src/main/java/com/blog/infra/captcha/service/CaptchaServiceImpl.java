@@ -2,6 +2,7 @@ package com.blog.infra.captcha.service;
 
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
 import com.blog.infra.captcha.enums.PuzzleShape;
 import com.blog.infra.captcha.model.*;
 import com.blog.infra.redis.RedisService;
@@ -89,7 +90,7 @@ public class CaptchaServiceImpl implements CaptchaService {
                 .build();
         saveToRedis(CAPTCHA_DATA_PREFIX + captchaToken, data, CAPTCHA_EXPIRE_SECONDS);
 
-        log.info("生成验证码，IP: {}", clientIp);
+        log.info("生成验证码，IP: {}", DesensitizeUtil.ip(clientIp));
 
         return CaptchaGenerateVO.builder()
                 .captchaToken(captchaToken)
@@ -124,27 +125,27 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         if (!checkSolveDuration(data)) {
-            log.warn("验证提交过快，token: {}, IP: {}", request.getCaptchaToken(), clientIp);
+            log.warn("验证提交过快，token: {}, IP: {}", maskDimension(request.getCaptchaToken()), DesensitizeUtil.ip(clientIp));
             recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
         if (!checkTrackAndSliderConsistency(request)) {
-            log.warn("轨迹与滑块位置不一致，token: {}, IP: {}", request.getCaptchaToken(), clientIp);
+            log.warn("轨迹与滑块位置不一致，token: {}, IP: {}", maskDimension(request.getCaptchaToken()), DesensitizeUtil.ip(clientIp));
             recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
         // IP 校验
         if (!clientIp.equals(data.getClientIp())) {
-            log.warn("验证码 IP 不匹配，存储: {}, 请求: {}", data.getClientIp(), clientIp);
+            log.warn("验证码 IP 不匹配，存储: {}, 请求: {}", DesensitizeUtil.ip(data.getClientIp()), DesensitizeUtil.ip(clientIp));
             recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
         // 轨迹分析
         if (!trackAnalyzer.validate(request.getSlideTrack())) {
-            log.warn("轨迹异常，token: {}, IP: {}, 轨迹点数: {}", request.getCaptchaToken(), clientIp,
+            log.warn("轨迹异常，token: {}, IP: {}, 轨迹点数: {}", maskDimension(request.getCaptchaToken()), DesensitizeUtil.ip(clientIp),
                     request.getSlideTrack() != null ? request.getSlideTrack().size() : 0);
             recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
@@ -153,7 +154,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         // 位置校验
         int offset = Math.abs(request.getSliderPosition() - data.getTargetPosition());
         if (offset > ACCURACY_THRESHOLD) {
-            log.warn("位置偏差过大: {}px, token: {}", offset, request.getCaptchaToken());
+            log.warn("位置偏差过大: {}px, token: {}", offset, maskDimension(request.getCaptchaToken()));
             recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
@@ -170,7 +171,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         clearFailureCounters(context);
 
-        log.info("验证码校验成功，IP: {}", clientIp);
+        log.info("验证码校验成功，IP: {}", DesensitizeUtil.ip(clientIp));
 
         return CaptchaVerifyVO.builder()
                 .success(true)
@@ -222,7 +223,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         // 校验 IP 一致性
         if (!clientIp.equals(tokenData.getClientIp())) {
-            log.warn("Verify_Token IP 不匹配，存储: {}, 请求: {}", tokenData.getClientIp(), clientIp);
+            log.warn("Verify_Token IP 不匹配，存储: {}, 请求: {}", DesensitizeUtil.ip(tokenData.getClientIp()), DesensitizeUtil.ip(clientIp));
             return false;
         }
 

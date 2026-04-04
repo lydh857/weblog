@@ -3,6 +3,7 @@ package com.blog.system.service;
 import com.blog.common.constant.CommonConstant;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
 import com.blog.infra.redis.RedisService;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
@@ -90,7 +91,7 @@ public class EmailCodeService {
         // 发送邮件
         emailService.sendVerifyCode(email, code);
 
-        log.info("验证码已发送: email={}, scene={}", email, scene);
+        log.info("验证码已发送: email={}, scene={}", DesensitizeUtil.email(email), scene);
     }
 
     /**
@@ -114,7 +115,7 @@ public class EmailCodeService {
             if (attempts >= maxAttempts) {
                 redisService.delete(codeKey);
                 log.warn("验证码连续校验失败已达上限，验证码失效: email={}, scene={}, attempts={}",
-                        email, scene, attempts);
+                        DesensitizeUtil.email(email), scene, attempts);
             }
             return false;
         }

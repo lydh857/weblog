@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.common.util.ValidateUtil;
 import com.blog.system.dto.UpdateProfileRequest;
@@ -145,7 +146,7 @@ public class UserService {
         checkEmailNotUsed(email, userId);
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId).set(User::getEmail, email));
-        log.info("用户绑定邮箱: userId={}, email={}", userId, email);
+        log.info("用户绑定邮箱: userId={}, email={}", userId, DesensitizeUtil.email(email));
     }
 
     /**
@@ -165,7 +166,7 @@ public class UserService {
         checkEmailNotUsed(newEmail, userId);
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId).set(User::getEmail, newEmail));
-        log.info("用户换绑邮箱: userId={}, newEmail={}", userId, newEmail);
+        log.info("用户换绑邮箱: userId={}, newEmail={}", userId, DesensitizeUtil.email(newEmail));
     }
 
     /**

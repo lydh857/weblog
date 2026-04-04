@@ -4,6 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.DesensitizeUtil;
+import com.blog.common.util.LogMaskUtil;
 import com.blog.infra.redis.RedisService;
 import com.blog.system.dto.LoginResponse;
 import com.blog.system.entity.User;
@@ -114,7 +116,7 @@ public class GitHubOAuthService {
         // /user 接口可能拿不到邮箱（用户邮箱未公开），改用 /user/emails 补齐
         if (email == null || email.isBlank()) {
             email = getGitHubUserPrimaryEmail(accessToken);
-            log.info("GitHub /user/emails 获取主邮箱: githubId={}, email={}", githubId, email);
+            log.info("GitHub /user/emails 获取主邮箱: githubId={}, email={}", githubId, DesensitizeUtil.email(email));
         }
 
         // 1. 先按 githubId 查已绑定账户
@@ -129,7 +131,7 @@ public class GitHubOAuthService {
                     existingUser.setAvatar(avatar);
                 }
                 user = existingUser;
-                log.info("GitHub OAuth 关联已有账号: githubId={}, email={}", githubId, email);
+                log.info("GitHub OAuth 关联已有账号: githubId={}, email={}", githubId, DesensitizeUtil.email(email));
             }
         }
 
@@ -240,7 +242,7 @@ public class GitHubOAuthService {
             }
             return null;
         } catch (Exception e) {
-            log.warn("获取 GitHub 用户邮箱列表失败: {}", e.getMessage());
+            log.warn("获取 GitHub 用户邮箱列表失败: {}", LogMaskUtil.mask(e.getMessage()));
             return null;
         }
     }
