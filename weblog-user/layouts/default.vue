@@ -205,6 +205,8 @@
       </aside>
     </Transition>
     <LazyAnnouncementPopup />
+    <LazyBackToTop />
+    <LazyGlobalScrollbar />
     <LazySiteFooter />
   </div>
 </template>

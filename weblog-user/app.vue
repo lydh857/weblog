@@ -19,8 +19,6 @@
   </Transition>
   <MessageContainer />
   <ConfirmDialog />
-  <LazyBackToTop />
-  <LazyGlobalScrollbar />
 </template>
 
 <script setup lang="ts">
