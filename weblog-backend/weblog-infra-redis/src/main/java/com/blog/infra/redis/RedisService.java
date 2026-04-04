@@ -15,12 +15,17 @@ import java.util.concurrent.TimeUnit;
 public class RedisService {
 
     private static final DefaultRedisScript<Long> DELETE_KEY_SCRIPT;
+    private static final DefaultRedisScript<String> GET_AND_DELETE_SCRIPT;
     private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT;
 
     static {
         DELETE_KEY_SCRIPT = new DefaultRedisScript<>();
         DELETE_KEY_SCRIPT.setScriptText("return redis.call('del', KEYS[1])");
         DELETE_KEY_SCRIPT.setResultType(Long.class);
+
+        GET_AND_DELETE_SCRIPT = new DefaultRedisScript<>();
+        GET_AND_DELETE_SCRIPT.setScriptText("local value = redis.call('get', KEYS[1]); if value then redis.call('del', KEYS[1]); end; return value");
+        GET_AND_DELETE_SCRIPT.setResultType(String.class);
 
         RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>();
         RELEASE_LOCK_SCRIPT.setScriptText("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end");
@@ -54,6 +59,13 @@ public class RedisService {
     public boolean consumeKey(String key) {
         Long deleted = stringRedisTemplate.execute(DELETE_KEY_SCRIPT, Collections.singletonList(key));
         return deleted != null && deleted > 0;
+    }
+
+    /**
+     * 原子读取并删除 key（一次性令牌消费）
+     */
+    public String getAndDelete(String key) {
+        return stringRedisTemplate.execute(GET_AND_DELETE_SCRIPT, Collections.singletonList(key));
     }
 
     /**

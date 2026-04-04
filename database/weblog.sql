@@ -1486,7 +1486,8 @@ CREATE TABLE `t_login_log`  (
   INDEX `idx_login_type`(`login_type` ASC) USING BTREE,
   INDEX `idx_result`(`result` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE,
-  INDEX `idx_login_type_result_time`(`login_type` ASC, `result` ASC, `create_time` ASC) USING BTREE
+  INDEX `idx_login_type_result_time`(`login_type` ASC, `result` ASC, `create_time` ASC) USING BTREE,
+  INDEX `idx_result_time_ip`(`result` ASC, `create_time` ASC, `ip` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 402 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '登录日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -1907,7 +1908,7 @@ CREATE TABLE `t_oss_resource`  (
   `mime_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'MIME类型',
   `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '访问URL',
   `uploader_id` bigint NULL DEFAULT NULL COMMENT '上传者ID',
-  `usage_type` enum('post','avatar','ad','other','content','cover','carousel','ad_apply') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'other' COMMENT 'ç”¨é€”',
+  `usage_type` enum('post','avatar','ad','other','content','cover','carousel','ad_apply') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'other' COMMENT '用途',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '软删除',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -2080,10 +2081,10 @@ CREATE TABLE `t_post`  (
   `seo_title` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'SEO标题',
   `seo_description` varchar(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'SEO描述',
   `seo_keywords` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'SEO关键词',
-  `preview_theme` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'é¢„è§ˆä¸»é¢˜',
-  `code_theme` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'ä»£ç ä¸»é¢˜',
+  `preview_theme` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '预览主题',
+  `code_theme` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '代码主题',
   `is_top` tinyint(1) NULL DEFAULT 0 COMMENT '是否置顶',
-  `is_disabled` tinyint(1) NULL DEFAULT 0 COMMENT 'æ˜¯å¦ç¦ç”¨',
+  `is_disabled` tinyint(1) NULL DEFAULT 0 COMMENT '是否禁用',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '软删除',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -6621,22 +6622,22 @@ INSERT INTO `t_user_like` VALUES (169, 1, 'post', 28, '2026-03-18 13:06:12', 0);
 DROP TABLE IF EXISTS `t_user_profile_review`;
 CREATE TABLE `t_user_profile_review`  (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint NOT NULL COMMENT 'ç”¨æˆ·ID',
-  `pending_nickname` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'å¾…å®¡æ ¸æ˜µç§°',
-  `pending_bio` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'å¾…å®¡æ ¸ç®€ä»‹',
-  `pending_avatar` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'å¾…å®¡æ ¸å¤´åƒURL',
-  `status` enum('pending','approved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT 'å®¡æ ¸çŠ¶æ€',
-  `reject_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'æ‹’ç»åŽŸå› ',
-  `reviewer_id` bigint NULL DEFAULT NULL COMMENT 'å®¡æ ¸äººID',
-  `review_time` datetime NULL DEFAULT NULL COMMENT 'å®¡æ ¸æ—¶é—´',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `pending_nickname` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '待审核昵称',
+  `pending_bio` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '待审核简介',
+  `pending_avatar` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '待审核头像URL',
+  `status` enum('pending','approved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '审核状态',
+  `reject_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '拒绝原因',
+  `reviewer_id` bigint NULL DEFAULT NULL COMMENT '审核人ID',
+  `review_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT 'é€»è¾‘åˆ é™¤',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_user_id`(`user_id` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'ç”¨æˆ·ä¸ªäººä¿¡æ¯å®¡æ ¸' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户个人信息审核' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of t_user_profile_review

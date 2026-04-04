@@ -112,14 +112,11 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         String key = CAPTCHA_DATA_PREFIX + request.getCaptchaToken();
-        String json = redisService.get(key);
+        String json = redisService.getAndDelete(key);
 
         if (!StringUtils.hasText(json)) {
             return CaptchaVerifyVO.builder().success(false).message(MSG_CAPTCHA_EXPIRED).build();
         }
-
-        // 获取后立即删除（一次性使用）
-        redisService.delete(key);
 
         CaptchaData data = readJson(json, CaptchaData.class);
         if (data == null) {
@@ -207,13 +204,10 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         String key = VERIFY_TOKEN_PREFIX + tokenId;
-        String json = redisService.get(key);
+        String json = redisService.getAndDelete(key);
         if (!StringUtils.hasText(json)) {
             return false;
         }
-
-        // 一次性使用，立即删除
-        redisService.delete(key);
 
         VerifyTokenData tokenData = readJson(json, VerifyTokenData.class);
         if (tokenData == null) {

@@ -12,7 +12,8 @@ const cspPolicy = [
   "report-to csp-endpoint",
 ].join('; ')
 
-const cspStage = (import.meta.env.NUXT_CSP_STAGE || 'report-only').toLowerCase()
+const defaultCspStage = import.meta.env.PROD ? 'enforce' : 'report-only'
+const cspStage = (import.meta.env.NUXT_CSP_STAGE || defaultCspStage).toLowerCase()
 
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'SAMEORIGIN',
