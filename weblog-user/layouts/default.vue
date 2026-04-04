@@ -199,10 +199,10 @@
     </main>
     <Transition name="left-ad-float-fade">
       <aside v-if="shouldShowGlobalLeftAd" class="global-left-ad" :class="{ 'is-scrolling-hidden': isGlobalLeftAdScrollingHidden }">
-        <AdSlotBanner ad-slot="home_left" :visible="globalLeftAdVisible" :force-rotate="true" @closed="handleGlobalLeftAdClosed" />
+        <LazyAdSlotBanner ad-slot="home_left" :visible="globalLeftAdVisible" :force-rotate="true" @closed="handleGlobalLeftAdClosed" />
       </aside>
     </Transition>
-    <AnnouncementPopup />
+    <LazyAnnouncementPopup />
     <SiteFooter />
   </div>
 </template>
