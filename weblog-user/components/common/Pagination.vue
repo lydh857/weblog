@@ -324,6 +324,16 @@ onUnmounted(() => {
   .dark & {
     background: $color-dark-bg-secondary;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --pagination-dark-btn-bg: #{$color-dark-bg};
+    --pagination-dark-btn-border: #{$color-dark-border};
+    --pagination-dark-btn-text: #{$color-dark-text-muted};
+    --pagination-dark-btn-hover-border: rgba(147, 197, 253, 0.56);
+    --pagination-dark-btn-hover-bg: rgba(148, 163, 184, 0.12);
+    --pagination-dark-btn-hover-text: #{$color-dark-text};
+    --pagination-dark-btn-active-border: rgba(147, 197, 253, 0.54);
+    --pagination-dark-btn-active-bg: rgba(59, 130, 246, 0.38);
+    --pagination-dark-btn-active-text: #f8fbff;
+    --pagination-dark-btn-active-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
   }
 }
 
@@ -388,19 +398,21 @@ onUnmounted(() => {
   }
 
   .dark & {
-    border-color: $color-dark-border;
-    color: $color-dark-text;
+    border-color: var(--pagination-dark-btn-border, #{$color-dark-border});
+    background: var(--pagination-dark-btn-bg, #{$color-dark-bg});
+    color: var(--pagination-dark-btn-text, #{$color-dark-text-muted});
 
     &:hover:not(:disabled):not(.active) {
-      border-color: $color-primary;
-      color: $color-primary;
-      background: rgba(59, 130, 246, 0.1);
+      border-color: var(--pagination-dark-btn-hover-border, rgba(147, 197, 253, 0.56));
+      color: var(--pagination-dark-btn-hover-text, #{$color-dark-text});
+      background: var(--pagination-dark-btn-hover-bg, rgba(148, 163, 184, 0.12));
     }
 
     &.active {
-      background: linear-gradient(135deg, $color-primary 0%, #60a5fa 100%);
-      border-color: $color-primary;
-      color: #fff;
+      background: var(--pagination-dark-btn-active-bg, rgba(59, 130, 246, 0.38));
+      border-color: var(--pagination-dark-btn-active-border, rgba(147, 197, 253, 0.54));
+      color: var(--pagination-dark-btn-active-text, #f8fbff);
+      box-shadow: var(--pagination-dark-btn-active-shadow, 0 8px 18px rgba(15, 23, 42, 0.42));
     }
   }
 }
@@ -427,6 +439,18 @@ onUnmounted(() => {
     color: $color-primary;
     background: rgba(59, 130, 246, 0.04);
   }
+
+  .dark & {
+    color: var(--pagination-dark-btn-text, #{$color-dark-text-muted});
+    border: 1px solid var(--pagination-dark-btn-border, #{$color-dark-border});
+    background: var(--pagination-dark-btn-bg, #{$color-dark-bg});
+
+    &:hover {
+      color: var(--pagination-dark-btn-hover-text, #{$color-dark-text});
+      border-color: var(--pagination-dark-btn-hover-border, rgba(147, 197, 253, 0.56));
+      background: var(--pagination-dark-btn-hover-bg, rgba(148, 163, 184, 0.12));
+    }
+  }
 }
 
 /* 省略号悬浮弹窗 */
@@ -443,6 +467,12 @@ onUnmounted(() => {
   max-height: 138px;
   overflow-y: auto;
   min-width: 38px;
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: var(--pagination-dark-btn-border, #{$color-dark-border});
+    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.45);
+  }
 }
 
 .ellipsis-page-btn {
@@ -462,6 +492,15 @@ onUnmounted(() => {
   &:hover {
     background: rgba(59, 130, 246, 0.08);
     color: $color-primary;
+  }
+
+  .dark & {
+    color: var(--pagination-dark-btn-text, #{$color-dark-text-muted});
+
+    &:hover {
+      color: var(--pagination-dark-btn-hover-text, #{$color-dark-text});
+      background: var(--pagination-dark-btn-hover-bg, rgba(148, 163, 184, 0.12));
+    }
   }
 }
 
@@ -492,8 +531,15 @@ onUnmounted(() => {
   }
 
   .dark & {
-    border-color: $color-dark-border;
-    color: $color-dark-text;
+    border-color: var(--pagination-dark-btn-border, #{$color-dark-border});
+    background: var(--pagination-dark-btn-bg, #{$color-dark-bg});
+    color: var(--pagination-dark-btn-text, #{$color-dark-text-muted});
+
+    &:hover {
+      border-color: var(--pagination-dark-btn-hover-border, rgba(147, 197, 253, 0.56));
+      color: var(--pagination-dark-btn-hover-text, #{$color-dark-text});
+      background: var(--pagination-dark-btn-hover-bg, rgba(148, 163, 184, 0.12));
+    }
   }
 }
 
@@ -541,7 +587,18 @@ onUnmounted(() => {
   }
 
   .dark & {
-    color: $color-dark-text;
+    color: var(--pagination-dark-btn-text, #{$color-dark-text-muted});
+
+    &:hover {
+      color: var(--pagination-dark-btn-hover-text, #{$color-dark-text});
+      background: var(--pagination-dark-btn-hover-bg, rgba(148, 163, 184, 0.12));
+    }
+
+    &.active {
+      color: var(--pagination-dark-btn-active-text, #f8fbff);
+      background: var(--pagination-dark-btn-active-bg, rgba(59, 130, 246, 0.38));
+      box-shadow: var(--pagination-dark-btn-active-shadow, 0 8px 18px rgba(15, 23, 42, 0.42));
+    }
   }
 }
 
@@ -577,8 +634,16 @@ onUnmounted(() => {
   }
 
   .dark & {
-    border-color: $color-dark-border;
-    color: $color-dark-text;
+    border-color: rgba(71, 85, 105, 0.6);
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
+
+    &:focus {
+      border-color: rgba(147, 197, 253, 0.56);
+      color: $color-dark-text;
+      background: rgba(148, 163, 184, 0.12);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.24);
+    }
   }
 }
 
