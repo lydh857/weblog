@@ -26,7 +26,7 @@ AGENTS.md
 CLAUDE.md
 # Docker Compose 配置（可能包含敏感信息）
 docker-compose.yml
-docker-compose.prod.yml
+# docker-compose.prod.yml 由 GitHub Actions 上传到服务器，保留在仓库中
 # 环境变量文件
 .env
 .env.local

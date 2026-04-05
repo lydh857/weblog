@@ -6,10 +6,16 @@ on:
       - master
   workflow_dispatch:
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
+jobs:
+  build-and-push-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,10 +29,40 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      - name: Build Backend
+      - name: Build Backend JAR
         run: |
           cd weblog-backend
           mvn clean package -DskipTests -q
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Backend API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./weblog-backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-and-push-user:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,13 +76,46 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push User Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./weblog-user
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-and-deploy-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
       - name: Build Admin Frontend
         run: |
           cd weblog-admin
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Upload artifacts to server
+      - name: Upload Admin dist + configs to server via SCP
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -55,13 +124,49 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           overwrite: true
           source: |
-            weblog-backend/
-            weblog-user/
-            weblog-admin/
+            weblog-admin/.output
             docker-compose.prod.yml
             nginx/
           target: /opt/weblog
           strip_components: 0
+
+      - name: Create .env.prod on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs:
+            ENV_PROD_MYSQL_ROOT: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
+            ENV_PROD_DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
+            ENV_PROD_DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
+            ENV_PROD_REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
+            ENV_PROD_JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
+            ENV_PROD_CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
+            ENV_PROD_CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
+            ENV_PROD_ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
+            ENV_PROD_API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
+            ENV_PROD_IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+          script: |
+            set -e
+            cd /opt/weblog
+            cat > .env.prod << 'EOF'
+MYSQL_ROOT_PASSWORD=${ENV_PROD_MYSQL_ROOT}
+DB_USERNAME=${ENV_PROD_DB_USERNAME}
+DB_PASSWORD=${ENV_PROD_DB_PASSWORD}
+REDIS_PASSWORD=${ENV_PROD_REDIS_PASSWORD}
+JWT_SECRET=${ENV_PROD_JWT_SECRET}
+CAPTCHA_SECRET_KEY=${ENV_PROD_CAPTCHA_SECRET_KEY}
+CORS_ORIGINS=${ENV_PROD_CORS_ORIGINS}
+ALLOWED_ORIGINS=${ENV_PROD_ALLOWED_ORIGINS}
+HSTS_ENABLED=true
+REFERER_ENABLED=true
+OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci
+TRUSTED_PROXY_IPS=172.30.0.10
+API_BASE_URL=${ENV_PROD_API_BASE_URL}
+IMPORT_TOKEN=${ENV_PROD_IMPORT_TOKEN}
+EOF
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -77,15 +182,17 @@ jobs:
             # 停止旧容器
             docker compose -f docker-compose.prod.yml down || true
 
-            # 重命名 JAR 为 docker-compose.prod.yml 里的预期文件名
-            JAR_FILE=$(ls weblog-backend/target/*.jar 2>/dev/null | head -1)
-            if [ -n "$JAR_FILE" ] && [ -f "$JAR_FILE" ]; then
-              cp "$JAR_FILE" ./weblog-api.jar
-            fi
+            # 拉取最新镜像
+            echo "===== 拉取后端镜像 ====="
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest || true
 
-            # 启动容器
+            echo "===== 拉取用户端镜像 ====="
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest || true
+
+            # 启动容器（image 模式，不再需要 build）
             docker compose -f docker-compose.prod.yml up -d
 
             # 健康检查
             sleep 20
             echo "===== 部署完成 ====="
+            docker compose -f docker-compose.prod.yml ps
