@@ -30,6 +30,7 @@
             rows="1"
             maxlength="500"
             @focus="handleFormFocus"
+            @blur="mainFocused = false"
             @input="autoResize($event)"
           />
           <span class="word-count">{{ newComment.length }}/500</span>

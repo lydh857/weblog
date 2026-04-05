@@ -71,10 +71,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        exclude: *
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: never
 
 # GitHub OAuth 配置
 github:
@@ -97,7 +97,7 @@ blog:
       queue-capacity: 50
       keep-alive-seconds: 60
   cors:
-    allowed-origins: ${CORS_ORIGINS:https://yourdomain.com}
+    allowed-origins: ${CORS_ORIGINS:}
   security:
     dev-bypass-enabled: false
     hsts-enabled: true
