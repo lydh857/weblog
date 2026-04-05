@@ -116,11 +116,16 @@ useHead({
   border: 1px solid $color-border;
   border-radius: 16px;
   overflow: hidden;
+  animation: detail-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   .dark & {
     background: $color-dark-bg-secondary;
     border-color: $color-dark-border;
   }
+}
+
+.detail-empty {
+  animation: detail-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detail-header {
@@ -291,6 +296,18 @@ useHead({
 
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes detail-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

@@ -980,6 +980,17 @@ onUnmounted(() => {
   &:hover {
     background: $color-primary-dark;
   }
+
+  .dark & {
+    border-color: rgba(147, 197, 253, 0.54);
+    color: #f8fbff;
+    background: rgba(59, 130, 246, 0.38);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
+
+    &:hover {
+      background: rgba(59, 130, 246, 0.56);
+    }
+  }
 }
 
 /* ===== 浮动筛选组件 ===== */

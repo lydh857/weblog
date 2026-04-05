@@ -51,12 +51,15 @@
             <el-form-item label="邮箱" prop="email">
               <el-autocomplete
                 v-model="form.email"
-                :fetch-suggestions="suggestEmail"
+                type="email"
                 placeholder="请输入管理员邮箱"
                 :prefix-icon="Message"
                 size="large"
                 clearable
+                autocomplete="email"
                 class="full-width"
+                :fetch-suggestions="suggestEmail"
+                trigger="input"
                 @select="onEmailSelect"
               />
             </el-form-item>
@@ -75,6 +78,7 @@
                   :prefix-icon="Lock"
                   size="large"
                   clearable
+                  autocomplete="current-password"
                   @keyup.enter="handleSubmit"
                 >
                   <template v-if="pwdHover && form.password" #suffix>
