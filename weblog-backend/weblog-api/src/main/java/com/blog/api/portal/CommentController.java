@@ -53,10 +53,12 @@ public class CommentController {
         validatePostId(req.getPostId());
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        String auditVal = systemConfigService.getValue("comment_audit_enabled");
-        boolean auditEnabled = !"false".equals(auditVal); // 默认开启审核
-        Comment comment = commentService.createComment(userId, req, auditEnabled);
         User user = userMapper.selectById(userId);
+        boolean isAdmin = "admin".equals(user.getRole());
+        // 管理员评论跳过审核
+        String auditVal = systemConfigService.getValue("comment_audit_enabled");
+        boolean auditEnabled = !isAdmin && !"false".equals(auditVal); // 默认开启审核
+        Comment comment = commentService.createComment(userId, req, auditEnabled);
         return Result.success(buildVO(comment, user));
     }
 
@@ -345,6 +347,7 @@ public class CommentController {
         vo.setIsTop(c.getIsTop());
         vo.setStatus(c.getStatus());
         vo.setCreateTime(c.getCreateTime());
+        vo.setIsAdmin(user != null && "admin".equals(user.getRole()));
         return vo;
     }
 

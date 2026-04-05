@@ -18,6 +18,7 @@ export interface CommentVO {
   replyToNickname: string | null
   replyTotal?: number
   replies?: CommentVO[]
+  isAdmin?: boolean
 }
 
 export interface CreateCommentRequest {

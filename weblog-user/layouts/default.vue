@@ -744,9 +744,9 @@ watch(showLoggedIn, (val) => {
   if (!val) closeUserMenu()
 })
 
-watch(displayAvatar, () => {
-  avatarLoadFailed.value = false
-})
+watch(displayAvatar, (val) => {
+  if (val) avatarLoadFailed.value = false
+}, { immediate: true })
 
 function onAvatarError() {
   avatarLoadFailed.value = true

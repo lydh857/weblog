@@ -40,4 +40,7 @@ public class CommentVO {
 
     /** 二级回复列表 */
     private List<CommentVO> replies;
+
+    /** 评论者是否为管理员 */
+    private Boolean isAdmin;
 }

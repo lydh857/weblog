@@ -75,6 +75,7 @@
               <div class="comment-body">
                 <div class="comment-header">
                   <span class="comment-nick">{{ comment.nickname }}</span>
+                  <span v-if="comment.isAdmin" class="admin-badge">管理员</span>
                   <span v-if="comment.isTop" class="top-badge">置顶</span>
                 </div>
                 <p class="comment-text">{{ comment.content }}</p>
@@ -141,6 +142,7 @@
                       <div class="comment-head-line">
                         <span class="comment-author-cell">
                           <span class="comment-nick">{{ reply.nickname }}</span>
+                          <span v-if="reply.isAdmin" class="admin-badge">管理员</span>
                         </span>
                         <span class="comment-content-wrapper">
                           <span v-if="reply.replyToNickname" class="reply-to">
@@ -1020,6 +1022,22 @@ onUnmounted(() => {
   }
 }
 .top-badge { font-size: 0.65rem; padding: 0.0625rem 0.375rem; border-radius: 999px; background: #eff6ff; color: #1d4ed8; .dark & { background: rgba(59,130,246,0.2); color: #93c5fd; } }
+.admin-badge {
+  font-size: 0.6rem;
+  padding: 0.0625rem 0.4rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 4px rgba(249, 115, 22, 0.3);
+
+  .dark & {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.85), rgba(234, 88, 12, 0.85));
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35);
+  }
+}
 .comment-text { font-size: 0.9rem; line-height: 1.6; color: $color-text; word-break: break-word; .dark & { color: $color-dark-text; } }
 .comment-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.375rem; }
 .action-time { font-size: 0.75rem; color: $color-text-muted; margin-right: 0.25rem; .dark & { color: $color-dark-text-muted; } }
