@@ -137,17 +137,6 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs:
-            ENV_PROD_MYSQL_ROOT: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
-            ENV_PROD_DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
-            ENV_PROD_DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
-            ENV_PROD_REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
-            ENV_PROD_JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
-            ENV_PROD_CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
-            ENV_PROD_CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
-            ENV_PROD_ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
-            ENV_PROD_API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
-            ENV_PROD_IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
           script: |
             set -e
             cd /opt/weblog
