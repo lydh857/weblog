@@ -141,26 +141,54 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Upload config files
+  prepare-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create .env.prod
+        run: |
+          cat > .env.prod << 'ENVEOF'
+MYSQL_ROOT_PASSWORD=${{ secrets.ENV_PROD_MYSQL_ROOT }}
+DB_USERNAME=${{ secrets.ENV_PROD_DB_USERNAME }}
+DB_PASSWORD=${{ secrets.ENV_PROD_DB_PASSWORD }}
+REDIS_PASSWORD=${{ secrets.ENV_PROD_REDIS_PASSWORD }}
+JWT_SECRET=${{ secrets.ENV_PROD_JWT_SECRET }}
+CAPCHA_SECRET_KEY=${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
+CORS_ORIGINS=${{ secrets.ENV_PROD_CORS_ORIGINS }}
+ALLOWED_ORIGINS=${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
+HSTS_ENABLED=true
+REFERER_ENABLED=true
+OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci
+TRUSTED_PROXY_IPS=172.30.0.10
+API_BASE_URL=${{ secrets.ENV_PROD_API_BASE_URL }}
+IMPORT_TOKEN=${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+ENVEOF
+
+      - name: Upload all artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: weblog-configs
+          name: weblog-deploy-artifacts
           path: |
             docker-compose.prod.yml
             nginx/
+            .env.prod
           retention-days: 1
 
   deploy-to-server:
     runs-on: ubuntu-latest
-    needs: [build-and-push-backend, build-and-push-user, build-and-push-admin]
+    needs: [build-and-push-backend, build-and-push-user, build-and-push-admin, prepare-artifacts]
     permissions:
       contents: read
     steps:
-      - name: Download config files
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: weblog-configs
-          path: configs/
+          name: weblog-deploy-artifacts
+          path: deploy/
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -172,55 +200,20 @@ jobs:
           script: |
             set -e
             cd /opt/weblog
-
-            # 写入配置文件
-            cp configs/docker-compose.prod.yml .
-            cp -r configs/nginx/ .
-
-            # 创建 .env.prod（使用 python 避免 YAML 变量解析问题）
-            python3 -c "
-import os
-envs = {
-    'MYSQL_ROOT_PASSWORD': '''${{ secrets.ENV_PROD_MYSQL_ROOT }}''',
-    'DB_USERNAME': '''${{ secrets.ENV_PROD_DB_USERNAME }}''',
-    'DB_PASSWORD': '''${{ secrets.ENV_PROD_DB_PASSWORD }}''',
-    'REDIS_PASSWORD': '''${{ secrets.ENV_PROD_REDIS_PASSWORD }}''',
-    'JWT_SECRET': '''${{ secrets.ENV_PROD_JWT_SECRET }}''',
-    'CAPTCHA_SECRET_KEY': '''${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}''',
-    'CORS_ORIGINS': '''${{ secrets.ENV_PROD_CORS_ORIGINS }}''',
-    'ALLOWED_ORIGINS': '''${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}''',
-    'HSTS_ENABLED': 'true',
-    'REFERER_ENABLED': 'true',
-    'OAUTH_ALLOWED_CALLBACKS': 'zhhhkl.us.ci',
-    'TRUSTED_PROXY_IPS': '172.30.0.10',
-    'API_BASE_URL': '''${{ secrets.ENV_PROD_API_BASE_URL }}''',
-    'IMPORT_TOKEN': '''${{ secrets.ENV_PROD_IMPORT_TOKEN }}''',
-}
-lines = [f'{k}={v}' for k, v in envs.items()]
-with open('.env.prod', 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-"
-
-            # 停止旧容器
+            cp deploy/docker-compose.prod.yml .
+            cp -r deploy/nginx/ .
+            cp deploy/.env.prod .
             docker compose -f docker-compose.prod.yml down || true
-
-            # 拉取最新镜像
             echo "===== 拉取后端镜像 ====="
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest || true
-
             echo "===== 拉取用户端镜像 ====="
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest || true
-
             echo "===== 拉取管理端镜像并提取静态文件 ====="
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest || true
             docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
             docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
             docker rm admin-temp
-
-            # 启动容器
             docker compose -f docker-compose.prod.yml up -d
-
-            # 健康检查
             sleep 20
             echo "===== 部署完成 ====="
             docker compose -f docker-compose.prod.yml ps
