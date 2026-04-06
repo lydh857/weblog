@@ -177,23 +177,29 @@ jobs:
             cp configs/docker-compose.prod.yml .
             cp -r configs/nginx/ .
 
-            # 创建 .env.prod
-            cat > .env.prod << 'EOF'
-MYSQL_ROOT_PASSWORD= ${{ secrets.ENV_PROD_MYSQL_ROOT }}
-DB_USERNAME= ${{ secrets.ENV_PROD_DB_USERNAME }}
-DB_PASSWORD= ${{ secrets.ENV_PROD_DB_PASSWORD }}
-REDIS_PASSWORD= ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
-JWT_SECRET= ${{ secrets.ENV_PROD_JWT_SECRET }}
-CAPTCHA_SECRET_KEY= ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
-CORS_ORIGINS= ${{ secrets.ENV_PROD_CORS_ORIGINS }}
-ALLOWED_ORIGINS= ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
-HSTS_ENABLED=true
-REFERER_ENABLED=true
-OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci
-TRUSTED_PROXY_IPS=172.30.0.10
-API_BASE_URL= ${{ secrets.ENV_PROD_API_BASE_URL }}
-IMPORT_TOKEN= ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
-EOF
+            # 创建 .env.prod（使用 python 避免 YAML 变量解析问题）
+            python3 -c "
+import os
+envs = {
+    'MYSQL_ROOT_PASSWORD': '''${{ secrets.ENV_PROD_MYSQL_ROOT }}''',
+    'DB_USERNAME': '''${{ secrets.ENV_PROD_DB_USERNAME }}''',
+    'DB_PASSWORD': '''${{ secrets.ENV_PROD_DB_PASSWORD }}''',
+    'REDIS_PASSWORD': '''${{ secrets.ENV_PROD_REDIS_PASSWORD }}''',
+    'JWT_SECRET': '''${{ secrets.ENV_PROD_JWT_SECRET }}''',
+    'CAPTCHA_SECRET_KEY': '''${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}''',
+    'CORS_ORIGINS': '''${{ secrets.ENV_PROD_CORS_ORIGINS }}''',
+    'ALLOWED_ORIGINS': '''${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}''',
+    'HSTS_ENABLED': 'true',
+    'REFERER_ENABLED': 'true',
+    'OAUTH_ALLOWED_CALLBACKS': 'zhhhkl.us.ci',
+    'TRUSTED_PROXY_IPS': '172.30.0.10',
+    'API_BASE_URL': '''${{ secrets.ENV_PROD_API_BASE_URL }}''',
+    'IMPORT_TOKEN': '''${{ secrets.ENV_PROD_IMPORT_TOKEN }}''',
+}
+lines = [f'{k}={v}' for k, v in envs.items()]
+with open('.env.prod', 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+"
 
             # 停止旧容器
             docker compose -f docker-compose.prod.yml down || true
