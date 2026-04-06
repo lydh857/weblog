@@ -171,25 +171,40 @@ jobs:
           path: |
             docker-compose.prod.yml
             nginx/
-            .env.prod
           retention-days: 1
 
   deploy-to-server:
     runs-on: self-hosted
     needs: [build-and-push-backend, build-and-push-user, build-and-push-admin, prepare-artifacts]
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: weblog-deploy-artifacts
           path: /opt/weblog/deploy
 
-      - name: Deploy
+      - name: Copy configs
         run: |
-          ls -la /opt/weblog/deploy/
           cp /opt/weblog/deploy/docker-compose.prod.yml /opt/weblog/
           cp -r /opt/weblog/deploy/nginx/ /opt/weblog/
-          cp /opt/weblog/deploy/.env.prod /opt/weblog/
+
+      - name: Create .env.prod
+        run: |
+          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\n' "$ENV_MYSQL_ROOT" "$ENV_DB_USERNAME" "$ENV_DB_PASSWORD" "$ENV_REDIS_PASSWORD" "$ENV_JWT_SECRET" "$ENV_CAPTCHA_SECRET_KEY" "$ENV_CORS_ORIGINS" "$ENV_ALLOWED_ORIGINS" "$ENV_API_BASE_URL" "$ENV_IMPORT_TOKEN" > /opt/weblog/.env.prod
+        env:
+          ENV_MYSQL_ROOT: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
+          ENV_DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
+          ENV_DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
+          ENV_REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
+          ENV_JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
+          ENV_CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
+          ENV_CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
+          ENV_ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
+          ENV_API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
+          ENV_IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+
+      - name: Deploy
+        run: |
           cd /opt/weblog
           docker compose -f docker-compose.prod.yml down || true
           echo "===== 拉取后端镜像 ====="
