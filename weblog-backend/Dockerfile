@@ -7,6 +7,8 @@ COPY weblog-infra-redis/pom.xml weblog-infra-redis/
 COPY weblog-infra-oss/pom.xml weblog-infra-oss/
 COPY weblog-infra-lucene/pom.xml weblog-infra-lucene/
 COPY weblog-infra-security/pom.xml weblog-infra-security/
+COPY weblog-infra-captcha/pom.xml weblog-infra-captcha/
+COPY weblog-infra-ai/pom.xml weblog-infra-ai/
 COPY weblog-module-system/pom.xml weblog-module-system/
 COPY weblog-module-content/pom.xml weblog-module-content/
 COPY weblog-module-interaction/pom.xml weblog-module-interaction/
