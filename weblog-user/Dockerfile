@@ -7,7 +7,7 @@ COPY . .
 RUN pnpm build
 
 FROM node:20-alpine
-RUN addgroup -g 1000 app && adduser -u 1000 -G app -D app
+RUN addgroup -g 1001 app && adduser -u 1001 -G app -D app
 WORKDIR /app
 COPY --from=builder /app/.output .output
 USER app
