@@ -75,7 +75,7 @@ jobs:
       - name: Build User Frontend
         run: |
           cd weblog-user
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
 
       - name: Set up Docker Buildx
@@ -116,7 +116,7 @@ jobs:
       - name: Build Admin Frontend
         run: |
           cd weblog-admin
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
 
       - name: Upload Admin dist + configs to server via SCP
