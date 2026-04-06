@@ -192,40 +192,38 @@ jobs:
           cp -r /opt/weblog/deploy/nginx/ /opt/weblog/
 
       - name: Create .env.prod
-        run: python3 -c "
+        run: |
+          python3 << 'PYEOF'
 import os
-vars = [
-    ('MYSQL_ROOT_PASSWORD', os.environ['ENV_MYSQL_ROOT']),
-    ('DB_USERNAME', os.environ['ENV_DB_USERNAME']),
-    ('DB_PASSWORD', os.environ['ENV_DB_PASSWORD']),
-    ('REDIS_PASSWORD', os.environ['ENV_REDIS_PASSWORD']),
-    ('JWT_SECRET', os.environ['ENV_JWT_SECRET']),
-    ('CAPTCHA_SECRET_KEY', os.environ['ENV_CAPTCHA_SECRET_KEY']),
-    ('CORS_ORIGINS', os.environ['ENV_CORS_ORIGINS']),
-    ('ALLOWED_ORIGINS', os.environ['ENV_ALLOWED_ORIGINS']),
-    ('API_BASE_URL', os.environ['ENV_API_BASE_URL']),
-    ('IMPORT_TOKEN', os.environ['ENV_IMPORT_TOKEN']),
+lines = [
+    f"MYSQL_ROOT_PASSWORD={os.environ.get('MYSQL_ROOT_PASSWORD', '')}",
+    f"DB_USERNAME={os.environ.get('DB_USERNAME', '')}",
+    f"DB_PASSWORD={os.environ.get('DB_PASSWORD', '')}",
+    f"REDIS_PASSWORD={os.environ.get('REDIS_PASSWORD', '')}",
+    f"JWT_SECRET={os.environ.get('JWT_SECRET', '')}",
+    f"CAPTCHA_SECRET_KEY={os.environ.get('CAPTCHA_SECRET_KEY', '')}",
+    f"CORS_ORIGINS={os.environ.get('CORS_ORIGINS', '')}",
+    f"ALLOWED_ORIGINS={os.environ.get('ALLOWED_ORIGINS', '')}",
+    f"API_BASE_URL={os.environ.get('API_BASE_URL', '')}",
+    f"IMPORT_TOKEN={os.environ.get('IMPORT_TOKEN', '')}",
+    "HSTS_ENABLED=true",
+    "REFERER_ENABLED=true",
+    "OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci",
+    "TRUSTED_PROXY_IPS=172.30.0.10",
 ]
-fixed = [
-    ('HSTS_ENABLED', 'true'),
-    ('REFERER_ENABLED', 'true'),
-    ('OAUTH_ALLOWED_CALLBACKS', 'zhhhkl.us.ci'),
-    ('TRUSTED_PROXY_IPS', '172.30.0.10'),
-]
-lines = [f'{k}={v}' for k, v in vars + fixed]
-open('/opt/weblog/.env.prod', 'w').write('\n'.join(lines) + '\n')
-"
+open("/opt/weblog/.env.prod", "w").write("\n".join(lines) + "\n")
+PYEOF
         env:
-          ENV_MYSQL_ROOT: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
-          ENV_DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
-          ENV_DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
-          ENV_REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
-          ENV_JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
-          ENV_CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
-          ENV_CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
-          ENV_ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
-          ENV_API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
-          ENV_IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
+          DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
+          JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
+          CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
+          CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
+          ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
+          API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
+          IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
