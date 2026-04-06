@@ -151,22 +151,20 @@ jobs:
 
       - name: Create .env.prod
         run: |
-          cat > .env.prod << 'ENVEOF'
-MYSQL_ROOT_PASSWORD=${{ secrets.ENV_PROD_MYSQL_ROOT }}
-DB_USERNAME=${{ secrets.ENV_PROD_DB_USERNAME }}
-DB_PASSWORD=${{ secrets.ENV_PROD_DB_PASSWORD }}
-REDIS_PASSWORD=${{ secrets.ENV_PROD_REDIS_PASSWORD }}
-JWT_SECRET=${{ secrets.ENV_PROD_JWT_SECRET }}
-CAPCHA_SECRET_KEY=${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
-CORS_ORIGINS=${{ secrets.ENV_PROD_CORS_ORIGINS }}
-ALLOWED_ORIGINS=${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
-HSTS_ENABLED=true
-REFERER_ENABLED=true
-OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci
-TRUSTED_PROXY_IPS=172.30.0.10
-API_BASE_URL=${{ secrets.ENV_PROD_API_BASE_URL }}
-IMPORT_TOKEN=${{ secrets.ENV_PROD_IMPORT_TOKEN }}
-ENVEOF
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.ENV_PROD_MYSQL_ROOT }}" >> .env.prod
+          echo "DB_USERNAME=${{ secrets.ENV_PROD_DB_USERNAME }}" >> .env.prod
+          echo "DB_PASSWORD=${{ secrets.ENV_PROD_DB_PASSWORD }}" >> .env.prod
+          echo "REDIS_PASSWORD=${{ secrets.ENV_PROD_REDIS_PASSWORD }}" >> .env.prod
+          echo "JWT_SECRET=${{ secrets.ENV_PROD_JWT_SECRET }}" >> .env.prod
+          echo "CAPTCHA_SECRET_KEY=${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}" >> .env.prod
+          echo "CORS_ORIGINS=${{ secrets.ENV_PROD_CORS_ORIGINS }}" >> .env.prod
+          echo "ALLOWED_ORIGINS=${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}" >> .env.prod
+          echo "HSTS_ENABLED=true" >> .env.prod
+          echo "REFERER_ENABLED=true" >> .env.prod
+          echo "OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci" >> .env.prod
+          echo "TRUSTED_PROXY_IPS=172.30.0.10" >> .env.prod
+          echo "API_BASE_URL=${{ secrets.ENV_PROD_API_BASE_URL }}" >> .env.prod
+          echo "IMPORT_TOKEN=${{ secrets.ENV_PROD_IMPORT_TOKEN }}" >> .env.prod
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4
