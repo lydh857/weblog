@@ -97,29 +97,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-and-deploy-admin:
+  deploy-to-server:
     runs-on: ubuntu-latest
+    needs: [build-and-push-backend, build-and-push-user]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Enable pnpm via corepack
-        run: corepack enable && corepack prepare pnpm@latest --activate
-
-      - name: Build Admin Frontend
-        run: |
-          cd weblog-admin
-          pnpm install --no-frozen-lockfile
-          pnpm build
-
-      - name: Upload Admin dist + configs to server via SCP
+      - name: Upload configs to server via SCP
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -128,22 +115,34 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           overwrite: true
           source: |
-            weblog-admin/.output
             docker-compose.prod.yml
             nginx/
           target: /opt/weblog
           strip_components: 0
 
-      - name: Create .env.prod on server
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           port: ${{ secrets.SERVER_PORT }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs:
+            ENV_PROD_MYSQL_ROOT: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
+            ENV_PROD_DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
+            ENV_PROD_DB_PASSWORD: ${{ secrets.ENV_PROD_DB_PASSWORD }}
+            ENV_PROD_REDIS_PASSWORD: ${{ secrets.ENV_PROD_REDIS_PASSWORD }}
+            ENV_PROD_JWT_SECRET: ${{ secrets.ENV_PROD_JWT_SECRET }}
+            ENV_PROD_CAPTCHA_SECRET_KEY: ${{ secrets.ENV_PROD_CAPTCHA_SECRET_KEY }}
+            ENV_PROD_CORS_ORIGINS: ${{ secrets.ENV_PROD_CORS_ORIGINS }}
+            ENV_PROD_ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
+            ENV_PROD_API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
+            ENV_PROD_IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
           script: |
             set -e
             cd /opt/weblog
+
+            # 创建 .env.prod
             printf '%s\n' \
               "MYSQL_ROOT_PASSWORD=${ENV_PROD_MYSQL_ROOT}" \
               "DB_USERNAME=${ENV_PROD_DB_USERNAME}" \
@@ -160,17 +159,6 @@ jobs:
               "API_BASE_URL=${ENV_PROD_API_BASE_URL}" \
               "IMPORT_TOKEN=${ENV_PROD_IMPORT_TOKEN}" \
               > .env.prod
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          port: ${{ secrets.SERVER_PORT }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/weblog
 
             # 停止旧容器
             docker compose -f docker-compose.prod.yml down || true
