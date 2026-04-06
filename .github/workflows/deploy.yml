@@ -182,14 +182,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: weblog-deploy-artifacts
-          path: deploy/
 
       - name: Deploy
         run: |
+          pwd
+          ls -la
+          cp docker-compose.prod.yml /opt/weblog/
+          cp -r nginx/ /opt/weblog/
+          cp .env.prod /opt/weblog/
           cd /opt/weblog
-          cp deploy/docker-compose.prod.yml .
-          cp -r deploy/nginx/ .
-          cp deploy/.env.prod .
           docker compose -f docker-compose.prod.yml down || true
           echo "===== 拉取后端镜像 ====="
           docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest || true
