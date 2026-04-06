@@ -97,9 +97,53 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-and-push-admin:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Build Admin Frontend
+        run: |
+          cd weblog-admin
+          pnpm install --no-frozen-lockfile
+          pnpm build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Admin Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./weblog-admin
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy-to-server:
     runs-on: ubuntu-latest
-    needs: [build-and-push-backend, build-and-push-user]
+    needs: [build-and-push-backend, build-and-push-user, build-and-push-admin]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -169,6 +213,12 @@ jobs:
 
             echo "===== 拉取用户端镜像 ====="
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest || true
+
+            echo "===== 拉取管理端镜像并提取静态文件 ====="
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest || true
+            docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
+            docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
+            docker rm admin-temp
 
             # 启动容器（image 模式，不再需要 build）
             docker compose -f docker-compose.prod.yml up -d
