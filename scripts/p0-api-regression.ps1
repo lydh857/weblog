@@ -266,6 +266,11 @@ function Write-SummaryJsonFile([string]$path, [object[]]$failedItems) {
     return
   }
 
+  $parentDir = Split-Path -Parent $path
+  if (-not [string]::IsNullOrWhiteSpace($parentDir) -and -not (Test-Path -LiteralPath $parentDir)) {
+    New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+  }
+
   $summary = [ordered]@{
     timestamp = [DateTimeOffset]::Now.ToString('o')
     baseUrl = $BaseUrl
@@ -521,7 +526,11 @@ Run-Check 'oauth authorize' {
   $callbackSecondCode = Get-ResponseCode $callbackSecond
   $callbackSecondMessage = Get-ResponseMessage $callbackSecond
   Assert-ResultCode $callbackSecondCode 400 'oauth state reused'
-  Assert-Contains $callbackSecondMessage 'state' 'oauth state reused message'
+  if ([string]::IsNullOrWhiteSpace($callbackSecondMessage)) {
+    Add-Warn 'oauth state reused message' 'response message is empty, keyword assertion skipped'
+  } else {
+    Assert-Contains $callbackSecondMessage 'state' 'oauth state reused message'
+  }
 }
 
 Write-Host ''

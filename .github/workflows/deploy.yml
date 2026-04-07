@@ -216,17 +216,18 @@ jobs:
       - name: Deploy
         run: |
           cd /opt/weblog
-          docker compose -f docker-compose.prod.yml down || true
+          docker compose --env-file .env.prod -f docker-compose.prod.yml down || true
           echo "===== 拉取后端镜像 ====="
           docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest || true
           echo "===== 拉取用户端镜像 ====="
           docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest || true
           echo "===== 拉取管理端镜像并提取静态文件 ====="
           docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest || true
+          docker rm -f admin-temp || true
           docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
           docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
           docker rm admin-temp
-          docker compose -f docker-compose.prod.yml up -d
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
           sleep 20
           echo "===== 部署完成 ====="
-          docker compose -f docker-compose.prod.yml ps
+          docker compose --env-file .env.prod -f docker-compose.prod.yml ps

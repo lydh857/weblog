@@ -2,8 +2,7 @@ name: P0 API Regression
 
 on:
   schedule:
-    - cron: '0 18 * * *'
-    - cron: '0 2 1 * *'
+    - cron: '0 3 * * 1'
   pull_request:
     branches:
       - master
