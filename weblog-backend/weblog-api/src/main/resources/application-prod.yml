@@ -24,6 +24,13 @@ spring:
           max-wait: 3000ms
       timeout: 5000ms
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 2
+    validate-on-migrate: true
+
 server:
   tomcat:
     threads:
