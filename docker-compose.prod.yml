@@ -95,8 +95,8 @@ services:
       - OAUTH_ALLOWED_CALLBACKS=${OAUTH_ALLOWED_CALLBACKS:-yourdomain.com}
       - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-172.30.0.10}
       - IMPORT_TOKEN=${IMPORT_TOKEN}
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - TZ=Asia/Shanghai
     volumes:
       - lucene-data:/data/lucene

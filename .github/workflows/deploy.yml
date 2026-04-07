@@ -161,8 +161,10 @@ jobs:
           ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
           API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
           IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+          GITHUB_CLIENT_ID: ${{ secrets.ENV_PROD_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.ENV_PROD_GITHUB_CLIENT_SECRET }}
         run: |
-          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\n' "$MYSQL_ROOT_PASSWORD" "$DB_USERNAME" "$DB_PASSWORD" "$REDIS_PASSWORD" "$JWT_SECRET" "$CAPTCHA_SECRET_KEY" "$CORS_ORIGINS" "$ALLOWED_ORIGINS" "$API_BASE_URL" "$IMPORT_TOKEN" > .env.prod
+          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\nGITHUB_CLIENT_ID=%s\nGITHUB_CLIENT_SECRET=%s\n' "$MYSQL_ROOT_PASSWORD" "$DB_USERNAME" "$DB_PASSWORD" "$REDIS_PASSWORD" "$JWT_SECRET" "$CAPTCHA_SECRET_KEY" "$CORS_ORIGINS" "$ALLOWED_ORIGINS" "$API_BASE_URL" "$IMPORT_TOKEN" "$GITHUB_CLIENT_ID" "$GITHUB_CLIENT_SECRET" > .env.prod
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4
@@ -193,7 +195,7 @@ jobs:
 
       - name: Create .env.prod
         run: |
-          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\n' "$MYSQL_ROOT_PASSWORD" "$DB_USERNAME" "$DB_PASSWORD" "$REDIS_PASSWORD" "$JWT_SECRET" "$CAPTCHA_SECRET_KEY" "$CORS_ORIGINS" "$ALLOWED_ORIGINS" "$API_BASE_URL" "$IMPORT_TOKEN" > /opt/weblog/.env.prod
+          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\nGITHUB_CLIENT_ID=%s\nGITHUB_CLIENT_SECRET=%s\n' "$MYSQL_ROOT_PASSWORD" "$DB_USERNAME" "$DB_PASSWORD" "$REDIS_PASSWORD" "$JWT_SECRET" "$CAPTCHA_SECRET_KEY" "$CORS_ORIGINS" "$ALLOWED_ORIGINS" "$API_BASE_URL" "$IMPORT_TOKEN" "$GITHUB_CLIENT_ID" "$GITHUB_CLIENT_SECRET" > /opt/weblog/.env.prod
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
           DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
@@ -205,6 +207,8 @@ jobs:
           ALLOWED_ORIGINS: ${{ secrets.ENV_PROD_ALLOWED_ORIGINS }}
           API_BASE_URL: ${{ secrets.ENV_PROD_API_BASE_URL }}
           IMPORT_TOKEN: ${{ secrets.ENV_PROD_IMPORT_TOKEN }}
+          GITHUB_CLIENT_ID: ${{ secrets.ENV_PROD_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.ENV_PROD_GITHUB_CLIENT_SECRET }}
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
@@ -215,19 +219,53 @@ jobs:
 
       - name: Deploy
         run: |
+          retry_pull() {
+            image="$1"
+            attempts=4
+            i=1
+            while [ "$i" -le "$attempts" ]; do
+              if docker pull "$image"; then
+                return 0
+              fi
+              echo "[WARN] pull failed ($i/$attempts): $image"
+              sleep $((i * 10))
+              i=$((i + 1))
+            done
+            return 1
+          }
+
+          retry_compose_up() {
+            attempts=3
+            i=1
+            while [ "$i" -le "$attempts" ]; do
+              if docker compose --env-file .env.prod -f docker-compose.prod.yml up -d; then
+                return 0
+              fi
+              echo "[WARN] docker compose up failed ($i/$attempts), retrying..."
+              sleep $((i * 15))
+              i=$((i + 1))
+            done
+            return 1
+          }
+
           cd /opt/weblog
+          test -s .env.prod
           docker compose --env-file .env.prod -f docker-compose.prod.yml down || true
           echo "===== 拉取后端镜像 ====="
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest || true
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest
           echo "===== 拉取用户端镜像 ====="
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest || true
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest
           echo "===== 拉取管理端镜像并提取静态文件 ====="
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest || true
-          docker rm -f admin-temp || true
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
+          echo "===== 拉取基础镜像（Docker Hub） ====="
+          retry_pull mysql:8.0.36
+          retry_pull redis:7.2-alpine
+          retry_pull nginx:alpine
+          docker rm -f admin-temp >/dev/null 2>&1 || true
           docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
           docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
           docker rm admin-temp
-          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+          retry_compose_up
           sleep 20
           echo "===== 部署完成 ====="
           docker compose --env-file .env.prod -f docker-compose.prod.yml ps
