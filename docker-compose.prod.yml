@@ -114,11 +114,11 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:9091/actuator/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:9091/actuator/health/liveness"]
       interval: 30s
       timeout: 5s
-      retries: 3
-      start_period: 60s
+      retries: 5
+      start_period: 90s
 
   # ===== User Frontend (SSR) =====
   weblog-user:

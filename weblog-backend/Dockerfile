@@ -26,6 +26,6 @@ COPY --from=builder /build/weblog-api/target/weblog-api-*.jar app.jar
 RUN mkdir -p /var/log/weblog /data/lucene && chown -R app:app /var/log/weblog /data/lucene /app
 USER app
 EXPOSE 9091
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:9091/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --retries=5 \
+  CMD wget -qO- http://localhost:9091/actuator/health/liveness || exit 1
 ENTRYPOINT ["java", "-Xms256m", "-Xmx512m", "-jar", "app.jar", "--spring.profiles.active=prod"]
