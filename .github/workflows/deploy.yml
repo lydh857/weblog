@@ -265,6 +265,12 @@ jobs:
                 return 0
               fi
               echo "[WARN] docker compose up failed ($i/$attempts), retrying..."
+              echo "----- compose ps (attempt $i) -----"
+              docker compose --env-file .env.prod -f docker-compose.prod.yml ps || true
+              echo "----- weblog-api logs (tail 200) -----"
+              docker logs --tail=200 weblog-api || true
+              echo "----- weblog-api health state -----"
+              docker inspect --format='{{json .State.Health}}' weblog-api || true
               sleep $((i * 15))
               i=$((i + 1))
             done
