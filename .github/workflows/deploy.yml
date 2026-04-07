@@ -193,27 +193,7 @@ jobs:
 
       - name: Create .env.prod
         run: |
-          cat > /tmp/make_env.py << 'EOF'
-import os
-lines = [
-    "MYSQL_ROOT_PASSWORD=" + os.environ.get("MYSQL_ROOT_PASSWORD", ""),
-    "DB_USERNAME=" + os.environ.get("DB_USERNAME", ""),
-    "DB_PASSWORD=" + os.environ.get("DB_PASSWORD", ""),
-    "REDIS_PASSWORD=" + os.environ.get("REDIS_PASSWORD", ""),
-    "JWT_SECRET=" + os.environ.get("JWT_SECRET", ""),
-    "CAPTCHA_SECRET_KEY=" + os.environ.get("CAPTCHA_SECRET_KEY", ""),
-    "CORS_ORIGINS=" + os.environ.get("CORS_ORIGINS", ""),
-    "ALLOWED_ORIGINS=" + os.environ.get("ALLOWED_ORIGINS", ""),
-    "API_BASE_URL=" + os.environ.get("API_BASE_URL", ""),
-    "IMPORT_TOKEN=" + os.environ.get("IMPORT_TOKEN", ""),
-    "HSTS_ENABLED=true",
-    "REFERER_ENABLED=true",
-    "OAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci",
-    "TRUSTED_PROXY_IPS=172.30.0.10",
-]
-open("/opt/weblog/.env.prod", "w").write("\n".join(lines) + "\n")
-EOF
-          python3 /tmp/make_env.py
+          printf 'MYSQL_ROOT_PASSWORD=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nREDIS_PASSWORD=%s\nJWT_SECRET=%s\nCAPTCHA_SECRET_KEY=%s\nCORS_ORIGINS=%s\nALLOWED_ORIGINS=%s\nAPI_BASE_URL=%s\nIMPORT_TOKEN=%s\nHSTS_ENABLED=true\nREFERER_ENABLED=true\nOAUTH_ALLOWED_CALLBACKS=zhhhkl.us.ci\nTRUSTED_PROXY_IPS=172.30.0.10\n' "$MYSQL_ROOT_PASSWORD" "$DB_USERNAME" "$DB_PASSWORD" "$REDIS_PASSWORD" "$JWT_SECRET" "$CAPTCHA_SECRET_KEY" "$CORS_ORIGINS" "$ALLOWED_ORIGINS" "$API_BASE_URL" "$IMPORT_TOKEN" > /opt/weblog/.env.prod
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
           DB_USERNAME: ${{ secrets.ENV_PROD_DB_USERNAME }}
