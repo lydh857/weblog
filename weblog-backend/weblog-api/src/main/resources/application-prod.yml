@@ -71,7 +71,7 @@ management:
   endpoints:
     web:
       exposure:
-        exclude: *
+        exclude: "*"
   endpoint:
     health:
       show-details: never

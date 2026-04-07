@@ -45,7 +45,6 @@ services:
     image: redis:7.2-alpine
     container_name: weblog-redis
     restart: unless-stopped
-    user: "1000:1000"
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
