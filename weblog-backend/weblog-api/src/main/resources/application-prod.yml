@@ -30,6 +30,7 @@ spring:
     validate-on-migrate: true
     baseline-on-migrate: false
     clean-disabled: true
+    placeholder-replacement: false
 
 server:
   tomcat:
