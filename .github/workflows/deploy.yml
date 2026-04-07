@@ -177,6 +177,7 @@ jobs:
           path: |
             docker-compose.prod.yml
             nginx/
+            database/sql/init/
           retention-days: 1
 
   deploy-to-server:
@@ -196,6 +197,9 @@ jobs:
         run: |
           cp /opt/weblog/deploy/docker-compose.prod.yml /opt/weblog/
           cp -r /opt/weblog/deploy/nginx/ /opt/weblog/
+          mkdir -p /opt/weblog/database/sql
+          rm -rf /opt/weblog/database/sql/init
+          cp -r /opt/weblog/deploy/database/sql/init /opt/weblog/database/sql/
 
       - name: Create .env.prod
         run: |
@@ -222,6 +226,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.ENV_PROD_MYSQL_ROOT }}
         run: |
           run_with_timeout() {
             seconds="$1"
@@ -279,6 +285,35 @@ jobs:
             return 1
           }
 
+          wait_for_mysql_ready() {
+            attempts=60
+            i=1
+            while [ "$i" -le "$attempts" ]; do
+              if docker exec weblog-mysql mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 3
+              i=$((i + 1))
+            done
+            return 1
+          }
+
+          ensure_database_initialized() {
+            if docker exec weblog-mysql sh -c "mysql -uroot -p\"$MYSQL_ROOT_PASSWORD\" -D weblog -e 'SELECT 1 FROM t_system_config LIMIT 1' >/dev/null 2>&1"; then
+              echo "[INFO] database schema already initialized"
+              return 0
+            fi
+
+            if [ ! -f /opt/weblog/database/sql/init/02-schema.sql ] || [ ! -f /opt/weblog/database/sql/init/03-data.sql ]; then
+              echo "[ERROR] missing database init scripts under /opt/weblog/database/sql/init"
+              return 1
+            fi
+
+            echo "[INFO] schema not found, importing init SQL"
+            docker exec -i weblog-mysql sh -c "mysql -uroot -p\"$MYSQL_ROOT_PASSWORD\" weblog" < /opt/weblog/database/sql/init/02-schema.sql
+            docker exec -i weblog-mysql sh -c "mysql -uroot -p\"$MYSQL_ROOT_PASSWORD\" weblog" < /opt/weblog/database/sql/init/03-data.sql
+          }
+
           cd /opt/weblog
           test -s .env.prod
           echo "===== 拉取后端镜像 ====="
@@ -295,6 +330,14 @@ jobs:
           docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
           docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
           docker rm admin-temp
+
+          echo "===== 启动基础依赖 ====="
+          run_with_timeout 900 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d mysql redis
+          echo "===== 等待 MySQL 就绪 ====="
+          wait_for_mysql_ready
+          echo "===== 校验数据库初始化 ====="
+          ensure_database_initialized
+
           retry_compose_up
           sleep 20
           echo "===== 部署完成 ====="
