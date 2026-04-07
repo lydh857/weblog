@@ -235,13 +235,22 @@ jobs:
 
           retry_pull() {
             image="$1"
+            timeout_seconds="$2"
+            if [ -z "$timeout_seconds" ]; then
+              timeout_seconds=900
+            fi
             attempts=4
             i=1
             while [ "$i" -le "$attempts" ]; do
-              if run_with_timeout 240 docker pull "$image"; then
+              if run_with_timeout "$timeout_seconds" docker pull "$image"; then
                 return 0
               fi
-              echo "[WARN] pull failed ($i/$attempts): $image"
+              exit_code=$?
+              if [ "$exit_code" -eq 124 ]; then
+                echo "[WARN] pull timeout (${timeout_seconds}s) ($i/$attempts): $image"
+              else
+                echo "[WARN] pull failed (exit=$exit_code) ($i/$attempts): $image"
+              fi
               sleep $((i * 10))
               i=$((i + 1))
             done
@@ -252,7 +261,7 @@ jobs:
             attempts=3
             i=1
             while [ "$i" -le "$attempts" ]; do
-              if run_with_timeout 360 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d; then
+              if run_with_timeout 900 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d; then
                 return 0
               fi
               echo "[WARN] docker compose up failed ($i/$attempts), retrying..."
@@ -266,15 +275,15 @@ jobs:
           test -s .env.prod
           docker compose --env-file .env.prod -f docker-compose.prod.yml down || true
           echo "===== 拉取后端镜像 ====="
-          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-api:latest 1200
           echo "===== 拉取用户端镜像 ====="
-          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-user:latest 900
           echo "===== 拉取管理端镜像并提取静态文件 ====="
-          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
+          retry_pull ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest 900
           echo "===== 拉取基础镜像（Docker Hub） ====="
-          retry_pull mysql:8.0.36
-          retry_pull redis:7.2-alpine
-          retry_pull nginx:alpine
+          retry_pull mysql:8.0.36 420
+          retry_pull redis:7.2-alpine 420
+          retry_pull nginx:alpine 420
           docker rm -f admin-temp >/dev/null 2>&1 || true
           docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
           docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
