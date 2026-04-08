@@ -127,13 +127,19 @@ public class RateLimitAspect {
 
         // 优先使用 Redis 限流，支持多实例共享计数
         if (redisTemplate != null) {
-            RedisLimitDecision decision = allowByRedisWindow(key, rateLimit.capacity(), rateLimit.seconds());
-            if (decision.allowed()) {
-                return joinPoint.proceed();
+            try {
+                RedisLimitDecision decision = allowByRedisWindow(key, rateLimit.capacity(), rateLimit.seconds());
+                if (decision.allowed()) {
+                    return joinPoint.proceed();
+                }
+                log.warn("接口限流触发(redis): key={}, remaining={}, retryAfterMs={}",
+                        key, decision.remaining(), decision.retryAfterMs());
+                throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
+            } catch (BusinessException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                log.warn("Redis 限流不可用，降级本地令牌桶: key={}, reason={}", key, ex.getMessage());
             }
-            log.warn("接口限流触发(redis): key={}, remaining={}, retryAfterMs={}",
-                    key, decision.remaining(), decision.retryAfterMs());
-            throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
         }
 
         // Redis 不可用时降级到本地令牌桶
@@ -187,7 +193,7 @@ public class RateLimitAspect {
         );
 
         if (result == null || result.size() < 3) {
-            return new RedisLimitDecision(false, 0L, window);
+            throw new IllegalStateException("invalid redis limit script result");
         }
 
         boolean allowed = parseLong(result.get(0), 0L) == 1L;
