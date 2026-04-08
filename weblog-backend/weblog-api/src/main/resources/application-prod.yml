@@ -113,6 +113,8 @@ blog:
       keep-alive-seconds: 60
   cors:
     allowed-origins: ${CORS_ORIGINS:}
+  upload:
+    base-url: ${UPLOAD_BASE_URL:https://zhhhkl.top/uploads}
   security:
     dev-bypass-enabled: false
     hsts-enabled: true

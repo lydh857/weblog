@@ -18,6 +18,7 @@ import com.blog.infra.security.sensitive.SensitiveWordService;
 import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +65,7 @@ public class AdvertisementService {
     private static final int MAX_APPLICATION_LINK_URL_LENGTH = 500;
     private static final int MAX_APPLICATION_AD_INFO_LENGTH = 120;
     private static final int MAX_APPLICATION_MIMIC_CONTENT_LENGTH = 120;
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
     private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
     private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "approved", "active");
 
@@ -71,6 +73,9 @@ public class AdvertisementService {
     private final PostMapper postMapper;
     private final AdPitBindingService adPitBindingService;
     private final SensitiveWordService sensitiveWordService;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     /**
      * 按位置获取有效广告（用户端）
@@ -102,6 +107,7 @@ public class AdvertisementService {
                         .orderByDesc(Advertisement::getWeight));
 
         records.forEach(ad -> {
+            normalizeImageAdContent(ad);
             if (isCarouselPosition(normalizePosition(ad.getPosition()))) {
                 ad.setClosable(true);
                 ad.setAutoRotate(true);
@@ -669,6 +675,40 @@ public class AdvertisementService {
             return records;
         }
         return new ArrayList<>(records.subList(0, limit));
+    }
+
+    private void normalizeImageAdContent(Advertisement ad) {
+        if (ad == null || !"image".equalsIgnoreCase(ad.getType())) {
+            return;
+        }
+
+        String content = ad.getContent();
+        if (content == null || content.isBlank()) {
+            return;
+        }
+
+        if (!content.startsWith(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return;
+        }
+
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        if (normalizedBase == null || normalizedBase.isBlank()) {
+            return;
+        }
+
+        ad.setContent(normalizedBase + content.substring(LEGACY_LOCAL_UPLOAD_PREFIX.length()));
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null) {
+            return null;
+        }
+
+        String base = rawBaseUrl.trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 
     private String validateAndCleanLinkUrl(String linkUrl) {
