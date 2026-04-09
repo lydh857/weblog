@@ -19,6 +19,7 @@ import com.blog.infra.oss.CdnService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -38,6 +39,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PostService {
+
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
 
     private final PostMapper postMapper;
     private final PostContentMapper postContentMapper;
@@ -61,6 +64,9 @@ public class PostService {
     /** 本地文件服务（OSS 未启用时的 fallback） */
     @Autowired(required = false)
     private com.blog.infra.oss.LocalFileService localFileService;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     /**
      * 创建文章
@@ -826,7 +832,7 @@ public class PostService {
         vo.setId(prev.getId());
         vo.setTitle(prev.getTitle());
         vo.setSlug(prev.getSlug());
-        vo.setCoverImage(prev.getCoverImage());
+        vo.setCoverImage(normalizeLegacyUploadUrl(prev.getCoverImage()));
         return vo;
     }
 
@@ -851,7 +857,7 @@ public class PostService {
         vo.setId(next.getId());
         vo.setTitle(next.getTitle());
         vo.setSlug(next.getSlug());
-        vo.setCoverImage(next.getCoverImage());
+        vo.setCoverImage(normalizeLegacyUploadUrl(next.getCoverImage()));
         return vo;
     }
 
@@ -1067,7 +1073,7 @@ public class PostService {
         vo.setTitle(post.getTitle());
         vo.setSlug(post.getSlug());
         vo.setSummary(post.getSummary());
-        vo.setCoverImage(post.getCoverImage());
+        vo.setCoverImage(normalizeLegacyUploadUrl(post.getCoverImage()));
         vo.setCategoryId(post.getCategoryId());
         vo.setSubCategoryId(post.getSubCategoryId());
         vo.setAuthorId(post.getAuthorId());
@@ -1141,8 +1147,8 @@ public class PostService {
         if (withContent) {
             PostContent pc = postContentMapper.selectById(post.getId());
             if (pc != null) {
-                vo.setContent(pc.getContent());
-                vo.setHtmlContent(pc.getHtmlContent());
+                vo.setContent(normalizeLegacyUploadUrl(pc.getContent()));
+                vo.setHtmlContent(normalizeLegacyUploadUrl(pc.getHtmlContent()));
             }
         }
 
@@ -1164,6 +1170,31 @@ public class PostService {
             log.warn("读取 Redis 计数失败: key={}, {}", key, e.getMessage());
             return dbValue != null ? dbValue : 0;
         }
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        if (normalizedBase == null || normalizedBase.isBlank()) {
+            return rawValue;
+        }
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null) {
+            return null;
+        }
+        String base = rawBaseUrl.trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 
     // ========== 回收站 ==========
