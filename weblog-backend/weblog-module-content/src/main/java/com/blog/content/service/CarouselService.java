@@ -16,6 +16,7 @@ import com.blog.content.mapper.PostMapper;
 import com.blog.infra.security.util.XssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.IDN;
@@ -36,8 +37,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CarouselService {
 
+  private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
   private final CarouselMapper carouselMapper;
   private final PostMapper postMapper;
+
+  @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+  private String uploadBaseUrl;
 
   /**
    * 门户端查询：启用且在生效时间范围内的轮播项，按 sort_order DESC 排序
@@ -213,7 +219,7 @@ public class CarouselService {
     vo.setType(carousel.getType());
     vo.setTitle(carousel.getTitle());
     vo.setDescription(carousel.getDescription());
-    vo.setImageUrl(carousel.getImageUrl());
+    vo.setImageUrl(normalizeLegacyUploadUrl(carousel.getImageUrl()));
     vo.setLinkUrl(carousel.getLinkUrl());
     vo.setArticleId(carousel.getArticleId());
     vo.setSortOrder(carousel.getSortOrder());
@@ -232,7 +238,7 @@ public class CarouselService {
           vo.setDescription(post.getSummary());
         }
         if (vo.getImageUrl() == null || vo.getImageUrl().isBlank()) {
-          vo.setImageUrl(post.getCoverImage());
+          vo.setImageUrl(normalizeLegacyUploadUrl(post.getCoverImage()));
         }
       }
     }
@@ -304,5 +310,30 @@ public class CarouselService {
     } catch (Exception e) {
       return false;
     }
+  }
+
+  private String normalizeLegacyUploadUrl(String rawValue) {
+    if (rawValue == null || rawValue.isBlank()) {
+      return rawValue;
+    }
+    if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+      return rawValue;
+    }
+    String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+    if (normalizedBase == null || normalizedBase.isBlank()) {
+      return rawValue;
+    }
+    return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+  }
+
+  private String normalizeUploadBaseUrl(String rawBaseUrl) {
+    if (rawBaseUrl == null) {
+      return null;
+    }
+    String base = rawBaseUrl.trim();
+    if (base.endsWith("/")) {
+      return base.substring(0, base.length() - 1);
+    }
+    return base;
   }
 }

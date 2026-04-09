@@ -3,8 +3,11 @@ package com.blog.interaction.service;
 import com.blog.interaction.mapper.PostRankingMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
@@ -20,7 +23,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RankingService {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
     private final PostRankingMapper postRankingMapper;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     /** 日榜=1, 周榜=2, 月榜=3, 总榜=4 */
     public static final int RANK_DAY = 1;
@@ -47,7 +55,7 @@ public class RankingService {
      */
     public List<Map<String, Object>> getRanking(int rankType, Long categoryId, int limit, int offset) {
         LocalDate statDate = resolveStatDate(rankType);
-        return postRankingMapper.selectRankingWithPost(rankType, categoryId, statDate, limit, offset);
+        return queryRanking(rankType, categoryId, statDate, limit, offset);
     }
 
     /**
@@ -85,7 +93,39 @@ public class RankingService {
     }
 
     private List<Map<String, Object>> queryRanking(int rankType, Long categoryId, LocalDate statDate, int limit, int offset) {
-        return postRankingMapper.selectRankingWithPost(rankType, categoryId, statDate, limit, offset);
+        return normalizeLegacyUploadUrls(postRankingMapper.selectRankingWithPost(rankType, categoryId, statDate, limit, offset));
+    }
+
+    private List<Map<String, Object>> normalizeLegacyUploadUrls(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) {
+            return items;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        if (normalizedBase == null || normalizedBase.isBlank()) {
+            return items;
+        }
+
+        List<Map<String, Object>> normalizedItems = new ArrayList<>(items.size());
+        for (Map<String, Object> item : items) {
+            Map<String, Object> normalizedItem = new LinkedHashMap<>(item);
+            Object coverImage = normalizedItem.get("cover_image");
+            if (coverImage instanceof String coverValue && coverValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+                normalizedItem.put("cover_image", coverValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase));
+            }
+            normalizedItems.add(normalizedItem);
+        }
+        return normalizedItems;
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null) {
+            return null;
+        }
+        String base = rawBaseUrl.trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 
     private LocalDate resolveStatDate(int rankType) {

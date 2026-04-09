@@ -85,7 +85,7 @@
             <!-- 最后编辑时间 -->
             <div class="last-edit">
               <Icon name="heroicons:pencil-square-20-solid" size="16" />
-              <span>最后编辑于 {{ formatTimeAgo(post.updateTime || post.createTime) }}</span>
+              <span>最后编辑于 {{ formatLastEditTime(post.updateTime || post.createTime) }}</span>
             </div>
 
             <!-- 免责声明 -->
@@ -177,6 +177,12 @@
       </Teleport>
     </template>
 
+    <div v-else-if="detailErrorMessage" class="empty-state">
+      <p>{{ detailErrorMessage }}</p>
+      <button type="button" class="retry-btn" @click="retryLoadPost">重试</button>
+      <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
+    </div>
+
     <div v-else class="empty-state">
       <p>文章不存在</p>
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
@@ -218,6 +224,18 @@ const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
 const detailAsyncKey = computed(() => `post-detail:${slug.value}`)
+const detailErrorMessage = ref<string | null>(null)
+
+function getHttpErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+  const candidate = (error as { code?: unknown }).code
+  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+    return candidate
+  }
+  return null
+}
 
 // sticky top 值：导航栏 + 间距 10px + 公告栏（如果有）
 const stickyTop = computed(() => {
@@ -228,18 +246,27 @@ const stickyTop = computed(() => {
   return 'calc(var(--layout-navbar-height, 60px) + 10px)'
 })
 
-const { data: detailData, pending: loading } = await useAsyncData(
+const { data: detailData, pending: loading, refresh: refreshDetailData } = await useAsyncData(
   detailAsyncKey,
   async () => {
     if (!slug.value) return null
+    detailErrorMessage.value = null
     try {
       const res = await postApi.detail(slug.value)
       return res.data
-    } catch {
+    } catch (error) {
+      const code = getHttpErrorCode(error)
+      if (code !== 404) {
+        detailErrorMessage.value = '文章加载失败，请稍后重试'
+      }
       return null
     }
   },
 )
+
+async function retryLoadPost() {
+  await refreshDetailData()
+}
 
 const { data: categoryTreeData } = await useAsyncData(
   'post-category-tree',
@@ -263,6 +290,7 @@ const hasToc = ref(false)
 const commentSectionRef = ref<HTMLElement | null>(null)
 const pageEntered = ref(false)
 const contentEntered = ref(false)
+const hydrationReady = ref(false)
 
 const userStore = useUserStore()
 const loginModal = useLoginModal()
@@ -402,6 +430,13 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(months / 12)} 年前`
 }
 
+function formatLastEditTime(dateStr: string): string {
+  if (!hydrationReady.value) {
+    return formatDate(dateStr)
+  }
+  return formatTimeAgo(dateStr)
+}
+
 // 记录阅读
 async function recordRead() {
   if (!post.value) return
@@ -494,6 +529,12 @@ watch([() => loading.value, () => post.value?.id], ([isLoading, postId]) => {
 onMounted(() => {
   if (!import.meta.client) {
     return
+  }
+
+  hydrationReady.value = true
+
+  if (!loading.value && !post.value && slug.value) {
+    void refreshDetailData()
   }
 
   window.requestAnimationFrame(() => {
@@ -893,6 +934,15 @@ onUnmounted(() => {
 
 /* 状态 */
 .empty-state { text-align: center; padding: 4rem; color: #94a3b8; }
+.retry-btn {
+  margin-top: 1rem;
+  border: none;
+  background: rgba(37, 99, 235, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
 .back-link { display: inline-block; margin-top: 1rem; color: $color-primary; text-decoration: underline; }
 
 @media (prefers-reduced-motion: reduce) {

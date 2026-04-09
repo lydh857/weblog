@@ -142,7 +142,7 @@
           </div>
         </div>
 
-        <div v-if="currentPost" class="mobile-fab-group">
+        <div v-if="currentPost" class="mobile-fab-group" :class="{ 'is-visible': mobileFabVisible }">
           <button
             class="mobile-fab-btn mobile-fab-btn--catalog"
             :class="{ active: mobileCatalogVisible }"
@@ -251,6 +251,7 @@ const pageEntered = ref(false)
 const contentEntered = ref(false)
 const mobileCatalogVisible = ref(false)
 const mobileTocVisible = ref(false)
+const mobileFabVisible = ref(false)
 let topicRequestId = 0
 let articleRequestId = 0
 
@@ -348,16 +349,36 @@ function handleWindowResize() {
     mobileCatalogVisible.value = false
     mobileTocVisible.value = false
   }
+  updateMobileFabVisibility()
+}
+
+function updateMobileFabVisibility() {
+  if (!import.meta.client) return
+  const isMobileLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT
+  mobileFabVisible.value = isMobileLayout && Boolean(currentPost.value)
+}
+
+function restoreScrollPosition(scrollTop: number) {
+  if (!import.meta.client || scrollTop < 0) {
+    return
+  }
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: scrollTop })
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollTop })
+    })
+  })
 }
 
 // 目录节点点击
-function handleCatalogSelect(node: CatalogNode) {
+async function handleCatalogSelect(node: CatalogNode) {
   if (!node.articleId || !node.slug) return
   if (node.articleId === currentArticleId.value) return
+  const scrollTop = import.meta.client ? window.scrollY : 0
   mobileCatalogVisible.value = false
   mobileTocVisible.value = false
-  loadArticle(node.slug, node.articleId)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  await loadArticle(node.slug, node.articleId)
+  restoreScrollPosition(scrollTop)
 }
 
 // 找到第一篇文章节点
@@ -432,6 +453,7 @@ onMounted(async () => {
   if (import.meta.client) {
     window.addEventListener('resize', handleWindowResize)
     handleWindowResize()
+    updateMobileFabVisibility()
     window.requestAnimationFrame(() => {
       pageEntered.value = true
     })
@@ -458,6 +480,10 @@ watch([() => loading.value, () => topic.value?.id], ([isLoading, topicValueId]) 
 
 watch(() => route.params.id, () => {
   void loadTopicDetail()
+})
+
+watch(() => currentPost.value?.id, () => {
+  updateMobileFabVisibility()
 })
 
 onUnmounted(() => {
@@ -1058,6 +1084,18 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 10px;
     z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    pointer-events: none;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
   }
 }
 

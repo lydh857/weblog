@@ -14,6 +14,7 @@ import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -28,9 +29,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PortalTopicController {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
     private final TopicService topicService;
     private final TopicMapper topicMapper;
     private final PostMapper postMapper;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     @Operation(summary = "专题列表（已发布）")
     @GetMapping
@@ -58,7 +64,7 @@ public class PortalTopicController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", topic.getId());
         data.put("title", topic.getTitle());
-        data.put("cover", topic.getCover());
+        data.put("cover", normalizeLegacyUploadUrl(topic.getCover()));
         data.put("summary", topic.getSummary());
         data.put("createTime", topic.getCreateTime());
         return Result.success(data);
@@ -107,7 +113,7 @@ public class PortalTopicController {
             if (node.getArticleId() != null) {
                 Post post = postMap.get(node.getArticleId());
                 item.put("slug", post != null ? post.getSlug() : null);
-                item.put("coverImage", post != null ? post.getCoverImage() : null);
+                item.put("coverImage", post != null ? normalizeLegacyUploadUrl(post.getCoverImage()) : null);
             }
             if (node.getChildren() != null && !node.getChildren().isEmpty()) {
                 item.put("children", convertNodes(node.getChildren(), postMap));
@@ -115,5 +121,30 @@ public class PortalTopicController {
             result.add(item);
         }
         return result;
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        if (normalizedBase == null || normalizedBase.isBlank()) {
+            return rawValue;
+        }
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null) {
+            return null;
+        }
+        String base = rawBaseUrl.trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 }

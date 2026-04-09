@@ -88,14 +88,12 @@ export default defineNuxtConfig({
     },
     // 首页缓存 10 分钟
     '/': { swr: 600 },
-    // 文章页缓存 30 分钟
-    '/post/**': { swr: 1800 },
-    // 分类页缓存 15 分钟
-    '/category/**': { swr: 900 },
+    // 文章/分类/公告详情页禁用 SWR，避免瞬时失败页面被缓存后导致 hydration mismatch
+    '/post/**': { swr: false },
+    '/category/**': { swr: false },
+    '/announcement/**': { swr: false },
     // 归档页缓存 30 分钟
     '/archive/**': { swr: 1800 },
-    // 公告页缓存 10 分钟
-    '/announcement/**': { swr: 600 },
     // API 请求不缓存
     '/api/**': { cache: false },
   },

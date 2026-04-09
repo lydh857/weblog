@@ -33,6 +33,13 @@
       <div class="detail-body" v-html="sanitize(announcement.content)" />
     </article>
 
+    <div v-else-if="loadErrorMessage" class="detail-empty">
+      <Icon name="heroicons:signal-slash" size="48" />
+      <p>{{ loadErrorMessage }}</p>
+      <button type="button" class="retry-btn" @click="retryLoadAnnouncement">重试</button>
+      <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
+    </div>
+
     <div v-else class="detail-empty">
       <Icon name="heroicons:document-magnifying-glass" size="48" />
       <p>公告不存在或已下线</p>
@@ -46,20 +53,38 @@ import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
 import { sanitizeHtml } from '~/utils/security/xss'
 
 const route = useRoute()
+const loadErrorMessage = ref<string | null>(null)
 
 const announcementId = computed(() => Number(route.params.id))
 
-const { data: announcement, pending } = await useAsyncData<AnnouncementVO | null>(
+function getHttpErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+  const candidate = (error as { code?: unknown }).code
+  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+    return candidate
+  }
+  return null
+}
+
+const { data: announcement, pending, refresh } = await useAsyncData<AnnouncementVO | null>(
   () => `announcement-${announcementId.value || 'invalid'}`,
   async () => {
     if (!Number.isInteger(announcementId.value) || announcementId.value <= 0) {
+      loadErrorMessage.value = null
       return null
     }
 
+    loadErrorMessage.value = null
     try {
       const res = await announcementApi.getById(announcementId.value)
       return res.data || null
-    } catch {
+    } catch (error) {
+      const code = getHttpErrorCode(error)
+      if (code !== 404) {
+        loadErrorMessage.value = '公告加载失败，请稍后重试'
+      }
       return null
     }
   },
@@ -68,6 +93,20 @@ const { data: announcement, pending } = await useAsyncData<AnnouncementVO | null
     watch: [announcementId]
   }
 )
+
+async function retryLoadAnnouncement() {
+  await refresh()
+}
+
+onMounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+
+  if (!pending.value && !announcement.value && announcementId.value > 0) {
+    void refresh()
+  }
+})
 
 const showUpdateTime = computed(() => {
   const current = announcement.value
@@ -240,6 +279,15 @@ useHead({
     margin: 0;
     font-size: 0.95rem;
   }
+}
+
+.retry-btn {
+  border: none;
+  background: rgba(37, 99, 235, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
 }
 
 .detail-skeleton {

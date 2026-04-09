@@ -16,6 +16,7 @@ import com.blog.content.mapper.TopicCatalogMapper;
 import com.blog.content.mapper.TopicMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,8 +31,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TopicService {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
     private final TopicMapper topicMapper;
     private final TopicCatalogMapper topicCatalogMapper;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     // ========== 专题 CRUD ==========
 
@@ -308,7 +314,7 @@ public class TopicService {
         TopicRespVO vo = new TopicRespVO();
         vo.setId(toLong(map.get("id")));
         vo.setTitle((String) map.get("title"));
-        vo.setCover((String) map.get("cover"));
+        vo.setCover(normalizeLegacyUploadUrl((String) map.get("cover")));
         vo.setSummary((String) map.get("summary"));
         vo.setWeight(toInt(map.get("weight")));
         vo.setIsPublish(toBoolean(map.get("is_publish")));
@@ -335,5 +341,30 @@ public class TopicService {
         if (obj instanceof Boolean b) return b;
         if (obj instanceof Number n) return n.intValue() != 0;
         return false;
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        if (normalizedBase == null || normalizedBase.isBlank()) {
+            return rawValue;
+        }
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null) {
+            return null;
+        }
+        String base = rawBaseUrl.trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 }
