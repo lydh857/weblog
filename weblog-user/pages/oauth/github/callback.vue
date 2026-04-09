@@ -9,7 +9,10 @@
       </template>
       <template v-else>
         <div class="oauth-spinner">
-          <svg viewBox="0 0 50 50" class="circular"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="path" /></svg>
+          <svg viewBox="0 0 50 50" class="circular" aria-hidden="true">
+            <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="track" />
+            <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="path" />
+          </svg>
         </div>
         <p class="oauth-title">正在处理 GitHub 登录</p>
         <p class="oauth-desc">请稍候，正在验证您的身份...</p>
@@ -67,18 +70,59 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.oauth-overlay { position: fixed; inset: 0; z-index: var(--z-confirm); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; }
-:global(html.dark) .oauth-overlay { background: rgba(16,18,21,.92); }
-.oauth-card { text-align: center; padding: 2.5rem 2rem; max-width: 360px; width: 100%; }
+.oauth-overlay {
+  --oauth-overlay-bg: rgba(255, 255, 255, 0.9);
+  --oauth-card-bg: rgba(248, 251, 255, 0.85);
+  --oauth-card-border: rgba(59, 130, 246, 0.2);
+  --oauth-title-color: #1e293b;
+  --oauth-desc-color: #64748b;
+  --oauth-spinner-track: rgba(59, 130, 246, 0.18);
+  --oauth-spinner-color: #3b82f6;
+  --oauth-card-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-confirm);
+  background: var(--oauth-overlay-bg);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:global(html.dark) .oauth-overlay {
+  --oauth-overlay-bg: rgba(13, 16, 20, 0.9);
+  --oauth-card-bg: rgba(22, 28, 36, 0.86);
+  --oauth-card-border: rgba(125, 211, 252, 0.22);
+  --oauth-title-color: #d6dbe4;
+  --oauth-desc-color: #9aa5b5;
+  --oauth-spinner-track: rgba(125, 211, 252, 0.25);
+  --oauth-spinner-color: #7dd3fc;
+  --oauth-card-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.oauth-card {
+  text-align: center;
+  padding: 2.5rem 2rem;
+  max-width: 360px;
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--oauth-card-border);
+  background: var(--oauth-card-bg);
+  box-shadow: var(--oauth-card-shadow);
+}
+
 .oauth-spinner { display: flex; justify-content: center; margin-bottom: 1.5rem; }
 .circular { width: 48px; height: 48px; animation: rotate 1.4s linear infinite; }
-.path { stroke: #3b82f6; stroke-linecap: round; animation: dash 1.4s ease-in-out infinite; }
+.track { stroke: var(--oauth-spinner-track); }
+.path {
+  stroke: var(--oauth-spinner-color);
+  stroke-linecap: round;
+  animation: dash 1.4s ease-in-out infinite;
+}
 .oauth-icon { margin-bottom: 1rem; }
 .oauth-icon.error { color: #ef4444; }
-.oauth-title { font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-bottom: .5rem; }
-:global(html.dark) .oauth-title { color: #d6dbe4; }
-.oauth-desc { font-size: .875rem; color: #64748b; line-height: 1.5; }
-:global(html.dark) .oauth-desc { color: #9aa5b5; }
+.oauth-title { font-size: 1.1rem; font-weight: 600; color: var(--oauth-title-color); margin-bottom: .5rem; }
+.oauth-desc { font-size: .875rem; color: var(--oauth-desc-color); line-height: 1.5; }
 .oauth-btn { margin-top: 1.5rem; padding: .625rem 1.5rem; border: none; border-radius: .5rem; background: #3b82f6; color: #fff; font-size: .9rem; font-weight: 500; cursor: pointer; }
 .oauth-btn:hover { background: #2563eb; }
 @keyframes rotate { to { transform: rotate(360deg); } }

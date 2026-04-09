@@ -27,7 +27,16 @@ import ConfirmDialog from '~/components/ui/confirm/ConfirmDialog.vue'
 import StartupCubeLoader from '~/components/common/StartupCubeLoader.vue'
 
 const route = useRoute()
-const showStartup = ref(route.path !== '/error')
+const STARTUP_BYPASS_PREFIXES = ['/oauth/github/callback']
+
+function shouldBypassStartupMask(path: string): boolean {
+  if (path === '/error') {
+    return true
+  }
+  return STARTUP_BYPASS_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
+}
+
+const showStartup = ref(!shouldBypassStartupMask(route.path))
 const STARTUP_DONE_EVENT = 'weblog:startup-done'
 const STARTUP_FADE_MS = 220
 const STARTUP_MIN_VISIBLE_MS = 260

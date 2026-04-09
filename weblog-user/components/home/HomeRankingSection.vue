@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <!-- 三栏布局：左=今日飙升 | 中=本周热榜+月度精选 | 右=最高热度 -->
+    <!-- 双行布局：上=今日飙升+最高热度 | 下=本周热榜+月度精选 -->
     <div class="ranking-grid">
       <!-- 左栏：今日飙升（大榜，第1名大封面） -->
       <div class="ranking-card ranking-card--tall ranking-card--daily">
@@ -95,7 +95,7 @@
           <span class="card-subtitle">本周热度排行</span>
         </div>
         <div v-if="weekBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
-          <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+          <div v-for="i in 10" :key="i" class="rank-row rank-row--skeleton">
             <span class="sk-num sk-shimmer" />
             <span class="sk-text sk-shimmer" />
             <span class="sk-heat sk-shimmer" />
@@ -121,7 +121,7 @@
           <span class="card-subtitle">本月口碑佳作</span>
         </div>
         <div v-if="monthBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
-          <div v-for="i in 8" :key="i" class="rank-row rank-row--skeleton">
+          <div v-for="i in 10" :key="i" class="rank-row rank-row--skeleton">
             <span class="sk-num sk-shimmer" />
             <span class="sk-text sk-shimmer" />
             <span class="sk-heat sk-shimmer" />
@@ -335,9 +335,9 @@ async function loadBoard(board: Board, rankType: number, limit: number) {
 onMounted(() => {
   Promise.all([
     loadBoard(totalBoard, 4, 10),
-    loadBoard(weekBoard, 2, 8),
+    loadBoard(weekBoard, 2, 10),
     loadBoard(dailyBoard, 1, 10),
-    loadBoard(monthBoard, 3, 8),
+    loadBoard(monthBoard, 3, 10),
   ])
 })
 </script>
@@ -394,15 +394,15 @@ onMounted(() => {
   .dark & { color: $color-dark-text-muted; }
 }
 
-/* 三栏网格 */
+/* 首页排行榜网格 */
 .ranking-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
-    'daily week total'
-    'daily month total';
+    'daily total'
+    'week month';
   gap: $spacing-md;
-  align-items: stretch;
+  align-items: start;
 }
 
 .ranking-card--daily {
@@ -419,18 +419,6 @@ onMounted(() => {
 
 .ranking-card--total {
   grid-area: total;
-}
-
-/* 中栏小榜等分高度 */
-.ranking-card--week,
-.ranking-card--month {
-  display: flex;
-  flex-direction: column;
-}
-
-.ranking-card--week > .card-list,
-.ranking-card--month > .card-list {
-  flex: 1;
 }
 
 /* 卡片 */
@@ -834,21 +822,17 @@ onMounted(() => {
 /* 响应式 */
 @media (max-width: $breakpoint-lg) {
   .ranking-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      'daily week'
-      'month total';
+    gap: $spacing-sm;
   }
 }
 
 @media (max-width: $breakpoint-md) {
   .section-desc { display: none; }
   .ranking-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(16rem, calc(100% - 3rem)));
-    grid-template-areas:
-      'daily week total'
-      'daily month total';
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(16rem, calc(100% - 3rem));
+    grid-template-columns: none;
+    grid-template-areas: none;
     gap: $spacing-sm;
     overflow-x: auto;
     padding: 0 0.5rem 2px 0;
@@ -858,6 +842,13 @@ onMounted(() => {
     &::-webkit-scrollbar {
       display: none;
     }
+  }
+
+  .ranking-card--daily,
+  .ranking-card--week,
+  .ranking-card--month,
+  .ranking-card--total {
+    grid-area: auto;
   }
 }
 </style>
