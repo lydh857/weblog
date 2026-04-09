@@ -124,7 +124,7 @@ jobs:
         run: |
           cd weblog-admin
           pnpm install --no-frozen-lockfile
-          pnpm build
+          pnpm generate
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -292,9 +292,24 @@ jobs:
           retry_pull redis:7.2-alpine 420
           retry_pull nginx:alpine 420
           docker rm -f admin-temp >/dev/null 2>&1 || true
+          rm -rf /opt/weblog/admin-static/*
           docker create --name admin-temp ${{ env.REGISTRY }}/${{ github.repository }}/weblog-admin:latest
-          docker cp admin-temp:/usr/share/nginx/html/admin /opt/weblog/admin-static
+          docker cp admin-temp:/usr/share/nginx/html/admin/. /opt/weblog/admin-static
           docker rm admin-temp
+
+          if [ ! -f /opt/weblog/admin-static/index.html ] && [ -f /opt/weblog/admin-static/200.html ]; then
+            cp /opt/weblog/admin-static/200.html /opt/weblog/admin-static/index.html
+          fi
+
+          if [ ! -f /opt/weblog/admin-static/index.html ]; then
+            echo "[ERROR] admin-static/index.html is missing after image extraction"
+            exit 1
+          fi
+
+          if ! grep -q "_nuxt" /opt/weblog/admin-static/index.html; then
+            echo "[ERROR] admin-static/index.html is not a Nuxt entry page"
+            exit 1
+          fi
 
           retry_compose_up
           sleep 20

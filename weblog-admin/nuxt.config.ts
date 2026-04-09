@@ -14,6 +14,8 @@ const cspPolicy = [
 
 const defaultCspStage = import.meta.env.PROD ? 'enforce' : 'report-only'
 const cspStage = (import.meta.env.NUXT_CSP_STAGE || defaultCspStage).toLowerCase()
+const configuredAdminBaseUrl = (import.meta.env.NUXT_APP_BASE_URL || '/admin/').trim()
+const adminBaseUrl = configuredAdminBaseUrl.endsWith('/') ? configuredAdminBaseUrl : `${configuredAdminBaseUrl}/`
 
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'SAMEORIGIN',
@@ -233,10 +235,11 @@ export default defineNuxtConfig({
 
   // 全局标题配置
   app: {
+    baseURL: adminBaseUrl,
     head: {
       title: 'zhhhkl-管理端',
       link: [
-        { rel: 'icon', type: 'image/png', href: '/brand/logo.png' },
+        { rel: 'icon', type: 'image/png', href: `${adminBaseUrl}brand/logo.png` },
       ],
     }
   },
