@@ -30,7 +30,8 @@ services:
           memory: 512m
           cpus: "0.8"
     networks:
-      - backend
+      backend:
+        ipv4_address: 172.31.0.10
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 30s
@@ -189,6 +190,9 @@ networks:
   backend:
     driver: bridge
     internal: true
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
   frontend:
     driver: bridge
     ipam:
