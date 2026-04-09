@@ -113,50 +113,8 @@ export default defineNuxtConfig({
               return 'vendor-element-icons'
             }
 
-            if (id.includes('node_modules/echarts/')) {
-              const echartsPath = id.split('node_modules/echarts/')[1]
-              const echartsSegments = echartsPath?.split('/') ?? []
-              const rawSegment = echartsSegments[0] === 'lib' ? echartsSegments[1] : echartsSegments[0]
-              const echartsSegment = rawSegment?.replace(/\.[a-z]+$/i, '')
-
-              const runtimeCoreSegments = new Set([
-                'core',
-                'model',
-                'util',
-                'scale',
-                'data',
-                'visual',
-                'animation',
-                'layout',
-              ])
-
-              const runtimeViewSegments = new Set([
-                'view',
-                'chart',
-                'component',
-                'coord',
-                'extension',
-                'index',
-              ])
-
-              if (!echartsSegment || runtimeCoreSegments.has(echartsSegment)) {
-                return 'vendor-echarts-runtime-core'
-              }
-
-              if (runtimeViewSegments.has(echartsSegment)) {
-                return 'vendor-echarts-runtime-view'
-              }
-
-              const optionalSegments = new Set(['export', 'charts', 'components', 'renderers'])
-              if (optionalSegments.has(echartsSegment)) {
-                return
-              }
-
-              return `vendor-echarts-${echartsSegment}`
-            }
-
-            if (id.includes('node_modules/zrender/')) {
-              return 'vendor-zrender'
+            if (id.includes('node_modules/echarts/') || id.includes('node_modules/zrender/')) {
+              return 'vendor-echarts'
             }
 
             if (id.includes('node_modules/md-editor-v3/')) {
