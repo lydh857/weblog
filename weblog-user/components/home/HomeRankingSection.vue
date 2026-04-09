@@ -49,7 +49,13 @@
           <!-- 第1名封面 -->
           <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="dailyTopItem.cover_image" :src="dailyTopItem.cover_image" :alt="dailyTopItem.title" loading="lazy" >
+              <img
+                v-if="dailyTopItem.cover_image && !isImageBroken('daily-top', dailyTopItem.post_id)"
+                :src="dailyTopItem.cover_image"
+                :alt="dailyTopItem.title"
+                loading="lazy"
+                @error="handleImageError('daily-top', dailyTopItem.post_id, $event)"
+              >
               <div v-else class="hero-placeholder"><Icon name="heroicons:bolt-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
@@ -74,7 +80,13 @@
             <NuxtLink v-for="(item, idx) in dailyBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
-                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" >
+                <img
+                  v-if="item.cover_image && !isImageBroken('daily-item', item.post_id)"
+                  :src="item.cover_image"
+                  :alt="item.title"
+                  loading="lazy"
+                  @error="handleImageError('daily-item', item.post_id, $event)"
+                >
                 <div v-else class="rank-cover-placeholder"/>
               </div>
               <span class="rank-title">{{ item.title }}</span>
@@ -173,7 +185,13 @@
           <!-- 第1名封面 -->
           <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" class="hero-card">
             <div class="hero-cover">
-              <img v-if="totalTopItem.cover_image" :src="totalTopItem.cover_image" :alt="totalTopItem.title" loading="lazy" >
+              <img
+                v-if="totalTopItem.cover_image && !isImageBroken('total-top', totalTopItem.post_id)"
+                :src="totalTopItem.cover_image"
+                :alt="totalTopItem.title"
+                loading="lazy"
+                @error="handleImageError('total-top', totalTopItem.post_id, $event)"
+              >
               <div v-else class="hero-placeholder"><Icon name="heroicons:trophy-20-solid" size="28" /></div>
               <div class="hero-overlay">
                 <span class="hero-badge">1</span>
@@ -198,7 +216,13 @@
             <NuxtLink v-for="(item, idx) in totalBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
-                <img v-if="item.cover_image" :src="item.cover_image" :alt="item.title" loading="lazy" >
+                <img
+                  v-if="item.cover_image && !isImageBroken('total-item', item.post_id)"
+                  :src="item.cover_image"
+                  :alt="item.title"
+                  loading="lazy"
+                  @error="handleImageError('total-item', item.post_id, $event)"
+                >
                 <div v-else class="rank-cover-placeholder"/>
               </div>
               <span class="rank-title">{{ item.title }}</span>
@@ -317,6 +341,27 @@ const dailyBoardTitle = computed(() => resolveDailyBoardTitle(dailyBoard.meta))
 const dailyBoardSubtitle = computed(() => resolveDailyBoardSubtitle(dailyBoard.meta))
 const dailyTopItem = computed(() => dailyBoard.items[0] ?? null)
 const totalTopItem = computed(() => totalBoard.items[0] ?? null)
+const imageErrorMap = ref<Record<string, boolean>>({})
+
+function buildImageKey(scope: string, postId: number): string {
+  return `${scope}-${postId}`
+}
+
+function isImageBroken(scope: string, postId: number): boolean {
+  return Boolean(imageErrorMap.value[buildImageKey(scope, postId)])
+}
+
+function handleImageError(scope: string, postId: number, event: Event) {
+  imageErrorMap.value = {
+    ...imageErrorMap.value,
+    [buildImageKey(scope, postId)]: true,
+  }
+
+  const target = event.target as HTMLImageElement | null
+  if (target) {
+    target.style.display = 'none'
+  }
+}
 
 async function loadBoard(board: Board, rankType: number, limit: number) {
   try {
@@ -397,12 +442,12 @@ onMounted(() => {
 /* 首页排行榜网格 */
 .ranking-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr) minmax(0, 1fr);
   grid-template-areas:
-    'daily total'
-    'week month';
+    'daily week total'
+    'daily month total';
   gap: $spacing-md;
-  align-items: start;
+  align-items: stretch;
 }
 
 .ranking-card--daily {
@@ -419,6 +464,26 @@ onMounted(() => {
 
 .ranking-card--total {
   grid-area: total;
+}
+
+.ranking-card--week,
+.ranking-card--month {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--week > .card-list,
+.ranking-card--month > .card-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--week > .card-list > .rank-row,
+.ranking-card--month > .card-list > .rank-row {
+  flex: 1;
+  min-height: 28px;
+  height: auto;
 }
 
 /* 卡片 */
@@ -822,6 +887,7 @@ onMounted(() => {
 /* 响应式 */
 @media (max-width: $breakpoint-lg) {
   .ranking-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.94fr) minmax(0, 1fr);
     gap: $spacing-sm;
   }
 }
