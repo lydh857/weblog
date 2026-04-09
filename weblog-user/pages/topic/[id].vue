@@ -142,26 +142,26 @@
           </div>
         </div>
 
-        <div v-if="currentPost" class="mobile-fab-group" :class="{ 'is-visible': mobileFabVisible }">
-          <button
-            class="mobile-fab-btn mobile-fab-btn--catalog"
-            :class="{ active: mobileCatalogVisible }"
-            aria-label="专题目录"
-            @click="toggleMobileCatalog"
-          >
-            <Icon name="heroicons:queue-list-20-solid" size="20" />
-          </button>
-          <button
-            class="mobile-fab-btn mobile-fab-btn--toc"
-            :class="{ active: mobileTocVisible }"
-            aria-label="文章目录"
-            @click="toggleMobileToc"
-          >
-            <Icon name="heroicons:list-bullet-20-solid" size="20" />
-          </button>
-        </div>
-
         <Teleport to="body">
+          <div v-if="currentPost" class="mobile-fab-group" :class="{ 'is-visible': mobileFabVisible }">
+            <button
+              class="mobile-fab-btn mobile-fab-btn--catalog"
+              :class="{ active: mobileCatalogVisible }"
+              aria-label="专题目录"
+              @click="toggleMobileCatalog"
+            >
+              <Icon name="heroicons:queue-list-20-solid" size="20" />
+            </button>
+            <button
+              class="mobile-fab-btn mobile-fab-btn--toc"
+              :class="{ active: mobileTocVisible }"
+              aria-label="文章目录"
+              @click="toggleMobileToc"
+            >
+              <Icon name="heroicons:list-bullet-20-solid" size="20" />
+            </button>
+          </div>
+
           <div v-if="mobileCatalogVisible" class="mobile-panel-overlay" @click="mobileCatalogVisible = false" />
           <div class="mobile-bottom-panel" :class="{ open: mobileCatalogVisible }">
             <div class="mobile-panel-header">
@@ -339,7 +339,7 @@ function toggleMobileToc() {
 }
 
 function handleMobileCatalogSelect(node: CatalogNode) {
-  handleCatalogSelect(node)
+  void handleCatalogSelect(node)
   mobileCatalogVisible.value = false
 }
 
@@ -358,27 +358,16 @@ function updateMobileFabVisibility() {
   mobileFabVisible.value = isMobileLayout && Boolean(currentPost.value)
 }
 
-function restoreScrollPosition(scrollTop: number) {
-  if (!import.meta.client || scrollTop < 0) {
-    return
-  }
-  window.requestAnimationFrame(() => {
-    window.scrollTo({ top: scrollTop })
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: scrollTop })
-    })
-  })
-}
-
 // 目录节点点击
 async function handleCatalogSelect(node: CatalogNode) {
   if (!node.articleId || !node.slug) return
   if (node.articleId === currentArticleId.value) return
-  const scrollTop = import.meta.client ? window.scrollY : 0
   mobileCatalogVisible.value = false
   mobileTocVisible.value = false
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
   await loadArticle(node.slug, node.articleId)
-  restoreScrollPosition(scrollTop)
 }
 
 // 找到第一篇文章节点

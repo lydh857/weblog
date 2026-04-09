@@ -161,25 +161,63 @@ function getHeatColor(rank: number): string {
 
 const dailyFallbackTip = computed(() => {
   const meta = currentMeta.value
-  if (activeTab.value !== 1 || !meta?.fallbackUsed) {
+  if (!meta?.fallbackUsed) {
     return ''
   }
-  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
-    return '今日榜暂无数据，已展示最新发布'
+
+  if (activeTab.value === 1) {
+    if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+      return '今日榜暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+      return '今日榜和最新发布均暂无数据'
+    }
+    if (meta.servedRankType === 1 && meta.servedStatDate) {
+      return `今日榜暂无数据，已展示 ${meta.servedStatDate} 的飙升榜`
+    }
+    if (meta.servedRankType === 2) {
+      return '今日榜暂无数据，已展示本周热榜'
+    }
+    if (meta.servedRankType === 4) {
+      return '今日榜暂无数据，已展示最高热度榜'
+    }
+    return '今日榜暂无数据，已自动切换可用榜单'
   }
-  if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
-    return '今日榜和最新发布均暂无数据'
+
+  if (activeTab.value === 2) {
+    if (meta.fallbackReason === 'rank_empty_fallback_total') {
+      return '本周热榜暂无数据，已展示最高热度'
+    }
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '本周热榜暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '本周热榜和最新发布均暂无数据'
+    }
   }
-  if (meta.servedRankType === 1 && meta.servedStatDate) {
-    return `今日榜暂无数据，已展示 ${meta.servedStatDate} 的飙升榜`
+
+  if (activeTab.value === 3) {
+    if (meta.fallbackReason === 'rank_empty_fallback_total') {
+      return '月度精选暂无数据，已展示最高热度'
+    }
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '月度精选暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '月度精选和最新发布均暂无数据'
+    }
   }
-  if (meta.servedRankType === 2) {
-    return '今日榜暂无数据，已展示本周热榜'
+
+  if (activeTab.value === 4) {
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '最高热度暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '最高热度和最新发布均暂无数据'
+    }
   }
-  if (meta.servedRankType === 4) {
-    return '今日榜暂无数据，已展示最高热度榜'
-  }
-  return '今日榜暂无数据，已自动切换可用榜单'
+
+  return '当前榜单暂无数据，已自动切换可用内容'
 })
 
 /** 切换 Tab */

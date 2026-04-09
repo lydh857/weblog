@@ -856,7 +856,8 @@ onUnmounted(() => {
 
 @media (max-width: $breakpoint-md) {
   .popup-overlay {
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
     padding: 0.75rem;
   }
 

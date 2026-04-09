@@ -36,8 +36,16 @@ export interface RankingResolvedResult {
 }
 
 const DAY_RANK_TYPE = 1
-const RECENT_FALLBACK_REASON = 'daily_empty_fallback_recent_posts'
-const RECENT_FALLBACK_EMPTY_REASON = 'daily_empty_no_recent_posts'
+const WEEK_RANK_TYPE = 2
+const MONTH_RANK_TYPE = 3
+const TOTAL_RANK_TYPE = 4
+const DAILY_RECENT_FALLBACK_REASON = 'daily_empty_fallback_recent_posts'
+const DAILY_RECENT_FALLBACK_EMPTY_REASON = 'daily_empty_no_recent_posts'
+const RANK_RECENT_FALLBACK_REASON = 'rank_empty_fallback_recent_posts'
+const RANK_RECENT_FALLBACK_EMPTY_REASON = 'rank_empty_no_recent_posts'
+const RANK_TOTAL_FALLBACK_REASON = 'rank_empty_fallback_total'
+
+type RankingQueryParams = { rankType?: number; categoryId?: number; limit?: number; offset?: number }
 
 function createDefaultMeta(rankType: number): RankingMeta {
   return {
@@ -70,6 +78,11 @@ function mapPostToRankingItem(post: PostVO, index: number): RankingItem {
 async function loadRecentFallback(rankType: number, limit = 10): Promise<RankingResolvedResult> {
   const res = await postApi.listRecent(limit)
   const items = (res.data || []).map((post, index) => mapPostToRankingItem(post, index))
+  const hasItems = items.length > 0
+  const fallbackReason = rankType === DAY_RANK_TYPE
+    ? (hasItems ? DAILY_RECENT_FALLBACK_REASON : DAILY_RECENT_FALLBACK_EMPTY_REASON)
+    : (hasItems ? RANK_RECENT_FALLBACK_REASON : RANK_RECENT_FALLBACK_EMPTY_REASON)
+
   return {
     items,
     source: 'recent',
@@ -78,25 +91,50 @@ async function loadRecentFallback(rankType: number, limit = 10): Promise<Ranking
       servedRankType: rankType,
       servedStatDate: null,
       fallbackUsed: true,
-      fallbackReason: items.length > 0 ? RECENT_FALLBACK_REASON : RECENT_FALLBACK_EMPTY_REASON,
+      fallbackReason,
+    },
+  }
+}
+
+async function loadTotalFallback(params: RankingQueryParams, requestedRankType: number): Promise<RankingResolvedResult | null> {
+  const totalParams: RankingQueryParams = {
+    ...params,
+    rankType: TOTAL_RANK_TYPE,
+  }
+  const res = await rankingApi.getSmart(totalParams)
+  const data = res.data
+  const items = data?.items || []
+  if (!items.length) {
+    return null
+  }
+
+  return {
+    items,
+    source: 'ranking',
+    meta: {
+      requestedRankType,
+      servedRankType: TOTAL_RANK_TYPE,
+      servedStatDate: data?.meta?.servedStatDate || null,
+      fallbackUsed: true,
+      fallbackReason: RANK_TOTAL_FALLBACK_REASON,
     },
   }
 }
 
 export const rankingApi = {
   /** 查询排行榜 */
-  get: (params: { rankType?: number; categoryId?: number; limit?: number; offset?: number }) =>
+  get: (params: RankingQueryParams) =>
     http.get<unknown, { data: RankingItem[] }>('/portal/ranking', { params }),
 
   /** 查询智能排行榜（含回退信息） */
-  getSmart: (params: { rankType?: number; categoryId?: number; limit?: number; offset?: number }) =>
+  getSmart: (params: RankingQueryParams) =>
     http.get<unknown, { data: RankingSmartResponse }>('/portal/ranking/smart', { params }),
 
-  /** 查询智能排行榜，日榜空时自动降级为最新发布 */
+  /** 查询智能排行榜，空榜时自动回退，避免展示空白 */
   getSmartWithRecentFallback: async (
-    params: { rankType?: number; categoryId?: number; limit?: number; offset?: number },
+    params: RankingQueryParams,
   ): Promise<RankingResolvedResult> => {
-    const rankType = params.rankType ?? 4
+    const rankType = params.rankType ?? TOTAL_RANK_TYPE
 
     try {
       const res = await rankingApi.getSmart(params)
@@ -104,7 +142,7 @@ export const rankingApi = {
       const items = data?.items || []
       const meta = data?.meta || createDefaultMeta(rankType)
 
-      if (rankType !== DAY_RANK_TYPE || items.length > 0) {
+      if (items.length > 0) {
         return {
           items,
           meta,
@@ -112,10 +150,24 @@ export const rankingApi = {
         }
       }
 
+      if (rankType === WEEK_RANK_TYPE || rankType === MONTH_RANK_TYPE) {
+        const totalFallback = await loadTotalFallback(params, rankType)
+        if (totalFallback) {
+          return totalFallback
+        }
+      }
+
       return await loadRecentFallback(rankType, params.limit)
-    } catch (error) {
-      if (rankType !== DAY_RANK_TYPE) {
-        throw error
+    } catch {
+      if (rankType === WEEK_RANK_TYPE || rankType === MONTH_RANK_TYPE) {
+        try {
+          const totalFallback = await loadTotalFallback(params, rankType)
+          if (totalFallback) {
+            return totalFallback
+          }
+        } catch {
+          // ignore and fallback to recent posts
+        }
       }
       return await loadRecentFallback(rankType, params.limit)
     }
