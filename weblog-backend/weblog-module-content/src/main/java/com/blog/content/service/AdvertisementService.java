@@ -29,6 +29,7 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
@@ -77,6 +78,9 @@ public class AdvertisementService {
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
 
+    @Value("${blog.security.outbound-link-allowed-domains:}")
+    private String outboundLinkAllowedDomains;
+
     /**
      * 按位置获取有效广告（用户端）
      */
@@ -108,6 +112,7 @@ public class AdvertisementService {
 
         records.forEach(ad -> {
             normalizeImageAdContent(ad);
+            ad.setLinkUrl(filterUnsafeLinkForDisplay(ad.getLinkUrl()));
             if (isCarouselPosition(normalizePosition(ad.getPosition()))) {
                 ad.setClosable(true);
                 ad.setAutoRotate(true);
@@ -753,7 +758,117 @@ public class AdvertisementService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网跳转链接");
         }
 
+        if (!isAllowedOutboundHost(normalizedHost)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接域名不在白名单内");
+        }
+
         return XssUtil.cleanText(uri.toString());
+    }
+
+    private String filterUnsafeLinkForDisplay(String linkUrl) {
+        if (linkUrl == null || linkUrl.isBlank()) {
+            return null;
+        }
+        try {
+            return validateAndCleanLinkUrl(linkUrl);
+        } catch (BusinessException ex) {
+            log.debug("广告外链已被拦截: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isAllowedOutboundHost(String normalizedHost) {
+        Set<String> allowList = resolveAllowedOutboundDomains();
+        if (allowList.isEmpty()) {
+            return true;
+        }
+
+        for (String allowDomain : allowList) {
+            if (normalizedHost.equals(allowDomain) || normalizedHost.endsWith("." + allowDomain)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<String> resolveAllowedOutboundDomains() {
+        LinkedHashSet<String> domains = new LinkedHashSet<>();
+        domains.addAll(parseAllowedDomainList(outboundLinkAllowedDomains));
+        if (!domains.isEmpty()) {
+            return domains;
+        }
+
+        String fallbackHost = normalizeAllowedDomain(extractHost(uploadBaseUrl));
+        if (fallbackHost != null) {
+            domains.add(fallbackHost);
+            if (fallbackHost.startsWith("www.")) {
+                String rootDomain = fallbackHost.substring(4);
+                if (!rootDomain.isBlank()) {
+                    domains.add(rootDomain);
+                }
+            } else if (!fallbackHost.equals("localhost")
+                    && !fallbackHost.matches("^\\d+\\.\\d+\\.\\d+\\.\\d+$")
+                    && !fallbackHost.contains(":")) {
+                domains.add("www." + fallbackHost);
+            }
+        }
+        return domains;
+    }
+
+    private Set<String> parseAllowedDomainList(String rawList) {
+        if (rawList == null || rawList.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(rawList.split(","))
+                .map(this::normalizeAllowedDomain)
+                .filter(StrUtil::isNotBlank)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private String extractHost(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(rawUrl.trim());
+            return uri.getHost();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String normalizeAllowedDomain(String rawDomain) {
+        if (rawDomain == null || rawDomain.isBlank()) {
+            return null;
+        }
+
+        String value = rawDomain.trim();
+        try {
+            if (value.contains("://")) {
+                URI uri = URI.create(value);
+                value = uri.getHost();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        value = value.toLowerCase(Locale.ROOT);
+        if (value.startsWith("*.")) {
+            value = value.substring(2);
+        }
+        if (value.endsWith(".")) {
+            value = value.substring(0, value.length() - 1);
+        }
+
+        try {
+            return IDN.toASCII(value, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private boolean isPublicHost(String host) {

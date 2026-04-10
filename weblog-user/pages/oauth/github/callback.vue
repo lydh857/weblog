@@ -83,6 +83,11 @@ onMounted(async () => {
   --oauth-spinner-color: #2563eb;
   --oauth-btn-bg: #2563eb;
   --oauth-btn-bg-hover: #1d4ed8;
+  --oauth-glow-a: rgba(37, 99, 235, 0.3);
+  --oauth-glow-b: rgba(14, 165, 233, 0.28);
+  --oauth-content-bg: rgba(255, 255, 255, 0.38);
+  --oauth-content-border: rgba(148, 163, 184, 0.32);
+  --oauth-content-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
   position: fixed;
   inset: 0;
   z-index: var(--z-confirm);
@@ -94,7 +99,10 @@ onMounted(async () => {
   background: var(--oauth-bg);
 }
 
-:global(html.dark) .oauth-screen {
+:global(html.dark) .oauth-screen,
+:global(body.dark) .oauth-screen,
+:global(html[data-theme='dark']) .oauth-screen,
+:global(html[data-startup-theme='dark']) .oauth-screen {
   --oauth-bg:
     radial-gradient(1100px 580px at 10% 10%, rgba(56, 189, 248, 0.22), transparent 58%),
     radial-gradient(1050px 600px at 88% 85%, rgba(30, 64, 175, 0.28), transparent 62%),
@@ -105,6 +113,11 @@ onMounted(async () => {
   --oauth-spinner-color: #93c5fd;
   --oauth-btn-bg: #3b82f6;
   --oauth-btn-bg-hover: #2563eb;
+  --oauth-glow-a: rgba(56, 189, 248, 0.24);
+  --oauth-glow-b: rgba(30, 64, 175, 0.34);
+  --oauth-content-bg: rgba(9, 18, 33, 0.46);
+  --oauth-content-border: rgba(71, 85, 105, 0.5);
+  --oauth-content-shadow: 0 20px 48px rgba(2, 6, 23, 0.42);
 }
 
 .oauth-glow {
@@ -119,7 +132,7 @@ onMounted(async () => {
   height: clamp(220px, 26vw, 460px);
   left: -4%;
   top: 2%;
-  background: rgba(37, 99, 235, 0.3);
+  background: var(--oauth-glow-a);
 }
 
 .oauth-glow-b {
@@ -127,7 +140,7 @@ onMounted(async () => {
   height: clamp(240px, 30vw, 520px);
   right: -6%;
   bottom: -5%;
-  background: rgba(14, 165, 233, 0.28);
+  background: var(--oauth-glow-b);
 }
 
 .oauth-content {
@@ -135,6 +148,11 @@ onMounted(async () => {
   text-align: center;
   width: min(92vw, 520px);
   padding: clamp(1.25rem, 3.6vw, 2.8rem);
+  border-radius: 1.25rem;
+  border: 1px solid var(--oauth-content-border);
+  background: var(--oauth-content-bg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--oauth-content-shadow);
 }
 
 .oauth-spinner { display: flex; justify-content: center; margin-bottom: 1.5rem; }
