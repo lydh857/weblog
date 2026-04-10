@@ -15,6 +15,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,11 +38,15 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 @RequiredArgsConstructor
 public class AdminFriendLinkController {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
     private static final String FRIEND_LINK_APPLY_SWITCH_KEY = "friend_link_apply_enabled";
     private final FriendLinkService friendLinkService;
     private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "rejected");
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     @Operation(summary = "获取所有友链")
     @GetMapping
@@ -189,9 +194,31 @@ public class AdminFriendLinkController {
         if (applicant != null) {
             vo.setApplicantNickname(applicant.getNickname());
             vo.setApplicantEmail(applicant.getEmail());
-            vo.setApplicantAvatar(applicant.getAvatar());
+            vo.setApplicantAvatar(normalizeLegacyUploadUrl(applicant.getAvatar()));
         }
         return vo;
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+            return LEGACY_LOCAL_UPLOAD_PREFIX;
+        }
+        String normalized = rawBaseUrl.trim();
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     @Data

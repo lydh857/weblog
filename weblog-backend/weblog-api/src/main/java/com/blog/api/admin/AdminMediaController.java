@@ -18,11 +18,15 @@ import com.blog.system.mapper.UserProfileReviewMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 管理端媒体资源管理接口
@@ -31,6 +35,8 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/admin/media")
 public class AdminMediaController {
+
+  private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
 
   @Autowired(required = false)
   private OssResourceService ossResourceService;
@@ -46,6 +52,9 @@ public class AdminMediaController {
 
   @Autowired(required = false)
   private UserProfileReviewMapper userProfileReviewMapper;
+
+  @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+  private String uploadBaseUrl;
 
   private void checkOssEnabled() {
     if (ossResourceService == null) {
@@ -82,6 +91,15 @@ public class AdminMediaController {
 
     appendAvatarReferences(referencedUrls, detailMap);
 
+    Set<String> normalizedReferencedUrls = referencedUrls.stream()
+        .map(this::normalizeLegacyUploadUrl)
+        .collect(Collectors.toSet());
+    Map<String, List<MediaVO.ReferenceDetail>> normalizedDetailMap = new HashMap<>();
+    detailMap.forEach((rawUrl, details) -> {
+      String normalizedUrl = normalizeLegacyUploadUrl(rawUrl);
+      normalizedDetailMap.computeIfAbsent(normalizedUrl, k -> new ArrayList<>()).addAll(details);
+    });
+
     IPage<OssResource> page;
     if (referenceStatus != null && !referenceStatus.isEmpty()) {
       // 按引用状态筛选：在数据库层过滤，避免内存加载
@@ -92,7 +110,7 @@ public class AdminMediaController {
       page = ossResourceService.page(pageParams.pageNum(), pageParams.pageSize(), uploaderId, usageType);
     }
 
-    IPage<MediaVO> voPage = page.convert(r -> toMediaVO(r, referencedUrls, detailMap));
+    IPage<MediaVO> voPage = page.convert(r -> toMediaVO(r, normalizedReferencedUrls, normalizedDetailMap));
     return Result.success(voPage);
   }
 
@@ -114,6 +132,9 @@ public class AdminMediaController {
     checkOssEnabled();
     StpUtil.checkLogin();
     OssResource resource = ossResourceService.getById(id);
+    if (resource != null && resource.getUrl() != null) {
+      resource.setUrl(normalizeLegacyUploadUrl(resource.getUrl()));
+    }
     return Result.success(resource);
   }
 
@@ -156,6 +177,7 @@ public class AdminMediaController {
   /** OssResource 转 MediaVO，设置 referenced 字段和引用详情 */
   private MediaVO toMediaVO(OssResource resource, Set<String> referencedUrls,
                             Map<String, List<MediaVO.ReferenceDetail>> detailMap) {
+    String normalizedUrl = normalizeLegacyUploadUrl(resource.getUrl());
     MediaVO vo = new MediaVO();
     vo.setId(resource.getId());
     vo.setFileName(resource.getFileName());
@@ -163,25 +185,25 @@ public class AdminMediaController {
     vo.setFileSize(resource.getFileSize());
     vo.setFileType(resource.getFileType());
     vo.setMimeType(resource.getMimeType());
-    vo.setUrl(resource.getUrl());
+    vo.setUrl(normalizedUrl);
     vo.setUploaderId(resource.getUploaderId());
     vo.setUsageType(resource.getUsageType());
     vo.setCreateTime(resource.getCreateTime());
 
     // 生成缩略图 URL：OSS 模式使用图片处理参数，本地模式用原始 URL
-    if (ossService != null && resource.getUrl() != null) {
-      String objectKey = ossService.extractObjectKey(resource.getUrl());
+    if (ossService != null && normalizedUrl != null) {
+      String objectKey = ossService.extractObjectKey(normalizedUrl);
       if (objectKey != null) {
         vo.setThumbnailUrl(ossService.getThumbnailUrl(objectKey));
       } else {
-        vo.setThumbnailUrl(resource.getUrl());
+        vo.setThumbnailUrl(normalizedUrl);
       }
     } else {
-      vo.setThumbnailUrl(resource.getUrl());
+      vo.setThumbnailUrl(normalizedUrl);
     }
 
-    vo.setReferenced(resource.getUrl() != null && referencedUrls.contains(resource.getUrl()));
-    vo.setReferenceDetails(detailMap.getOrDefault(resource.getUrl(), List.of()));
+    vo.setReferenced(normalizedUrl != null && referencedUrls.contains(normalizedUrl));
+    vo.setReferenceDetails(detailMap.getOrDefault(normalizedUrl, List.of()));
     return vo;
   }
 
@@ -215,6 +237,28 @@ public class AdminMediaController {
         }
       }
     }
+  }
+
+  private String normalizeLegacyUploadUrl(String rawValue) {
+    if (rawValue == null || rawValue.isBlank()) {
+      return rawValue;
+    }
+    if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+      return rawValue;
+    }
+    String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+    return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+  }
+
+  private String normalizeUploadBaseUrl(String rawBaseUrl) {
+    if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+      return LEGACY_LOCAL_UPLOAD_PREFIX;
+    }
+    String normalized = rawBaseUrl.trim();
+    if (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized;
   }
 
 }

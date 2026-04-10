@@ -1,8 +1,10 @@
 <template>
-  <div class="oauth-overlay">
-    <div class="oauth-card">
+  <div class="oauth-screen" :class="{ 'has-error': Boolean(error) }">
+    <div class="oauth-glow oauth-glow-a" aria-hidden="true" />
+    <div class="oauth-glow oauth-glow-b" aria-hidden="true" />
+    <div class="oauth-content">
       <template v-if="error">
-        <div class="oauth-icon error"><Icon name="heroicons:x-circle-16-solid" size="48" /></div>
+        <div class="oauth-icon error"><Icon name="heroicons:x-circle-16-solid" size="56" /></div>
         <p class="oauth-title">登录失败</p>
         <p class="oauth-desc">{{ error }}</p>
         <button type="button" class="oauth-btn" @click="goLogin">返回登录</button>
@@ -70,49 +72,73 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.oauth-overlay {
-  --oauth-overlay-bg: rgba(255, 255, 255, 0.9);
-  --oauth-card-bg: rgba(248, 251, 255, 0.85);
-  --oauth-card-border: rgba(59, 130, 246, 0.2);
-  --oauth-title-color: #1e293b;
-  --oauth-desc-color: #64748b;
-  --oauth-spinner-track: rgba(59, 130, 246, 0.18);
-  --oauth-spinner-color: #3b82f6;
-  --oauth-card-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+.oauth-screen {
+  --oauth-bg:
+    radial-gradient(1200px 600px at 12% 12%, rgba(59, 130, 246, 0.2), transparent 60%),
+    radial-gradient(1000px 540px at 90% 88%, rgba(14, 165, 233, 0.18), transparent 60%),
+    linear-gradient(160deg, #eef4ff 0%, #f8fbff 45%, #eef7ff 100%);
+  --oauth-title-color: #172033;
+  --oauth-desc-color: #4d5d76;
+  --oauth-spinner-track: rgba(37, 99, 235, 0.2);
+  --oauth-spinner-color: #2563eb;
+  --oauth-btn-bg: #2563eb;
+  --oauth-btn-bg-hover: #1d4ed8;
   position: fixed;
   inset: 0;
   z-index: var(--z-confirm);
-  background: var(--oauth-overlay-bg);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-:global(html.dark) .oauth-overlay {
-  --oauth-overlay-bg: rgba(13, 16, 20, 0.9);
-  --oauth-card-bg: rgba(22, 28, 36, 0.86);
-  --oauth-card-border: rgba(125, 211, 252, 0.22);
-  --oauth-title-color: #d6dbe4;
-  --oauth-desc-color: #9aa5b5;
-  --oauth-spinner-track: rgba(125, 211, 252, 0.25);
-  --oauth-spinner-color: #7dd3fc;
-  --oauth-card-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-}
-
-.oauth-card {
-  text-align: center;
-  padding: 2.5rem 2rem;
-  max-width: 360px;
+  min-height: 100dvh;
   width: 100%;
-  border-radius: 1rem;
-  border: 1px solid var(--oauth-card-border);
-  background: var(--oauth-card-bg);
-  box-shadow: var(--oauth-card-shadow);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--oauth-bg);
+}
+
+:global(html.dark) .oauth-screen {
+  --oauth-bg:
+    radial-gradient(1100px 580px at 10% 10%, rgba(56, 189, 248, 0.22), transparent 58%),
+    radial-gradient(1050px 600px at 88% 85%, rgba(30, 64, 175, 0.28), transparent 62%),
+    linear-gradient(165deg, #0b1220 0%, #101a2c 45%, #0d1728 100%);
+  --oauth-title-color: #e6edf8;
+  --oauth-desc-color: #9bb0cf;
+  --oauth-spinner-track: rgba(147, 197, 253, 0.3);
+  --oauth-spinner-color: #93c5fd;
+  --oauth-btn-bg: #3b82f6;
+  --oauth-btn-bg-hover: #2563eb;
+}
+
+.oauth-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(42px);
+  opacity: .55;
+}
+
+.oauth-glow-a {
+  width: clamp(220px, 26vw, 460px);
+  height: clamp(220px, 26vw, 460px);
+  left: -4%;
+  top: 2%;
+  background: rgba(37, 99, 235, 0.3);
+}
+
+.oauth-glow-b {
+  width: clamp(240px, 30vw, 520px);
+  height: clamp(240px, 30vw, 520px);
+  right: -6%;
+  bottom: -5%;
+  background: rgba(14, 165, 233, 0.28);
+}
+
+.oauth-content {
+  position: relative;
+  text-align: center;
+  width: min(92vw, 520px);
+  padding: clamp(1.25rem, 3.6vw, 2.8rem);
 }
 
 .oauth-spinner { display: flex; justify-content: center; margin-bottom: 1.5rem; }
-.circular { width: 48px; height: 48px; animation: rotate 1.4s linear infinite; }
+.circular { width: 62px; height: 62px; animation: rotate 1.4s linear infinite; }
 .track { stroke: var(--oauth-spinner-track); }
 .path {
   stroke: var(--oauth-spinner-color);
@@ -121,10 +147,22 @@ onMounted(async () => {
 }
 .oauth-icon { margin-bottom: 1rem; }
 .oauth-icon.error { color: #ef4444; }
-.oauth-title { font-size: 1.1rem; font-weight: 600; color: var(--oauth-title-color); margin-bottom: .5rem; }
-.oauth-desc { font-size: .875rem; color: var(--oauth-desc-color); line-height: 1.5; }
-.oauth-btn { margin-top: 1.5rem; padding: .625rem 1.5rem; border: none; border-radius: .5rem; background: #3b82f6; color: #fff; font-size: .9rem; font-weight: 500; cursor: pointer; }
-.oauth-btn:hover { background: #2563eb; }
+.oauth-title { font-size: clamp(1.5rem, 3.5vw, 2rem); font-weight: 700; color: var(--oauth-title-color); margin-bottom: .625rem; }
+.oauth-desc { font-size: clamp(1rem, 2.2vw, 1.18rem); color: var(--oauth-desc-color); line-height: 1.65; }
+.oauth-btn {
+  margin-top: 1.75rem;
+  min-width: 9.5rem;
+  padding: .74rem 1.65rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--oauth-btn-bg);
+  color: #fff;
+  font-size: .94rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.oauth-btn:hover { background: var(--oauth-btn-bg-hover); }
+.oauth-screen.has-error .oauth-spinner { display: none; }
 @keyframes rotate { to { transform: rotate(360deg); } }
 @keyframes dash {
   0% { stroke-dasharray: 1,150; stroke-dashoffset: 0; }

@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
@@ -37,12 +38,17 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class AdminAuthController {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
     private final AuthService authService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
     private final CaptchaService captchaService;
     private static final String ADMIN_REMEMBER_COOKIE = "Admin-Remember-Token";
     private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     @Operation(summary = "管理员登录", description = "管理员通过邮箱和密码登录，非 admin 角色将被拒绝")
     @PostMapping("/login")
@@ -56,6 +62,7 @@ public class AdminAuthController {
         String userAgent = request.getHeader("User-Agent");
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         LoginResponse loginResponse = authService.adminLogin(req, clientIp, userAgent);
+        loginResponse.setAvatar(normalizeLegacyUploadUrl(loginResponse.getAvatar()));
 
         syncRememberCookie(response, request, loginResponse.getRememberToken(), req.isRememberMe());
         loginResponse.setRememberToken(null);
@@ -118,7 +125,7 @@ public class AdminAuthController {
                 .userId(vo.getUserId())
                 .email(vo.getEmail())
                 .nickname(vo.getNickname())
-                .avatar(vo.getAvatar())
+                .avatar(normalizeLegacyUploadUrl(vo.getAvatar()))
                 .role(vo.getRole())
                 .needBindEmail(false)
                 .hasPassword(true)
@@ -211,6 +218,28 @@ public class AdminAuthController {
         }
         String proto = request.getHeader("X-Forwarded-Proto");
         return proto != null && "https".equalsIgnoreCase(proto);
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+            return LEGACY_LOCAL_UPLOAD_PREFIX;
+        }
+        String normalized = rawBaseUrl.trim();
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     public record RevokeTokenRequest(@NotBlank(message = "token 不能为空") String token) {}

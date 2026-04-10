@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +39,13 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 @RequiredArgsConstructor
 public class AdminUserController {
 
+    private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+
     private final UserMapper userMapper;
     private final EmailService emailService;
+
+    @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+    private String uploadBaseUrl;
 
     @Operation(summary = "获取当前登录管理员信息")
     @GetMapping("/me")
@@ -53,7 +59,7 @@ public class AdminUserController {
                 "userId", user.getId(),
                 "email", user.getEmail(),
                 "nickname", user.getNickname() != null ? user.getNickname() : "",
-                "avatar", user.getAvatar() != null ? user.getAvatar() : "",
+                "avatar", user.getAvatar() != null ? normalizeLegacyUploadUrl(user.getAvatar()) : "",
                 "role", user.getRole() != null ? user.getRole() : ""
         ));
     }
@@ -89,7 +95,7 @@ public class AdminUserController {
             vo.setId(u.getId());
             vo.setEmail(u.getEmail());
             vo.setNickname(u.getNickname());
-            vo.setAvatar(u.getAvatar());
+            vo.setAvatar(normalizeLegacyUploadUrl(u.getAvatar()));
             vo.setBio(u.getBio());
             vo.setRole(u.getRole());
             vo.setStatus(u.getStatus());
@@ -124,6 +130,28 @@ public class AdminUserController {
                 .eq(User::getId, userId)
                 .set(User::getStatus, status));
         return Result.success();
+    }
+
+    private String normalizeLegacyUploadUrl(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return rawValue;
+        }
+        if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+            return rawValue;
+        }
+        String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+        return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+    }
+
+    private String normalizeUploadBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+            return LEGACY_LOCAL_UPLOAD_PREFIX;
+        }
+        String normalized = rawBaseUrl.trim();
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     @Operation(summary = "重置用户密码（随机生成并邮件通知）")
