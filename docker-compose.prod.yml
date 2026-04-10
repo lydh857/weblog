@@ -100,6 +100,7 @@ services:
     volumes:
       - lucene-data:/data/lucene
       - app-logs:/var/log/weblog
+      - ./uploads:/app/uploads
     deploy:
       resources:
         limits:
@@ -162,6 +163,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - ./admin-static:/usr/share/nginx/html/admin:ro
+      - ./uploads:/usr/share/nginx/uploads:ro
       - nginx-logs:/var/log/nginx
     deploy:
       resources:

@@ -299,6 +299,13 @@ jobs:
           docker cp admin-temp:/usr/share/nginx/html/admin/. /opt/weblog/admin-static
           docker rm admin-temp
 
+          mkdir -p /opt/weblog/uploads
+          if docker inspect weblog-api >/dev/null 2>&1; then
+            docker cp weblog-api:/app/uploads/. /opt/weblog/uploads/ >/dev/null 2>&1 || true
+          fi
+          chown -R 1000:1000 /opt/weblog/uploads
+          chmod -R u+rwX,go+rX /opt/weblog/uploads
+
           if [ ! -f /opt/weblog/admin-static/index.html ] && [ -f /opt/weblog/admin-static/200.html ]; then
             cp /opt/weblog/admin-static/200.html /opt/weblog/admin-static/index.html
           fi
