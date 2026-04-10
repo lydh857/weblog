@@ -27,6 +27,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.IDN;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -67,6 +69,9 @@ public class PostService {
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
+
+    @Value("${blog.security.portal-media-allowed-domains:}")
+    private String portalMediaAllowedDomains;
 
     /**
      * 创建文章
@@ -354,7 +359,7 @@ public class PostService {
         wrapper.orderByDesc(Post::getIsTop).orderByDesc(Post::getCreateTime);
 
         IPage<Post> page = postMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
-        return convertPageWithRelations(page);
+        return sanitizePortalPageCoverImages(convertPageWithRelations(page));
     }
 
     /**
@@ -763,7 +768,7 @@ public class PostService {
                .last("LIMIT " + limit);
 
         List<Post> posts = postMapper.selectList(wrapper);
-        return convertListWithRelations(posts);
+        return sanitizePortalPostList(convertListWithRelations(posts));
     }
 
     /**
@@ -780,7 +785,7 @@ public class PostService {
                .last("LIMIT " + limit);
 
         List<Post> posts = postMapper.selectList(wrapper);
-        return convertListWithRelations(posts);
+        return sanitizePortalPostList(convertListWithRelations(posts));
     }
 
     /**
@@ -795,7 +800,7 @@ public class PostService {
         if (post == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "文章不存在");
         }
-        return toVO(post, true);
+        return sanitizePortalPost(toVO(post, true));
     }
 
     /**
@@ -832,7 +837,7 @@ public class PostService {
         vo.setId(prev.getId());
         vo.setTitle(prev.getTitle());
         vo.setSlug(prev.getSlug());
-        vo.setCoverImage(normalizeLegacyUploadUrl(prev.getCoverImage()));
+        vo.setCoverImage(sanitizePortalCoverImage(normalizeLegacyUploadUrl(prev.getCoverImage())));
         return vo;
     }
 
@@ -857,7 +862,7 @@ public class PostService {
         vo.setId(next.getId());
         vo.setTitle(next.getTitle());
         vo.setSlug(next.getSlug());
-        vo.setCoverImage(normalizeLegacyUploadUrl(next.getCoverImage()));
+        vo.setCoverImage(sanitizePortalCoverImage(normalizeLegacyUploadUrl(next.getCoverImage())));
         return vo;
     }
 
@@ -925,8 +930,125 @@ public class PostService {
           + (p.getCollectCount() != null ? p.getCollectCount() : 0)
           + (p.getCommentCount() != null ? p.getCommentCount() : 0)).reversed())
         .limit(limit)
-        .map(p -> toVO(p, false))
+        .map(p -> sanitizePortalPost(toVO(p, false)))
         .collect(Collectors.toList());
+    }
+
+    private IPage<PostVO> sanitizePortalPageCoverImages(IPage<PostVO> page) {
+        if (page == null || page.getRecords() == null || page.getRecords().isEmpty()) {
+            return page;
+        }
+        page.setRecords(sanitizePortalPostList(page.getRecords()));
+        return page;
+    }
+
+    private List<PostVO> sanitizePortalPostList(List<PostVO> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return posts;
+        }
+        posts.forEach(this::sanitizePortalPost);
+        return posts;
+    }
+
+    private PostVO sanitizePortalPost(PostVO postVO) {
+        if (postVO == null) {
+            return null;
+        }
+        postVO.setCoverImage(sanitizePortalCoverImage(postVO.getCoverImage()));
+        return postVO;
+    }
+
+    private String sanitizePortalCoverImage(String rawCoverImage) {
+        if (rawCoverImage == null || rawCoverImage.isBlank()) {
+            return rawCoverImage;
+        }
+
+        String normalized = rawCoverImage.trim();
+        if (normalized.startsWith("/") && !normalized.startsWith("//")) {
+            return normalized;
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(normalized);
+        } catch (Exception e) {
+            return null;
+        }
+
+        String scheme = uri.getScheme();
+        if (scheme == null || !"https".equalsIgnoreCase(scheme)) {
+            return null;
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            return null;
+        }
+
+        String normalizedHost;
+        try {
+            normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+        } catch (Exception e) {
+            return null;
+        }
+
+        if (!isAllowedPortalMediaHost(normalizedHost)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private boolean isAllowedPortalMediaHost(String normalizedHost) {
+        if (normalizedHost == null || normalizedHost.isBlank()) {
+            return false;
+        }
+
+        Set<String> allowedDomains = parsePortalMediaAllowedDomains();
+        for (String domain : allowedDomains) {
+            if (normalizedHost.equals(domain) || normalizedHost.endsWith("." + domain)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<String> parsePortalMediaAllowedDomains() {
+        LinkedHashSet<String> domains = new LinkedHashSet<>();
+
+        if (uploadBaseUrl != null && !uploadBaseUrl.isBlank()) {
+            try {
+                URI uri = URI.create(uploadBaseUrl.trim());
+                String host = uri.getHost();
+                if (host != null && !host.isBlank()) {
+                    String normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+                    domains.add(normalizedHost);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (portalMediaAllowedDomains == null || portalMediaAllowedDomains.isBlank()) {
+            return domains;
+        }
+
+        Arrays.stream(portalMediaAllowedDomains.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(item -> {
+                    String candidate = item;
+                    if (candidate.startsWith("*.")) {
+                        candidate = candidate.substring(2);
+                    }
+                    if (candidate.endsWith(".")) {
+                        candidate = candidate.substring(0, candidate.length() - 1);
+                    }
+                    try {
+                        domains.add(IDN.toASCII(candidate, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT));
+                    } catch (Exception ignored) {
+                    }
+                });
+
+        return domains;
     }
 
 
