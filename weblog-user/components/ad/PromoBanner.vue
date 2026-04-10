@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { adApi, type AdvertisementVO } from '~/api/marketing/ad'
 import DOMPurify from 'dompurify'
-import { normalizeSafeHref } from '~/utils/security/urlSafety'
+import { buildSafeOutboundHref } from '~/utils/security/urlSafety'
 
 const props = defineProps<{ position: string }>()
 
@@ -52,7 +52,7 @@ onMounted(async () => {
     const res = await adApi.getByPosition(props.position)
     promos.value = (res.data || []).map((item) => ({
       ...item,
-      safeLinkUrl: normalizeSafeHref(item.linkUrl),
+      safeLinkUrl: buildSafeOutboundHref(item.linkUrl, `promo_${props.position}`),
     }))
   } catch { /* ignore */ }
 })

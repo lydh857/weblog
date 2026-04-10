@@ -50,13 +50,13 @@
 import { advertisementApi, type AdvertisementVO } from '~/api/marketing/advertisement'
 import { useLoginModal } from '~/composables/modal/useLoginModal'
 import { useUserStore } from '~/stores/user'
-import { normalizeSafeHref } from '~/utils/security/urlSafety'
+import { buildSafeOutboundHref } from '~/utils/security/urlSafety'
 
 const props = defineProps<{
   ad: AdvertisementVO
 }>()
 
-const safeLinkUrl = computed(() => normalizeSafeHref(props.ad.linkUrl))
+const safeLinkUrl = computed(() => buildSafeOutboundHref(props.ad.linkUrl, 'ad_mimic_card'))
 const linkAttributes = computed<Partial<Record<'href' | 'target' | 'rel', string>>>(() => {
   if (!safeLinkUrl.value) return {}
   return {

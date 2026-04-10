@@ -128,7 +128,7 @@ import { advertisementApi, type AdvertisementVO } from '~/api/marketing/advertis
 import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
 import { useLoginModal } from '~/composables/modal/useLoginModal'
 import { useUserStore } from '~/stores/user'
-import { normalizeSafeHref } from '~/utils/security/urlSafety'
+import { buildSafeOutboundHref } from '~/utils/security/urlSafety'
 
 interface BannerAd extends AdvertisementVO {
   safeLinkUrl: string | null
@@ -460,7 +460,7 @@ onMounted(async () => {
     imageRatioMap.value = {}
     ads.value = cachedAds.map(item => ({
       ...item,
-      safeLinkUrl: normalizeSafeHref(item.linkUrl)
+      safeLinkUrl: buildSafeOutboundHref(item.linkUrl, `ad_slot_${props.adSlot}`)
     }))
     collectImageRatios()
   } catch {

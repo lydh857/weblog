@@ -22,3 +22,16 @@ export function normalizeSafeHref(rawUrl: string | null | undefined): string | n
 
   return parsed.toString()
 }
+
+export function buildSafeOutboundHref(rawUrl: string | null | undefined, scene: string = 'general'): string | null {
+  const safeHref = normalizeSafeHref(rawUrl)
+  if (!safeHref) return null
+
+  if (safeHref.startsWith('/')) {
+    return safeHref
+  }
+
+  const encodedTarget = encodeURIComponent(safeHref)
+  const encodedScene = encodeURIComponent(scene)
+  return `/outbound?target=${encodedTarget}&scene=${encodedScene}`
+}

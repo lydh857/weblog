@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 广告服务
@@ -69,6 +70,12 @@ public class AdvertisementService {
     private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
     private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
     private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "approved", "active");
+    private static final Set<String> URL_SHORTENER_HOSTS = Set.of(
+            "bit.ly", "t.co", "tinyurl.com", "goo.gl", "is.gd", "ow.ly", "buff.ly", "reurl.cc", "u.nu", "shorturl.at"
+    );
+    private static final Pattern HIGH_RISK_LINK_PATTERN = Pattern.compile(
+            "(?i)(^|[/?#&=_\\-])(login|sign[-_]?in|verify|verification|reset[-_]?password|wallet|payment|bank|credit[-_]?card|otp|2fa|captcha)([/?#&=_\\-]|$)"
+    );
 
     private final AdvertisementMapper advertisementMapper;
     private final PostMapper postMapper;
@@ -737,6 +744,9 @@ public class AdvertisementService {
         if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接仅支持 http/https 协议");
         }
+        if (!"https".equalsIgnoreCase(scheme)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接仅支持 HTTPS 协议");
+        }
 
         if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接不允许包含用户信息");
@@ -756,6 +766,14 @@ public class AdvertisementService {
 
         if (!isPublicHost(normalizedHost)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网跳转链接");
+        }
+
+        if (isKnownUrlShortener(normalizedHost)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用短链跳转");
+        }
+
+        if (containsHighRiskLinkPattern(uri)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接包含高风险路径特征");
         }
 
         if (!isAllowedOutboundHost(normalizedHost)) {
@@ -791,28 +809,31 @@ public class AdvertisementService {
         return false;
     }
 
-    private Set<String> resolveAllowedOutboundDomains() {
-        LinkedHashSet<String> domains = new LinkedHashSet<>();
-        domains.addAll(parseAllowedDomainList(outboundLinkAllowedDomains));
-        if (!domains.isEmpty()) {
-            return domains;
+    private boolean isKnownUrlShortener(String normalizedHost) {
+        if (normalizedHost == null || normalizedHost.isBlank()) {
+            return false;
         }
-
-        String fallbackHost = normalizeAllowedDomain(extractHost(uploadBaseUrl));
-        if (fallbackHost != null) {
-            domains.add(fallbackHost);
-            if (fallbackHost.startsWith("www.")) {
-                String rootDomain = fallbackHost.substring(4);
-                if (!rootDomain.isBlank()) {
-                    domains.add(rootDomain);
-                }
-            } else if (!fallbackHost.equals("localhost")
-                    && !fallbackHost.matches("^\\d+\\.\\d+\\.\\d+\\.\\d+$")
-                    && !fallbackHost.contains(":")) {
-                domains.add("www." + fallbackHost);
+        for (String shortener : URL_SHORTENER_HOSTS) {
+            if (normalizedHost.equals(shortener) || normalizedHost.endsWith("." + shortener)) {
+                return true;
             }
         }
-        return domains;
+        return false;
+    }
+
+    private boolean containsHighRiskLinkPattern(URI uri) {
+        if (uri == null) {
+            return false;
+        }
+        String path = uri.getRawPath() == null ? "" : uri.getRawPath();
+        String query = uri.getRawQuery() == null ? "" : uri.getRawQuery();
+        String fragment = uri.getRawFragment() == null ? "" : uri.getRawFragment();
+        String candidate = (path + "?" + query + "#" + fragment).toLowerCase(Locale.ROOT);
+        return HIGH_RISK_LINK_PATTERN.matcher(candidate).find();
+    }
+
+    private Set<String> resolveAllowedOutboundDomains() {
+        return parseAllowedDomainList(outboundLinkAllowedDomains);
     }
 
     private Set<String> parseAllowedDomainList(String rawList) {
@@ -823,18 +844,6 @@ public class AdvertisementService {
                 .map(this::normalizeAllowedDomain)
                 .filter(StrUtil::isNotBlank)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    private String extractHost(String rawUrl) {
-        if (rawUrl == null || rawUrl.isBlank()) {
-            return null;
-        }
-        try {
-            URI uri = URI.create(rawUrl.trim());
-            return uri.getHost();
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private String normalizeAllowedDomain(String rawDomain) {
