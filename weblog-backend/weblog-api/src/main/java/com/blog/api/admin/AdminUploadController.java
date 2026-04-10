@@ -4,15 +4,17 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
+import com.blog.api.security.UploadGuardService;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.ContentModerationService;
-import com.blog.infra.oss.LocalFileService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import com.blog.infra.security.audit.AuditLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,11 +31,8 @@ import java.util.Map;
 @RequestMapping("/api/admin/upload")
 public class AdminUploadController {
 
-    @Autowired(required = false)
-    private OssService ossService;
-
-    @Autowired(required = false)
-    private LocalFileService localFileService;
+    @Autowired
+    private StorageFacade storageFacade;
 
     @Autowired(required = false)
     private OssResourceService ossResourceService;
@@ -41,8 +40,11 @@ public class AdminUploadController {
     @Autowired(required = false)
     private ContentModerationService contentModerationService;
 
+    @Autowired
+    private UploadGuardService uploadGuardService;
+
     private void checkUploadEnabled() {
-        if (ossService == null && localFileService == null) {
+        if (!storageFacade.isStorageEnabled()) {
             throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
         }
     }
@@ -51,30 +53,28 @@ public class AdminUploadController {
     @PostMapping("/image")
     @AuditLog(module = "文件管理", operation = "CREATE", description = "上传图片")
     public Result<String> uploadImage(@RequestParam("file") MultipartFile file,
-                                      @RequestParam(required = false, defaultValue = "other") String usageType)
+                                      @RequestParam(required = false, defaultValue = "other") String usageType,
+                                      HttpServletRequest request)
             throws IOException {
         checkUploadEnabled();
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
+        uploadGuardService.consumeUpload(
+                UploadGuardService.UploadScene.ADMIN_IMAGE,
+                userId,
+                IpUtil.getClientIp(request),
+                file.getSize());
 
         boolean isTemp = "content".equals(usageType);
         String url;
         String objectKey;
 
-        if (ossService != null) {
-            // OSS 模式
-            url = isTemp
-                    ? ossService.uploadTemp(file.getInputStream(), file.getOriginalFilename(), file.getSize())
-                    : ossService.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
-            objectKey = isTemp
-                    ? ossService.extractObjectKey(url)
-                    : url.substring(url.indexOf("/images/") + 1);
-        } else {
-            // 本地存储模式
-            url = isTemp
-                    ? localFileService.uploadTemp(file.getInputStream(), file.getOriginalFilename(), file.getSize())
-                    : localFileService.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
-            objectKey = localFileService.extractObjectKey(url);
+        url = isTemp
+                ? storageFacade.uploadTemp(file.getInputStream(), file.getOriginalFilename(), file.getSize())
+                : storageFacade.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
+        objectKey = storageFacade.extractObjectKey(url);
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new BusinessException(ResultCode.FAIL, "上传成功但无法解析文件路径");
         }
 
         String ext = file.getOriginalFilename() != null
@@ -94,18 +94,20 @@ public class AdminUploadController {
         return Result.success(url);
     }
 
-    @Operation(summary = "获取直传签名（前端直传OSS）")
+    @Operation(summary = "获取直传签名（前端直传对象存储）")
     @GetMapping("/sign")
     public Result<Map<String, String>> getUploadSign(@RequestParam String ext,
-                                                     @RequestParam(required = false, defaultValue = "other") String usageType) {
-        if (ossService == null) {
-            throw new BusinessException(ResultCode.FAIL, "直传签名仅在 OSS 模式下可用");
+                                                     @RequestParam(required = false, defaultValue = "other") String usageType,
+                                                     HttpServletRequest request) {
+        if (!storageFacade.supportsDirectUpload()) {
+            throw new BusinessException(ResultCode.FAIL, "当前存储后端不支持直传签名");
         }
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
+        uploadGuardService.consumeDirectSign(userId, IpUtil.getClientIp(request));
         String normalizedExt = normalizeExt(ext);
         String normalizedUsageType = normalizeUsageType(usageType);
-        Map<String, String> policy = ossService.generateUploadPolicy(normalizedExt);
+        Map<String, String> policy = storageFacade.generateUploadPolicy(normalizedExt);
 
         if (ossResourceService != null) {
             ossResourceService.record(
@@ -119,15 +121,15 @@ public class AdminUploadController {
     @Operation(summary = "校验直传文件并回填元信息")
     @PostMapping("/sign/verify")
     public Result<Map<String, Object>> verifySignedUpload(@Valid @RequestBody VerifyUploadRequest request) {
-        if (ossService == null) {
-            throw new BusinessException(ResultCode.FAIL, "直传校验仅在 OSS 模式下可用");
+        if (!storageFacade.supportsDirectUpload()) {
+            throw new BusinessException(ResultCode.FAIL, "当前存储后端不支持直传校验");
         }
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         String objectKey = request.objectKey().trim();
 
         try {
-            OssService.VerifiedUploadResult verified = ossService.verifyUploadedObject(objectKey);
+            StorageFacade.VerifiedUploadResult verified = storageFacade.verifyUploadedObject(objectKey);
             if (ossResourceService != null) {
                 ossResourceService.updateUploadedMetadata(
                         verified.objectKey(),
@@ -152,9 +154,7 @@ public class AdminUploadController {
 
     private void cleanupInvalidUpload(String objectKey, Long userId) {
         try {
-            if (ossService != null) {
-                ossService.delete(objectKey);
-            }
+            storageFacade.delete(objectKey);
         } catch (Exception ignore) {
             // ignore
         }

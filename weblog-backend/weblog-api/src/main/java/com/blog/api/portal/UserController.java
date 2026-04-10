@@ -1,13 +1,14 @@
 package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.blog.api.security.UploadGuardService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.common.util.ValidateUtil;
 import com.blog.content.service.OssResourceService;
-import com.blog.infra.oss.LocalFileService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.UpdateProfileRequest;
@@ -21,6 +22,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -49,17 +51,17 @@ public class UserController {
         this.userProfileReviewService = userProfileReviewService;
     }
 
-    @Autowired(required = false)
-    private OssService ossService;
-
-    @Autowired(required = false)
-    private LocalFileService localFileService;
+    @Autowired
+    private StorageFacade storageFacade;
 
     @Autowired(required = false)
     private OssResourceService ossResourceService;
 
     @Autowired
     private EmailCodeService emailCodeService;
+
+    @Autowired
+    private UploadGuardService uploadGuardService;
 
     @Operation(summary = "获取个人资料")
     @GetMapping("/profile")
@@ -85,29 +87,27 @@ public class UserController {
     @PostMapping("/avatar")
     @RateLimit(key = "user-avatar-upload", capacity = 10, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交头像审核")
-    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) throws IOException {
+    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file,
+                                       HttpServletRequest request) throws IOException {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
 
-        if (ossService == null && localFileService == null) {
+        if (!storageFacade.isStorageEnabled()) {
             throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
         }
 
+        uploadGuardService.consumeUpload(
+                UploadGuardService.UploadScene.AVATAR_IMAGE,
+                userId,
+                IpUtil.getClientIp(request),
+                file.getSize());
+
         String url;
         String objectKey;
-
-        if (ossService != null) {
-            // OSS 模式
-            url = ossService.upload(file.getInputStream(),
-                    file.getOriginalFilename(), file.getSize());
-            objectKey = url.contains("/images/")
-                    ? url.substring(url.indexOf("/images/") + 1)
-                    : ossService.extractObjectKey(url);
-        } else {
-            // 本地存储模式
-            url = localFileService.upload(file.getInputStream(),
-                    file.getOriginalFilename(), file.getSize());
-            objectKey = localFileService.extractObjectKey(url);
+        url = storageFacade.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
+        objectKey = storageFacade.extractObjectKey(url);
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new BusinessException(ResultCode.FAIL, "上传成功但无法解析文件路径");
         }
 
         // 资源服务未启用时，降级为直接更新头像

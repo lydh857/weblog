@@ -1,17 +1,19 @@
 package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.blog.api.security.UploadGuardService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.ContentModerationService;
-import com.blog.infra.oss.LocalFileService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,11 +31,8 @@ import java.util.Locale;
 @RequestMapping("/api/portal/upload")
 public class PortalUploadController {
 
-    @Autowired(required = false)
-    private OssService ossService;
-
-    @Autowired(required = false)
-    private LocalFileService localFileService;
+    @Autowired
+    private StorageFacade storageFacade;
 
     @Autowired(required = false)
     private OssResourceService ossResourceService;
@@ -41,11 +40,14 @@ public class PortalUploadController {
     @Autowired(required = false)
     private ContentModerationService contentModerationService;
 
+    @Autowired
+    private UploadGuardService uploadGuardService;
+
     private static final long MAX_IMAGE_SIZE = 8L * 1024 * 1024;
     private static final String DEFAULT_USAGE_TYPE = "ad_apply";
 
     private void checkUploadEnabled() {
-        if (ossService == null && localFileService == null) {
+        if (!storageFacade.isStorageEnabled()) {
             throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
         }
     }
@@ -55,7 +57,8 @@ public class PortalUploadController {
     @RateLimit(key = "portal-upload-image", capacity = 20, seconds = 300)
     public Result<String> uploadImage(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false, defaultValue = "ad_apply") String usageType)
+            @RequestParam(required = false, defaultValue = "ad_apply") String usageType,
+            HttpServletRequest request)
             throws IOException {
         checkUploadEnabled();
         StpUtil.checkLogin();
@@ -75,15 +78,18 @@ public class PortalUploadController {
 
         String normalizedUsageType = normalizeUsageType(usageType);
         Long userId = StpUtil.getLoginIdAsLong();
+        uploadGuardService.consumeUpload(
+                UploadGuardService.UploadScene.PORTAL_IMAGE,
+                userId,
+                IpUtil.getClientIp(request),
+                file.getSize());
 
         String url;
         String objectKey;
-        if (ossService != null) {
-            url = ossService.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
-            objectKey = url.substring(url.indexOf("/images/") + 1);
-        } else {
-            url = localFileService.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
-            objectKey = localFileService.extractObjectKey(url);
+        url = storageFacade.upload(file.getInputStream(), file.getOriginalFilename(), file.getSize());
+        objectKey = storageFacade.extractObjectKey(url);
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new BusinessException(ResultCode.FAIL, "上传成功但无法解析文件路径");
         }
 
         String ext = file.getOriginalFilename() != null
