@@ -745,7 +745,7 @@ public class PostService {
         }
 
         IPage<Post> page = postMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
-        return convertPageWithRelations(page);
+        return sanitizePortalPageCoverImages(convertPageWithRelations(page));
     }
 
     /**
