@@ -1,7 +1,6 @@
 package com.blog.api.scheduler;
 
-import com.blog.infra.oss.LocalFileService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,39 +19,26 @@ import java.util.List;
 @Component
 public class TempFileCleanupScheduler {
 
-    @Autowired(required = false)
-    private OssService ossService;
-
-    @Autowired(required = false)
-    private LocalFileService localFileService;
+    @Autowired
+    private StorageFacade storageFacade;
 
     /**
      * 每天凌晨 4 点清理前天及更早的临时文件
      */
     @Scheduled(cron = "0 0 4 * * ?")
     public synchronized void cleanupTempFiles() {
-        if (ossService == null && localFileService == null) return;
+        if (!storageFacade.isStorageEnabled()) return;
 
         try {
             String todayPrefix = "temp/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            List<String> allTempKeys;
-
-            if (ossService != null) {
-                allTempKeys = ossService.listObjects("temp/");
-            } else {
-                allTempKeys = localFileService.listObjects("temp/");
-            }
+            List<String> allTempKeys = storageFacade.listObjects("temp/");
 
             List<String> toDelete = allTempKeys.stream()
                     .filter(key -> !key.startsWith(todayPrefix))
                     .toList();
 
             if (!toDelete.isEmpty()) {
-                if (ossService != null) {
-                    ossService.deleteObjects(toDelete);
-                } else {
-                    localFileService.deleteObjects(toDelete);
-                }
+                storageFacade.deleteObjects(toDelete);
                 log.info("清理临时文件完成，共删除 {} 个文件", toDelete.size());
             } else {
                 log.debug("无需清理的临时文件");

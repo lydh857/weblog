@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(prefix = "oss", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = "storage", name = "provider", havingValue = "aliyun-oss")
 public class OssConfig {
 
     @Autowired

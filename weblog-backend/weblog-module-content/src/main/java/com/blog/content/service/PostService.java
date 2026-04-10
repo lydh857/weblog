@@ -16,6 +16,7 @@ import com.blog.content.entity.*;
 import com.blog.content.mapper.*;
 import com.blog.content.util.SlugUtil;
 import com.blog.infra.oss.CdnService;
+import com.blog.infra.oss.StorageFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,13 +60,8 @@ public class PostService {
     @Autowired(required = false)
     private CdnService cdnService;
 
-    /** OSS 服务（用于临时图片迁移） */
-    @Autowired(required = false)
-    private com.blog.infra.oss.OssService ossService;
-
-    /** 本地文件服务（OSS 未启用时的 fallback） */
-    @Autowired(required = false)
-    private com.blog.infra.oss.LocalFileService localFileService;
+    @Autowired
+    private StorageFacade storageFacade;
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
@@ -1135,9 +1131,7 @@ public class PostService {
      */
     private String migrateContentTempImages(String content) {
         if (content == null || content.isEmpty()) return content;
-        boolean useOss = ossService != null;
-        boolean useLocal = localFileService != null;
-        if (!useOss && !useLocal) return content;
+        if (!storageFacade.isStorageEnabled()) return content;
         // 匹配 Markdown 图片语法和 HTML img 标签中的 URL
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
                 "(!\\[[^]]*]\\()([^)]+temp/[^)]+)(\\))|(src=[\"'])([^\"']*temp/[^\"']*)(\\4)");
@@ -1148,11 +1142,11 @@ public class PostService {
         while (matcher.find()) {
             String url = matcher.group(2) != null ? matcher.group(2) : matcher.group(5);
             if (url == null || urlMap.containsKey(url)) continue;
-            boolean isTemp = useOss ? ossService.isTempUrl(url) : (useLocal && localFileService.isTempUrl(url));
+            boolean isTemp = storageFacade.isTempUrl(url);
             if (isTemp) {
                 try {
-                    String objectKey = useOss ? ossService.extractObjectKey(url) : localFileService.extractObjectKey(url);
-                    String formalUrl = useOss ? ossService.moveToFormal(objectKey) : localFileService.moveToFormal(objectKey);
+                    String objectKey = storageFacade.extractObjectKey(url);
+                    String formalUrl = storageFacade.moveToFormal(objectKey);
                     urlMap.put(url, formalUrl);
                 } catch (Exception e) {
                     log.warn("迁移临时图片失败: {}", url, e);
@@ -1170,14 +1164,12 @@ public class PostService {
      */
     private String migrateCoverImage(String coverImage) {
         if (coverImage == null || coverImage.isEmpty()) return coverImage;
-        boolean useOss = ossService != null;
-        boolean useLocal = localFileService != null;
-        if (!useOss && !useLocal) return coverImage;
-        boolean isTemp = useOss ? ossService.isTempUrl(coverImage) : localFileService.isTempUrl(coverImage);
+        if (!storageFacade.isStorageEnabled()) return coverImage;
+        boolean isTemp = storageFacade.isTempUrl(coverImage);
         if (!isTemp) return coverImage;
         try {
-            String objectKey = useOss ? ossService.extractObjectKey(coverImage) : localFileService.extractObjectKey(coverImage);
-            return useOss ? ossService.moveToFormal(objectKey) : localFileService.moveToFormal(objectKey);
+            String objectKey = storageFacade.extractObjectKey(coverImage);
+            return storageFacade.moveToFormal(objectKey);
         } catch (Exception e) {
             log.warn("迁移封面图失败: {}", coverImage, e);
             return coverImage;

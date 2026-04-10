@@ -10,10 +10,8 @@ import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.entity.OssResource;
 import com.blog.content.mapper.OssResourceMapper;
-import com.blog.infra.oss.LocalFileService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +26,12 @@ import java.util.*;
 public class OssResourceService {
 
     private final OssResourceMapper ossResourceMapper;
-    private final OssService ossService;
-    private final LocalFileService localFileService;
+    private final StorageFacade storageFacade;
 
     public OssResourceService(OssResourceMapper ossResourceMapper,
-                              @Autowired(required = false) OssService ossService,
-                              @Autowired(required = false) LocalFileService localFileService) {
+                              StorageFacade storageFacade) {
         this.ossResourceMapper = ossResourceMapper;
-        this.ossService = ossService;
-        this.localFileService = localFileService;
+        this.storageFacade = storageFacade;
     }
 
     /**
@@ -73,21 +68,10 @@ public class OssResourceService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此资源");
         }
         // 先删存储文件（OSS 或本地）
-        if (ossService != null) {
-            try {
-                ossService.delete(resource.getFilePath());
-            } catch (Exception e) {
-                log.warn("OSS 文件删除失败（可能已不存在）: path={}, error={}", resource.getFilePath(), e.getMessage());
-            }
-        } else if (localFileService != null) {
-            try {
-                String objectKey = localFileService.extractObjectKey(resource.getUrl());
-                if (objectKey != null) {
-                    localFileService.delete(objectKey);
-                }
-            } catch (Exception e) {
-                log.warn("本地文件删除失败（可能已不存在）: path={}, error={}", resource.getFilePath(), e.getMessage());
-            }
+        try {
+            storageFacade.delete(resource.getFilePath());
+        } catch (Exception e) {
+            log.warn("存储文件删除失败（可能已不存在）: path={}, error={}", resource.getFilePath(), e.getMessage());
         }
         // 再删数据库记录（软删除）
         ossResourceMapper.deleteById(id);
@@ -284,21 +268,10 @@ public class OssResourceService {
      * 删除存储文件，兼容 OSS 和本地文件模式
      */
     private void deleteStorageFile(OssResource resource) {
-        if (ossService != null) {
-            try {
-                ossService.delete(resource.getFilePath());
-            } catch (Exception e) {
-                log.warn("OSS 文件删除失败: path={}, error={}", resource.getFilePath(), e.getMessage());
-            }
-        } else if (localFileService != null) {
-            try {
-                String objectKey = localFileService.extractObjectKey(resource.getUrl());
-                if (objectKey != null) {
-                    localFileService.delete(objectKey);
-                }
-            } catch (Exception e) {
-                log.warn("本地文件删除失败: path={}, error={}", resource.getFilePath(), e.getMessage());
-            }
+        try {
+            storageFacade.delete(resource.getFilePath());
+        } catch (Exception e) {
+            log.warn("存储文件删除失败: path={}, error={}", resource.getFilePath(), e.getMessage());
         }
     }
 

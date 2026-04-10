@@ -11,7 +11,7 @@ import com.blog.content.dto.MediaVO;
 import com.blog.content.entity.OssResource;
 import com.blog.content.service.MediaReferenceService;
 import com.blog.content.service.OssResourceService;
-import com.blog.infra.oss.OssService;
+import com.blog.infra.oss.StorageFacade;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.mapper.UserProfileReviewMapper;
@@ -44,8 +44,8 @@ public class AdminMediaController {
   @Autowired(required = false)
   private MediaReferenceService mediaReferenceService;
 
-  @Autowired(required = false)
-  private OssService ossService;
+  @Autowired
+  private StorageFacade storageFacade;
 
   @Autowired(required = false)
   private UserMapper userMapper;
@@ -57,8 +57,8 @@ public class AdminMediaController {
   private String uploadBaseUrl;
 
   private void checkOssEnabled() {
-    if (ossResourceService == null) {
-      throw new BusinessException(ResultCode.FAIL, "OSS 未启用");
+    if (ossResourceService == null || !storageFacade.isStorageEnabled()) {
+      throw new BusinessException(ResultCode.FAIL, "媒体存储服务未启用");
     }
   }
 
@@ -191,10 +191,10 @@ public class AdminMediaController {
     vo.setCreateTime(resource.getCreateTime());
 
     // 生成缩略图 URL：OSS 模式使用图片处理参数，本地模式用原始 URL
-    if (ossService != null && normalizedUrl != null) {
-      String objectKey = ossService.extractObjectKey(normalizedUrl);
+    if (storageFacade.supportsImageProcessing() && normalizedUrl != null) {
+      String objectKey = storageFacade.extractObjectKey(normalizedUrl);
       if (objectKey != null) {
-        vo.setThumbnailUrl(ossService.getThumbnailUrl(objectKey));
+        vo.setThumbnailUrl(storageFacade.getThumbnailUrl(objectKey));
       } else {
         vo.setThumbnailUrl(normalizedUrl);
       }

@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * 本地上传文件静态资源映射（OSS 未启用时生效）
  */
 @Configuration
-@ConditionalOnProperty(prefix = "oss", name = "enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "storage", name = "provider", havingValue = "local", matchIfMissing = true)
 public class LocalUploadConfig implements WebMvcConfigurer {
 
     @Value("${blog.upload.local-dir:./uploads}")

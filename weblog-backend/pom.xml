@@ -47,6 +47,7 @@
         <ik-analyzer.version>9.0.0</ik-analyzer.version>
         <bucket4j.version>8.7.0</bucket4j.version>
         <aliyun-oss.version>3.18.5</aliyun-oss.version>
+        <aws-sdk-v2.version>2.30.23</aws-sdk-v2.version>
         <knife4j.version>4.4.0</knife4j.version>
         <mysql.version>8.4.0</mysql.version>
         <logback.version>1.5.25</logback.version>
@@ -258,6 +259,12 @@
                 <groupId>com.aliyun.oss</groupId>
                 <artifactId>aliyun-sdk-oss</artifactId>
                 <version>${aliyun-oss.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3</artifactId>
+                <version>${aws-sdk-v2.version}</version>
             </dependency>
 
             <!-- Knife4j API文档 -->
