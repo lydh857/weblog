@@ -1,9 +1,11 @@
 package com.blog.api.admin;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.result.Result;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.common.util.PageParamUtil;
 import com.blog.content.entity.Advertisement;
 import com.blog.content.service.AdPitBindingService;
@@ -11,6 +13,7 @@ import com.blog.content.service.AdvertisementService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.infra.security.util.XssUtil;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
@@ -19,6 +22,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,6 +52,7 @@ public class AdminAdvertisementController {
     private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
     private static final Set<String> VALID_AD_STATUSES = Set.of("pending", "approved", "rejected", "active", "expired");
     private static final String AD_PRICE_RULES_KEY = "ad_price_rules";
     private static final String AD_REVIEW_REASONS_KEY = "ad_review_reasons";
@@ -59,6 +65,12 @@ public class AdminAdvertisementController {
     private static final int MAX_PIT_COUNT = 7;
     private static final BigDecimal PIT_PRICE_STEP = new BigDecimal("0.08");
     private static final BigDecimal MIN_PIT_PRICE_FACTOR = new BigDecimal("0.52");
+    private static final String ADMIN_AD_STATUS_UPDATE_RATE_LIMIT_KEY = "admin_ad_status_update_rate_limit";
+    private static final String ADMIN_AD_DELETE_RATE_LIMIT_KEY = "admin_ad_delete_rate_limit";
+    private static final String ADMIN_AD_PERMANENT_DELETE_RATE_LIMIT_KEY = "admin_ad_permanent_delete_rate_limit";
+    private static final String ADMIN_AD_APPLY_SWITCH_RATE_LIMIT_KEY = "admin_ad_apply_switch_rate_limit";
+    private static final String ADMIN_AD_PRICE_RULES_RATE_LIMIT_KEY = "admin_ad_price_rules_rate_limit";
+    private static final String ADMIN_AD_PIT_UPDATE_RATE_LIMIT_KEY = "admin_ad_pit_update_rate_limit";
 
     @Operation(summary = "广告列表（分页）")
     @GetMapping
@@ -121,8 +133,21 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "快捷切换广告坑位")
     @PutMapping("/{id}/pit")
+    @RateLimit(key = "admin-ad-pit-update", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "快捷切换广告坑位")
-    public Result<Void> updatePitEnabled(@PathVariable Long id, @RequestBody PitToggleRequest body) {
+    public Result<Void> updatePitEnabled(@PathVariable Long id,
+                                         @RequestBody PitToggleRequest body,
+                                         HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-pit-update",
+                ADMIN_AD_PIT_UPDATE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "调整广告坑位过于频繁，请稍后再试"
+        );
         Advertisement existing = advertisementService.getById(id);
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "广告不存在");
@@ -141,8 +166,20 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "调整坑位顺序")
     @PutMapping("/pit-order")
+    @RateLimit(key = "admin-ad-pit-update", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "调整坑位顺序")
-    public Result<Void> updatePitOrder(@RequestBody PitOrderRequest body) {
+    public Result<Void> updatePitOrder(@RequestBody PitOrderRequest body,
+                                       HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-pit-update",
+                ADMIN_AD_PIT_UPDATE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "调整广告坑位顺序过于频繁，请稍后再试"
+        );
         if (body == null || body.getPosition() == null || body.getPosition().isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "坑位位置不能为空");
         }
@@ -198,11 +235,23 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "审核/上下架广告")
     @PutMapping("/{id}/status")
+    @RateLimit(key = "admin-ad-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "审核广告")
     public Result<Void> updateStatus(
             @PathVariable Long id,
             @RequestParam String status,
-            @RequestParam(required = false) String reason) {
+            @RequestParam(required = false) String reason,
+            HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-status-update",
+                ADMIN_AD_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "更新广告状态过于频繁，请稍后再试"
+        );
         if (!VALID_AD_STATUSES.contains(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: pending, approved, rejected, active, expired");
         }
@@ -264,8 +313,19 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "删除广告")
     @DeleteMapping("/{id}")
+    @RateLimit(key = "admin-ad-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "DELETE", description = "删除广告")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-delete",
+                ADMIN_AD_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "删除广告过于频繁，请稍后再试"
+        );
         advertisementService.delete(id);
         removePitIds(List.of(id));
         removePitBindings(List.of(id));
@@ -278,8 +338,19 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "批量删除广告")
     @DeleteMapping("/batch")
+    @RateLimit(key = "admin-ad-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "DELETE", description = "批量删除广告")
-    public Result<Void> batchDelete(@RequestBody List<Long> ids) {
+    public Result<Void> batchDelete(@RequestBody List<Long> ids, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-delete",
+                ADMIN_AD_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量删除广告过于频繁，请稍后再试"
+        );
         if (ids != null && !ids.isEmpty()) {
             if (ids.size() > MAX_BATCH_SIZE) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "批量操作数量不能超过 " + MAX_BATCH_SIZE);
@@ -304,8 +375,20 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "批量上下架广告")
     @PutMapping("/batch/status")
+    @RateLimit(key = "admin-ad-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "批量上下架广告")
-    public Result<Void> batchUpdateStatus(@RequestBody Map<String, Object> body) {
+    public Result<Void> batchUpdateStatus(@RequestBody Map<String, Object> body,
+                                          HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-status-update",
+                ADMIN_AD_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量更新广告状态过于频繁，请稍后再试"
+        );
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) body.get("ids");
         String status = (String) body.get("status");
@@ -373,8 +456,20 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "设置广告申请开关")
     @PutMapping("/apply-switch")
+    @RateLimit(key = "admin-ad-apply-switch", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "设置广告申请开关")
-    public Result<Void> setApplySwitch(@RequestBody Map<String, Object> body) {
+    public Result<Void> setApplySwitch(@RequestBody Map<String, Object> body,
+                                       HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-apply-switch",
+                ADMIN_AD_APPLY_SWITCH_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "设置广告申请开关过于频繁，请稍后再试"
+        );
         Boolean enabled = (Boolean) body.get("enabled");
         String val = enabled != null && enabled ? "true" : "false";
         try {
@@ -394,8 +489,20 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "更新广告价格规则")
     @PutMapping("/price-rules")
+    @RateLimit(key = "admin-ad-price-rules", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "UPDATE", description = "更新广告价格规则")
-    public Result<Void> setPriceRules(@RequestBody Map<String, Object> body) {
+    public Result<Void> setPriceRules(@RequestBody Map<String, Object> body,
+                                      HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-price-rules",
+                ADMIN_AD_PRICE_RULES_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "更新广告价格规则过于频繁，请稍后再试"
+        );
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rulesBody = (List<Map<String, Object>>) body.get("rules");
         if (rulesBody == null || rulesBody.isEmpty()) {
@@ -451,8 +558,20 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "批量永久删除广告")
     @DeleteMapping("/trash/batch-permanent")
+    @RateLimit(key = "admin-ad-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "DELETE", description = "批量永久删除广告")
-    public Result<Integer> batchPermanentDelete(@RequestBody Map<String, Object> body) {
+    public Result<Integer> batchPermanentDelete(@RequestBody Map<String, Object> body,
+                                                HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-permanent-delete",
+                ADMIN_AD_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量永久删除广告过于频繁，请稍后再试"
+        );
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) body.get("ids");
         List<Long> longIds = ids.stream().map(Number::longValue).collect(java.util.stream.Collectors.toList());
@@ -476,8 +595,19 @@ public class AdminAdvertisementController {
 
     @Operation(summary = "清空回收站")
     @DeleteMapping("/trash/clear")
+    @RateLimit(key = "admin-ad-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "广告管理", operation = "DELETE", description = "清空广告回收站")
-    public Result<Integer> clearTrash() {
+    public Result<Integer> clearTrash(HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-ad-permanent-delete",
+                ADMIN_AD_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "清空广告回收站过于频繁，请稍后再试"
+        );
         List<Long> deletedIds = advertisementService.listDeletedIds();
         int deletedCount = advertisementService.clearTrash();
         if (deletedIds != null && !deletedIds.isEmpty()) {

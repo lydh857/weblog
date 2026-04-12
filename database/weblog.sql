@@ -1480,14 +1480,22 @@ INSERT INTO `t_friend_link` VALUES (8, '123', 'http://8.149.244.100', 'http://8.
 DROP TABLE IF EXISTS `t_ip_blacklist`;
 CREATE TABLE `t_ip_blacklist`  (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'IP地址',
+  `block_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '封禁类型: IP/USER',
+  `target_value` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '封禁对象值: IP或用户ID',
+  `user_id` bigint NULL DEFAULT NULL COMMENT '封禁用户ID(仅USER类型)',
+  `subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封禁对象展示信息',
+  `ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'IP地址(兼容字段)',
   `reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封禁原因',
   `expire_time` datetime NULL DEFAULT NULL COMMENT '过期时间（NULL表示永久）',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_block_type_target`(`block_type` ASC, `target_value` ASC) USING BTREE,
   UNIQUE INDEX `uk_ip`(`ip_address` ASC) USING BTREE,
+  INDEX `idx_block_type_expire`(`block_type` ASC, `expire_time` ASC) USING BTREE,
+  INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
   INDEX `idx_expire`(`expire_time` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'IP黑名单表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '统一黑名单表（IP/用户）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of t_ip_blacklist

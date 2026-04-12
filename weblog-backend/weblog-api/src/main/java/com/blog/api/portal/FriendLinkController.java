@@ -4,12 +4,15 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.content.entity.FriendLink;
 import com.blog.content.service.FriendLinkService;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -27,13 +30,19 @@ import java.util.Map;
 public class FriendLinkController {
 
     private static final String FRIEND_LINK_APPLY_SWITCH_KEY = "friend_link_apply_enabled";
+    private static final String FRIEND_LINK_APPLY_RATE_LIMIT_KEY = "friend_link_apply_rate_limit";
+    private static final String FRIEND_LINK_UPDATE_RATE_LIMIT_KEY = "friend_link_update_rate_limit";
 
     private final FriendLinkService friendLinkService;
     private final SystemConfigService systemConfigService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
 
-    public FriendLinkController(FriendLinkService friendLinkService, SystemConfigService systemConfigService) {
+    public FriendLinkController(FriendLinkService friendLinkService,
+                                SystemConfigService systemConfigService,
+                                DynamicRateLimitPolicyService dynamicRateLimitPolicyService) {
         this.friendLinkService = friendLinkService;
         this.systemConfigService = systemConfigService;
+        this.dynamicRateLimitPolicyService = dynamicRateLimitPolicyService;
     }
 
     @Operation(summary = "查询友链申请入口是否开放")
@@ -55,6 +64,16 @@ public class FriendLinkController {
     @PostMapping("/apply")
     @RateLimit(key = "friend-link-apply", capacity = 5, seconds = 300)
     public Result<FriendLink> applyLink(@Valid @RequestBody FriendLinkApplyRequest body) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "friend-link-apply",
+                FRIEND_LINK_APPLY_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                300,
+                null,
+                "友链申请过于频繁，请稍后再试"
+        );
         String enabled = systemConfigService.getValue(FRIEND_LINK_APPLY_SWITCH_KEY);
         if (!"true".equals(enabled)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "友链申请入口暂未开放");
@@ -82,7 +101,18 @@ public class FriendLinkController {
     @Operation(summary = "更新我的友链申请")
     @PutMapping("/my")
     @RateLimit(key = "friend-link-update", capacity = 10, seconds = 300)
-    public Result<FriendLink> updateMyLink(@Valid @RequestBody FriendLinkApplyRequest body) {
+    public Result<FriendLink> updateMyLink(@Valid @RequestBody FriendLinkApplyRequest body,
+                                           HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "friend-link-update",
+                FRIEND_LINK_UPDATE_RATE_LIMIT_KEY,
+                10,
+                1,
+                60,
+                300,
+                IpUtil.getClientIp(request),
+                "友链更新过于频繁，请稍后再试"
+        );
         String enabled = systemConfigService.getValue(FRIEND_LINK_APPLY_SWITCH_KEY);
         if (!"true".equals(enabled)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "友链申请入口暂未开放");

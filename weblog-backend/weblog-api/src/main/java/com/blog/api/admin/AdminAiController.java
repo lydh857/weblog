@@ -1,5 +1,6 @@
 package com.blog.api.admin;
 
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.result.Result;
 import com.blog.content.dto.*;
 import com.blog.content.service.AiMetaService;
@@ -44,41 +45,51 @@ public class AdminAiController {
   private final AiPromptTemplateMapper promptTemplateMapper;
   private final AiProperties aiProperties;
   private final AiConfigService aiConfigService;
+  private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+  private static final String AI_WRITING_RATE_LIMIT_KEY = "ai_writing_rate_limit";
+  private static final String AI_CHAT_RATE_LIMIT_KEY = "ai_chat_rate_limit";
+  private static final String AI_META_RATE_LIMIT_KEY = "ai_meta_rate_limit";
 
   // ========== 写作助手接口 ==========
 
   @Operation(summary = "AI 续写")
   @PostMapping("/writing/continue")
-  @RateLimit(key = "ai-writing", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public SseEmitter writingContinue(@RequestBody WritingReqVO req) {
+    enforceAiWritingRateLimit();
     return aiWritingService.continueWriting(req.getContext());
   }
 
   @Operation(summary = "AI 润色")
   @PostMapping("/writing/polish")
-  @RateLimit(key = "ai-writing", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public SseEmitter writingPolish(@RequestBody WritingReqVO req) {
+    enforceAiWritingRateLimit();
     return aiWritingService.polish(req.getText());
   }
 
   @Operation(summary = "AI 改写")
   @PostMapping("/writing/rewrite")
-  @RateLimit(key = "ai-writing", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public SseEmitter writingRewrite(@RequestBody WritingReqVO req) {
+    enforceAiWritingRateLimit();
     return aiWritingService.rewrite(req.getText());
   }
 
   @Operation(summary = "AI 翻译")
   @PostMapping("/writing/translate")
-  @RateLimit(key = "ai-writing", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public SseEmitter writingTranslate(@Valid @RequestBody TranslateReqVO req) {
+    enforceAiWritingRateLimit();
     return aiWritingService.translate(req.getText(), req.getTargetLang());
   }
 
   @Operation(summary = "AI 自由对话")
   @PostMapping("/writing/chat")
-  @RateLimit(key = "ai-chat", capacity = 30, seconds = 60, message = "AI 对话请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-chat", capacity = 300, seconds = 60, message = "AI 对话请求过于频繁，请稍后重试")
   public SseEmitter writingChat(@RequestBody ChatReqVO req) {
+    enforceAiChatRateLimit();
     return aiWritingService.chat(req.getArticleContext(), req.getHistory(), req.getUserMessage());
   }
 
@@ -86,44 +97,89 @@ public class AdminAiController {
 
   @Operation(summary = "一键生成全部元信息")
   @PostMapping("/meta/generate-all")
-  @RateLimit(key = "ai-meta", capacity = 10, seconds = 60, message = "AI 生成请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 生成请求过于频繁，请稍后重试")
   public Result<AiMetaResultVO> generateAll(@Valid @RequestBody MetaReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.generateAll(req.getTitle(), req.getContent()));
   }
 
   @Operation(summary = "重新生成摘要")
   @PostMapping("/meta/summary")
-  @RateLimit(key = "ai-meta", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public Result<String> regenerateSummary(@Valid @RequestBody MetaReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.regenerateSummary(req.getTitle(), req.getContent()));
   }
 
   @Operation(summary = "重新生成 SEO")
   @PostMapping("/meta/seo")
-  @RateLimit(key = "ai-meta", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public Result<SeoResultVO> regenerateSeo(@Valid @RequestBody MetaReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.regenerateSeo(req.getTitle(), req.getContent()));
   }
 
   @Operation(summary = "重新生成标签推荐")
   @PostMapping("/meta/tags")
-  @RateLimit(key = "ai-meta", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public Result<List<TagSuggestion>> regenerateTags(@Valid @RequestBody MetaReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.regenerateTags(req.getTitle(), req.getContent()));
   }
 
   @Operation(summary = "重新生成分类推荐")
   @PostMapping("/meta/categories")
-  @RateLimit(key = "ai-meta", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public Result<List<CategorySuggestion>> regenerateCategories(@Valid @RequestBody MetaReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.regenerateCategories(req.getTitle(), req.getContent()));
   }
 
   @Operation(summary = "重新生成 Slug")
   @PostMapping("/meta/slug")
-  @RateLimit(key = "ai-meta", capacity = 20, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  @RateLimit(key = "ai-meta", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public Result<String> regenerateSlug(@Valid @RequestBody SlugReqVO req) {
+    enforceAiMetaRateLimit();
     return Result.success(aiMetaService.regenerateSlug(req.getTitle()));
+  }
+
+  private void enforceAiWritingRateLimit() {
+    dynamicRateLimitPolicyService.enforcePerIp(
+            "ai-writing",
+            AI_WRITING_RATE_LIMIT_KEY,
+            20,
+            1,
+            300,
+            60,
+            null,
+            "AI 请求过于频繁，请稍后重试"
+    );
+  }
+
+  private void enforceAiChatRateLimit() {
+    dynamicRateLimitPolicyService.enforcePerIp(
+            "ai-chat",
+            AI_CHAT_RATE_LIMIT_KEY,
+            30,
+            1,
+            300,
+            60,
+            null,
+            "AI 对话请求过于频繁，请稍后重试"
+    );
+  }
+
+  private void enforceAiMetaRateLimit() {
+    dynamicRateLimitPolicyService.enforcePerIp(
+            "ai-meta",
+            AI_META_RATE_LIMIT_KEY,
+            20,
+            1,
+            300,
+            60,
+            null,
+            "AI 生成请求过于频繁，请稍后重试"
+    );
   }
 
   // ========== 评论审核接口 ==========

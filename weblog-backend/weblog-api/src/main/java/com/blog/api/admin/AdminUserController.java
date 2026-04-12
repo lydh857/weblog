@@ -5,12 +5,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.common.util.PageParamUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.dto.UserVO;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
@@ -21,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -43,6 +48,10 @@ public class AdminUserController {
 
     private final UserMapper userMapper;
     private final EmailService emailService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String ADMIN_USER_STATUS_UPDATE_RATE_LIMIT_KEY = "admin_user_status_update_rate_limit";
+    private static final String ADMIN_USER_RESET_PASSWORD_RATE_LIMIT_KEY = "admin_user_reset_password_rate_limit";
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
@@ -115,9 +124,21 @@ public class AdminUserController {
 
     @Operation(summary = "更新用户状态（启用/禁用）")
     @PutMapping("/{userId}/status")
+    @RateLimit(key = "admin-user-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "用户管理", operation = "UPDATE", description = "更新用户状态")
     public Result<Void> updateStatus(@PathVariable Long userId,
-                                     @RequestParam String status) {
+                                     @RequestParam String status,
+                                     HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-user-status-update",
+                ADMIN_USER_STATUS_UPDATE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "更新用户状态过于频繁，请稍后再试"
+        );
         if (!VALID_USER_STATUSES.contains(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: enabled, disabled");
         }
@@ -156,8 +177,19 @@ public class AdminUserController {
 
     @Operation(summary = "重置用户密码（随机生成并邮件通知）")
     @PostMapping("/{userId}/reset-password")
+    @RateLimit(key = "admin-user-reset-password", capacity = 120, seconds = 60)
     @AuditLog(module = "用户管理", operation = "UPDATE", description = "重置用户密码")
-    public Result<Void> resetPassword(@PathVariable Long userId) {
+    public Result<Void> resetPassword(@PathVariable Long userId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-user-reset-password",
+                ADMIN_USER_RESET_PASSWORD_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "重置用户密码过于频繁，请稍后再试"
+        );
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND, "用户不存在");
@@ -174,8 +206,19 @@ public class AdminUserController {
 
     @Operation(summary = "解锁用户")
     @PostMapping("/{userId}/unlock")
+    @RateLimit(key = "admin-user-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "用户管理", operation = "UPDATE", description = "解锁用户")
-    public Result<Void> unlockUser(@PathVariable Long userId) {
+    public Result<Void> unlockUser(@PathVariable Long userId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-user-status-update",
+                ADMIN_USER_STATUS_UPDATE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "解锁用户过于频繁，请稍后再试"
+        );
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId)
                 .set(User::getStatus, "enabled")
@@ -187,8 +230,20 @@ public class AdminUserController {
 
     @Operation(summary = "批量更新用户状态")
     @PutMapping("/batch/status")
+    @RateLimit(key = "admin-user-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "用户管理", operation = "UPDATE", description = "批量更新用户状态")
-    public Result<Void> batchUpdateStatus(@RequestBody java.util.Map<String, Object> body) {
+    public Result<Void> batchUpdateStatus(@RequestBody java.util.Map<String, Object> body,
+                                          HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-user-status-update",
+                ADMIN_USER_STATUS_UPDATE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量更新用户状态过于频繁，请稍后再试"
+        );
         @SuppressWarnings("unchecked")
         java.util.List<Number> ids = (java.util.List<Number>) body.get("ids");
         String status = (String) body.get("status");

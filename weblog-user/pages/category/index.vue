@@ -67,6 +67,7 @@ import type { AdvertisementVO } from '~/api/marketing/advertisement'
 import { fetchCachedAdSlot } from '~/composables/cache/useNonCriticalApiCache'
 import { buildCategoryPathById, findCategoryBySlug } from '~/utils/navigation/categoryRoute'
 import { scrollToTopOnMobilePagination } from '~/utils/navigation/paginationScroll'
+import { getErrorMessage } from '~/utils/security/error'
 
 definePageMeta({
   path: '/category/:slug?',
@@ -77,6 +78,7 @@ useHead({ title: '分类浏览' })
 
 const route = useRoute()
 const router = useRouter()
+const message = useMessage()
 
 function parseNumberParam(value: unknown): number | null {
   const normalized = Array.isArray(value) ? value[0] : value
@@ -249,10 +251,11 @@ async function fetchPosts() {
     posts.value = res.data.records
     total.value = res.data.total
     pageCount.value = Math.ceil(res.data.total / filters.pageSize)
-  } catch {
+  } catch (error: unknown) {
     if (requestId !== fetchPostsRequestId) {
       return
     }
+    message.error(getErrorMessage(error, '访问受限，请稍后再试'))
     posts.value = []
     total.value = 0
     pageCount.value = 0

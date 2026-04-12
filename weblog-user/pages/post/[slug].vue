@@ -155,22 +155,27 @@
         </div>
       </div>
 
-      <!-- 移动端 TOC 按钮 -->
-      <button v-if="hasToc" class="toc-fab" aria-label="目录" @click="tocVisible = !tocVisible">
-        <Icon name="heroicons:list-bullet-20-solid" size="20" />
-      </button>
-
-      <!-- 移动端 TOC 面板 -->
       <Teleport to="body">
-        <div v-if="tocVisible" class="toc-mobile-overlay" @click="tocVisible = false" />
-        <div class="toc-mobile-panel" :class="{ open: tocVisible }">
-          <div class="panel-header">
+        <div v-if="hasToc" class="mobile-fab-group" :class="{ 'is-visible': mobileFabVisible }">
+          <button
+            class="mobile-fab-btn mobile-fab-btn--toc"
+            :class="{ active: tocVisible }"
+            aria-label="文章目录"
+            @click="toggleMobileToc"
+          >
+            <Icon name="heroicons:list-bullet-20-solid" size="20" />
+          </button>
+        </div>
+
+        <div v-if="tocVisible" class="mobile-panel-overlay" @click="tocVisible = false" />
+        <div class="mobile-bottom-panel mobile-bottom-panel--toc" :class="{ open: tocVisible }">
+          <div class="mobile-panel-header">
             <span>文章目录</span>
-            <button aria-label="关闭目录" @click="tocVisible = false">
+            <button aria-label="关闭文章目录" @click="tocVisible = false">
               <Icon name="heroicons:x-mark-20-solid" size="20" />
             </button>
           </div>
-          <div class="panel-body">
+          <div class="mobile-panel-body mobile-panel-body--toc">
             <ArticleToc content-selector=".post-content .md-editor-preview" />
           </div>
         </div>
@@ -287,10 +292,12 @@ const prevPost = ref<{ id: number; title: string; slug: string; coverImage?: str
 const nextPost = ref<{ id: number; title: string; slug: string; coverImage?: string } | null>(null)
 const tocVisible = ref(false)
 const hasToc = ref(false)
+const mobileFabVisible = ref(false)
 const commentSectionRef = ref<HTMLElement | null>(null)
 const pageEntered = ref(false)
 const contentEntered = ref(false)
 const hydrationReady = ref(false)
+const MOBILE_LAYOUT_BREAKPOINT = 1100
 
 const userStore = useUserStore()
 const loginModal = useLoginModal()
@@ -491,7 +498,26 @@ function detectToc() {
   tocDetectTimer = setTimeout(() => {
     const contentEl = document.querySelector('.post-content .md-editor-preview')
     hasToc.value = Boolean(contentEl?.querySelectorAll('h1, h2, h3, h4').length)
+    updateMobileFabVisibility()
   }, 500)
+}
+
+function toggleMobileToc() {
+  tocVisible.value = !tocVisible.value
+}
+
+function handleWindowResize() {
+  if (!import.meta.client) return
+  if (window.innerWidth > MOBILE_LAYOUT_BREAKPOINT) {
+    tocVisible.value = false
+  }
+  updateMobileFabVisibility()
+}
+
+function updateMobileFabVisibility() {
+  if (!import.meta.client) return
+  const isMobileLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT
+  mobileFabVisible.value = isMobileLayout && Boolean(post.value) && hasToc.value
 }
 
 async function checkAndRecordAccess() {
@@ -504,11 +530,16 @@ async function checkAndRecordAccess() {
 watch(() => post.value?.id, (id) => {
   tocVisible.value = false
   hasToc.value = false
+  mobileFabVisible.value = false
   readLimitState.value.show = false
   if (!id || !import.meta.client) return
   detectToc()
   void checkAndRecordAccess()
 }, { immediate: true })
+
+watch(hasToc, () => {
+  updateMobileFabVisibility()
+})
 
 watch([() => loading.value, () => post.value?.id], ([isLoading, postId]) => {
   if (isLoading || !postId) {
@@ -537,6 +568,9 @@ onMounted(() => {
     void refreshDetailData()
   }
 
+  window.addEventListener('resize', handleWindowResize)
+  handleWindowResize()
+
   window.requestAnimationFrame(() => {
     pageEntered.value = true
   })
@@ -546,6 +580,11 @@ onUnmounted(() => {
   if (tocDetectTimer) {
     clearTimeout(tocDetectTimer)
   }
+
+  if (import.meta.client) {
+    window.removeEventListener('resize', handleWindowResize)
+  }
+
 })
 
 
@@ -862,74 +901,140 @@ onUnmounted(() => {
 .nav-next { text-align: right; }
 .nav-placeholder { visibility: hidden; height: 0; }
 
-/* 移动端 TOC */
-.toc-fab {
+/* 移动端目录（与专题详情页一致） */
+.mobile-fab-group {
   display: none;
-  @media (max-width: 1100px) {
-    display: flex;
-    position: fixed;
-    right: 40px;
-    bottom: 128px;
-    width: 46px;
-    height: 46px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    z-index: 998;
-    transition: background 0.3s, transform 0.3s;
+}
 
-    &:hover {
-      background: rgba(0, 0, 0, 0.6);
-      transform: translateY(-1px);
-    }
+.mobile-fab-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, background 0.2s ease;
+
+  &.active {
+    background: rgba(37, 99, 235, 0.76);
   }
 
-  @media (max-width: 768px) {
-    right: 20px;
-    bottom: 96px;
+  &:active {
+    transform: scale(0.96);
   }
 }
-.toc-mobile-overlay {
+
+.mobile-panel-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(2, 6, 23, 0.48);
   z-index: 3000;
 }
-.toc-mobile-panel {
+
+.mobile-bottom-panel {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 0;
   background: #fff;
   z-index: 4000;
-  transition: height 0.3s ease;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   overflow: hidden;
-  .dark & { background: $color-dark-bg-secondary; }
-  &.open { height: 65vh; }
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.14);
+  transition: height 0.28s ease;
+  pointer-events: none;
+
+  &.open {
+    height: min(74vh, 620px);
+    pointer-events: auto;
+  }
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+  }
 }
-.panel-header {
+
+.mobile-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #eee;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.95rem;
   font-weight: 600;
-  .dark & { border-bottom-color: $color-dark-border; }
-  button { border: none; background: none; cursor: pointer; color: $color-text-muted; padding: 0.25rem; }
+  color: $color-text;
+
+  button {
+    border: none;
+    background: none;
+    color: $color-text-muted;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .dark & {
+    color: $color-dark-text;
+    border-bottom-color: $color-dark-border;
+
+    button {
+      color: #94a3b8;
+    }
+  }
 }
-.panel-body {
+
+.mobile-panel-body {
   height: calc(100% - 50px);
   overflow-y: auto;
-  padding: 1rem;
+  overflow-x: hidden;
+  padding: 0.65rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
+}
+
+.mobile-panel-body--toc {
   :deep(.article-toc-container) { width: 100%; }
-  :deep(.article-toc) { box-shadow: none; padding: 0; }
+  :deep(.article-toc) { box-shadow: none; border-radius: 0; padding: 0; }
   :deep(.toc-header) { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .mobile-fab-group {
+    display: flex;
+    position: fixed;
+    right: 40px;
+    bottom: calc(126px + env(safe-area-inset-bottom));
+    flex-direction: column;
+    gap: 10px;
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    pointer-events: none;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-fab-group {
+    right: 20px;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
 }
 
 /* 状态 */

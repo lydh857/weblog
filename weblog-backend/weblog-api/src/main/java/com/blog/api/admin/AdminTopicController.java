@@ -2,15 +2,19 @@ package com.blog.api.admin;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.content.dto.*;
 import com.blog.content.entity.Topic;
 import com.blog.content.service.TopicService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +34,10 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 public class AdminTopicController {
 
     private final TopicService topicService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String ADMIN_TOPIC_DELETE_RATE_LIMIT_KEY = "admin_topic_delete_rate_limit";
+    private static final String ADMIN_TOPIC_PERMANENT_DELETE_RATE_LIMIT_KEY = "admin_topic_permanent_delete_rate_limit";
 
     // ========== 专题 CRUD ==========
 
@@ -65,8 +73,19 @@ public class AdminTopicController {
 
     @Operation(summary = "删除专题")
     @DeleteMapping("/{id}")
+    @RateLimit(key = "admin-topic-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "专题管理", operation = "DELETE", description = "删除专题")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-topic-delete",
+                ADMIN_TOPIC_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "删除专题过于频繁，请稍后再试"
+        );
         StpUtil.checkRole("admin");
         topicService.deleteTopic(id);
         return Result.success();
@@ -94,8 +113,19 @@ public class AdminTopicController {
 
     @Operation(summary = "批量删除专题")
     @DeleteMapping("/batch")
+    @RateLimit(key = "admin-topic-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "专题管理", operation = "DELETE", description = "批量删除专题")
-    public Result<Void> batchDelete(@RequestBody List<Long> ids) {
+    public Result<Void> batchDelete(@RequestBody List<Long> ids, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-topic-delete",
+                ADMIN_TOPIC_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量删除专题过于频繁，请稍后再试"
+        );
         StpUtil.checkRole("admin");
         if (ids != null && !ids.isEmpty()) {
             checkBatchSize(ids.size());
@@ -188,8 +218,20 @@ public class AdminTopicController {
 
     @Operation(summary = "批量永久删除专题")
     @DeleteMapping("/trash/batch-permanent")
+    @RateLimit(key = "admin-topic-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "专题管理", operation = "DELETE", description = "批量永久删除专题")
-    public Result<Integer> batchPermanentDelete(@RequestBody Map<String, List<Long>> body) {
+    public Result<Integer> batchPermanentDelete(@RequestBody Map<String, List<Long>> body,
+                                                HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-topic-permanent-delete",
+                ADMIN_TOPIC_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量永久删除专题过于频繁，请稍后再试"
+        );
         StpUtil.checkRole("admin");
         List<Long> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return Result.success(0);
@@ -199,8 +241,19 @@ public class AdminTopicController {
 
     @Operation(summary = "清空专题回收站")
     @DeleteMapping("/trash/clear")
+    @RateLimit(key = "admin-topic-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "专题管理", operation = "DELETE", description = "清空专题回收站")
-    public Result<Integer> clearTrash() {
+    public Result<Integer> clearTrash(HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-topic-permanent-delete",
+                ADMIN_TOPIC_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "清空专题回收站过于频繁，请稍后再试"
+        );
         StpUtil.checkRole("admin");
         return Result.success(topicService.clearTrash());
     }

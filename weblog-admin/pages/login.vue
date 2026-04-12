@@ -45,22 +45,22 @@
             :model="form"
             :rules="rules"
             label-position="top"
+            autocomplete="on"
             hide-required-asterisk
             @submit.prevent="handleSubmit"
           >
             <el-form-item label="邮箱" prop="email">
-              <el-autocomplete
+              <el-input
                 v-model="form.email"
                 type="email"
                 placeholder="请输入管理员邮箱"
                 :prefix-icon="Message"
                 size="large"
                 clearable
-                autocomplete="email"
+                name="username"
+                autocomplete="username"
+                inputmode="email"
                 class="full-width"
-                :fetch-suggestions="suggestEmail"
-                trigger="input"
-                @select="onEmailSelect"
               />
             </el-form-item>
 
@@ -78,6 +78,7 @@
                   :prefix-icon="Lock"
                   size="large"
                   clearable
+                  name="password"
                   autocomplete="current-password"
                   @keyup.enter="handleSubmit"
                 >
@@ -150,14 +151,8 @@ const submitting = ref(false)
 const rememberMe = ref(false)
 const accountLocked = ref(false)
 const form = reactive({ email: '', password: '' })
-const skipEmailValidation = ref(false)
 
 const emailFormatValidator = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
-  if (skipEmailValidation.value) {
-    skipEmailValidation.value = false
-    callback()
-    return
-  }
   const emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (value && !emailReg.test(value)) {
     callback(new Error('请输入有效的邮箱地址'))
@@ -207,23 +202,6 @@ function togglePwd() {
       const len = form.password.length
       input.setSelectionRange(len, len)
     }
-  })
-}
-
-const emailSuffixes = ['@qq.com', '@163.com', '@gmail.com', '@outlook.com', '@126.com', '@foxmail.com']
-
-function suggestEmail(query: string, cb: (results: { value: string }[]) => void) {
-  if (!query || query.includes('@')) {
-    cb([])
-    return
-  }
-  cb(emailSuffixes.map(s => ({ value: query + s })))
-}
-
-function onEmailSelect() {
-  skipEmailValidation.value = true
-  nextTick(() => {
-    formRef.value?.clearValidate('email')
   })
 }
 

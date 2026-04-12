@@ -37,7 +37,7 @@
             </div>
           </div>
           <div class="card-list card-list--skeleton" aria-hidden="true">
-            <div v-for="i in 9" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+            <div v-for="i in tallSkeletonRowCount" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
               <span class="sk-num sk-shimmer" />
               <span class="sk-cover sk-shimmer" />
               <span class="sk-text sk-shimmer" />
@@ -77,7 +77,13 @@
           </NuxtLink>
           <!-- 2~N名 -->
           <div class="card-list">
-            <NuxtLink v-for="(item, idx) in dailyBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+            <NuxtLink
+              v-for="(item, idx) in dailyDisplayItems.slice(1)"
+              :key="item.post_id"
+              :to="`/post/${item.slug}`"
+              class="rank-row rank-row--with-cover"
+              :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
+            >
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
                 <img
@@ -113,13 +119,62 @@
             <span class="sk-heat sk-shimmer" />
           </div>
         </div>
-        <div v-else-if="weekBoard.items.length" class="card-list">
-          <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
-            <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
-            <span class="rank-title">{{ item.title }}</span>
-            <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
-          </NuxtLink>
-        </div>
+        <template v-else-if="weekBoard.items.length">
+          <template v-if="isMobileView">
+            <NuxtLink v-if="weekTopItem" :to="`/post/${weekTopItem.slug}`" class="hero-card">
+              <div class="hero-cover">
+                <img
+                  v-if="weekTopItem.cover_image && !isImageBroken('week-top', weekTopItem.post_id)"
+                  :src="weekTopItem.cover_image"
+                  :alt="weekTopItem.title"
+                  loading="lazy"
+                  @error="handleImageError('week-top', weekTopItem.post_id, $event)"
+                >
+                <div v-else class="hero-placeholder"><Icon name="heroicons:fire-20-solid" size="28" /></div>
+                <div class="hero-overlay">
+                  <span class="hero-badge">1</span>
+                  <div class="hero-bottom">
+                    <div class="hero-info">
+                      <span class="hero-title">{{ weekTopItem.title }}</span>
+                      <div class="hero-meta">
+                        <span v-if="weekTopItem.category_name" class="hero-cat">{{ weekTopItem.category_name }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(weekTopItem.view_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(weekTopItem.like_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(weekTopItem.collect_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(weekTopItem.comment_count) }}</span>
+                      </div>
+                    </div>
+                    <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(weekTopItem.score) }}</span>
+                  </div>
+                </div>
+              </div>
+            </NuxtLink>
+            <div class="card-list">
+              <NuxtLink v-for="(item, idx) in weekBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+                <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+                <div class="rank-cover">
+                  <img
+                    v-if="item.cover_image && !isImageBroken('week-item', item.post_id)"
+                    :src="item.cover_image"
+                    :alt="item.title"
+                    loading="lazy"
+                    @error="handleImageError('week-item', item.post_id, $event)"
+                  >
+                  <div v-else class="rank-cover-placeholder"/>
+                </div>
+                <span class="rank-title">{{ item.title }}</span>
+                <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+              </NuxtLink>
+            </div>
+          </template>
+          <div v-else class="card-list">
+            <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
         <div v-else class="card-empty">暂无数据</div>
       </div>
 
@@ -139,13 +194,62 @@
             <span class="sk-heat sk-shimmer" />
           </div>
         </div>
-        <div v-else-if="monthBoard.items.length" class="card-list">
-          <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
-            <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
-            <span class="rank-title">{{ item.title }}</span>
-            <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
-          </NuxtLink>
-        </div>
+        <template v-else-if="monthBoard.items.length">
+          <template v-if="isMobileView">
+            <NuxtLink v-if="monthTopItem" :to="`/post/${monthTopItem.slug}`" class="hero-card">
+              <div class="hero-cover">
+                <img
+                  v-if="monthTopItem.cover_image && !isImageBroken('month-top', monthTopItem.post_id)"
+                  :src="monthTopItem.cover_image"
+                  :alt="monthTopItem.title"
+                  loading="lazy"
+                  @error="handleImageError('month-top', monthTopItem.post_id, $event)"
+                >
+                <div v-else class="hero-placeholder"><Icon name="heroicons:sparkles-20-solid" size="28" /></div>
+                <div class="hero-overlay">
+                  <span class="hero-badge">1</span>
+                  <div class="hero-bottom">
+                    <div class="hero-info">
+                      <span class="hero-title">{{ monthTopItem.title }}</span>
+                      <div class="hero-meta">
+                        <span v-if="monthTopItem.category_name" class="hero-cat">{{ monthTopItem.category_name }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(monthTopItem.view_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(monthTopItem.like_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(monthTopItem.collect_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(monthTopItem.comment_count) }}</span>
+                      </div>
+                    </div>
+                    <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(monthTopItem.score) }}</span>
+                  </div>
+                </div>
+              </div>
+            </NuxtLink>
+            <div class="card-list">
+              <NuxtLink v-for="(item, idx) in monthBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+                <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+                <div class="rank-cover">
+                  <img
+                    v-if="item.cover_image && !isImageBroken('month-item', item.post_id)"
+                    :src="item.cover_image"
+                    :alt="item.title"
+                    loading="lazy"
+                    @error="handleImageError('month-item', item.post_id, $event)"
+                  >
+                  <div v-else class="rank-cover-placeholder"/>
+                </div>
+                <span class="rank-title">{{ item.title }}</span>
+                <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+              </NuxtLink>
+            </div>
+          </template>
+          <div v-else class="card-list">
+            <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
         <div v-else class="card-empty">暂无数据</div>
       </div>
 
@@ -173,7 +277,7 @@
             </div>
           </div>
           <div class="card-list card-list--skeleton" aria-hidden="true">
-            <div v-for="i in 9" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+            <div v-for="i in tallSkeletonRowCount" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
               <span class="sk-num sk-shimmer" />
               <span class="sk-cover sk-shimmer" />
               <span class="sk-text sk-shimmer" />
@@ -213,7 +317,13 @@
           </NuxtLink>
           <!-- 2~N名 -->
           <div class="card-list">
-            <NuxtLink v-for="(item, idx) in totalBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+            <NuxtLink
+              v-for="(item, idx) in totalDisplayItems.slice(1)"
+              :key="item.post_id"
+              :to="`/post/${item.slug}`"
+              class="rank-row rank-row--with-cover"
+              :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
+            >
               <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
               <div class="rank-cover">
                 <img
@@ -250,6 +360,8 @@ const totalBoard = reactive<Board>({ items: [], loading: true, meta: null })
 const weekBoard = reactive<Board>({ items: [], loading: true, meta: null })
 const dailyBoard = reactive<Board>({ items: [], loading: true, meta: null })
 const monthBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const STANDARD_BOARD_LIMIT = 10
+const TALL_BOARD_LIMIT = 18
 
 const hasData = computed(() =>
   totalBoard.loading || weekBoard.loading || dailyBoard.loading || monthBoard.loading
@@ -339,9 +451,26 @@ function resolveDailyBoardSubtitle(meta: RankingMeta | null): string {
 
 const dailyBoardTitle = computed(() => resolveDailyBoardTitle(dailyBoard.meta))
 const dailyBoardSubtitle = computed(() => resolveDailyBoardSubtitle(dailyBoard.meta))
-const dailyTopItem = computed(() => dailyBoard.items[0] ?? null)
-const totalTopItem = computed(() => totalBoard.items[0] ?? null)
+const dailyDisplayItems = computed(() =>
+  isMobileView.value ? dailyBoard.items.slice(0, STANDARD_BOARD_LIMIT) : dailyBoard.items,
+)
+const totalDisplayItems = computed(() =>
+  isMobileView.value ? totalBoard.items.slice(0, STANDARD_BOARD_LIMIT) : totalBoard.items,
+)
+const tallSkeletonRowCount = computed(() => (isMobileView.value ? STANDARD_BOARD_LIMIT - 1 : TALL_BOARD_LIMIT - 1))
+const dailyTopItem = computed(() => dailyDisplayItems.value[0] ?? null)
+const weekTopItem = computed(() => weekBoard.items[0] ?? null)
+const monthTopItem = computed(() => monthBoard.items[0] ?? null)
+const totalTopItem = computed(() => totalDisplayItems.value[0] ?? null)
 const imageErrorMap = ref<Record<string, boolean>>({})
+const isMobileView = ref(false)
+
+function updateViewportState() {
+  if (!import.meta.client) {
+    return
+  }
+  isMobileView.value = window.innerWidth <= 768
+}
 
 function buildImageKey(scope: string, postId: number): string {
   return `${scope}-${postId}`
@@ -378,12 +507,21 @@ async function loadBoard(board: Board, rankType: number, limit: number) {
 }
 
 onMounted(() => {
+  updateViewportState()
+  window.addEventListener('resize', updateViewportState, { passive: true })
   Promise.all([
-    loadBoard(totalBoard, 4, 10),
-    loadBoard(weekBoard, 2, 10),
-    loadBoard(dailyBoard, 1, 10),
-    loadBoard(monthBoard, 3, 10),
+    loadBoard(totalBoard, 4, TALL_BOARD_LIMIT),
+    loadBoard(weekBoard, 2, STANDARD_BOARD_LIMIT),
+    loadBoard(dailyBoard, 1, TALL_BOARD_LIMIT),
+    loadBoard(monthBoard, 3, STANDARD_BOARD_LIMIT),
   ])
+})
+
+onUnmounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+  window.removeEventListener('resize', updateViewportState)
 })
 </script>
 
@@ -503,6 +641,20 @@ onMounted(() => {
 
 .ranking-card--tall .card-list {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--tall .card-list > .rank-row {
+  flex: 1;
+  min-height: 40px;
+  height: auto;
+}
+
+/* 今日飙升/最高热度：2~3名单独尺寸，4~10名与本周热榜间距对齐 */
+.ranking-card--daily .card-list > .rank-row,
+.ranking-card--total .card-list > .rank-row {
+  flex: 0 0 auto;
 }
 
 .card-head {
@@ -713,6 +865,42 @@ onMounted(() => {
   height: 40px;
 }
 
+.ranking-card--daily .rank-row--podium,
+.ranking-card--total .rank-row--podium {
+  height: 42px;
+}
+
+.ranking-card--daily .rank-row--podium .rank-cover,
+.ranking-card--total .rank-row--podium .rank-cover {
+  width: 46px;
+  height: 32px;
+}
+
+.ranking-card--daily .rank-row--podium .rank-title,
+.ranking-card--total .rank-row--podium .rank-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ranking-card--daily .rank-row--regular,
+.ranking-card--total .rank-row--regular {
+  height: 30px;
+  padding-top: 0.28rem;
+  padding-bottom: 0.28rem;
+}
+
+.ranking-card--daily .rank-row--regular .rank-cover,
+.ranking-card--total .rank-row--regular .rank-cover {
+  width: 36px;
+  height: 24px;
+}
+
+.ranking-card--daily .rank-row--regular .rank-title,
+.ranking-card--total .rank-row--regular .rank-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .rank-title {
   font-size: 0.8rem; font-weight: 500;
   color: $color-text;
@@ -750,6 +938,18 @@ onMounted(() => {
 
 .rank-row--skeleton.rank-row--with-cover {
   height: 40px;
+}
+
+.ranking-card--tall .card-list--skeleton {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ranking-card--tall .card-list--skeleton > .rank-row--skeleton.rank-row--with-cover {
+  flex: 1;
+  min-height: 40px;
+  height: auto;
 }
 
 .sk-hero {

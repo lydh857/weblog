@@ -5,8 +5,11 @@
 
 param(
   [string]$BaseUrl = "http://127.0.0.1:9091",
+  [string]$ClientOrigin = "http://localhost:3000",
   [int]$SessionFailureAttempts = 6,
   [int]$IpFailureAttempts = 4,
+  [int]$SessionMaxAttempts = 20,
+  [int]$IpMaxAttempts = 20,
   [int]$IntervalMs = 40,
   [string]$SummaryJsonPath = "docs/captcha-attack-regression-result.json",
   [string]$ReportTextPath = "docs/captcha-attack-regression-report.txt",
@@ -174,6 +177,26 @@ function New-VerifyPayload([string]$captchaToken) {
   }
 }
 
+function Test-BlockedFromAttempt([object]$attempt) {
+  if ($null -eq $attempt) {
+    return $false
+  }
+
+  if ($attempt.generateCode -eq 429 -or $attempt.verifyCode -eq 429) {
+    return $true
+  }
+
+  if (Is-BlacklistMessage ([string]$attempt.generateMessage)) {
+    return $true
+  }
+
+  if (Is-BlacklistMessage ([string]$attempt.verifyMessage)) {
+    return $true
+  }
+
+  return $false
+}
+
 function Invoke-FailureAttempt(
   [Microsoft.PowerShell.Commands.WebRequestSession]$webSession,
   [string]$label
@@ -181,6 +204,8 @@ function Invoke-FailureAttempt(
   $headers = @{
     'User-Agent' = "captcha-regression/$label"
     'Accept' = 'application/json'
+    'Origin' = $ClientOrigin
+    'Referer' = "$ClientOrigin/"
   }
 
   $generateUrl = Join-Url $BaseUrl '/api/captcha/generate'
@@ -234,6 +259,8 @@ function Invoke-BlacklistProbe(
   $headers = @{
     'User-Agent' = "captcha-regression-probe/$label"
     'Accept' = 'application/json'
+    'Origin' = $ClientOrigin
+    'Referer' = "$ClientOrigin/"
   }
   $verifyUrl = Join-Url $BaseUrl '/api/captcha/verify'
   $resp = Invoke-Api -method 'POST' -url $verifyUrl -webSession $webSession -headers $headers -body (New-VerifyPayload -captchaToken $fakeToken)
@@ -249,16 +276,23 @@ function Invoke-BlacklistProbe(
 Write-Host "== CAPTCHA attack regression start =="
 Write-Host "BaseUrl: $BaseUrl"
 
+$safeSessionBaseline = [Math]::Max($SessionFailureAttempts, 1)
+$safeIpBaseline = [Math]::Max($IpFailureAttempts, 1)
+$safeSessionMax = [Math]::Max($SessionMaxAttempts, $safeSessionBaseline)
+$safeIpMax = [Math]::Max($IpMaxAttempts, $safeIpBaseline)
+
 $sessionMetrics = [ordered]@{
-  attempts = $SessionFailureAttempts
+  attempts = 0
   generated = 0
   unexpectedSuccess = 0
   verifyRejected = 0
 }
 
 $sameSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-for ($i = 1; $i -le $SessionFailureAttempts; $i++) {
+$sessionBlockedByAttempt = $false
+for ($i = 1; $i -le $safeSessionBaseline; $i++) {
   $attempt = Invoke-FailureAttempt -webSession $sameSession -label "same-session-$i"
+  $sessionMetrics.attempts++
   if ($attempt.generated) {
     $sessionMetrics.generated++
   }
@@ -268,20 +302,48 @@ for ($i = 1; $i -le $SessionFailureAttempts; $i++) {
   if (-not $attempt.verifySuccess) {
     $sessionMetrics.verifyRejected++
   }
+
+  if (Test-BlockedFromAttempt $attempt) {
+    $sessionBlockedByAttempt = $true
+    break
+  }
+}
+
+if ($RequireBlacklistActivation -and -not $sessionBlockedByAttempt) {
+  for ($i = $sessionMetrics.attempts + 1; $i -le $safeSessionMax; $i++) {
+    $attempt = Invoke-FailureAttempt -webSession $sameSession -label "same-session-$i"
+    $sessionMetrics.attempts++
+    if ($attempt.generated) {
+      $sessionMetrics.generated++
+    }
+    if ($attempt.verifySuccess) {
+      $sessionMetrics.unexpectedSuccess++
+    }
+    if (-not $attempt.verifySuccess) {
+      $sessionMetrics.verifyRejected++
+    }
+
+    if (Test-BlockedFromAttempt $attempt) {
+      $sessionBlockedByAttempt = $true
+      break
+    }
+  }
 }
 
 $sessionProbe = Invoke-BlacklistProbe -webSession $sameSession -label 'same-session'
 
 $ipMetrics = [ordered]@{
-  attempts = $IpFailureAttempts
+  attempts = 0
   generated = 0
   unexpectedSuccess = 0
   verifyRejected = 0
 }
 
-for ($i = 1; $i -le $IpFailureAttempts; $i++) {
+$ipBlockedByAttempt = $false
+for ($i = 1; $i -le $safeIpBaseline; $i++) {
   $rotatedSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
   $attempt = Invoke-FailureAttempt -webSession $rotatedSession -label "ip-rotate-$i"
+  $ipMetrics.attempts++
   if ($attempt.generated) {
     $ipMetrics.generated++
   }
@@ -291,14 +353,43 @@ for ($i = 1; $i -le $IpFailureAttempts; $i++) {
   if (-not $attempt.verifySuccess) {
     $ipMetrics.verifyRejected++
   }
+
+  if (Test-BlockedFromAttempt $attempt) {
+    $ipBlockedByAttempt = $true
+    break
+  }
+}
+
+if ($RequireBlacklistActivation -and -not $ipBlockedByAttempt) {
+  for ($i = $ipMetrics.attempts + 1; $i -le $safeIpMax; $i++) {
+    $rotatedSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+    $attempt = Invoke-FailureAttempt -webSession $rotatedSession -label "ip-rotate-$i"
+    $ipMetrics.attempts++
+    if ($attempt.generated) {
+      $ipMetrics.generated++
+    }
+    if ($attempt.verifySuccess) {
+      $ipMetrics.unexpectedSuccess++
+    }
+    if (-not $attempt.verifySuccess) {
+      $ipMetrics.verifyRejected++
+    }
+
+    if (Test-BlockedFromAttempt $attempt) {
+      $ipBlockedByAttempt = $true
+      break
+    }
+  }
 }
 
 $ipProbeSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
 $ipProbe = Invoke-BlacklistProbe -webSession $ipProbeSession -label 'ip-probe'
 
 $totalUnexpected = [int]$sessionMetrics.unexpectedSuccess + [int]$ipMetrics.unexpectedSuccess
-$sessionBlocked = [bool]$sessionProbe.blocked
-$ipBlocked = [bool]$ipProbe.blocked
+$sessionRateLimited = @($script:RequestErrors | Where-Object { $_ -like 'generate failed (same-session-*' -and $_ -like '*code=429*' }).Count -gt 0
+$ipRateLimited = @($script:RequestErrors | Where-Object { $_ -like 'generate failed (ip-rotate-*' -and $_ -like '*code=429*' }).Count -gt 0
+$sessionBlocked = [bool]$sessionProbe.blocked -or $sessionRateLimited
+$ipBlocked = [bool]$ipProbe.blocked -or $ipRateLimited
 $durationMs = [Math]::Round((([DateTimeOffset]::Now - $script:StartedAt).TotalMilliseconds), 2)
 
 $failReasons = New-Object System.Collections.Generic.List[string]
@@ -315,13 +406,17 @@ if ($RequireBlacklistActivation -and -not $ipBlocked) {
 }
 
 if ($RequireBlacklistActivation -and -not $sessionBlocked -and -not $ipBlocked -and $script:RequestErrors.Count -eq 0) {
-  $failReasons.Add("hint: check blog.security.dev-bypass-enabled (dev profile default is true)")
+  $failReasons.Add("hint: check captcha blacklist thresholds and referer/rate-limit policy")
 }
 
 $summary = [ordered]@{
   timestamp = [DateTimeOffset]::Now.ToString('o')
   baseUrl = $BaseUrl
   durationMs = $durationMs
+  sessionBaselineAttempts = $safeSessionBaseline
+  ipBaselineAttempts = $safeIpBaseline
+  sessionMaxAttempts = $safeSessionMax
+  ipMaxAttempts = $safeIpMax
   sessionFailureAttempts = $SessionFailureAttempts
   ipFailureAttempts = $IpFailureAttempts
   totalUnexpectedSuccess = $totalUnexpected
@@ -355,8 +450,12 @@ if (-not [string]::IsNullOrWhiteSpace($ReportTextPath)) {
     "runAt=$([DateTimeOffset]::Now.ToString('o'))",
     "baseUrl=$BaseUrl",
     "durationMs=$durationMs",
-    "sessionFailureAttempts=$SessionFailureAttempts",
-    "ipFailureAttempts=$IpFailureAttempts",
+    "sessionFailureAttemptsConfigured=$SessionFailureAttempts",
+    "ipFailureAttemptsConfigured=$IpFailureAttempts",
+    "sessionFailureAttemptsActual=$($sessionMetrics.attempts)",
+    "ipFailureAttemptsActual=$($ipMetrics.attempts)",
+    "sessionMaxAttempts=$safeSessionMax",
+    "ipMaxAttempts=$safeIpMax",
     "sessionProbeBlocked=$sessionBlocked (code=$($sessionProbe.code), message=$($sessionProbe.message))",
     "ipProbeBlocked=$ipBlocked (code=$($ipProbe.code), message=$($ipProbe.message))",
     "totalUnexpectedSuccess=$totalUnexpected",

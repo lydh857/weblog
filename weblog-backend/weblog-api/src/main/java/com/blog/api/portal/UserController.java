@@ -2,6 +2,8 @@ package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.api.security.UploadGuardService;
+import com.blog.api.security.DynamicRateLimitPolicyService;
+import com.blog.api.security.UploadValidationService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
@@ -63,6 +65,18 @@ public class UserController {
     @Autowired
     private UploadGuardService uploadGuardService;
 
+    @Autowired
+    private UploadValidationService uploadValidationService;
+
+    @Autowired
+    private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String UPLOAD_RATE_LIMIT_KEY = "upload_rate_limit";
+    private static final String USER_BIND_EMAIL_RATE_LIMIT_KEY = "user_bind_email_rate_limit";
+    private static final String USER_CHANGE_EMAIL_RATE_LIMIT_KEY = "user_change_email_rate_limit";
+    private static final String USER_SET_PASSWORD_RATE_LIMIT_KEY = "user_set_password_rate_limit";
+    private static final String USER_RESET_PASSWORD_RATE_LIMIT_KEY = "user_reset_password_rate_limit";
+
     @Operation(summary = "获取个人资料")
     @GetMapping("/profile")
     @RateLimit(key = "user-profile-get", capacity = 60, seconds = 60)
@@ -85,21 +99,33 @@ public class UserController {
 
     @Operation(summary = "上传头像（提交审核）")
     @PostMapping("/avatar")
-    @RateLimit(key = "user-avatar-upload", capacity = 10, seconds = 300)
+    @RateLimit(key = "user-avatar-upload", capacity = 300, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "提交头像审核")
     public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file,
                                        HttpServletRequest request) throws IOException {
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
+        String clientIp = IpUtil.getClientIp(request);
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "user-avatar-upload",
+                UPLOAD_RATE_LIMIT_KEY,
+                20,
+                1,
+                300,
+                300,
+                clientIp,
+                "上传过于频繁，请稍后再试"
+        );
 
         if (!storageFacade.isStorageEnabled()) {
             throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
         }
+        uploadValidationService.validateImage(file);
 
         uploadGuardService.consumeUpload(
                 UploadGuardService.UploadScene.AVATAR_IMAGE,
                 userId,
-                IpUtil.getClientIp(request),
+                clientIp,
                 file.getSize());
 
         String url;
@@ -157,8 +183,18 @@ public class UserController {
     @PostMapping("/bind-email")
     @RateLimit(key = "user-bind-email", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "绑定邮箱")
-    public Result<Void> bindEmail(@RequestBody Map<String, String> body) {
+    public Result<Void> bindEmail(@RequestBody Map<String, String> body, HttpServletRequest request) {
         StpUtil.checkLogin();
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "user-bind-email",
+                USER_BIND_EMAIL_RATE_LIMIT_KEY,
+                8,
+                1,
+                60,
+                300,
+                IpUtil.getClientIp(request),
+                "绑定邮箱操作过于频繁，请稍后再试"
+        );
         Long userId = StpUtil.getLoginIdAsLong();
         String email = normalizeEmailField(body, "email");
         String code = normalizeCodeField(body, "code");
@@ -173,8 +209,18 @@ public class UserController {
     @PostMapping("/change-email")
     @RateLimit(key = "user-change-email", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "换绑邮箱")
-    public Result<Void> changeEmail(@RequestBody Map<String, String> body) {
+    public Result<Void> changeEmail(@RequestBody Map<String, String> body, HttpServletRequest request) {
         StpUtil.checkLogin();
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "user-change-email",
+                USER_CHANGE_EMAIL_RATE_LIMIT_KEY,
+                8,
+                1,
+                60,
+                300,
+                IpUtil.getClientIp(request),
+                "换绑邮箱操作过于频繁，请稍后再试"
+        );
         Long userId = StpUtil.getLoginIdAsLong();
         String newEmail = normalizeEmailField(body, "email");
         String code = normalizeCodeField(body, "code");
@@ -189,8 +235,18 @@ public class UserController {
     @PostMapping("/set-password")
     @RateLimit(key = "user-set-password", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "设置密码")
-    public Result<Void> setPassword(@RequestBody Map<String, String> body) {
+    public Result<Void> setPassword(@RequestBody Map<String, String> body, HttpServletRequest request) {
         StpUtil.checkLogin();
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "user-set-password",
+                USER_SET_PASSWORD_RATE_LIMIT_KEY,
+                8,
+                1,
+                60,
+                300,
+                IpUtil.getClientIp(request),
+                "设置密码操作过于频繁，请稍后再试"
+        );
         Long userId = StpUtil.getLoginIdAsLong();
 
         // 获取当前用户邮箱来验证验证码
@@ -217,8 +273,18 @@ public class UserController {
     @PostMapping("/reset-password")
     @RateLimit(key = "user-reset-password", capacity = 8, seconds = 300)
     @AuditLog(module = "个人中心", operation = "UPDATE", description = "重置密码")
-    public Result<Void> resetPassword(@RequestBody Map<String, String> body) {
+    public Result<Void> resetPassword(@RequestBody Map<String, String> body, HttpServletRequest request) {
         StpUtil.checkLogin();
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "user-reset-password",
+                USER_RESET_PASSWORD_RATE_LIMIT_KEY,
+                8,
+                1,
+                60,
+                300,
+                IpUtil.getClientIp(request),
+                "重置密码操作过于频繁，请稍后再试"
+        );
         Long userId = StpUtil.getLoginIdAsLong();
         String code = normalizeCodeField(body, "code");
         String newPassword = getRequiredPassword(body, "password");

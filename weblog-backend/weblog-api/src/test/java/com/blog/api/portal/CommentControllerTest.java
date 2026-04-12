@@ -4,7 +4,9 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.content.mapper.PostMapper;
+import com.blog.infra.redis.RedisService;
 import com.blog.interaction.entity.Comment;
 import com.blog.interaction.service.CommentService;
 import com.blog.interaction.service.LikeService;
@@ -15,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.List;
 import java.util.stream.LongStream;
@@ -44,6 +48,12 @@ class CommentControllerTest {
   private PostMapper postMapper;
   @Mock
   private SystemConfigService systemConfigService;
+  @Mock
+  private RedisService redisService;
+  @Mock
+  private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+  @Mock
+  private HttpServletRequest request;
 
   @Test
   void shouldRejectRepliesWhenParentIdInvalid() {
@@ -65,7 +75,7 @@ class CommentControllerTest {
       stpUtil.when(StpUtil::checkLogin).thenAnswer(invocation -> null);
       stpUtil.when(StpUtil::getLoginIdAsLong).thenReturn(9L);
 
-      controller.batchDelete(List.of(10L, 10L, 11L));
+      controller.batchDelete(List.of(10L, 10L, 11L), request);
 
       verify(commentService, times(1)).batchDeleteComments(9L, List.of(10L, 11L));
       verify(commentService, never()).batchDeleteComments(9L, List.of(10L, 10L, 11L));
@@ -82,7 +92,7 @@ class CommentControllerTest {
       stpUtil.when(StpUtil::getLoginIdAsLong).thenReturn(9L);
 
       BusinessException ex = assertThrows(BusinessException.class,
-        () -> controller.batchDelete(oversized));
+        () -> controller.batchDelete(oversized, request));
 
       assertEquals(ResultCode.BAD_REQUEST.getCode(), ex.getCode());
       assertEquals("单次最多删除100条评论", ex.getMessage());
@@ -119,13 +129,40 @@ class CommentControllerTest {
     verify(likeService, never()).getCommentLikedIds(eq(1L), anyList());
   }
 
+  @Test
+  void shouldApplyDynamicRateLimitWithExpectedParamsForBatchDelete() {
+    CommentController controller = buildController();
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setRemoteAddr("127.0.0.1");
+
+    try (MockedStatic<StpUtil> stpUtil = mockStatic(StpUtil.class)) {
+      stpUtil.when(StpUtil::checkLogin).thenAnswer(invocation -> null);
+      stpUtil.when(StpUtil::getLoginIdAsLong).thenReturn(9L);
+
+      controller.batchDelete(List.of(10L), request);
+
+      verify(dynamicRateLimitPolicyService, times(1)).enforcePerIp(
+        eq("comment-batch-delete"),
+        eq("comment_batch_delete_rate_limit"),
+        eq(10),
+        eq(1),
+        eq(120),
+        eq(60),
+        eq("127.0.0.1"),
+        eq("批量删除评论过于频繁，请稍后再试")
+      );
+    }
+  }
+
   private CommentController buildController() {
     return new CommentController(
       commentService,
       likeService,
       userMapper,
       postMapper,
-      systemConfigService
+      systemConfigService,
+      redisService,
+      dynamicRateLimitPolicyService
     );
   }
 }

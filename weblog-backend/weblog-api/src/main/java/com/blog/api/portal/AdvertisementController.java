@@ -11,6 +11,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.infra.security.util.XssUtil;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
@@ -46,6 +47,7 @@ public class AdvertisementController {
     private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
 
     private static final String AD_APPLY_SWITCH_KEY = "ad_apply_enabled";
     private static final String AD_PRICE_RULES_KEY = "ad_price_rules";
@@ -58,6 +60,7 @@ public class AdvertisementController {
     private static final int MAX_APPLICATION_TITLE_LENGTH = 100;
     private static final BigDecimal PIT_PRICE_STEP = new BigDecimal("0.08");
     private static final BigDecimal MIN_PIT_PRICE_FACTOR = new BigDecimal("0.52");
+    private static final String AD_APPLY_RATE_LIMIT_KEY = "ad_apply_rate_limit";
 
     @Operation(summary = "按位置获取有效广告")
     @GetMapping
@@ -116,6 +119,16 @@ public class AdvertisementController {
     @RateLimit(key = "ad-apply", capacity = 5, seconds = 300)
     public Result<Advertisement> apply(@RequestBody Advertisement ad) {
         StpUtil.checkLogin();
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "ad-apply",
+                AD_APPLY_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                300,
+                null,
+                "广告申请过于频繁，请稍后再试"
+        );
         // 检查申请入口是否开放
         String applyEnabled = systemConfigService.getValue(AD_APPLY_SWITCH_KEY);
         if (!"true".equals(applyEnabled)) {

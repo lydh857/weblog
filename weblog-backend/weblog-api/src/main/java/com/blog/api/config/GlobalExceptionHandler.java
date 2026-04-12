@@ -1,11 +1,15 @@
 package com.blog.api.config;
 
+import com.blog.api.security.RateLimitPenaltyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
+import com.blog.common.result.ResultCode;
 import com.blog.common.util.LogMaskUtil;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotRoleException;
 import cn.dev33.satoken.exception.NotPermissionException;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +26,20 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  */
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
+    private final RateLimitPenaltyService rateLimitPenaltyService;
+
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
+        if (e.getCode() == ResultCode.RATE_LIMIT.getCode()) {
+            try {
+                rateLimitPenaltyService.handleRateLimitHit(request);
+            } catch (Exception ex) {
+                log.warn("处理限流处罚失败: {}", ex.getMessage());
+            }
+        }
         HttpStatus status = resolveBusinessHttpStatus(e.getCode());
         String message = LogMaskUtil.mask(e.getMessage());
         log.warn("业务异常: code={}, status={}, message={}", e.getCode(), status.value(), message);

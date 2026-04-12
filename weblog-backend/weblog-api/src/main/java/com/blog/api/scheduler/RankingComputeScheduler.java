@@ -3,6 +3,7 @@ package com.blog.api.scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.blog.infra.redis.RedisService;
+import com.blog.system.service.SystemConfigService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,22 +29,42 @@ public class RankingComputeScheduler {
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
     private final RedisService redisService;
+    private final SystemConfigService systemConfigService;
     private static final String LOCK_KEY = "scheduler:ranking:compute";
+    private static final String LAST_RUN_TS_KEY = "scheduler:ranking:last-run-ts";
+    private static final String INTERVAL_CONFIG_KEY = "ranking_update_interval";
+    private static final int DEFAULT_INTERVAL_MINUTES = 60;
+    private static final int MIN_INTERVAL_MINUTES = 5;
+    private static final int MAX_INTERVAL_MINUTES = 1440;
 
     /**
-     * 每小时第30分钟执行（错开阅读数同步的整点）
+     * 每分钟执行一次，由系统配置控制真实计算间隔
      * 注：synchronized 仅对单机部署有效，多实例部署需改为 Redis 分布式锁
      */
-    @Scheduled(cron = "0 30 * * * ?")
+    @Scheduled(cron = "0 * * * * ?")
     public void computeRankings() {
+        computeRankingsInternal(false);
+    }
+
+    public void computeRankingsNow() {
+        computeRankingsInternal(true);
+    }
+
+    private void computeRankingsInternal(boolean force) {
         String lockValue = acquireLock();
         if (lockValue == null) {
             log.debug("排行榜任务跳过：未获取到分布式锁");
             return;
         }
 
-        log.info("开始计算排行榜...");
         try {
+            long now = System.currentTimeMillis();
+            int intervalMinutes = resolveIntervalMinutes();
+            if (!force && !shouldRun(now, intervalMinutes)) {
+                return;
+            }
+
+            log.info("开始计算排行榜... intervalMinutes={}", intervalMinutes);
             LocalDate today = LocalDate.now();
             // 总榜
             computeRank(4, null, null, null);
@@ -55,6 +76,7 @@ public class RankingComputeScheduler {
             // 月榜
             LocalDate monthStart = today.withDayOfMonth(1);
             computeRank(3, monthStart, today, monthStart);
+            redisService.set(LAST_RUN_TS_KEY, String.valueOf(now));
             log.info("排行榜计算完成");
         } catch (Exception e) {
             log.error("排行榜计算失败: {}", e.getMessage(), e);
@@ -131,5 +153,27 @@ public class RankingComputeScheduler {
 
     private void releaseLock(String lockValue) {
         redisService.releaseLock(LOCK_KEY, lockValue);
+    }
+
+    private int resolveIntervalMinutes() {
+        int configured = systemConfigService.getIntValue(INTERVAL_CONFIG_KEY, DEFAULT_INTERVAL_MINUTES);
+        if (configured < MIN_INTERVAL_MINUTES || configured > MAX_INTERVAL_MINUTES) {
+            return DEFAULT_INTERVAL_MINUTES;
+        }
+        return configured;
+    }
+
+    private boolean shouldRun(long now, int intervalMinutes) {
+        String lastRunRaw = redisService.get(LAST_RUN_TS_KEY);
+        if (lastRunRaw == null || lastRunRaw.isBlank()) {
+            return true;
+        }
+        try {
+            long lastRun = Long.parseLong(lastRunRaw);
+            long minIntervalMillis = Duration.ofMinutes(intervalMinutes).toMillis();
+            return now - lastRun >= minIntervalMillis;
+        } catch (NumberFormatException ignored) {
+            return true;
+        }
     }
 }

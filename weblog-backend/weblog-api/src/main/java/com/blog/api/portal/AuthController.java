@@ -10,12 +10,15 @@ import com.blog.common.util.PageParamUtil;
 import com.blog.infra.redis.RedisService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.system.dto.*;
 import com.blog.infra.captcha.service.CaptchaService;
 import com.blog.system.service.AuthService;
 import com.blog.system.service.EmailCodeService;
 import com.blog.system.service.LoginLogService;
+import com.blog.system.service.LoginSecurityPolicyService;
 import com.blog.system.service.RememberTokenService;
+import com.blog.system.service.SecurityRiskControlService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
@@ -49,6 +52,9 @@ public class AuthController {
     private final RedisService redisService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
+    private final SecurityRiskControlService securityRiskControlService;
+    private final LoginSecurityPolicyService loginSecurityPolicyService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
     private static final String PORTAL_REMEMBER_COOKIE = "Portal-Remember-Token";
     private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
     private static final int MAX_EMAIL_LENGTH = 100;
@@ -71,6 +77,10 @@ public class AuthController {
     private static final Set<String> INTERNAL_DOMAIN_SUFFIXES = Set.of(
             "localhost", "local", "internal", "lan", "home", "localdomain", "corp"
     );
+    private static final String SEND_CODE_RATE_LIMIT_KEY = "send_code_rate_limit";
+    private static final String FORGOT_PASSWORD_RATE_LIMIT_KEY = "forgot_password_rate_limit";
+    private static final String REGISTER_RATE_LIMIT_KEY = "register_rate_limit";
+    private static final String CHECK_EMAIL_RATE_LIMIT_KEY = "check_email_rate_limit";
 
     @Operation(summary = "用户注册", description = "通过邮箱和密码注册新用户，需要邮箱验证码")
     @PostMapping("/register")
@@ -81,6 +91,17 @@ public class AuthController {
                                  @RequestHeader(value = "X-Captcha-Token") String verifyToken,
                                  HttpServletRequest request) {
         String clientIp = IpUtil.getClientIp(request);
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-register", request.getHeader("User-Agent"));
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "register",
+                REGISTER_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                60,
+                clientIp,
+                "注册请求过于频繁，请稍后再试"
+        );
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
@@ -91,9 +112,8 @@ public class AuthController {
         return Result.success();
     }
 
-    @Operation(summary = "用户登录（密码）", description = "通过邮箱和密码登录，需要滑块验证码，连续5次失败将锁定账户30分钟")
+    @Operation(summary = "用户登录（密码）", description = "通过邮箱和密码登录，需要滑块验证码")
     @PostMapping("/login")
-    @RateLimit(key = "login", capacity = 5, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGIN", description = "用户登录")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
                                        @RequestHeader(value = "X-Captcha-Token") String verifyToken,
@@ -101,6 +121,8 @@ public class AuthController {
                                        HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-login", userAgent);
+        loginSecurityPolicyService.enforceLoginRateLimit("portal-login", clientIp);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
@@ -116,7 +138,6 @@ public class AuthController {
 
     @Operation(summary = "验证码登录", description = "通过邮箱验证码登录，需要滑块验证码，首次登录自动创建账号")
     @PostMapping("/login-by-code")
-    @RateLimit(key = "loginByCode", capacity = 5, seconds = 60)
     @AuditLog(module = "认证", operation = "LOGIN", description = "验证码登录")
     public Result<LoginResponse> loginByCode(@Valid @RequestBody CodeLoginRequest req,
                                               @RequestHeader(value = "X-Captcha-Token") String verifyToken,
@@ -124,6 +145,8 @@ public class AuthController {
                                               HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-login-by-code", userAgent);
+        loginSecurityPolicyService.enforceLoginRateLimit("portal-login-by-code", clientIp);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
@@ -139,11 +162,22 @@ public class AuthController {
 
     @Operation(summary = "发送验证码", description = "发送邮箱验证码，60秒冷却")
     @PostMapping("/send-code")
-    @RateLimit(key = "sendCode", capacity = 3, seconds = 60)
+    @RateLimit(key = "sendCode", capacity = 120, seconds = 60)
     public Result<Void> sendCode(@Valid @RequestBody SendCodeRequest req,
                                  @RequestHeader(value = "X-Captcha-Token") String verifyToken,
                                  HttpServletRequest request) {
         String clientIp = IpUtil.getClientIp(request);
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-send-code", request.getHeader("User-Agent"));
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "sendCode",
+                SEND_CODE_RATE_LIMIT_KEY,
+                3,
+                1,
+                60,
+                60,
+                clientIp,
+                "验证码发送过于频繁，请稍后再试"
+        );
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
@@ -192,6 +226,7 @@ public class AuthController {
         }
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-remember-login", userAgent);
         
         com.blog.system.dto.LoginVO vo = rememberTokenService.autoLogin(token, userAgent, clientIp);
         if (vo == null) {
@@ -238,6 +273,17 @@ public class AuthController {
         }
 
         String clientIp = IpUtil.getClientIp(request);
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-check-email", request.getHeader("User-Agent"));
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "checkEmail",
+                CHECK_EMAIL_RATE_LIMIT_KEY,
+                10,
+                1,
+                60,
+                60,
+                clientIp,
+                "邮箱校验请求过于频繁，请稍后再试"
+        );
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
         String email = normalizeEmailField(body, "email");
@@ -254,11 +300,22 @@ public class AuthController {
 
     @Operation(summary = "忘记密码", description = "通过邮箱验证码重置密码，无需登录，需滑块验证码")
     @PostMapping("/forgot-password")
-    @RateLimit(key = "forgotPassword", capacity = 5, seconds = 60)
+    @RateLimit(key = "forgotPassword", capacity = 120, seconds = 60)
     public Result<Void> forgotPassword(@RequestBody Map<String, String> body,
                                        @RequestHeader(value = "X-Captcha-Token") String verifyToken,
                                        HttpServletRequest request) {
         String clientIp = IpUtil.getClientIp(request);
+        securityRiskControlService.assertIpAllowed(clientIp, "portal-forgot-password", request.getHeader("User-Agent"));
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "forgotPassword",
+                FORGOT_PASSWORD_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                60,
+                clientIp,
+                "重置密码请求过于频繁，请稍后再试"
+        );
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         String email = normalizeEmailField(body, "email");
         enforceEmailActionRateLimit("forgot-password", email, 6, AUTH_USER_RATE_SECONDS);

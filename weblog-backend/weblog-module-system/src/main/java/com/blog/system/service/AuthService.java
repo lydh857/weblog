@@ -8,6 +8,7 @@ import com.blog.common.result.ResultCode;
 import com.blog.common.util.DesensitizeUtil;
 import com.blog.common.util.PasswordUtil;
 import com.blog.common.util.ValidateUtil;
+import com.blog.infra.security.audit.SecurityEventAuditService;
 import com.blog.system.dto.LoginRequest;
 import com.blog.system.dto.LoginResponse;
 import com.blog.system.dto.RegisterRequest;
@@ -34,11 +35,10 @@ public class AuthService {
     private final EmailService emailService;
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
+    private final SecurityEventAuditService securityEventAuditService;
+    private final SecurityRiskControlService securityRiskControlService;
+    private final LoginSecurityPolicyService loginSecurityPolicyService;
 
-    /** 连续失败锁定阈值 */
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    /** 锁定时长（分钟） */
-    private static final int LOCK_DURATION_MINUTES = 30;
     /** 用于等时密码校验的固定 bcrypt 哈希（明文: DummyPass123） */
     private static final String DUMMY_BCRYPT_HASH = "$2a$10$qEk8cM7W5iYvY2qu7hSD3uTyW7.u/HYxvHdscVnHEivNclDGhA0Qq";
     /** 失败响应最小延迟（毫秒） */
@@ -80,36 +80,48 @@ public class AuthService {
      * 用户登录
      */
     public LoginResponse login(LoginRequest req, String clientIp, String userAgent) {
+        return loginWithType(req, clientIp, userAgent, "user");
+    }
+
+    private LoginResponse loginWithType(LoginRequest req, String clientIp, String userAgent, String loginType) {
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getEmail, req.getEmail()));
 
         if (user == null) {
             // 执行一次固定哈希校验，降低通过响应时间探测账号存在性的风险
             verifyAgainstDummyHash(req.getPassword());
-            // 记录失败登录
-            loginLogService.recordLogin(null, req.getEmail(), "user", "failed", "用户不存在", clientIp, userAgent);
+            recordAuthFailure(null, req.getEmail(), loginType, "用户不存在", clientIp, userAgent);
             applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
 
+        securityRiskControlService.assertUserAllowed(user.getId(), "login-" + loginType, clientIp, userAgent);
+
         // 检查账户锁定
-        checkAccountLock(user);
+        try {
+            checkAccountLock(user);
+        } catch (BusinessException ex) {
+            if (ex.getCode() == ResultCode.ACCOUNT_LOCKED.getCode()) {
+                recordAuthBlocked(user.getId(), user.getEmail(), loginType, "账号锁定中", clientIp, userAgent, ex.getCode());
+            }
+            throw ex;
+        }
 
         // 直接使用明文密码（由HTTPS传输）
         String decryptedPassword = req.getPassword();
 
         // 校验密码
         if (!PasswordUtil.matches(decryptedPassword, user.getPassword())) {
-            handleFailedLogin(user);
-            // 记录失败登录
-            loginLogService.recordLogin(user.getId(), user.getEmail(), "user", "failed", "密码错误", clientIp, userAgent);
+            boolean lockedNow = handleFailedLogin(user);
+            String reason = lockedNow ? "密码错误（触发锁定）" : "密码错误";
+            recordAuthFailure(user.getId(), user.getEmail(), loginType, reason, clientIp, userAgent);
             applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
 
         // 检查账户状态
         if ("disabled".equals(user.getStatus())) {
-            loginLogService.recordLogin(user.getId(), user.getEmail(), "user", "failed", "账号已禁用", clientIp, userAgent);
+            recordAuthBlocked(user.getId(), user.getEmail(), loginType, "账号已禁用", clientIp, userAgent, ResultCode.FORBIDDEN.getCode());
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已被禁用");
         }
 
@@ -126,7 +138,7 @@ public class AuthService {
         StpUtil.login(user.getId());
 
         // 记录成功登录
-        loginLogService.recordLogin(user.getId(), user.getEmail(), "user", "success", null, clientIp, userAgent);
+        loginLogService.recordLogin(user.getId(), user.getEmail(), loginType, "success", null, clientIp, userAgent);
 
         // 生成 Remember Token（如果请求记住我）
         String rememberToken = null;
@@ -157,7 +169,7 @@ public class AuthService {
         }
 
         if (!emailCodeService.verifyCode(email, "login", code)) {
-            loginLogService.recordLogin(null, email, "user", "failed", "验证码错误", clientIp, userAgent);
+            recordAuthFailure(null, email, "user", "验证码错误", clientIp, userAgent);
             throw new BusinessException(ResultCode.VERIFY_CODE_INVALID);
         }
 
@@ -178,12 +190,21 @@ public class AuthService {
             emailService.sendInitialPasswordAsync(email, rawPassword);
         }
 
+        securityRiskControlService.assertUserAllowed(user.getId(), "login-code-user", clientIp, userAgent);
+
         if ("disabled".equals(user.getStatus())) {
-            loginLogService.recordLogin(user.getId(), user.getEmail(), "user", "failed", "账号已禁用", clientIp, userAgent);
+            recordAuthBlocked(user.getId(), user.getEmail(), "user", "账号已禁用", clientIp, userAgent, ResultCode.FORBIDDEN.getCode());
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已被禁用");
         }
         if ("locked".equals(user.getStatus())) {
-            checkAccountLock(user);
+            try {
+                checkAccountLock(user);
+            } catch (BusinessException ex) {
+                if (ex.getCode() == ResultCode.ACCOUNT_LOCKED.getCode()) {
+                    recordAuthBlocked(user.getId(), user.getEmail(), "user", "账号锁定中", clientIp, userAgent, ex.getCode());
+                }
+                throw ex;
+            }
             user = userMapper.selectOne(
                     new LambdaQueryWrapper<User>().eq(User::getEmail, email));
         }
@@ -270,16 +291,16 @@ public class AuthService {
         if (user == null) {
             // 执行一次固定哈希校验，降低通过响应时间探测账号存在性的风险
             verifyAgainstDummyHash(req.getPassword());
-            loginLogService.recordLogin(null, req.getEmail(), "admin", "failed", "用户不存在", clientIp, userAgent);
+            recordAuthFailure(null, req.getEmail(), "admin", "用户不存在", clientIp, userAgent);
             applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
         if (!"admin".equals(user.getRole())) {
-            loginLogService.recordLogin(user.getId(), user.getEmail(), "admin", "failed", "非管理员", clientIp, userAgent);
+            recordAuthBlocked(user.getId(), user.getEmail(), "admin", "非管理员", clientIp, userAgent, ResultCode.UNAUTHORIZED.getCode());
             applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
-        return login(req, clientIp, userAgent);
+        return loginWithType(req, clientIp, userAgent, "admin");
     }
 
     private void verifyAgainstDummyHash(String password) {
@@ -311,15 +332,19 @@ public class AuthService {
         }
     }
 
-    private void handleFailedLogin(User user) {
-        LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
-        userMapper.incrementFailedAttemptsAndLock(user.getId(), MAX_FAILED_ATTEMPTS, lockUntil);
+    private boolean handleFailedLogin(User user) {
+        int maxAttempts = loginSecurityPolicyService.getMaxFailedAttempts();
+        int lockMinutes = loginSecurityPolicyService.getLockMinutes();
+        LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockMinutes);
+        userMapper.incrementFailedAttemptsAndLock(user.getId(), maxAttempts, lockUntil);
 
         User latest = userMapper.selectById(user.getId());
         if (latest != null && "locked".equals(latest.getStatus())) {
             Integer attempts = latest.getFailedLoginAttempts() == null ? 0 : latest.getFailedLoginAttempts();
             log.warn("账户锁定: email={}, 连续失败{}次", DesensitizeUtil.email(user.getEmail()), attempts);
+            return true;
         }
+        return false;
     }
 
     private void resetFailedAttempts(Long userId) {
@@ -343,5 +368,60 @@ public class AuthService {
         if (!password.matches(".*\\d.*")) {
             throw new BusinessException(ResultCode.PASSWORD_WEAK, "密码需包含数字");
         }
+    }
+
+    private void recordAuthFailure(Long userId,
+                                   String email,
+                                   String loginType,
+                                   String reason,
+                                   String clientIp,
+                                   String userAgent) {
+        loginLogService.recordLogin(userId, email, loginType, "failed", reason, clientIp, userAgent);
+        String description = String.format(
+                "登录失败: type=%s, reason=%s, email=%s",
+                loginType,
+                reason,
+                DesensitizeUtil.email(email)
+        );
+        securityEventAuditService.recordEvent(
+                "认证安全",
+                "LOGIN_FAIL",
+                description,
+                userId,
+                null,
+                clientIp,
+                userAgent,
+                401,
+                null,
+                null
+        );
+    }
+
+    private void recordAuthBlocked(Long userId,
+                                   String email,
+                                   String loginType,
+                                   String reason,
+                                   String clientIp,
+                                   String userAgent,
+                                   int responseCode) {
+        loginLogService.recordLogin(userId, email, loginType, "failed", reason, clientIp, userAgent);
+        String description = String.format(
+                "登录拦截: type=%s, reason=%s, email=%s",
+                loginType,
+                reason,
+                DesensitizeUtil.email(email)
+        );
+        securityEventAuditService.recordEvent(
+                "认证安全",
+                "LOGIN_BLOCKED",
+                description,
+                userId,
+                null,
+                clientIp,
+                userAgent,
+                responseCode,
+                null,
+                null
+        );
     }
 }

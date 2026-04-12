@@ -2,6 +2,8 @@ package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.api.security.UploadGuardService;
+import com.blog.api.security.DynamicRateLimitPolicyService;
+import com.blog.api.security.UploadValidationService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
@@ -43,8 +45,13 @@ public class PortalUploadController {
     @Autowired
     private UploadGuardService uploadGuardService;
 
-    private static final long MAX_IMAGE_SIZE = 8L * 1024 * 1024;
+    @Autowired
+    private UploadValidationService uploadValidationService;
+
+    @Autowired
+    private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
     private static final String DEFAULT_USAGE_TYPE = "ad_apply";
+    private static final String UPLOAD_RATE_LIMIT_KEY = "upload_rate_limit";
 
     private void checkUploadEnabled() {
         if (!storageFacade.isStorageEnabled()) {
@@ -54,7 +61,7 @@ public class PortalUploadController {
 
     @Operation(summary = "上传广告申请图片")
     @PostMapping("/image")
-    @RateLimit(key = "portal-upload-image", capacity = 20, seconds = 300)
+    @RateLimit(key = "portal-upload-image", capacity = 300, seconds = 300)
     public Result<String> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false, defaultValue = "ad_apply") String usageType,
@@ -62,19 +69,17 @@ public class PortalUploadController {
             throws IOException {
         checkUploadEnabled();
         StpUtil.checkLogin();
-
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "请先选择图片");
-        }
-
-        if (file.getSize() > MAX_IMAGE_SIZE) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "图片大小不能超过 8MB");
-        }
-
-        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        if (!contentType.startsWith("image/")) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "仅支持图片文件上传");
-        }
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "portal-upload-image",
+                UPLOAD_RATE_LIMIT_KEY,
+                20,
+                1,
+                300,
+                300,
+                IpUtil.getClientIp(request),
+                "上传过于频繁，请稍后再试"
+        );
+        uploadValidationService.validateImage(file);
 
         String normalizedUsageType = normalizeUsageType(usageType);
         Long userId = StpUtil.getLoginIdAsLong();

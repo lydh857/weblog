@@ -24,6 +24,7 @@ const TAB_TITLE_MAP: Record<string, string> = {
   '/topic': '专题管理',
   '/ai-config': 'AI 配置',
   '/system-config': '系统配置',
+  '/rate-limit': '限流与风控',
   '/logs': '日志中心',
 }
 
@@ -32,11 +33,30 @@ const HOME_TAB: TabItem = { path: '/', title: '仪表盘' }
 
 const STORAGE_KEY = 'weblog-admin-tabs'
 
+const VALID_TAB_PATHS = new Set(Object.keys(TAB_TITLE_MAP))
+
+function normalizePath(path: string): string {
+  if (!path) return '/'
+  if (path.length > 1 && path.endsWith('/')) {
+    return path.slice(0, -1)
+  }
+  return path
+}
+
+function isValidTabPath(path: string): boolean {
+  return VALID_TAB_PATHS.has(normalizePath(path))
+}
+
 function loadTabs(): TabItem[] {
+  if (!import.meta.client) {
+    return [HOME_TAB]
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const tabs = JSON.parse(raw) as TabItem[]
+      const tabs = (JSON.parse(raw) as TabItem[])
+        .map(tab => ({ path: normalizePath(tab.path), title: getTabTitle(normalizePath(tab.path)) }))
+        .filter(tab => isValidTabPath(tab.path))
       // 确保首页标签始终存在
       if (!tabs.some(t => t.path === '/')) {
         tabs.unshift(HOME_TAB)
@@ -48,11 +68,13 @@ function loadTabs(): TabItem[] {
 }
 
 function saveTabs(tabs: TabItem[]) {
+  if (!import.meta.client) return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs))
 }
 
 export function getTabTitle(path: string): string {
-  return TAB_TITLE_MAP[path] || '未知页面'
+  const normalized = normalizePath(path)
+  return TAB_TITLE_MAP[normalized] || '管理后台'
 }
 
 export const useTabBarStore = defineStore('tabBar', () => {
@@ -61,11 +83,13 @@ export const useTabBarStore = defineStore('tabBar', () => {
 
   // 添加标签
   function addTab(path: string) {
+    const normalizedPath = normalizePath(path)
     // 登录页不加标签
-    if (path === '/login') return
-    activeTab.value = path
-    if (!tabs.value.some(t => t.path === path)) {
-      tabs.value.push({ path, title: getTabTitle(path) })
+    if (normalizedPath === '/login') return
+    if (!isValidTabPath(normalizedPath)) return
+    activeTab.value = normalizedPath
+    if (!tabs.value.some(t => t.path === normalizedPath)) {
+      tabs.value.push({ path: normalizedPath, title: getTabTitle(normalizedPath) })
       saveTabs(tabs.value)
     }
   }

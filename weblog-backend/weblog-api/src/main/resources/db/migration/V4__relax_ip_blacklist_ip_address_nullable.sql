@@ -1,0 +1,2 @@
+ALTER TABLE t_ip_blacklist
+  MODIFY COLUMN ip_address VARCHAR(50) NULL DEFAULT NULL COMMENT 'IP地址(兼容字段)';

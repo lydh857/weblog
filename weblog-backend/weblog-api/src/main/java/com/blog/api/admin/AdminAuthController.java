@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
 import com.blog.common.util.PageParamUtil;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.infra.captcha.service.CaptchaService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
@@ -13,7 +14,9 @@ import com.blog.system.dto.LoginLogVO;
 import com.blog.system.dto.RefreshTokenResponse;
 import com.blog.system.service.AuthService;
 import com.blog.system.service.LoginLogService;
+import com.blog.system.service.LoginSecurityPolicyService;
 import com.blog.system.service.RememberTokenService;
+import com.blog.system.service.SecurityRiskControlService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
@@ -44,15 +47,21 @@ public class AdminAuthController {
     private final LoginLogService loginLogService;
     private final RememberTokenService rememberTokenService;
     private final CaptchaService captchaService;
+    private final SecurityRiskControlService securityRiskControlService;
+    private final LoginSecurityPolicyService loginSecurityPolicyService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
     private static final String ADMIN_REMEMBER_COOKIE = "Admin-Remember-Token";
     private static final Duration REMEMBER_COOKIE_TTL = Duration.ofDays(30);
+    private static final String ADMIN_LOGIN_RATE_LIMIT_KEY = "admin_login_rate_limit";
+    private static final String ADMIN_REVOKE_TOKEN_RATE_LIMIT_KEY = "admin_revoke_token_rate_limit";
+    private static final String ADMIN_REVOKE_ALL_TOKENS_RATE_LIMIT_KEY = "admin_revoke_all_tokens_rate_limit";
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
 
     @Operation(summary = "管理员登录", description = "管理员通过邮箱和密码登录，非 admin 角色将被拒绝")
     @PostMapping("/login")
-    @RateLimit(key = "admin-login", capacity = 5, seconds = 60)
+    @RateLimit(key = "admin-login", capacity = 120, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "LOGIN", description = "管理员登录")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
                                        @RequestHeader(value = "X-Captcha-Token") String verifyToken,
@@ -60,6 +69,18 @@ public class AdminAuthController {
                                        HttpServletResponse response) {
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        securityRiskControlService.assertIpAllowed(clientIp, "admin-login", userAgent);
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-login",
+                ADMIN_LOGIN_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                60,
+                clientIp,
+                "管理员登录请求过于频繁，请稍后再试"
+        );
+        loginSecurityPolicyService.enforceLoginRateLimit("admin-login", clientIp);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
         LoginResponse loginResponse = authService.adminLogin(req, clientIp, userAgent);
         loginResponse.setAvatar(normalizeLegacyUploadUrl(loginResponse.getAvatar()));
@@ -103,6 +124,7 @@ public class AdminAuthController {
         }
         String clientIp = IpUtil.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        securityRiskControlService.assertIpAllowed(clientIp, "admin-remember-login", userAgent);
         
         com.blog.system.dto.LoginVO vo = rememberTokenService.autoLogin(token, userAgent, clientIp);
         if (vo == null) {
@@ -135,16 +157,39 @@ public class AdminAuthController {
 
     @Operation(summary = "撤销 Remember Token", description = "使指定 Token 失效（用于用户手动撤销设备）")
     @PostMapping("/revoke-token")
+    @RateLimit(key = "admin-revoke-token", capacity = 120, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "REVOKE_TOKEN", description = "撤销 Remember Token")
-    public Result<Void> revokeToken(@Valid @RequestBody RevokeTokenRequest request) {
+    public Result<Void> revokeToken(@Valid @RequestBody RevokeTokenRequest request,
+                                    HttpServletRequest httpRequest) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-revoke-token",
+                ADMIN_REVOKE_TOKEN_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(httpRequest),
+                "撤销令牌请求过于频繁，请稍后再试"
+        );
         rememberTokenService.invalidateToken(request.token());
         return Result.success();
     }
 
     @Operation(summary = "撤销所有设备的 Remember Token", description = "使用户的所有 Remember Token 失效（用于修改密码后）")
     @PostMapping("/revoke-all-tokens")
+    @RateLimit(key = "admin-revoke-all-tokens", capacity = 120, seconds = 60)
     @AuditLog(module = "管理端认证", operation = "REVOKE_ALL_TOKENS", description = "撤销所有 Remember Token")
-    public Result<Void> revokeAllTokens() {
+    public Result<Void> revokeAllTokens(HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-revoke-all-tokens",
+                ADMIN_REVOKE_ALL_TOKENS_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                60,
+                IpUtil.getClientIp(request),
+                "撤销全部令牌请求过于频繁，请稍后再试"
+        );
         Long userId = StpUtil.getLoginIdAsLong();
         rememberTokenService.invalidateAllUserTokens(userId);
         return Result.success();
@@ -158,9 +203,10 @@ public class AdminAuthController {
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String loginType,
-            @RequestParam(required = false) String result) {
+            @RequestParam(required = false) String result,
+            @RequestParam(required = false) String ip) {
         PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
-        return Result.success(loginLogService.getAllLoginLogs(pageParams.pageNum(), pageParams.pageSize(), email, loginType, result));
+        return Result.success(loginLogService.getAllLoginLogs(pageParams.pageNum(), pageParams.pageSize(), email, loginType, result, ip));
     }
 
     private void syncRememberCookie(HttpServletResponse response,

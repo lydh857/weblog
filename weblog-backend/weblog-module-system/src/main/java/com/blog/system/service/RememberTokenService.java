@@ -28,6 +28,7 @@ public class RememberTokenService {
 
     private final RememberTokenMapper rememberTokenMapper;
     private final UserMapper userMapper;
+    private final SecurityRiskControlService securityRiskControlService;
 
     /**
      * Token 有效期（天）
@@ -117,6 +118,14 @@ public class RememberTokenService {
 
         if (!"enabled".equals(user.getStatus())) {
             log.warn("Remember Token 用户状态不可用：userId={}, status={}", user.getId(), user.getStatus());
+            invalidateToken(token);
+            return null;
+        }
+
+        try {
+            securityRiskControlService.assertUserAllowed(user.getId(), "remember-login", ip, deviceInfo);
+        } catch (Exception ex) {
+            log.warn("Remember Token 用户命中黑名单：userId={}", user.getId());
             invalidateToken(token);
             return null;
         }

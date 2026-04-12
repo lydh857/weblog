@@ -71,7 +71,12 @@ public class LoginLogService {
     /**
      * 查询所有用户的登录日志（管理端）
      */
-    public IPage<LoginLogVO> getAllLoginLogs(int pageNum, int pageSize, String email, String loginType, String result) {
+    public IPage<LoginLogVO> getAllLoginLogs(int pageNum,
+                                             int pageSize,
+                                             String email,
+                                             String loginType,
+                                             String result,
+                                             String ip) {
         PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
         Page<LoginLog> page = new Page<>(pageParams.pageNum(), pageParams.pageSize());
 
@@ -79,6 +84,7 @@ public class LoginLogService {
                 .like(email != null, LoginLog::getEmail, email)
                 .eq(loginType != null, LoginLog::getLoginType, loginType)
                 .eq(result != null, LoginLog::getResult, result)
+                .like(ip != null, LoginLog::getIp, ip)
                 .orderByDesc(LoginLog::getCreateTime);
 
         IPage<LoginLog> resultPage = loginLogMapper.selectPage(page, wrapper);

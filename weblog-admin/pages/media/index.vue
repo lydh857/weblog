@@ -107,7 +107,12 @@
                 <div class="media-info">
                   <span class="media-name" :title="item.fileName">{{ item.fileName }}</span>
                   <div class="info-row-2">
-                    <span class="media-size">{{ formatSize(item.fileSize) }}</span>
+                    <div class="media-meta">
+                      <span class="media-size">{{ formatSize(item.fileSize) }}</span>
+                      <span class="storage-tag" :class="`storage-tag--${resolveStorageSource(item)}`">
+                        {{ storageLabel(resolveStorageSource(item)) }}
+                      </span>
+                    </div>
                     <div class="info-actions">
                       <el-button text type="primary" size="small" class="btn-copy" @click.stop="copyUrl(item)">复制链接</el-button>
                       <el-button text type="danger" size="small" class="btn-delete" @click.stop="handleDelete(item)">删除</el-button>
@@ -241,6 +246,43 @@ const usageLabelMap: Record<string, string> = {
 }
 function usageLabel(type: string) {
   return usageLabelMap[type] || '其他'
+}
+
+type StorageSource = 'local' | 'oss' | 'r2' | 'unknown'
+
+const storageLabelMap: Record<StorageSource, string> = {
+  local: '本地',
+  oss: '阿里 OSS',
+  r2: 'Cloudflare R2',
+  unknown: '未知存储',
+}
+
+function storageLabel(source: StorageSource) {
+  return storageLabelMap[source]
+}
+
+function resolveStorageSource(item: Pick<MediaVO, 'url' | 'filePath'>): StorageSource {
+  const sourceText = `${item.url || ''} ${item.filePath || ''}`.toLowerCase()
+
+  if (sourceText.includes('/uploads/') || sourceText.includes('localhost') || sourceText.includes('127.0.0.1')) {
+    return 'local'
+  }
+  if (sourceText.includes('aliyuncs.com') || sourceText.includes('oss-') || sourceText.includes('.oss-')) {
+    return 'oss'
+  }
+  if (sourceText.includes('r2.cloudflarestorage.com') || sourceText.includes('.r2.dev') || sourceText.includes('cloudflare')) {
+    return 'r2'
+  }
+
+  try {
+    const host = new URL(item.url).host.toLowerCase()
+    if (host.includes('aliyuncs.com') || host.includes('oss-')) return 'oss'
+    if (host.includes('r2.cloudflarestorage.com') || host.includes('.r2.dev') || host.includes('cloudflare')) return 'r2'
+  } catch {
+    // ignore malformed url
+  }
+
+  return 'unknown'
 }
 
 const refTypeLabelMap: Record<string, string> = {
@@ -795,9 +837,45 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 6px;
 }
+.media-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .media-size {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.storage-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.storage-tag--local {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary-light-7);
+}
+.storage-tag--oss {
+  color: var(--el-color-warning-dark-2);
+  background: var(--el-color-warning-light-9);
+  border-color: var(--el-color-warning-light-7);
+}
+.storage-tag--r2 {
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+  border-color: var(--el-color-success-light-7);
+}
+.storage-tag--unknown {
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  border-color: var(--el-border-color-light);
 }
 .info-actions {
   display: inline-flex;

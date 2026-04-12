@@ -1,8 +1,11 @@
 package com.blog.api.scheduler;
 
 import com.blog.infra.security.audit.AuditLogService;
+import com.blog.infra.security.audit.SecurityEventAuditService;
 import com.blog.system.service.EmailService;
 import com.blog.system.service.LoginLogService;
+import com.blog.system.service.SecurityRiskControlService;
+import com.blog.system.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -11,10 +14,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -34,11 +41,18 @@ public class SecurityLogCleanupScheduler {
   private final StringRedisTemplate redisTemplate;
   private final EmailService emailService;
   private final JdbcTemplate jdbcTemplate;
+  private final SystemConfigService systemConfigService;
+  private final SecurityRiskControlService securityRiskControlService;
+  private final SecurityEventAuditService securityEventAuditService;
 
   private static final String ATTACK_ALERT_SUPPRESS_KEY = "security:attack-alert:login-failed";
   private static final String ATTACK_ALERT_HOURLY_COUNT_KEY_PREFIX = "security:attack-alert:hourly:";
   private static final String ATTACK_ALERT_BASELINE_KEY = "security:attack-alert:baseline:ewma";
   private static final DateTimeFormatter HOUR_FMT = DateTimeFormatter.ofPattern("yyyyMMddHH");
+  private static final String LOGIN_LOG_RETENTION_DAYS_CONFIG_KEY = "login_log_retention_days";
+  private static final String AUDIT_LOG_RETENTION_DAYS_CONFIG_KEY = "audit_log_retention_days";
+  private static final int MIN_RETENTION_DAYS = 1;
+  private static final int MAX_RETENTION_DAYS = 3650;
 
   private volatile long localLastAlertAtMs = 0L;
   private volatile double localAdaptiveBaseline = 0D;
@@ -90,6 +104,15 @@ public class SecurityLogCleanupScheduler {
 
   @Value("${blog.security.attack-alert.adaptive-threshold-min:60}")
   private int attackAlertAdaptiveMinThreshold;
+
+  @Value("${blog.security.attack-alert.auto-ip-block-enabled:true}")
+  private boolean attackAlertAutoIpBlockEnabled;
+
+  @Value("${blog.security.attack-alert.auto-ip-block-minutes:60}")
+  private int attackAlertAutoIpBlockMinutes;
+
+  @Value("${blog.security.attack-alert.admin-log-url:http://127.0.0.1:3001/logs}")
+  private String attackAlertAdminLogUrl;
 
   /**
    * 默认每天凌晨 4:30 执行，错开其他凌晨任务
@@ -143,13 +166,17 @@ public class SecurityLogCleanupScheduler {
             dynamicThreshold,
             hotIps);
 
+    List<String> autoBlockedIps = autoBlockSuspiciousIps(hotIps, safeWindowMinutes);
+
     if (allowAlertByHourlyQuota()) {
       String subject = String.format("[Weblog安全告警] 登录失败激增 (%d分钟内%d次)", safeWindowMinutes, failedCount);
       String hotIpText = hotIps.isEmpty()
               ? "无"
               : hotIps.stream().map(String::valueOf).collect(Collectors.joining("\n"));
+      String blockedIpText = autoBlockedIps.isEmpty() ? "无" : String.join("\n", autoBlockedIps);
+      String quickActionText = buildQuickActionText(hotIps);
       String content = String.format(
-              "检测时间: %s\n窗口分钟: %d\n失败总数: %d\n静态阈值: %d\n动态阈值: %d\n单IP阈值: %d\ncount耗时(ms): %d\ntopIp耗时(ms): %d\n高风险IP: \n%s\n",
+              "检测时间: %s\n窗口分钟: %d\n失败总数: %d\n静态阈值: %d\n动态阈值: %d\n单IP阈值: %d\ncount耗时(ms): %d\ntopIp耗时(ms): %d\n高风险IP: \n%s\n\n自动封禁IP: \n%s\n\n快捷处置入口: \n%s\n",
               LocalDateTime.now(),
               safeWindowMinutes,
               failedCount,
@@ -158,7 +185,9 @@ public class SecurityLogCleanupScheduler {
               attackAlertPerIpThreshold,
               countCostMs,
               topIpCostMs,
-              hotIpText
+              hotIpText,
+              blockedIpText,
+              quickActionText
       );
       emailService.sendSecurityAlertAsync(subject, content);
     } else {
@@ -226,6 +255,102 @@ public class SecurityLogCleanupScheduler {
     return Math.max(staticThreshold, Math.max(minThreshold, adaptiveThreshold));
   }
 
+  private List<String> autoBlockSuspiciousIps(List<Map<String, Object>> hotIps, int safeWindowMinutes) {
+    if (!attackAlertAutoIpBlockEnabled || hotIps == null || hotIps.isEmpty()) {
+      return List.of();
+    }
+
+    int blockMinutes = Math.max(attackAlertAutoIpBlockMinutes, 1);
+    List<String> blockedIpSummary = new ArrayList<>();
+
+    for (Map<String, Object> row : hotIps) {
+      String ip = normalizeIp(row.get("ip"));
+      if (!StringUtils.hasText(ip)) {
+        continue;
+      }
+
+      long failedCount = toLong(row.get("failedCount"));
+      SecurityRiskControlService.IpBlockStatus beforeStatus = securityRiskControlService.getIpBlockStatus(ip);
+      if (beforeStatus.blocked()) {
+        continue;
+      }
+      String reason = String.format(
+              "登录失败激增自动封禁（%d分钟窗口，失败次数=%d，阈值=%d）",
+              safeWindowMinutes,
+              failedCount,
+              Math.max(attackAlertPerIpThreshold, 1)
+      );
+
+      SecurityRiskControlService.IpBlockStatus status =
+              securityRiskControlService.blockIp(ip, blockMinutes, reason, false);
+      if (!status.blocked()) {
+        continue;
+      }
+
+      blockedIpSummary.add(String.format("%s（%d次，封禁剩余%ds）", ip, failedCount, status.remainingSeconds()));
+      securityEventAuditService.recordEvent(
+              "安全防护",
+              "AUTO_BLOCK_IP",
+              reason,
+              null,
+              null,
+              ip,
+              null,
+              200,
+              null,
+              null
+      );
+    }
+
+    return blockedIpSummary;
+  }
+
+  private String buildQuickActionText(List<Map<String, Object>> hotIps) {
+    if (hotIps == null || hotIps.isEmpty()) {
+      return "无";
+    }
+
+    String baseUrl = StringUtils.hasText(attackAlertAdminLogUrl)
+            ? attackAlertAdminLogUrl.trim()
+            : "http://127.0.0.1:3001/logs";
+    if (baseUrl.endsWith("/")) {
+      baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+    }
+
+    List<String> links = new ArrayList<>();
+    for (Map<String, Object> row : hotIps) {
+      String ip = normalizeIp(row.get("ip"));
+      if (!StringUtils.hasText(ip)) {
+        continue;
+      }
+      String link = baseUrl + "?tab=login&ip=" + URLEncoder.encode(ip, StandardCharsets.UTF_8);
+      links.add(ip + " -> " + link);
+    }
+    return links.isEmpty() ? "无" : String.join("\n", links);
+  }
+
+  private String normalizeIp(Object ipObj) {
+    if (ipObj == null) {
+      return null;
+    }
+    String raw = String.valueOf(ipObj).trim();
+    return raw.isEmpty() ? null : raw;
+  }
+
+  private long toLong(Object value) {
+    if (value == null) {
+      return 0L;
+    }
+    if (value instanceof Number number) {
+      return number.longValue();
+    }
+    try {
+      return Long.parseLong(String.valueOf(value));
+    } catch (Exception ignored) {
+      return 0L;
+    }
+  }
+
   private double readAdaptiveBaseline() {
     try {
       String raw = redisTemplate.opsForValue().get(ATTACK_ALERT_BASELINE_KEY);
@@ -259,15 +384,43 @@ public class SecurityLogCleanupScheduler {
   }
 
   public CleanupResult cleanupNow() {
+    int loginDeleted = cleanupLoginLogsNow();
+    int auditDeleted = cleanupAuditLogsNow();
+    log.info("安全日志清理完成: loginDeleted={}, auditDeleted={}", loginDeleted, auditDeleted);
+    return new CleanupResult(loginDeleted, auditDeleted);
+  }
+
+  public int cleanupLoginLogsNow() {
+    int retentionDays = resolveRetentionDays(LOGIN_LOG_RETENTION_DAYS_CONFIG_KEY, loginLogRetentionDays);
     try {
-      int loginDeleted = cleanupLoginLogsWithArchive(loginLogRetentionDays);
-      int auditDeleted = cleanupAuditLogsWithArchive(auditLogRetentionDays);
-      log.info("安全日志清理完成: loginDeleted={}, auditDeleted={}", loginDeleted, auditDeleted);
-      return new CleanupResult(loginDeleted, auditDeleted);
+      int deleted = cleanupLoginLogsWithArchive(retentionDays);
+      log.info("登录日志清理完成: retentionDays={}, loginDeleted={}", retentionDays, deleted);
+      return deleted;
     } catch (Exception e) {
-      log.error("安全日志清理失败", e);
-      return new CleanupResult(0, 0);
+      log.error("登录日志清理失败: retentionDays={}", retentionDays, e);
+      throw new IllegalStateException("登录日志清理失败", e);
     }
+  }
+
+  public int cleanupAuditLogsNow() {
+    int retentionDays = resolveRetentionDays(AUDIT_LOG_RETENTION_DAYS_CONFIG_KEY, auditLogRetentionDays);
+    try {
+      int deleted = cleanupAuditLogsWithArchive(retentionDays);
+      log.info("审计日志清理完成: retentionDays={}, auditDeleted={}", retentionDays, deleted);
+      return deleted;
+    } catch (Exception e) {
+      log.error("审计日志清理失败: retentionDays={}", retentionDays, e);
+      throw new IllegalStateException("审计日志清理失败", e);
+    }
+  }
+
+  private int resolveRetentionDays(String configKey, int fallbackValue) {
+    int configuredDays = systemConfigService.getIntValue(configKey, fallbackValue);
+    int safeDays = Math.max(MIN_RETENTION_DAYS, Math.min(configuredDays, MAX_RETENTION_DAYS));
+    if (safeDays != configuredDays) {
+      log.warn("日志保留天数越界，已自动纠正: key={}, configured={}, safe={}", configKey, configuredDays, safeDays);
+    }
+    return safeDays;
   }
 
   private int cleanupLoginLogsWithArchive(int retentionDays) {
@@ -294,25 +447,29 @@ public class SecurityLogCleanupScheduler {
               safeBatchSize
       );
 
-      if (archived <= 0) {
-        break;
-      }
-
       int deleted = jdbcTemplate.update(
               """
-              DELETE l
-              FROM t_login_log l
-              INNER JOIN t_login_log_archive a ON a.origin_id = l.id
-              WHERE l.create_time < ?
-              ORDER BY l.id
-              LIMIT ?
+              DELETE FROM t_login_log
+              WHERE id IN (
+                SELECT id FROM (
+                  SELECT l.id
+                  FROM t_login_log l
+                  INNER JOIN t_login_log_archive a ON a.origin_id = l.id
+                  WHERE l.create_time < ?
+                  ORDER BY l.id
+                  LIMIT ?
+                ) as batch_ids
+              )
               """,
               cutoff,
               safeBatchSize
       );
 
       totalDeleted += deleted;
-      if (archived < safeBatchSize) {
+      if (archived <= 0 && deleted <= 0) {
+        break;
+      }
+      if (archived < safeBatchSize && deleted < safeBatchSize) {
         break;
       }
     }
@@ -347,25 +504,29 @@ public class SecurityLogCleanupScheduler {
               safeBatchSize
       );
 
-      if (archived <= 0) {
-        break;
-      }
-
       int deleted = jdbcTemplate.update(
               """
-              DELETE a
-              FROM t_audit_log a
-              INNER JOIN t_audit_log_archive ar ON ar.origin_id = a.id
-              WHERE a.create_time < ?
-              ORDER BY a.id
-              LIMIT ?
+              DELETE FROM t_audit_log
+              WHERE id IN (
+                SELECT id FROM (
+                  SELECT a.id
+                  FROM t_audit_log a
+                  INNER JOIN t_audit_log_archive ar ON ar.origin_id = a.id
+                  WHERE a.create_time < ?
+                  ORDER BY a.id
+                  LIMIT ?
+                ) as batch_ids
+              )
               """,
               cutoff,
               safeBatchSize
       );
 
       totalDeleted += deleted;
-      if (archived < safeBatchSize) {
+      if (archived <= 0 && deleted <= 0) {
+        break;
+      }
+      if (archived < safeBatchSize && deleted < safeBatchSize) {
         break;
       }
     }
@@ -389,4 +550,6 @@ public class SecurityLogCleanupScheduler {
   }
 
   public record CleanupResult(int loginDeleted, int auditDeleted) {}
+
+  public record DeletedResult(int deleted) {}
 }

@@ -2,15 +2,19 @@ package com.blog.api.admin;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.*;
 import com.blog.content.service.PostService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +31,10 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 public class AdminPostController {
 
     private final PostService postService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String ADMIN_POST_DELETE_RATE_LIMIT_KEY = "admin_post_delete_rate_limit";
+    private static final String ADMIN_POST_PERMANENT_DELETE_RATE_LIMIT_KEY = "admin_post_permanent_delete_rate_limit";
 
     @Operation(summary = "创建文章")
     @PostMapping
@@ -131,8 +139,19 @@ public class AdminPostController {
 
     @Operation(summary = "批量删除文章")
     @DeleteMapping("/batch")
+    @RateLimit(key = "admin-post-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "文章管理", operation = "DELETE", description = "批量删除文章")
-    public Result<Integer> batchDelete(@Valid @RequestBody BatchIdsRequest req) {
+    public Result<Integer> batchDelete(@Valid @RequestBody BatchIdsRequest req, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-post-delete",
+                ADMIN_POST_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量删除文章过于频繁，请稍后再试"
+        );
         checkBatchSize(req.getIds().size());
         Long operatorId = StpUtil.getLoginIdAsLong();
         boolean isAdmin = StpUtil.hasRole("admin");
@@ -141,8 +160,19 @@ public class AdminPostController {
 
     @Operation(summary = "删除文章")
     @DeleteMapping("/{id}")
+    @RateLimit(key = "admin-post-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "文章管理", operation = "DELETE", description = "删除文章")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-post-delete",
+                ADMIN_POST_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "删除文章过于频繁，请稍后再试"
+        );
         Long operatorId = StpUtil.getLoginIdAsLong();
         boolean isAdmin = StpUtil.hasRole("admin");
         postService.delete(id, operatorId, isAdmin);
@@ -191,16 +221,38 @@ public class AdminPostController {
 
     @Operation(summary = "批量永久删除文章")
     @DeleteMapping("/trash/batch-permanent")
+    @RateLimit(key = "admin-post-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "文章管理", operation = "DELETE", description = "批量永久删除文章")
-    public Result<Integer> batchPermanentDelete(@Valid @RequestBody BatchIdsRequest req) {
+    public Result<Integer> batchPermanentDelete(@Valid @RequestBody BatchIdsRequest req, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-post-permanent-delete",
+                ADMIN_POST_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量永久删除文章过于频繁，请稍后再试"
+        );
         checkBatchSize(req.getIds().size());
         return Result.success(postService.batchPermanentDelete(req.getIds()));
     }
 
     @Operation(summary = "清空回收站")
     @DeleteMapping("/trash/clear")
+    @RateLimit(key = "admin-post-permanent-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "文章管理", operation = "DELETE", description = "清空回收站")
-    public Result<Integer> clearTrash() {
+    public Result<Integer> clearTrash(HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-post-permanent-delete",
+                ADMIN_POST_PERMANENT_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "清空文章回收站过于频繁，请稍后再试"
+        );
         return Result.success(postService.clearTrash());
     }
 

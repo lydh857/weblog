@@ -89,9 +89,20 @@ function Invoke-Api([string]$method, [string]$url, [hashtable]$headers = @{}, [o
       Raw = $resp.Content
     }
   } catch {
-    $webResp = $_.Exception.Response
+    $webResp = $null
+    if ($null -ne $_.Exception -and $null -ne $_.Exception.PSObject.Properties['Response']) {
+      $webResp = $_.Exception.Response
+    }
+
     if ($null -eq $webResp) {
-      throw
+      return [pscustomobject]@{
+        StatusCode = 0
+        Json = [pscustomobject]@{
+          code = 0
+          message = $_.Exception.Message
+        }
+        Raw = $_.Exception.Message
+      }
     }
 
     $statusCode = 0

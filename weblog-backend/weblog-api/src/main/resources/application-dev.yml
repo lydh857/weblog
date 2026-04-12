@@ -27,6 +27,17 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    baseline-on-migrate: true
+    baseline-version: 2
+    clean-disabled: true
+    placeholder-replacement: false
+    user: ${FLYWAY_USERNAME:${DB_USERNAME:}}
+    password: ${FLYWAY_PASSWORD:${DB_PASSWORD:}}
+
 # 开发环境日志
 logging:
   level:
@@ -46,7 +57,7 @@ blog:
   cors:
     allowed-origins: http://localhost:3000,http://localhost:3001
   security:
-    dev-bypass-enabled: true
+    dev-bypass-enabled: false
     referer-enabled: true
     allowed-origins: http://localhost:3000,http://localhost:3001
     attack-alert:

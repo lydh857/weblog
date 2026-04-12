@@ -1,6 +1,7 @@
 package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
@@ -10,6 +11,7 @@ import com.blog.content.mapper.PostMapper;
 import com.blog.infra.captcha.service.CaptchaService;
 import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.interaction.service.AccessControlService;
+import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +36,12 @@ public class AccessControlController {
     private final CaptchaService captchaService;
     private final DeviceFingerprintService deviceFingerprintService;
     private final PostMapper postMapper;
+    private final SystemConfigService systemConfigService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String DAILY_READ_LIMIT_KEY = "daily_read_limit";
+    private static final String ACCESS_READ_RATE_LIMIT_KEY = "access_read_rate_limit";
+    private static final String ACCESS_UNLOCK_RATE_LIMIT_KEY = "access_unlock_rate_limit";
 
     @Operation(summary = "检查是否可以阅读文章")
     @GetMapping("/check/{postId}")
@@ -53,10 +61,11 @@ public class AccessControlController {
         }
 
         String fingerprint = deviceFingerprintService.resolveFingerprint(request, response);
+        long dailyReadLimit = getDailyReadLimit();
 
-        boolean allowed = accessControlService.canRead(fingerprint, postId);
+        boolean allowed = accessControlService.canRead(fingerprint, postId, dailyReadLimit);
         long readCount = accessControlService.getReadCount(fingerprint);
-        long limit = accessControlService.getLimit(fingerprint);
+        long limit = accessControlService.getLimit(fingerprint, dailyReadLimit);
         boolean unlocked = accessControlService.isUnlocked(fingerprint);
 
         return Result.success(Map.of(
@@ -71,8 +80,18 @@ public class AccessControlController {
     @PostMapping("/read/{postId}")
     @RateLimit(key = "access-read", capacity = 120, seconds = 60)
     public Result<Void> recordRead(@PathVariable Long postId,
-                                    HttpServletRequest request,
-                                    HttpServletResponse response) {
+                                     HttpServletRequest request,
+                                     HttpServletResponse response) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "access-read",
+                ACCESS_READ_RATE_LIMIT_KEY,
+                120,
+                1,
+                240,
+                60,
+                IpUtil.getClientIp(request),
+                "阅读记录请求过于频繁，请稍后再试"
+        );
         validateReadablePost(postId);
 
         if (!StpUtil.isLogin()) {
@@ -88,6 +107,16 @@ public class AccessControlController {
     public Result<Void> unlock(@RequestHeader(value = "X-Captcha-Token") String verifyToken,
                                HttpServletRequest request,
                                HttpServletResponse response) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "access-unlock",
+                ACCESS_UNLOCK_RATE_LIMIT_KEY,
+                5,
+                1,
+                60,
+                60,
+                IpUtil.getClientIp(request),
+                "解锁请求过于频繁，请稍后再试"
+        );
         String clientIp = IpUtil.getClientIp(request);
         captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
 
@@ -103,5 +132,11 @@ public class AccessControlController {
         if (postMapper.existsReadableById(postId) <= 0) {
             throw new BusinessException(ResultCode.POST_NOT_FOUND, "文章不存在或不可访问");
         }
+    }
+
+    private long getDailyReadLimit() {
+        int defaultLimit = accessControlService.getDefaultDailyFreeLimit();
+        int configured = systemConfigService.getIntValue(DAILY_READ_LIMIT_KEY, defaultLimit);
+        return Math.max(configured, 0);
     }
 }

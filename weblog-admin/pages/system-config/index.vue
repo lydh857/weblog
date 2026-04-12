@@ -2,6 +2,11 @@
   <div class="config-page">
     <div class="page-header">
       <h2>系统配置</h2>
+      <div class="header-actions">
+        <el-button type="primary" plain @click="navigateTo('/rate-limit')">
+          前往限流与风控
+        </el-button>
+      </div>
     </div>
 
     <div v-loading="loading" class="config-grid">
@@ -39,14 +44,13 @@
           <el-form-item label="锁定时间（分钟）">
             <el-input-number v-model.number="form.login_lock_minutes" :min="1" :max="1440" />
           </el-form-item>
-          <el-form-item label="限流（次/分钟）">
-            <el-input-number v-model.number="form.login_rate_limit" :min="1" :max="60" />
+          <el-form-item label="登录日志保留天数">
+            <el-input-number v-model.number="form.login_log_retention_days" :min="7" :max="3650" />
+            <span class="form-tip">建议 30~365 天，超期日志可在日志中心手动清理</span>
           </el-form-item>
-          <el-form-item label="安全日志">
-            <el-button type="warning" plain :loading="cleaningSecurityLogs" @click="handleCleanupSecurityLogs">
-              立即清理安全日志
-            </el-button>
-            <span class="form-tip">手动清理超出保留期的登录日志和审计日志</span>
+          <el-form-item label="审计日志保留天数">
+            <el-input-number v-model.number="form.audit_log_retention_days" :min="7" :max="3650" />
+            <span class="form-tip">建议不低于登录日志，避免审计追溯信息缺失</span>
           </el-form-item>
         </el-form>
       </el-card>
@@ -76,24 +80,6 @@
         </el-form>
       </el-card>
 
-      <!-- 上传设置 -->
-      <el-card shadow="never" class="config-card">
-        <template #header>
-          <div class="card-header">
-            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span class="card-title">上传设置</span>
-          </div>
-        </template>
-        <el-form label-width="140px" label-position="right">
-          <el-form-item label="最大文件大小（MB）">
-            <el-input-number v-model.number="form.upload_max_size_mb" :min="1" :max="50" />
-          </el-form-item>
-          <el-form-item label="允许的文件类型">
-            <el-input v-model="form.upload_allowed_types" placeholder="jpg,jpeg,png,webp,gif" />
-            <span class="form-tip">多个类型用英文逗号分隔</span>
-          </el-form-item>
-        </el-form>
-      </el-card>
 
       <!-- 评论设置 -->
       <el-card shadow="never" class="config-card">
@@ -112,27 +98,6 @@
           </el-form-item>
           <el-form-item label="评论最大长度">
             <el-input-number v-model.number="form.comment_max_length" :min="50" :max="5000" />
-          </el-form-item>
-          <el-form-item label="限流（次/分钟）">
-            <el-input-number v-model.number="form.comment_rate_limit" :min="1" :max="60" />
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <!-- 导入设置 -->
-      <el-card shadow="never" class="config-card">
-        <template #header>
-          <div class="card-header">
-            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
-            <span class="card-title">导入设置</span>
-          </div>
-        </template>
-        <el-form label-width="140px" label-position="right">
-          <el-form-item label="限流（次/分钟）">
-            <el-input-number v-model.number="form.import_rate_limit" :min="1" :max="60" />
-          </el-form-item>
-          <el-form-item label="最大并发数">
-            <el-input-number v-model.number="form.import_max_concurrent" :min="1" :max="10" />
           </el-form-item>
         </el-form>
       </el-card>
@@ -176,6 +141,7 @@
           </el-form>
         </div>
       </el-card>
+
     </div>
 
     <!-- 悬浮保存按钮 -->
@@ -184,26 +150,109 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { systemConfigApi, type SystemConfigVO } from '~/api/system/system-config'
 
 const loading = ref(false)
 const saving = ref(false)
 const refreshingRanking = ref(false)
-const cleaningSecurityLogs = ref(false)
+const resettingRateLimit = ref(false)
+
+const rateLimitDefaults: Record<string, string | number> = {
+  login_rate_limit: 5,
+  register_rate_limit: 5,
+  admin_login_rate_limit: 5,
+  send_code_rate_limit: 3,
+  check_email_rate_limit: 10,
+  forgot_password_rate_limit: 5,
+  captcha_generate_rate_limit: 10,
+  captcha_verify_rate_limit: 20,
+  comment_rate_limit: 5,
+  upload_rate_limit: 20,
+  ad_apply_rate_limit: 5,
+  friend_link_apply_rate_limit: 5,
+  friend_link_update_rate_limit: 10,
+  access_read_rate_limit: 120,
+  access_unlock_rate_limit: 5,
+  interaction_like_toggle_rate_limit: 60,
+  interaction_like_state_rate_limit: 90,
+  interaction_favorite_toggle_rate_limit: 60,
+  interaction_favorite_state_rate_limit: 90,
+  interaction_favorite_batch_rate_limit: 20,
+  comment_delete_rate_limit: 30,
+  comment_batch_delete_rate_limit: 10,
+  comment_like_toggle_rate_limit: 60,
+  comment_like_state_rate_limit: 90,
+  ai_writing_rate_limit: 20,
+  ai_chat_rate_limit: 30,
+  ai_meta_rate_limit: 20,
+  admin_revoke_token_rate_limit: 20,
+  admin_revoke_all_tokens_rate_limit: 5,
+  system_config_batch_update_rate_limit: 20,
+  ranking_refresh_rate_limit: 5,
+  admin_post_delete_rate_limit: 20,
+  admin_post_permanent_delete_rate_limit: 10,
+  admin_topic_delete_rate_limit: 20,
+  admin_topic_permanent_delete_rate_limit: 10,
+  admin_media_delete_rate_limit: 30,
+  admin_media_cleanup_rate_limit: 5,
+  admin_user_status_update_rate_limit: 20,
+  admin_user_reset_password_rate_limit: 10,
+  admin_ad_status_update_rate_limit: 30,
+  admin_ad_delete_rate_limit: 20,
+  admin_ad_permanent_delete_rate_limit: 10,
+  admin_ad_apply_switch_rate_limit: 20,
+  admin_ad_price_rules_rate_limit: 10,
+  admin_ad_pit_update_rate_limit: 20,
+  admin_friend_link_status_update_rate_limit: 30,
+  admin_friend_link_delete_rate_limit: 20,
+  admin_announcement_status_update_rate_limit: 30,
+  admin_announcement_delete_rate_limit: 20,
+  user_bind_email_rate_limit: 8,
+  user_change_email_rate_limit: 8,
+  user_set_password_rate_limit: 8,
+  user_reset_password_rate_limit: 8,
+  rate_limit_auto_block_enabled: 'false',
+  rate_limit_auto_block_threshold: 20,
+  rate_limit_auto_block_window_minutes: 10,
+  rate_limit_auto_block_minutes: 60,
+  rate_limit_auto_block_key_prefixes: 'register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete',
+}
 
 // 数值类型的配置 key
 const numberKeys = new Set([
   'daily_read_limit', 'login_max_attempts', 'login_lock_minutes',
-  'login_rate_limit', 'upload_max_size_mb', 'comment_max_length',
-  'comment_rate_limit', 'ranking_update_interval',
-  'import_rate_limit', 'import_max_concurrent',
+  'login_rate_limit', 'register_rate_limit', 'admin_login_rate_limit',
+  'upload_max_size_mb', 'comment_max_length', 'comment_rate_limit', 'ranking_update_interval',
+  'send_code_rate_limit', 'check_email_rate_limit', 'forgot_password_rate_limit', 'captcha_generate_rate_limit', 'captcha_verify_rate_limit',
+  'upload_rate_limit', 'ad_apply_rate_limit', 'friend_link_apply_rate_limit',
+  'friend_link_update_rate_limit', 'access_read_rate_limit', 'access_unlock_rate_limit',
+  'interaction_like_toggle_rate_limit', 'interaction_like_state_rate_limit',
+  'interaction_favorite_toggle_rate_limit', 'interaction_favorite_state_rate_limit', 'interaction_favorite_batch_rate_limit',
+  'comment_delete_rate_limit', 'comment_batch_delete_rate_limit',
+  'comment_like_toggle_rate_limit', 'comment_like_state_rate_limit',
+  'ai_writing_rate_limit', 'ai_chat_rate_limit', 'ai_meta_rate_limit',
+  'admin_revoke_token_rate_limit', 'admin_revoke_all_tokens_rate_limit',
+  'system_config_batch_update_rate_limit', 'ranking_refresh_rate_limit',
+  'admin_post_delete_rate_limit', 'admin_post_permanent_delete_rate_limit',
+  'admin_topic_delete_rate_limit', 'admin_topic_permanent_delete_rate_limit',
+  'admin_media_delete_rate_limit', 'admin_media_cleanup_rate_limit',
+  'admin_user_status_update_rate_limit', 'admin_user_reset_password_rate_limit',
+  'admin_ad_status_update_rate_limit', 'admin_ad_delete_rate_limit',
+  'admin_ad_permanent_delete_rate_limit', 'admin_ad_apply_switch_rate_limit',
+  'admin_ad_price_rules_rate_limit', 'admin_ad_pit_update_rate_limit',
+  'admin_friend_link_status_update_rate_limit', 'admin_friend_link_delete_rate_limit',
+  'admin_announcement_status_update_rate_limit', 'admin_announcement_delete_rate_limit',
+  'user_bind_email_rate_limit', 'user_change_email_rate_limit',
+  'user_set_password_rate_limit', 'user_reset_password_rate_limit',
+  'rate_limit_auto_block_threshold', 'rate_limit_auto_block_window_minutes', 'rate_limit_auto_block_minutes',
   'mail_smtp_port', 'mail_code_expire_minutes', 'mail_code_cooldown_seconds',
+  'login_log_retention_days', 'audit_log_retention_days',
 ])
 
 // 开关类型的配置 key（值为 "true"/"false"）
 const switchKeys = new Set([
-  'mail_ssl_enabled', 'comment_audit_enabled',
+  'mail_ssl_enabled', 'comment_audit_enabled', 'rate_limit_auto_block_enabled',
 ])
 
 const form = reactive<Record<string, string | number>>({})
@@ -223,6 +272,180 @@ async function loadData() {
     // 评论审核开关默认开启（如果后端还没有这个配置项）
     if (form.comment_audit_enabled === undefined || form.comment_audit_enabled === '') {
       form.comment_audit_enabled = 'true'
+    }
+    if (form.login_log_retention_days === undefined) {
+      form.login_log_retention_days = 180
+    }
+    if (form.audit_log_retention_days === undefined) {
+      form.audit_log_retention_days = 180
+    }
+    if (form.send_code_rate_limit === undefined) {
+      form.send_code_rate_limit = 3
+    }
+    if (form.check_email_rate_limit === undefined) {
+      form.check_email_rate_limit = 10
+    }
+    if (form.register_rate_limit === undefined) {
+      form.register_rate_limit = 5
+    }
+    if (form.admin_login_rate_limit === undefined) {
+      form.admin_login_rate_limit = 5
+    }
+    if (form.forgot_password_rate_limit === undefined) {
+      form.forgot_password_rate_limit = 5
+    }
+    if (form.captcha_generate_rate_limit === undefined) {
+      form.captcha_generate_rate_limit = 10
+    }
+    if (form.captcha_verify_rate_limit === undefined) {
+      form.captcha_verify_rate_limit = 20
+    }
+    if (form.upload_rate_limit === undefined) {
+      form.upload_rate_limit = 20
+    }
+    if (form.ad_apply_rate_limit === undefined) {
+      form.ad_apply_rate_limit = 5
+    }
+    if (form.friend_link_apply_rate_limit === undefined) {
+      form.friend_link_apply_rate_limit = 5
+    }
+    if (form.friend_link_update_rate_limit === undefined) {
+      form.friend_link_update_rate_limit = 10
+    }
+    if (form.access_read_rate_limit === undefined) {
+      form.access_read_rate_limit = 120
+    }
+    if (form.access_unlock_rate_limit === undefined) {
+      form.access_unlock_rate_limit = 5
+    }
+    if (form.interaction_like_toggle_rate_limit === undefined) {
+      form.interaction_like_toggle_rate_limit = 60
+    }
+    if (form.interaction_like_state_rate_limit === undefined) {
+      form.interaction_like_state_rate_limit = 90
+    }
+    if (form.interaction_favorite_toggle_rate_limit === undefined) {
+      form.interaction_favorite_toggle_rate_limit = 60
+    }
+    if (form.interaction_favorite_state_rate_limit === undefined) {
+      form.interaction_favorite_state_rate_limit = 90
+    }
+    if (form.interaction_favorite_batch_rate_limit === undefined) {
+      form.interaction_favorite_batch_rate_limit = 20
+    }
+    if (form.comment_delete_rate_limit === undefined) {
+      form.comment_delete_rate_limit = 30
+    }
+    if (form.comment_batch_delete_rate_limit === undefined) {
+      form.comment_batch_delete_rate_limit = 10
+    }
+    if (form.comment_like_toggle_rate_limit === undefined) {
+      form.comment_like_toggle_rate_limit = 60
+    }
+    if (form.comment_like_state_rate_limit === undefined) {
+      form.comment_like_state_rate_limit = 90
+    }
+    if (form.ai_writing_rate_limit === undefined) {
+      form.ai_writing_rate_limit = 20
+    }
+    if (form.ai_chat_rate_limit === undefined) {
+      form.ai_chat_rate_limit = 30
+    }
+    if (form.ai_meta_rate_limit === undefined) {
+      form.ai_meta_rate_limit = 20
+    }
+    if (form.admin_revoke_token_rate_limit === undefined) {
+      form.admin_revoke_token_rate_limit = 20
+    }
+    if (form.admin_revoke_all_tokens_rate_limit === undefined) {
+      form.admin_revoke_all_tokens_rate_limit = 5
+    }
+    if (form.system_config_batch_update_rate_limit === undefined) {
+      form.system_config_batch_update_rate_limit = 20
+    }
+    if (form.ranking_refresh_rate_limit === undefined) {
+      form.ranking_refresh_rate_limit = 5
+    }
+    if (form.admin_post_delete_rate_limit === undefined) {
+      form.admin_post_delete_rate_limit = 20
+    }
+    if (form.admin_post_permanent_delete_rate_limit === undefined) {
+      form.admin_post_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_topic_delete_rate_limit === undefined) {
+      form.admin_topic_delete_rate_limit = 20
+    }
+    if (form.admin_topic_permanent_delete_rate_limit === undefined) {
+      form.admin_topic_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_media_delete_rate_limit === undefined) {
+      form.admin_media_delete_rate_limit = 30
+    }
+    if (form.admin_media_cleanup_rate_limit === undefined) {
+      form.admin_media_cleanup_rate_limit = 5
+    }
+    if (form.admin_user_status_update_rate_limit === undefined) {
+      form.admin_user_status_update_rate_limit = 20
+    }
+    if (form.admin_user_reset_password_rate_limit === undefined) {
+      form.admin_user_reset_password_rate_limit = 10
+    }
+    if (form.admin_ad_status_update_rate_limit === undefined) {
+      form.admin_ad_status_update_rate_limit = 30
+    }
+    if (form.admin_ad_delete_rate_limit === undefined) {
+      form.admin_ad_delete_rate_limit = 20
+    }
+    if (form.admin_ad_permanent_delete_rate_limit === undefined) {
+      form.admin_ad_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_ad_apply_switch_rate_limit === undefined) {
+      form.admin_ad_apply_switch_rate_limit = 20
+    }
+    if (form.admin_ad_price_rules_rate_limit === undefined) {
+      form.admin_ad_price_rules_rate_limit = 10
+    }
+    if (form.admin_ad_pit_update_rate_limit === undefined) {
+      form.admin_ad_pit_update_rate_limit = 20
+    }
+    if (form.admin_friend_link_status_update_rate_limit === undefined) {
+      form.admin_friend_link_status_update_rate_limit = 30
+    }
+    if (form.admin_friend_link_delete_rate_limit === undefined) {
+      form.admin_friend_link_delete_rate_limit = 20
+    }
+    if (form.admin_announcement_status_update_rate_limit === undefined) {
+      form.admin_announcement_status_update_rate_limit = 30
+    }
+    if (form.admin_announcement_delete_rate_limit === undefined) {
+      form.admin_announcement_delete_rate_limit = 20
+    }
+    if (form.user_bind_email_rate_limit === undefined) {
+      form.user_bind_email_rate_limit = 8
+    }
+    if (form.user_change_email_rate_limit === undefined) {
+      form.user_change_email_rate_limit = 8
+    }
+    if (form.user_set_password_rate_limit === undefined) {
+      form.user_set_password_rate_limit = 8
+    }
+    if (form.user_reset_password_rate_limit === undefined) {
+      form.user_reset_password_rate_limit = 8
+    }
+    if (form.rate_limit_auto_block_enabled === undefined || form.rate_limit_auto_block_enabled === '') {
+      form.rate_limit_auto_block_enabled = 'false'
+    }
+    if (form.rate_limit_auto_block_threshold === undefined) {
+      form.rate_limit_auto_block_threshold = 20
+    }
+    if (form.rate_limit_auto_block_window_minutes === undefined) {
+      form.rate_limit_auto_block_window_minutes = 10
+    }
+    if (form.rate_limit_auto_block_minutes === undefined) {
+      form.rate_limit_auto_block_minutes = 60
+    }
+    if (form.rate_limit_auto_block_key_prefixes === undefined || form.rate_limit_auto_block_key_prefixes === '') {
+      form.rate_limit_auto_block_key_prefixes = 'register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete'
     }
   } catch (e: unknown) {
     ElMessage.error((e as Error).message || '加载配置失败')
@@ -259,16 +482,34 @@ async function handleRefreshRanking() {
   }
 }
 
-async function handleCleanupSecurityLogs() {
-  cleaningSecurityLogs.value = true
+async function handleResetRateLimitDefaults() {
   try {
-    const res = await systemConfigApi.cleanupSecurityLogs()
-    const { loginDeleted, auditDeleted } = res.data
-    ElMessage.success(`安全日志清理完成：登录日志 ${loginDeleted} 条，审计日志 ${auditDeleted} 条`)
+    await ElMessageBox.confirm(
+      '将仅恢复限流相关配置到默认值，并立即保存生效。是否继续？',
+      '恢复限流默认值',
+      {
+        type: 'warning',
+        confirmButtonText: '恢复并保存',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  resettingRateLimit.value = true
+  try {
+    const payload: Record<string, string> = {}
+    for (const [key, value] of Object.entries(rateLimitDefaults)) {
+      payload[key] = String(value)
+      form[key] = value
+    }
+    await systemConfigApi.batchUpdate(payload)
+    ElMessage.success('限流配置已恢复默认值并保存成功')
   } catch (e: unknown) {
-    ElMessage.error((e as Error).message || '清理安全日志失败')
+    ElMessage.error((e as Error).message || '恢复限流默认值失败')
   } finally {
-    cleaningSecurityLogs.value = false
+    resettingRateLimit.value = false
   }
 }
 
@@ -298,6 +539,12 @@ onMounted(loadData)
       letter-spacing: 0.3px;
     }
   }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 // ========== 两列网格 ==========
@@ -335,6 +582,9 @@ onMounted(loadData)
 
 // ========== 表单 ==========
 .config-card {
+  .rate-limit-alert {
+    margin-bottom: 14px;
+  }
   .el-form-item {
     margin-bottom: 18px;
     &:last-child { margin-bottom: 0; }

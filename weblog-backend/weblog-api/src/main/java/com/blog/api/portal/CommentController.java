@@ -2,9 +2,11 @@ package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.api.portal.support.BatchIdNormalizer;
 import com.blog.api.portal.support.PageParamNormalizer;
 import com.blog.content.entity.Post;
@@ -15,11 +17,13 @@ import com.blog.interaction.entity.Comment;
 import com.blog.interaction.service.CommentService;
 import com.blog.interaction.service.LikeService;
 import com.blog.infra.security.ratelimit.RateLimit;
+import com.blog.infra.redis.RedisService;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -39,20 +43,33 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 public class CommentController {
 
     private static final int MAX_BATCH_OPERATE_COUNT = 100;
+    private static final String COMMENT_MAX_LENGTH_KEY = "comment_max_length";
+    private static final String COMMENT_RATE_LIMIT_KEY = "comment_rate_limit";
+    private static final int DEFAULT_COMMENT_MAX_LENGTH = 1000;
+    private static final int DEFAULT_COMMENT_RATE_LIMIT = 5;
+    private static final String COMMENT_RATE_LIMIT_REDIS_PREFIX = "comment:create:user:";
+    private static final String COMMENT_DELETE_RATE_LIMIT_KEY = "comment_delete_rate_limit";
+    private static final String COMMENT_BATCH_DELETE_RATE_LIMIT_KEY = "comment_batch_delete_rate_limit";
+    private static final String COMMENT_LIKE_TOGGLE_RATE_LIMIT_KEY = "comment_like_toggle_rate_limit";
+    private static final String COMMENT_LIKE_STATE_RATE_LIMIT_KEY = "comment_like_state_rate_limit";
 
     private final CommentService commentService;
     private final LikeService likeService;
     private final UserMapper userMapper;
     private final PostMapper postMapper;
     private final SystemConfigService systemConfigService;
+    private final RedisService redisService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
 
     @Operation(summary = "发表评论")
     @PostMapping
-    @RateLimit(key = "comment-create", capacity = 10, seconds = 60)
+    @RateLimit(key = "comment-create", capacity = 120, seconds = 60)
     public Result<CommentVO> create(@Valid @RequestBody CreateCommentRequest req) {
         validatePostId(req.getPostId());
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
+        enforceCommentCreateRateLimit(userId);
+        validateCommentContentLength(req.getContent());
         User user = userMapper.selectById(userId);
         boolean isAdmin = "admin".equals(user.getRole());
         // 管理员评论跳过审核
@@ -65,7 +82,17 @@ public class CommentController {
     @Operation(summary = "删除评论（只能删自己的）")
     @DeleteMapping("/{commentId}")
     @RateLimit(key = "comment-delete", capacity = 30, seconds = 60)
-    public Result<Void> delete(@PathVariable Long commentId) {
+    public Result<Void> delete(@PathVariable Long commentId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "comment-delete",
+                COMMENT_DELETE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "删除评论过于频繁，请稍后再试"
+        );
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         commentService.deleteComment(userId, commentId);
@@ -75,7 +102,17 @@ public class CommentController {
     @Operation(summary = "批量删除评论（只能删自己的）")
     @DeleteMapping("/batch")
     @RateLimit(key = "comment-batch-delete", capacity = 10, seconds = 60)
-    public Result<Void> batchDelete(@RequestBody List<Long> commentIds) {
+    public Result<Void> batchDelete(@RequestBody List<Long> commentIds, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "comment-batch-delete",
+                COMMENT_BATCH_DELETE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量删除评论过于频繁，请稍后再试"
+        );
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         List<Long> uniqueCommentIds = BatchIdNormalizer.normalize(
@@ -176,7 +213,17 @@ public class CommentController {
     @Operation(summary = "评论点赞/取消点赞")
     @PostMapping("/like/{commentId}")
     @RateLimit(key = "comment-like-toggle", capacity = 60, seconds = 60)
-    public Result<Map<String, Object>> toggleCommentLike(@PathVariable Long commentId) {
+    public Result<Map<String, Object>> toggleCommentLike(@PathVariable Long commentId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "comment-like-toggle",
+                COMMENT_LIKE_TOGGLE_RATE_LIMIT_KEY,
+                60,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "评论点赞过于频繁，请稍后再试"
+        );
         validateCommentId(commentId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -189,7 +236,18 @@ public class CommentController {
     @PostMapping("/like/{commentId}/state")
     @RateLimit(key = "comment-like-state", capacity = 90, seconds = 60)
     public Result<Map<String, Object>> setCommentLikeState(@PathVariable Long commentId,
-                                                           @RequestBody CommentLikeStateRequest request) {
+                                                           @RequestBody CommentLikeStateRequest request,
+                                                           HttpServletRequest servletRequest) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "comment-like-state",
+                COMMENT_LIKE_STATE_RATE_LIMIT_KEY,
+                90,
+                1,
+                180,
+                60,
+                IpUtil.getClientIp(servletRequest),
+                "设置评论点赞状态过于频繁，请稍后再试"
+        );
         validateCommentId(commentId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -385,5 +443,37 @@ public class CommentController {
         public void setLiked(Boolean liked) {
             this.liked = liked;
         }
+    }
+
+    private void validateCommentContentLength(String content) {
+        String safeContent = content == null ? "" : content.trim();
+        int maxLength = resolveCommentMaxLength();
+        if (safeContent.length() > maxLength) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "评论内容不能超过" + maxLength + "个字符");
+        }
+    }
+
+    private void enforceCommentCreateRateLimit(Long userId) {
+        int capacity = resolveCommentRateLimit();
+        long count = redisService.incrementWithExpire(COMMENT_RATE_LIMIT_REDIS_PREFIX + userId, 60);
+        if (count > capacity) {
+            throw new BusinessException(ResultCode.RATE_LIMIT, "评论提交过于频繁，请稍后再试");
+        }
+    }
+
+    private int resolveCommentMaxLength() {
+        int value = systemConfigService.getIntValue(COMMENT_MAX_LENGTH_KEY, DEFAULT_COMMENT_MAX_LENGTH);
+        if (value < 50 || value > 5000) {
+            return DEFAULT_COMMENT_MAX_LENGTH;
+        }
+        return value;
+    }
+
+    private int resolveCommentRateLimit() {
+        int value = systemConfigService.getIntValue(COMMENT_RATE_LIMIT_KEY, DEFAULT_COMMENT_RATE_LIMIT);
+        if (value < 1 || value > 60) {
+            return DEFAULT_COMMENT_RATE_LIMIT;
+        }
+        return value;
     }
 }

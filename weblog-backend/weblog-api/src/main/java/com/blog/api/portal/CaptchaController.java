@@ -2,6 +2,7 @@ package com.blog.api.portal;
 
 import com.blog.common.util.IpUtil;
 import com.blog.common.result.Result;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.infra.captcha.model.CaptchaGenerateVO;
 import com.blog.infra.captcha.model.CaptchaRiskContext;
 import com.blog.infra.captcha.model.CaptchaRefreshRequest;
@@ -29,11 +30,25 @@ public class CaptchaController {
 
     private final CaptchaService captchaService;
     private final DeviceFingerprintService deviceFingerprintService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String CAPTCHA_GENERATE_RATE_LIMIT_KEY = "captcha_generate_rate_limit";
+    private static final String CAPTCHA_VERIFY_RATE_LIMIT_KEY = "captcha_verify_rate_limit";
 
     @Operation(summary = "生成验证码")
     @GetMapping("/generate")
     @RateLimit(key = "captchaGenerate", capacity = 10, seconds = 60)
     public Result<CaptchaGenerateVO> generate(HttpServletRequest request, HttpServletResponse response) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "captchaGenerate",
+                CAPTCHA_GENERATE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "验证码请求过于频繁，请稍后再试"
+        );
         return Result.success(captchaService.generateCaptcha(buildRiskContext(request, response)));
     }
 
@@ -43,6 +58,16 @@ public class CaptchaController {
     public Result<CaptchaVerifyVO> verify(@Valid @RequestBody CaptchaVerifyRequest req,
                                           HttpServletRequest request,
                                           HttpServletResponse response) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "captchaVerify",
+                CAPTCHA_VERIFY_RATE_LIMIT_KEY,
+                20,
+                1,
+                180,
+                60,
+                IpUtil.getClientIp(request),
+                "验证码验证过于频繁，请稍后再试"
+        );
         return Result.success(captchaService.verifyCaptcha(req, buildRiskContext(request, response)));
     }
 
@@ -52,6 +77,16 @@ public class CaptchaController {
     public Result<CaptchaGenerateVO> refresh(@Valid @RequestBody CaptchaRefreshRequest req,
                                              HttpServletRequest request,
                                              HttpServletResponse response) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "captchaGenerate",
+                CAPTCHA_GENERATE_RATE_LIMIT_KEY,
+                10,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "验证码请求过于频繁，请稍后再试"
+        );
         return Result.success(captchaService.refreshCaptcha(req.getOldToken(), buildRiskContext(request, response)));
     }
 

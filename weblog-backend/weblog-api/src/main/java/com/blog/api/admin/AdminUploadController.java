@@ -5,7 +5,9 @@ import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.IpUtil;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.api.security.UploadGuardService;
+import com.blog.api.security.UploadValidationService;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.ContentModerationService;
 import com.blog.infra.oss.StorageFacade;
@@ -43,6 +45,14 @@ public class AdminUploadController {
     @Autowired
     private UploadGuardService uploadGuardService;
 
+    @Autowired
+    private UploadValidationService uploadValidationService;
+
+    @Autowired
+    private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+    private static final String UPLOAD_RATE_LIMIT_KEY = "upload_rate_limit";
+
     private void checkUploadEnabled() {
         if (!storageFacade.isStorageEnabled()) {
             throw new BusinessException(ResultCode.FAIL, "文件上传服务未启用");
@@ -58,11 +68,23 @@ public class AdminUploadController {
             throws IOException {
         checkUploadEnabled();
         StpUtil.checkLogin();
+        String clientIp = IpUtil.getClientIp(request);
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-upload-image",
+                UPLOAD_RATE_LIMIT_KEY,
+                20,
+                1,
+                300,
+                300,
+                clientIp,
+                "上传过于频繁，请稍后再试"
+        );
+        uploadValidationService.validateImage(file);
         Long userId = StpUtil.getLoginIdAsLong();
         uploadGuardService.consumeUpload(
                 UploadGuardService.UploadScene.ADMIN_IMAGE,
                 userId,
-                IpUtil.getClientIp(request),
+                clientIp,
                 file.getSize());
 
         boolean isTemp = "content".equals(usageType);

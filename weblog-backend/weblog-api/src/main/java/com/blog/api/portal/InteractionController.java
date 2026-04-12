@@ -3,9 +3,11 @@ package com.blog.api.portal;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.content.entity.Post;
 import com.blog.content.mapper.PostMapper;
 import com.blog.api.portal.support.BatchIdNormalizer;
@@ -18,6 +20,7 @@ import com.blog.interaction.service.LikeService;
 import com.blog.infra.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,18 +39,34 @@ import static com.blog.common.constant.CommonConstant.MAX_PAGE_SIZE;
 public class InteractionController {
 
     private static final int MAX_BATCH_OPERATE_COUNT = 100;
+    private static final String INTERACTION_LIKE_TOGGLE_RATE_LIMIT_KEY = "interaction_like_toggle_rate_limit";
+    private static final String INTERACTION_LIKE_STATE_RATE_LIMIT_KEY = "interaction_like_state_rate_limit";
+    private static final String INTERACTION_FAVORITE_TOGGLE_RATE_LIMIT_KEY = "interaction_favorite_toggle_rate_limit";
+    private static final String INTERACTION_FAVORITE_STATE_RATE_LIMIT_KEY = "interaction_favorite_state_rate_limit";
+    private static final String INTERACTION_FAVORITE_BATCH_RATE_LIMIT_KEY = "interaction_favorite_batch_rate_limit";
 
     private final LikeService likeService;
     private final FavoriteService favoriteService;
     private final PostMapper postMapper;
     private final UserLikeMapper userLikeMapper;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
 
     // ========== 点赞 ==========
 
     @Operation(summary = "点赞/取消点赞文章")
     @PostMapping("/like/{postId}")
     @RateLimit(key = "interaction-like-toggle", capacity = 60, seconds = 60)
-    public Result<Map<String, Object>> toggleLike(@PathVariable Long postId) {
+    public Result<Map<String, Object>> toggleLike(@PathVariable Long postId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "interaction-like-toggle",
+                INTERACTION_LIKE_TOGGLE_RATE_LIMIT_KEY,
+                60,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "点赞操作过于频繁，请稍后再试"
+        );
         validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -60,11 +79,22 @@ public class InteractionController {
     @PostMapping("/like/{postId}/state")
     @RateLimit(key = "interaction-like-state", capacity = 90, seconds = 60)
     public Result<Map<String, Object>> setLikeState(@PathVariable Long postId,
-                                                    @RequestBody LikeStateRequest request) {
+                                                    @RequestBody LikeStateRequest requestBody,
+                                                    HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "interaction-like-state",
+                INTERACTION_LIKE_STATE_RATE_LIMIT_KEY,
+                90,
+                1,
+                180,
+                60,
+                IpUtil.getClientIp(request),
+                "设置点赞状态过于频繁，请稍后再试"
+        );
         validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        boolean liked = likeService.setLikeState(userId, postId, requireState(request != null ? request.getLiked() : null, "liked"));
+        boolean liked = likeService.setLikeState(userId, postId, requireState(requestBody != null ? requestBody.getLiked() : null, "liked"));
         long count = likeService.getLikeCount(postId);
         return Result.success(Map.of("liked", liked, "likeCount", count));
     }
@@ -86,7 +116,17 @@ public class InteractionController {
     @Operation(summary = "收藏/取消收藏文章")
     @PostMapping("/favorite/{postId}")
     @RateLimit(key = "interaction-favorite-toggle", capacity = 60, seconds = 60)
-    public Result<Map<String, Object>> toggleFavorite(@PathVariable Long postId) {
+    public Result<Map<String, Object>> toggleFavorite(@PathVariable Long postId, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "interaction-favorite-toggle",
+                INTERACTION_FAVORITE_TOGGLE_RATE_LIMIT_KEY,
+                60,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "收藏操作过于频繁，请稍后再试"
+        );
         validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
@@ -99,11 +139,22 @@ public class InteractionController {
     @PostMapping("/favorite/{postId}/state")
     @RateLimit(key = "interaction-favorite-state", capacity = 90, seconds = 60)
     public Result<Map<String, Object>> setFavoriteState(@PathVariable Long postId,
-                                                        @RequestBody FavoriteStateRequest request) {
+                                                        @RequestBody FavoriteStateRequest requestBody,
+                                                        HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "interaction-favorite-state",
+                INTERACTION_FAVORITE_STATE_RATE_LIMIT_KEY,
+                90,
+                1,
+                180,
+                60,
+                IpUtil.getClientIp(request),
+                "设置收藏状态过于频繁，请稍后再试"
+        );
         validatePostId(postId);
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        boolean favorited = favoriteService.setFavoriteState(userId, postId, requireState(request != null ? request.getFavorited() : null, "favorited"));
+        boolean favorited = favoriteService.setFavoriteState(userId, postId, requireState(requestBody != null ? requestBody.getFavorited() : null, "favorited"));
         long collectCount = favoriteService.getCollectCount(postId);
         return Result.success(Map.of("favorited", favorited, "collectCount", collectCount));
     }
@@ -166,7 +217,17 @@ public class InteractionController {
     @Operation(summary = "批量取消收藏")
     @DeleteMapping("/favorite/batch")
     @RateLimit(key = "interaction-favorite-batch", capacity = 20, seconds = 60)
-    public Result<Void> batchUnfavorite(@RequestBody List<Long> postIds) {
+    public Result<Void> batchUnfavorite(@RequestBody List<Long> postIds, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "interaction-favorite-batch",
+                INTERACTION_FAVORITE_BATCH_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量取消收藏过于频繁，请稍后再试"
+        );
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
         List<Long> uniquePostIds = BatchIdNormalizer.normalize(

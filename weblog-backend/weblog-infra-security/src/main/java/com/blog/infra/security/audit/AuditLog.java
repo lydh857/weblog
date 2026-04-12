@@ -13,6 +13,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AuditLog {
 
+    String AUDIT_APPEND_DESCRIPTION_ATTR = "audit.log.appendDescription";
+
     /** 操作模块 */
     String module() default "";
 

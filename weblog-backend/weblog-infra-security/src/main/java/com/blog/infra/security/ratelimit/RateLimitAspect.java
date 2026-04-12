@@ -35,6 +35,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitAspect {
 
+    public static final String ATTR_RATE_LIMIT_HIT = "rateLimit.hit";
+    public static final String ATTR_RATE_LIMIT_KEY = "rateLimit.key";
+    public static final String ATTR_RATE_LIMIT_IP = "rateLimit.clientIp";
+    public static final String ATTR_RATE_LIMIT_CAPACITY = "rateLimit.capacity";
+    public static final String ATTR_RATE_LIMIT_SECONDS = "rateLimit.seconds";
+
     private static final Logger log = LoggerFactory.getLogger(RateLimitAspect.class);
 
     @Autowired(required = false)
@@ -123,7 +129,8 @@ public class RateLimitAspect {
             return joinPoint.proceed();
         }
 
-        String key = resolveKey(joinPoint, rateLimit, clientIp);
+        String keyPrefix = resolveKeyPrefix(joinPoint, rateLimit);
+        String key = resolveKey(keyPrefix, rateLimit, clientIp);
 
         // 优先使用 Redis 限流，支持多实例共享计数
         if (redisTemplate != null) {
@@ -132,6 +139,7 @@ public class RateLimitAspect {
                 if (decision.allowed()) {
                     return joinPoint.proceed();
                 }
+                markRateLimitHit(keyPrefix, clientIp, rateLimit);
                 log.warn("接口限流触发(redis): key={}, remaining={}, retryAfterMs={}",
                         key, decision.remaining(), decision.retryAfterMs());
                 throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
@@ -156,6 +164,7 @@ public class RateLimitAspect {
             return joinPoint.proceed();
         }
 
+        markRateLimitHit(keyPrefix, clientIp, rateLimit);
         log.warn("接口限流触发: key={}", key);
         throw new BusinessException(ResultCode.RATE_LIMIT, rateLimit.message());
     }
@@ -168,15 +177,30 @@ public class RateLimitAspect {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    private String resolveKey(ProceedingJoinPoint joinPoint, RateLimit rateLimit, String clientIp) {
-        String prefix = rateLimit.key().isEmpty()
+    private String resolveKeyPrefix(ProceedingJoinPoint joinPoint, RateLimit rateLimit) {
+        return rateLimit.key().isEmpty()
                 ? ((MethodSignature) joinPoint.getSignature()).getMethod().getName()
                 : rateLimit.key();
+    }
+
+    private String resolveKey(String prefix, RateLimit rateLimit, String clientIp) {
 
         if (rateLimit.perIp()) {
             return prefix + ":" + clientIp;
         }
         return prefix;
+    }
+
+    private void markRateLimitHit(String keyPrefix, String clientIp, RateLimit rateLimit) {
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return;
+        }
+        attrs.getRequest().setAttribute(ATTR_RATE_LIMIT_HIT, Boolean.TRUE);
+        attrs.getRequest().setAttribute(ATTR_RATE_LIMIT_KEY, keyPrefix);
+        attrs.getRequest().setAttribute(ATTR_RATE_LIMIT_IP, clientIp);
+        attrs.getRequest().setAttribute(ATTR_RATE_LIMIT_CAPACITY, rateLimit.capacity());
+        attrs.getRequest().setAttribute(ATTR_RATE_LIMIT_SECONDS, rateLimit.seconds());
     }
 
     private RedisLimitDecision allowByRedisWindow(String key, int capacity, int seconds) {

@@ -97,10 +97,12 @@
 <script setup lang="ts">
 import type { PostVO } from '~/api/content/post'
 import type { AdvertisementVO } from '~/api/marketing/advertisement'
+import { getErrorMessage } from '~/utils/security/error'
 
 useHead({ title: 'Weblog - 首页' })
 
 const posts = ref<PostVO[]>([])
+const message = useMessage()
 const loading = ref(false)
 const loadingMore = ref(false)
 const noMore = ref(false)
@@ -339,7 +341,9 @@ async function loadPosts() {
     posts.value = res.data.records
     noMore.value = res.data.records.length < pageSize || res.data.pages <= 1
     currentPage.value = 1
-  } catch { /* ignore */ }
+  } catch (error: unknown) {
+    message.error(getErrorMessage(error, '访问受限，请稍后再试'))
+  }
   finally {
     const elapsed = Date.now() - startAt
     if (elapsed < MIN_HOME_INITIAL_SKELETON_MS) {
@@ -362,7 +366,9 @@ async function loadMore() {
     posts.value = [...posts.value, ...appendedPosts]
     currentPage.value = nextPage
     noMore.value = appendedPosts.length < pageSize || nextPage >= res.data.pages
-  } catch { /* ignore */ }
+  } catch (error: unknown) {
+    message.error(getErrorMessage(error, '访问受限，请稍后再试'))
+  }
   finally {
     const elapsed = Date.now() - startAt
     if (elapsed < MIN_HOME_LOAD_MORE_SKELETON_MS) {

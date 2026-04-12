@@ -86,6 +86,16 @@ function createHttp(): AxiosInstance {
     // 错误响应
     async (error: AxiosError<{ code?: number; message?: string }>) => {
       const originalRequest = error.config as RetryRequestConfig | undefined
+      const responseStatus = Number(error.response?.status || 0)
+      const businessCode = Number(error.response?.data?.code || 0)
+      const businessMessage = error.response?.data?.message
+
+      if (businessCode === 40103 || businessCode === 403 || businessCode === 429 || responseStatus === 429) {
+        return Promise.reject(createHttpError(
+          businessMessage || (responseStatus === 429 ? '访问受限，请稍后再试' : '请求失败'),
+          businessCode || responseStatus
+        ))
+      }
 
       // 401 未授权：尝试使用 Refresh Token 刷新
       if (error.response?.status === 401 && import.meta.client && originalRequest && !originalRequest._retry) {
@@ -129,9 +139,8 @@ function createHttp(): AxiosInstance {
         }
       }
 
-      // CSRF 验证失败
       if (error.response?.status === 403) {
-        return Promise.reject(createHttpError('安全验证失败，请刷新页面重试', 403))
+        return Promise.reject(createHttpError(businessMessage || '无权限访问', 403))
       }
 
       // 其他错误

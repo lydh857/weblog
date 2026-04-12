@@ -15,8 +15,8 @@
         :collapse="isCollapsed"
         :collapse-transition="false"
         :background-color="'transparent'"
-        :text-color="isDark ? '#b1bccb' : '#4b5f7a'"
-        :active-text-color="'#5b8def'"
+        :text-color="'var(--admin-aside-text)'"
+        :active-text-color="'var(--el-color-primary)'"
         router
       >
         <el-menu-item index="/">
@@ -102,6 +102,10 @@
           <el-icon><Setting /></el-icon>
           <template #title>系统配置</template>
         </el-menu-item>
+        <el-menu-item index="/rate-limit">
+          <el-icon><Timer /></el-icon>
+          <template #title>限流与风控</template>
+        </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><List /></el-icon>
           <template #title>日志中心</template>
@@ -161,7 +165,7 @@ import {
   HomeFilled, Document, Folder, PriceTag, Picture, Film,
   Link, ChatDotRound, User, Promotion, Bell,
   Sunny, Moon, Setting, ArrowDown, Monitor,
-  SwitchButton, Fold, Expand, List, Collection, MagicStick,
+  SwitchButton, Fold, Expand, List, Collection, MagicStick, Timer,
 } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '~/stores/user'
@@ -381,6 +385,30 @@ onMounted(() => {
   background: var(--admin-primary-soft);
   color: var(--el-color-primary);
   font-weight: 500;
+}
+
+:deep(html.dark .el-menu-item.is-active),
+:deep(body.dark .el-menu-item.is-active),
+:deep(.dark .el-menu-item.is-active) {
+  color: var(--el-text-color-primary) !important;
+}
+
+:deep(html.dark .el-menu-item),
+:deep(html.dark .el-sub-menu__title),
+:deep(body.dark .el-menu-item),
+:deep(body.dark .el-sub-menu__title),
+:deep(.dark .el-menu-item),
+:deep(.dark .el-sub-menu__title) {
+  color: var(--admin-aside-text) !important;
+}
+
+:deep(html.dark .el-menu-item .el-icon),
+:deep(html.dark .el-sub-menu__title .el-icon),
+:deep(body.dark .el-menu-item .el-icon),
+:deep(body.dark .el-sub-menu__title .el-icon),
+:deep(.dark .el-menu-item .el-icon),
+:deep(.dark .el-sub-menu__title .el-icon) {
+  color: var(--admin-aside-text) !important;
 }
 
 :deep(.el-menu-item:hover),

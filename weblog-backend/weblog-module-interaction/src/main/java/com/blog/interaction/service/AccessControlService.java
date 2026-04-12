@@ -34,7 +34,7 @@ public class AccessControlService {
 
     private final StringRedisTemplate redisTemplate;
 
-    /** 每日免费阅读篇数 */
+    /** 每日免费阅读默认篇数 */
     private static final int DAILY_FREE_LIMIT = 3;
     /** 滑块验证解锁额外篇数 */
     private static final int UNLOCK_EXTRA = 5;
@@ -53,7 +53,7 @@ public class AccessControlService {
      * @param postId 文章ID
      * @return true=可以阅读, false=已达限制
      */
-    public boolean canRead(String fingerprint, Long postId) {
+    public boolean canRead(String fingerprint, Long postId, long dailyFreeLimit) {
         String key = dailyKey(fingerprint);
 
         // 如果该文章已经在今日阅读列表中，允许重复访问
@@ -65,7 +65,7 @@ public class AccessControlService {
 
         // 检查阅读数量
         Long readCount = redisTemplate.opsForSet().size(key);
-        long limit = getLimit(fingerprint);
+        long limit = getLimit(fingerprint, dailyFreeLimit);
 
         return readCount == null || readCount < limit;
     }
@@ -98,10 +98,15 @@ public class AccessControlService {
     /**
      * 获取当前限制数量
      */
-    public long getLimit(String fingerprint) {
+    public long getLimit(String fingerprint, long dailyFreeLimit) {
         String unlockKey = KEY_UNLOCK + LocalDate.now() + ":" + fingerprint;
         Boolean unlocked = redisTemplate.hasKey(unlockKey);
-        return DAILY_FREE_LIMIT + (Boolean.TRUE.equals(unlocked) ? UNLOCK_EXTRA : 0);
+        long normalizedLimit = Math.max(dailyFreeLimit, 0L);
+        return normalizedLimit + (Boolean.TRUE.equals(unlocked) ? UNLOCK_EXTRA : 0);
+    }
+
+    public int getDefaultDailyFreeLimit() {
+        return DAILY_FREE_LIMIT;
     }
 
     /**

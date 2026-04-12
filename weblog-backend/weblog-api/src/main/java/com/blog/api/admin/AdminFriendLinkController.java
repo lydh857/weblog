@@ -1,16 +1,20 @@
 package com.blog.api.admin;
 
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.content.entity.FriendLink;
 import com.blog.content.service.FriendLinkService;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.entity.User;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -40,9 +44,12 @@ public class AdminFriendLinkController {
 
     private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
     private static final String FRIEND_LINK_APPLY_SWITCH_KEY = "friend_link_apply_enabled";
+    private static final String ADMIN_FRIEND_LINK_DELETE_RATE_LIMIT_KEY = "admin_friend_link_delete_rate_limit";
+    private static final String ADMIN_FRIEND_LINK_STATUS_UPDATE_RATE_LIMIT_KEY = "admin_friend_link_status_update_rate_limit";
     private final FriendLinkService friendLinkService;
     private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
+    private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
     private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "rejected");
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
@@ -105,16 +112,38 @@ public class AdminFriendLinkController {
 
     @Operation(summary = "删除友链")
     @DeleteMapping("/{id}")
+    @RateLimit(key = "admin-friend-link-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "DELETE", description = "删除友链")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-delete",
+                ADMIN_FRIEND_LINK_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "删除友链过于频繁，请稍后再试"
+        );
         friendLinkService.delete(id);
         return Result.success();
     }
 
     @Operation(summary = "批量删除友链")
     @DeleteMapping("/batch")
+    @RateLimit(key = "admin-friend-link-delete", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "DELETE", description = "批量删除友链")
-    public Result<Void> batchDelete(@RequestBody List<Long> ids) {
+    public Result<Void> batchDelete(@RequestBody List<Long> ids, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-delete",
+                ADMIN_FRIEND_LINK_DELETE_RATE_LIMIT_KEY,
+                20,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量删除友链过于频繁，请稍后再试"
+        );
         if (ids != null && !ids.isEmpty()) {
             if (ids.size() > MAX_BATCH_SIZE) {
                 throw new com.blog.common.exception.BusinessException(
@@ -127,8 +156,20 @@ public class AdminFriendLinkController {
 
     @Operation(summary = "批量更新友链状态")
     @PutMapping("/batch/status")
+    @RateLimit(key = "admin-friend-link-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "批量更新友链状态")
-    public Result<Void> batchUpdateStatus(@RequestBody java.util.Map<String, Object> body) {
+    public Result<Void> batchUpdateStatus(@RequestBody java.util.Map<String, Object> body,
+                                          HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-status-update",
+                ADMIN_FRIEND_LINK_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "批量更新友链状态过于频繁，请稍后再试"
+        );
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) body.get("ids");
         String status = (String) body.get("status");
@@ -160,8 +201,19 @@ public class AdminFriendLinkController {
 
     @Operation(summary = "设置友链申请开关")
     @PutMapping("/apply-switch")
+    @RateLimit(key = "admin-friend-link-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "设置友链申请开关")
-    public Result<Void> setApplySwitch(@RequestBody Map<String, Object> body) {
+    public Result<Void> setApplySwitch(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-status-update",
+                ADMIN_FRIEND_LINK_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "更新友链申请开关过于频繁，请稍后再试"
+        );
         boolean enabled = body != null && Boolean.TRUE.equals(body.get("enabled"));
         String val = enabled ? "true" : "false";
         systemConfigService.createIfAbsent(FRIEND_LINK_APPLY_SWITCH_KEY, val, "友链申请入口开关");
@@ -171,8 +223,19 @@ public class AdminFriendLinkController {
 
     @Operation(summary = "审核通过友链申请")
     @PutMapping("/{id}/approve")
+    @RateLimit(key = "admin-friend-link-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "审核通过友链申请")
-    public Result<FriendLinkAdminVO> approve(@PathVariable Long id) {
+    public Result<FriendLinkAdminVO> approve(@PathVariable Long id, HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-status-update",
+                ADMIN_FRIEND_LINK_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "审核友链申请过于频繁，请稍后再试"
+        );
         FriendLink link = friendLinkService.approveLink(id);
         User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;
         return Result.success(toAdminVO(link, applicant));
@@ -180,8 +243,21 @@ public class AdminFriendLinkController {
 
     @Operation(summary = "拒绝友链申请")
     @PutMapping("/{id}/reject")
+    @RateLimit(key = "admin-friend-link-status-update", capacity = 120, seconds = 60)
     @AuditLog(module = "友链管理", operation = "UPDATE", description = "拒绝友链申请")
-    public Result<FriendLinkAdminVO> reject(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+    public Result<FriendLinkAdminVO> reject(@PathVariable Long id,
+                                            @RequestBody java.util.Map<String, String> body,
+                                            HttpServletRequest request) {
+        dynamicRateLimitPolicyService.enforcePerIp(
+                "admin-friend-link-status-update",
+                ADMIN_FRIEND_LINK_STATUS_UPDATE_RATE_LIMIT_KEY,
+                30,
+                1,
+                120,
+                60,
+                IpUtil.getClientIp(request),
+                "拒绝友链申请过于频繁，请稍后再试"
+        );
         String reason = body != null ? body.get("reason") : null;
         FriendLink link = friendLinkService.rejectLink(id, reason);
         User applicant = link.getApplicantUserId() != null ? userMapper.selectById(link.getApplicantUserId()) : null;

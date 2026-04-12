@@ -1,5 +1,5 @@
 <template>
-  <div class="article-toc-container">
+  <div class="article-toc-container" :class="{ 'is-fixed': fixed }" :style="tocContainerStyle">
     <div class="article-toc" :class="{ 'toc-visible': isVisible }">
       <!-- 目录标题 -->
       <div class="toc-header">
@@ -39,21 +39,62 @@ interface TocItem {
 
 const props = defineProps<{
   contentSelector: string
+  fixed?: boolean
+  fixedTop?: string
+  fixedLeft?: string
+  fixedWidth?: string
+  fixedZIndex?: number
 }>()
+
+const fixed = computed(() => Boolean(props.fixed))
+
+const tocContainerStyle = computed(() => {
+  if (!fixed.value) {
+    return undefined
+  }
+  return {
+    '--toc-fixed-top': props.fixedTop || 'calc(var(--layout-navbar-height, 60px) + 10px)',
+    '--toc-fixed-left': props.fixedLeft || 'auto',
+    '--toc-fixed-width': props.fixedWidth || '240px',
+    '--toc-fixed-z-index': String(props.fixedZIndex ?? 260),
+  }
+})
 
 const tocItems = ref<TocItem[]>([])
 const activeId = ref('')
-const isVisible = ref(false)
+const isVisible = ref(true)
 const isManualScrolling = ref(false)
 const tocListRef = ref<HTMLElement | null>(null)
 const lastScrollY = ref(0)
 let scrollDetectTimer: ReturnType<typeof setInterval> | null = null
 let contentObserver: MutationObserver | null = null
+let tocRetryTimer: ReturnType<typeof setTimeout> | null = null
+let tocRetryCount = 0
 
 // 生成目录
 function generateToc() {
-  const container = document.querySelector(props.contentSelector)
-  if (!container) return
+  const container =
+    document.querySelector(props.contentSelector)
+    || document.querySelector('.post-content .md-editor-preview')
+    || document.querySelector('.post-content .md-editor-preview-wrapper .md-editor-preview')
+  if (!container) {
+    isVisible.value = true
+    if (tocRetryCount < 20) {
+      tocRetryCount += 1
+      if (tocRetryTimer) {
+        clearTimeout(tocRetryTimer)
+      }
+      tocRetryTimer = setTimeout(generateToc, 120)
+    }
+    return
+  }
+
+  tocRetryCount = 0
+  if (tocRetryTimer) {
+    clearTimeout(tocRetryTimer)
+    tocRetryTimer = null
+  }
+
   const headings = container.querySelectorAll('h1, h2, h3, h4')
   const items: TocItem[] = []
   headings.forEach((h, i) => {
@@ -64,7 +105,7 @@ function generateToc() {
   tocItems.value = items
   const firstItem = items[0]
   if (firstItem) activeId.value = firstItem.id
-  nextTick(() => { isVisible.value = true })
+  isVisible.value = true
 }
 
 // 滚动跟随高亮
@@ -190,6 +231,7 @@ function throttledScroll() {
 
 onMounted(() => {
   nextTick(() => {
+    isVisible.value = true
     generateToc()
     observeContent()
     window.addEventListener('scroll', throttledScroll, { passive: true })
@@ -200,11 +242,41 @@ onUnmounted(() => {
   window.removeEventListener('scroll', throttledScroll)
   if (scrollDetectTimer) clearInterval(scrollDetectTimer)
   if (contentObserver) contentObserver.disconnect()
+  if (tocRetryTimer) clearTimeout(tocRetryTimer)
 })
 </script>
 
 <style scoped lang="scss">
 .article-toc-container { width: 240px; flex-shrink: 0; }
+
+.article-toc-container.is-fixed {
+  min-height: clamp(260px, 42vh, 420px);
+}
+
+.article-toc-container.is-fixed .article-toc {
+  position: fixed;
+  top: var(--toc-fixed-top);
+  left: var(--toc-fixed-left);
+  width: var(--toc-fixed-width);
+  max-width: calc(100vw - 24px);
+  z-index: var(--toc-fixed-z-index);
+}
+
+@media (max-width: 1100px) {
+  .article-toc-container.is-fixed {
+    min-height: 0;
+  }
+
+  .article-toc-container.is-fixed .article-toc {
+    position: static;
+    top: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    z-index: auto;
+  }
+}
+
 .article-toc {
   background: #fff;
   border-radius: 10px;
@@ -241,7 +313,7 @@ onUnmounted(() => {
   .dark & { color: $color-dark-text-muted; &:hover { background: rgba(59,130,246,0.1); color: $color-primary; } }
 }
 .toc-items {
-  max-height: min(300px, calc(70vh - 100px));
+  max-height: clamp(220px, calc(70vh - 100px), 560px);
   overflow-y: auto;
   scroll-behavior: smooth;
   padding-right: 2px;

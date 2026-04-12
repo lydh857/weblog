@@ -2,9 +2,11 @@ package com.blog.api.admin;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
 import com.blog.common.util.PageParamUtil;
 import com.blog.content.dto.MediaStatsVO;
 import com.blog.content.dto.MediaVO;
@@ -13,6 +15,7 @@ import com.blog.content.service.MediaReferenceService;
 import com.blog.content.service.OssResourceService;
 import com.blog.infra.oss.StorageFacade;
 import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
 import com.blog.system.mapper.UserMapper;
 import com.blog.system.mapper.UserProfileReviewMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +23,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +42,8 @@ import java.util.stream.Collectors;
 public class AdminMediaController {
 
   private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+  private static final String ADMIN_MEDIA_DELETE_RATE_LIMIT_KEY = "admin_media_delete_rate_limit";
+  private static final String ADMIN_MEDIA_CLEANUP_RATE_LIMIT_KEY = "admin_media_cleanup_rate_limit";
 
   @Autowired(required = false)
   private OssResourceService ossResourceService;
@@ -52,6 +59,9 @@ public class AdminMediaController {
 
   @Autowired(required = false)
   private UserProfileReviewMapper userProfileReviewMapper;
+
+  @Autowired
+  private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
 
   @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
   private String uploadBaseUrl;
@@ -116,10 +126,21 @@ public class AdminMediaController {
 
   @Operation(summary = "删除媒体资源（同步删除 OSS 文件）")
   @DeleteMapping("/{id}")
+  @RateLimit(key = "admin-media-delete", capacity = 120, seconds = 60)
   @AuditLog(module = "媒体管理", operation = "DELETE", description = "删除媒体资源")
-  public Result<Void> delete(@PathVariable Long id) {
+  public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
     checkOssEnabled();
     StpUtil.checkLogin();
+    dynamicRateLimitPolicyService.enforcePerIp(
+        "admin-media-delete",
+        ADMIN_MEDIA_DELETE_RATE_LIMIT_KEY,
+        30,
+        1,
+        120,
+        60,
+        IpUtil.getClientIp(request),
+        "删除媒体资源过于频繁，请稍后再试"
+    );
     Long userId = StpUtil.getLoginIdAsLong();
     boolean isAdmin = StpUtil.hasRole("admin");
     ossResourceService.delete(id, userId, isAdmin);
@@ -162,10 +183,21 @@ public class AdminMediaController {
 
   @Operation(summary = "清理所有未引用资源（仅管理员）")
   @PostMapping("/cleanup-unreferenced")
+  @RateLimit(key = "admin-media-cleanup", capacity = 120, seconds = 60)
   @AuditLog(module = "媒体管理", operation = "CLEANUP", description = "清理未引用媒体资源")
-  public Result<Integer> cleanupUnreferenced() {
+  public Result<Integer> cleanupUnreferenced(HttpServletRequest request) {
     checkOssEnabled();
     StpUtil.checkLogin();
+    dynamicRateLimitPolicyService.enforcePerIp(
+        "admin-media-cleanup",
+        ADMIN_MEDIA_CLEANUP_RATE_LIMIT_KEY,
+        5,
+        1,
+        120,
+        60,
+        IpUtil.getClientIp(request),
+        "清理未引用资源过于频繁，请稍后再试"
+    );
     if (mediaReferenceService == null) {
       return Result.success(0);
     }

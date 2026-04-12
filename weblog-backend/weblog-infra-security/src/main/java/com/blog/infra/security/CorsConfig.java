@@ -3,6 +3,7 @@ package com.blog.infra.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
@@ -23,7 +24,7 @@ public class CorsConfig {
     private String allowedOrigins;
 
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         // 从配置读取允许的来源（逗号分隔）
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
@@ -51,6 +52,14 @@ public class CorsConfig {
         source.registerCorsConfiguration("/api/**", config);
         // 静态资源也需要 CORS（前端裁剪组件 canvas 需要跨域读取图片像素）
         source.registerCorsConfiguration("/uploads/**", config);
+        return source;
+    }
+
+    @Bean
+    public CorsFilter corsFilter(CorsConfigurationSource corsConfigurationSource) {
+        if (!(corsConfigurationSource instanceof UrlBasedCorsConfigurationSource source)) {
+            throw new IllegalStateException("CORS 配置源类型不支持: " + corsConfigurationSource.getClass().getName());
+        }
         return new CorsFilter(source);
     }
 }

@@ -6,6 +6,7 @@
   --admin-primary: #{$color-primary};
   --admin-primary-soft: #eaf1fd;
   --admin-primary-soft-hover: #dce8fc;
+  --admin-aside-text: #4b5f7a;
   --admin-surface-0: #{$color-bg-light};
   --admin-surface-1: #{$color-bg-secondary-light};
   --admin-surface-2: #{$color-bg-tertiary-light};
@@ -55,33 +56,34 @@
 }
 
 html.dark {
-  --admin-primary: #5b8def;
-  --admin-primary-soft: rgba(91, 141, 239, 0.2);
-  --admin-primary-soft-hover: rgba(91, 141, 239, 0.28);
+  --admin-primary: #5a6574;
+  --admin-primary-soft: rgba(255, 255, 255, 0.12);
+  --admin-primary-soft-hover: rgba(255, 255, 255, 0.18);
+  --admin-aside-text: #e2e8f0;
   --admin-surface-0: #{$color-bg-dark};
   --admin-surface-1: #{$color-bg-secondary-dark};
   --admin-surface-2: #{$color-bg-tertiary-dark};
   --admin-border-1: #{$color-border-dark};
   --admin-border-2: #{$color-border-strong-dark};
 
-  --el-color-primary: #78a1ee;
-  --el-color-primary-light-3: #8cb0f2;
-  --el-color-primary-light-5: #9dbdf4;
-  --el-color-primary-light-7: #486da6;
-  --el-color-primary-light-8: #334f7f;
-  --el-color-primary-light-9: #243a61;
-  --el-color-primary-dark-2: #9fbdf2;
+  --el-color-primary: #5a6574;
+  --el-color-primary-light-3: #717b89;
+  --el-color-primary-light-5: #87909d;
+  --el-color-primary-light-7: #9ea6b1;
+  --el-color-primary-light-8: #b5bcc5;
+  --el-color-primary-light-9: #ccd1d8;
+  --el-color-primary-dark-2: #49525f;
 
   --el-color-success: #63c28d;
   --el-color-warning: #e0b062;
   --el-color-danger: #e3838d;
   --el-color-info: #8da4bf;
 
-  --el-text-color-primary: #{$color-text-dark};
-  --el-text-color-regular: #c4cfde;
-  --el-text-color-secondary: #9eacbf;
-  --el-text-color-placeholder: #7f91a9;
-  --el-text-color-disabled: #6f8199;
+  --el-text-color-primary: #edf2f7;
+  --el-text-color-regular: #dbe3ef;
+  --el-text-color-secondary: #c3cede;
+  --el-text-color-placeholder: #aab7cb;
+  --el-text-color-disabled: #8f9db3;
 
   --el-bg-color-page: var(--admin-surface-0);
   --el-bg-color: var(--admin-surface-1);
@@ -137,7 +139,7 @@ body {
 }
 
 html.dark * {
-  scrollbar-color: rgba(120, 161, 238, 0.35) transparent;
+  scrollbar-color: rgba(146, 156, 171, 0.35) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -159,27 +161,45 @@ html.dark * {
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(120, 161, 238, 0.3);
+  background: rgba(146, 156, 171, 0.3);
 
   &:hover {
-    background: rgba(120, 161, 238, 0.42);
+    background: rgba(146, 156, 171, 0.42);
   }
 }
 
 // ===== 页面路由过渡动画 =====
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform, filter;
 }
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(10px) scale(0.995);
+  filter: blur(2px);
 }
 
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-3px);
+  transform: translateY(-6px) scale(0.998);
+  filter: blur(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: opacity 0.01s linear;
+  }
+
+  .page-enter-from,
+  .page-leave-to {
+    transform: none;
+    filter: none;
+  }
 }
 
 // ===== 管理端统一图片展示基线 =====
