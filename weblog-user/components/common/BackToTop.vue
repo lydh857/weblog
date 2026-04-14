@@ -82,7 +82,7 @@ $btn-size: 46px;
 .back-to-top {
   position: fixed;
   right: 40px;
-  bottom: 70px;
+  bottom: 96px;
   width: $btn-size;
   height: $btn-size;
   border-radius: 50%;
@@ -143,7 +143,19 @@ $btn-size: 46px;
 @media (max-width: 768px) {
   .back-to-top {
     right: 20px;
-    bottom: 40px;
+    bottom: 72px;
+  }
+
+  :global(body.with-comment-bottom-bar) .back-to-top {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 34px);
+    z-index: 180;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  :global(body.with-comment-bottom-bar) .back-to-top {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 40px);
+    z-index: 180;
   }
 }
 </style>

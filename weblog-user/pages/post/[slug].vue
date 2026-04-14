@@ -75,6 +75,7 @@
                 :theme="editorTheme"
                 :preview-theme="previewTheme"
                 :code-theme="codeTheme"
+                :code-foldable="false"
                 :show-code-row-number="true"
                 :no-mermaid="true"
                 :no-katex="true"
@@ -617,7 +618,7 @@ onUnmounted(() => {
 
 .post-detail-page.page-entered {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
+  transform: none;
 }
 .three-col-layout {
   display: flex;
@@ -633,7 +634,7 @@ onUnmounted(() => {
 
 .three-col-layout.content-entered .detail-enter-block {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
+  transform: none;
   transition:
     opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -946,17 +947,24 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 0;
+  height: min(74vh, 620px);
+  max-height: min(74vh, 620px);
   background: #fff;
   z-index: 4000;
   overflow: hidden;
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.14);
-  transition: height 0.28s ease;
+  visibility: hidden;
+  transform: translate3d(0, 100%, 0);
+  transition: transform 0.28s ease, visibility 0s linear 0.28s;
+  will-change: transform;
+  contain: layout paint;
   pointer-events: none;
 
   &.open {
-    height: min(74vh, 620px);
+    visibility: visible;
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.28s ease, visibility 0s;
     pointer-events: auto;
   }
 
@@ -1002,6 +1010,8 @@ onUnmounted(() => {
   height: calc(100% - 50px);
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0.65rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
 }
 
@@ -1016,7 +1026,7 @@ onUnmounted(() => {
     display: flex;
     position: fixed;
     right: 40px;
-    bottom: calc(126px + env(safe-area-inset-bottom));
+    bottom: calc(152px + env(safe-area-inset-bottom));
     flex-direction: column;
     gap: 10px;
     z-index: 998;
@@ -1033,12 +1043,22 @@ onUnmounted(() => {
       pointer-events: auto;
     }
   }
+
+  :global(body.with-comment-bottom-bar) .mobile-fab-group {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 36px);
+    z-index: 180;
+  }
 }
 
 @media (max-width: 768px) {
   .mobile-fab-group {
     right: 20px;
-    bottom: calc(96px + env(safe-area-inset-bottom));
+    bottom: calc(122px + env(safe-area-inset-bottom));
+  }
+
+  :global(body.with-comment-bottom-bar) .mobile-fab-group {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 30px);
+    z-index: 180;
   }
 }
 

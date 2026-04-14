@@ -953,6 +953,9 @@ onUnmounted(() => {
     background: rgba(30, 41, 59, 0.62);
     border-color: rgba(255, 255, 255, 0.2);
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
   }
 
   .ad-slot-banner--post_top .ad-action-float,

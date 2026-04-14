@@ -450,6 +450,7 @@ onUnmounted(() => {
   padding-top: 10vh;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
+  will-change: opacity;
 
   .dark & {
     background: rgba(0, 0, 0, 0.6);
@@ -480,6 +481,8 @@ onUnmounted(() => {
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 
   .dark & {
     --search-muted: #9aa5b5;
@@ -492,6 +495,13 @@ onUnmounted(() => {
     background: var(--search-shell-bg-dark);
     border-color: rgba(148, 163, 184, 0.14);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .search-modal-overlay {
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.52);
   }
 }
 

@@ -42,8 +42,15 @@
         </div>
       </div>
 
+      <button
+        v-if="currentSlide"
+        class="carousel-hit-area"
+        :aria-label="`打开：${currentSlide.title}`"
+        @click="handleSlideClick(currentSlide)"
+      />
+
       <!-- 文字叠加层（点击整个轮播跳转） -->
-      <div :key="currentIndex" class="carousel-content" @click="handleSlideClick(currentSlide!)">
+      <div :key="currentIndex" class="carousel-content">
         <h1 class="carousel-title">{{ currentSlide?.title }}</h1>
         <p v-if="currentSlide?.description" class="carousel-desc">
           {{ currentSlide.description }}
@@ -432,7 +439,7 @@ function handleStartupDone() {
 /* ===== 文字叠加层 ===== */
 .carousel-content {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   bottom: 20%;
   left: 50%;
   transform: translateX(-50%);
@@ -440,6 +447,15 @@ function handleStartupDone() {
   width: 90%;
   max-width: 700px;
   color: #fff;
+  pointer-events: none;
+}
+
+.carousel-hit-area {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: none;
+  background: transparent;
   cursor: pointer;
 }
 
@@ -481,7 +497,7 @@ function handleStartupDone() {
 /* ===== 左右切换箭头 ===== */
 .carousel-arrow {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -518,7 +534,7 @@ function handleStartupDone() {
 /* ===== 指示器圆点 ===== */
 .carousel-indicators {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);

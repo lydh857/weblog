@@ -48,6 +48,7 @@
 
     <!-- 分页 -->
     <Pagination
+      v-if="!isMobileView"
       :total="total"
       :page-count="pageCount"
       :current-page="filters.pageNum"
@@ -56,6 +57,12 @@
       @update:current-page="goToPage"
       @update:page-size="handlePageSizeChange"
     />
+
+    <div v-if="isMobileView && totalPages > 1" ref="mobileLoadTriggerRef" class="mobile-load-trigger">
+      <span v-if="mobileLoadingMore">加载中...</span>
+      <span v-else-if="mobilePageNum >= totalPages">已到底</span>
+      <span v-else>上滑加载更多</span>
+    </div>
   </div>
 </template>
 
@@ -109,9 +116,18 @@ const total = ref(0)
 const pageCount = ref(0)
 const loading = ref(true)
 const pageEntered = ref(false)
-const listEntered = ref(false)
+const listEntered = ref(true)
+const hasInitialListRendered = ref(false)
+const isMobileView = ref(false)
+const mobilePageNum = ref(1)
+const mobileLoadingMore = ref(false)
+const mobileLoadTriggerRef = ref<HTMLElement | null>(null)
 const MIN_SKELETON_MS = 220
 let fetchPostsRequestId = 0
+let mobileLoadObserver: IntersectionObserver | null = null
+let observedMobileLoadTarget: Element | null = null
+const totalPages = computed(() => Math.max(1, pageCount.value || Math.ceil(total.value / filters.pageSize) || 1))
+const { setIndicator, clearIndicator } = useFloatingPageIndicator()
 
 function waitFor(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms))
@@ -227,13 +243,21 @@ async function fetchTags() {
 }
 
 /** 加载文章列表 */
-async function fetchPosts() {
+async function fetchPosts(options: { pageNum?: number; append?: boolean } = {}) {
   const requestId = ++fetchPostsRequestId
   const startAt = Date.now()
-  loading.value = true
+  const targetPageNum = options.pageNum ?? filters.pageNum
+  const append = options.append === true
+
+  if (append) {
+    mobileLoadingMore.value = true
+  } else {
+    loading.value = true
+  }
+
   try {
     const params: Record<string, number | string | undefined> = {
-      pageNum: filters.pageNum,
+      pageNum: targetPageNum,
       pageSize: backendPageSize.value,
     }
     if (filters.subCategoryId !== null) {
@@ -248,26 +272,35 @@ async function fetchPosts() {
     if (requestId !== fetchPostsRequestId) {
       return
     }
-    posts.value = res.data.records
+    posts.value = append ? [...posts.value, ...res.data.records] : res.data.records
     total.value = res.data.total
     pageCount.value = Math.ceil(res.data.total / filters.pageSize)
+    if (!append) {
+      filters.pageNum = targetPageNum
+    }
+    mobilePageNum.value = targetPageNum
   } catch (error: unknown) {
     if (requestId !== fetchPostsRequestId) {
       return
     }
     message.error(getErrorMessage(error, '访问受限，请稍后再试'))
-    posts.value = []
-    total.value = 0
-    pageCount.value = 0
+    if (!append) {
+      posts.value = []
+      total.value = 0
+      pageCount.value = 0
+    }
   } finally {
     if (requestId !== fetchPostsRequestId) {
       return
     }
-    const elapsed = Date.now() - startAt
-    if (elapsed < MIN_SKELETON_MS) {
-      await waitFor(MIN_SKELETON_MS - elapsed)
+    if (!append) {
+      const elapsed = Date.now() - startAt
+      if (elapsed < MIN_SKELETON_MS) {
+        await waitFor(MIN_SKELETON_MS - elapsed)
+      }
+      loading.value = false
     }
-    loading.value = false
+    mobileLoadingMore.value = false
   }
 }
 
@@ -280,9 +313,71 @@ async function fetchListCardAds() {
   }
 }
 
+function syncMobileViewState() {
+  if (!import.meta.client) {
+    isMobileView.value = false
+    return
+  }
+  isMobileView.value = window.innerWidth <= 768
+}
+
+async function loadMoreOnMobile() {
+  if (!isMobileView.value || loading.value || mobileLoadingMore.value) {
+    return
+  }
+  if (mobilePageNum.value >= totalPages.value) {
+    return
+  }
+  await fetchPosts({ pageNum: mobilePageNum.value + 1, append: true })
+}
+
+function setupMobileLoadObserver() {
+  if (!import.meta.client) {
+    return
+  }
+
+  const shouldObserve = isMobileView.value && Boolean(mobileLoadTriggerRef.value) && mobilePageNum.value < totalPages.value
+  if (!shouldObserve) {
+    if (mobileLoadObserver && observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+      observedMobileLoadTarget = null
+    }
+    return
+  }
+
+  if (!mobileLoadObserver) {
+    mobileLoadObserver = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      if (entry?.isIntersecting) {
+        void loadMoreOnMobile()
+      }
+    }, {
+      root: null,
+      rootMargin: '160px 0px 240px 0px',
+      threshold: 0.01,
+    })
+  }
+
+  const target = mobileLoadTriggerRef.value
+  if (!target) {
+    return
+  }
+  if (observedMobileLoadTarget !== target) {
+    if (observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+    }
+    mobileLoadObserver.observe(target)
+    observedMobileLoadTarget = target
+  }
+}
+
 /** 筛选变更后重置页码并刷新数据 */
 async function resetAndFetch() {
   filters.pageNum = 1
+  if (isMobileView.value) {
+    await Promise.all([fetchTags(), fetchPosts({ pageNum: 1 })])
+    return
+  }
   await syncQueryParams()
 }
 
@@ -329,6 +424,9 @@ function handlePageSizeChange(size: number) {
 }
 
 async function goToPage(page: number) {
+  if (isMobileView.value) {
+    return
+  }
   filters.pageNum = page
   await syncQueryParams()
   if (scrollToTopOnMobilePagination()) return
@@ -342,6 +440,11 @@ watch(() => route.fullPath, () => {
 })
 
 onMounted(async () => {
+  syncMobileViewState()
+  if (import.meta.client) {
+    window.addEventListener('resize', syncMobileViewState, { passive: true })
+  }
+
   if (import.meta.client) {
     window.requestAnimationFrame(() => {
       pageEntered.value = true
@@ -374,9 +477,28 @@ onMounted(async () => {
   await Promise.all([fetchTags(), fetchPosts()])
 })
 
+onUnmounted(() => {
+  if (import.meta.client) {
+    window.removeEventListener('resize', syncMobileViewState)
+  }
+  mobileLoadObserver?.disconnect()
+  mobileLoadObserver = null
+  observedMobileLoadTarget = null
+  clearIndicator()
+})
+
 watch(loading, (isLoading) => {
   if (isLoading) {
+    if (!hasInitialListRendered.value) {
+      return
+    }
     listEntered.value = false
+    return
+  }
+
+  if (!hasInitialListRendered.value) {
+    hasInitialListRendered.value = true
+    listEntered.value = true
     return
   }
 
@@ -387,6 +509,15 @@ watch(loading, (isLoading) => {
 
   window.requestAnimationFrame(() => {
     listEntered.value = true
+  })
+}, { immediate: true })
+
+watch([isMobileView, mobileLoadTriggerRef, mobilePageNum, totalPages, loading], () => {
+  setupMobileLoadObserver()
+  setIndicator({
+    enabled: isMobileView.value && !loading.value,
+    currentPage: isMobileView.value ? mobilePageNum.value : filters.pageNum,
+    totalPages: totalPages.value,
   })
 }, { immediate: true })
 </script>
@@ -466,6 +597,14 @@ watch(loading, (isLoading) => {
   .post-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.mobile-load-trigger {
+  margin: 0.9rem auto 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
 }
 
 @media (prefers-reduced-motion: reduce) {

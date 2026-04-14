@@ -55,6 +55,7 @@
                     :theme="editorTheme"
                     :preview-theme="currentPost.previewTheme || 'default'"
                     :code-theme="currentPost.codeTheme || 'atom'"
+                    :code-foldable="false"
                     :show-code-row-number="true"
                     :no-mermaid="true"
                     :no-katex="true"
@@ -252,6 +253,7 @@ const contentEntered = ref(false)
 const mobileCatalogVisible = ref(false)
 const mobileTocVisible = ref(false)
 const mobileFabVisible = ref(false)
+const isMobileFabScrollReady = ref(false)
 let topicRequestId = 0
 let articleRequestId = 0
 
@@ -352,10 +354,16 @@ function handleWindowResize() {
   updateMobileFabVisibility()
 }
 
+function handleWindowScroll() {
+  if (!import.meta.client) return
+  isMobileFabScrollReady.value = window.scrollY > 100
+  updateMobileFabVisibility()
+}
+
 function updateMobileFabVisibility() {
   if (!import.meta.client) return
   const isMobileLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT
-  mobileFabVisible.value = isMobileLayout && Boolean(currentPost.value)
+  mobileFabVisible.value = isMobileLayout && Boolean(currentPost.value) && isMobileFabScrollReady.value
 }
 
 // 目录节点点击
@@ -441,6 +449,8 @@ async function loadTopicDetail() {
 onMounted(async () => {
   if (import.meta.client) {
     window.addEventListener('resize', handleWindowResize)
+    window.addEventListener('scroll', handleWindowScroll, { passive: true })
+    handleWindowScroll()
     handleWindowResize()
     updateMobileFabVisibility()
     window.requestAnimationFrame(() => {
@@ -478,6 +488,7 @@ watch(() => currentPost.value?.id, () => {
 onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('resize', handleWindowResize)
+    window.removeEventListener('scroll', handleWindowScroll)
   }
 })
 </script>
@@ -941,17 +952,24 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 0;
+  height: min(74vh, 620px);
+  max-height: min(74vh, 620px);
   background: #fff;
   z-index: 4000;
   overflow: hidden;
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.14);
-  transition: height 0.28s ease;
+  visibility: hidden;
+  transform: translate3d(0, 100%, 0);
+  transition: transform 0.28s ease, visibility 0s linear 0.28s;
+  will-change: transform;
+  contain: layout paint;
   pointer-events: none;
 
   &.open {
-    height: min(74vh, 620px);
+    visibility: visible;
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.28s ease, visibility 0s;
     pointer-events: auto;
   }
 
@@ -997,6 +1015,8 @@ onUnmounted(() => {
   height: calc(100% - 50px);
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0.65rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
 }
 
@@ -1069,7 +1089,7 @@ onUnmounted(() => {
     display: flex;
     position: fixed;
     right: 40px;
-    bottom: calc(126px + env(safe-area-inset-bottom));
+    bottom: calc(154px + env(safe-area-inset-bottom));
     flex-direction: column;
     gap: 10px;
     z-index: 998;
@@ -1086,12 +1106,22 @@ onUnmounted(() => {
       pointer-events: auto;
     }
   }
+
+  :global(body.with-comment-bottom-bar) .mobile-fab-group {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 34px + 46px + 12px);
+    z-index: 180;
+  }
 }
 
 @media (max-width: 768px) {
   .mobile-fab-group {
     right: 20px;
-    bottom: calc(96px + env(safe-area-inset-bottom));
+    bottom: calc(130px + env(safe-area-inset-bottom));
+  }
+
+  :global(body.with-comment-bottom-bar) .mobile-fab-group {
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 34px + 46px + 12px);
+    z-index: 180;
   }
 }
 

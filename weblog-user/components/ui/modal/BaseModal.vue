@@ -74,15 +74,25 @@ onUnmounted(() => {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
   background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; padding: 16px;
+  will-change: opacity;
 
   .dark & {
     background: rgba(0,0,0,0.6);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .modal-overlay {
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.52);
   }
 }
 .modal-content {
   background: #fff; border-radius: 12px; max-width: 90vw; max-height: calc(100vh - 40px);
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
   .dark & {
     background: $color-dark-bg-elevated;
     box-shadow: 0 16px 48px rgba(0,0,0,0.5);

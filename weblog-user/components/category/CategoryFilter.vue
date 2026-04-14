@@ -374,9 +374,9 @@
 
     <!-- 移动端固定筛选按钮（参考案例） -->
     <Teleport to="body">
-      <Transition name="fab">
+      <Transition name="fab-mobile-filter">
         <button
-          v-if="showFab && isMobile && !drawerVisible"
+          v-if="showFab && isMobile"
           class="category-filter-fixed-btn"
           aria-label="打开筛选器"
           @click="openDrawer"
@@ -433,6 +433,7 @@ const filterToggleContainerRef = ref<HTMLElement | null>(null)
 
 /** 悬浮按钮显示状态 */
 const showFab = ref(false)
+const isScrollThresholdReached = ref(false)
 
 /** 浮动筛选面板展开状态 */
 const floatPanelOpen = ref(false)
@@ -532,8 +533,15 @@ const handleScroll = () => {
   ticking = true
   requestAnimationFrame(() => {
     const target = isMobile.value ? filterToggleContainerRef.value : filterRef.value
-    if (target) {
-      showFab.value = target.getBoundingClientRect().bottom <= 0
+    const passedThreshold = window.scrollY > 100
+    isScrollThresholdReached.value = passedThreshold
+    if (isMobile.value) {
+      showFab.value = passedThreshold
+    } else if (target) {
+      showFab.value = passedThreshold && target.getBoundingClientRect().bottom <= 0
+    }
+    else {
+      showFab.value = false
     }
     ticking = false
   })
@@ -816,7 +824,6 @@ onUnmounted(() => {
   inset: 0;
   z-index: calc(var(--z-modal) + 20);
   background: rgba(2, 6, 23, 0.45);
-  backdrop-filter: blur(2px);
 }
 
 .filter-drawer {
@@ -832,6 +839,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  contain: layout paint;
 
   .dark & {
     background: $color-dark-bg-secondary;
@@ -997,14 +1007,14 @@ onUnmounted(() => {
 .float-filter-widget {
   position: fixed;
   right: 40px;
-  bottom: 132px;
+  bottom: 154px;
   z-index: 980;
 }
 
 .category-filter-fixed-btn {
   position: fixed;
   right: 20px;
-  bottom: 100px;
+  bottom: 130px;
   width: 46px;
   height: 46px;
   border-radius: 50%;
@@ -1017,11 +1027,10 @@ onUnmounted(() => {
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 998;
-  transition: background 0.2s, transform 0.2s;
+  transition: background 0.2s;
 
   &:hover {
     background: rgba(0, 0, 0, 0.62);
-    transform: scale(1.04);
   }
 }
 
@@ -1145,7 +1154,16 @@ onUnmounted(() => {
 
   .filter-drawer {
     transition: transform 0.3s ease;
+    backface-visibility: hidden;
   }
+}
+
+:global(body.with-comment-bottom-bar) .float-filter-widget {
+  bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 34px + 46px + 12px);
+}
+
+:global(body.with-comment-bottom-bar) .category-filter-fixed-btn {
+  bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 34px + 46px + 12px);
 }
 
 .drawer-enter-from,
@@ -1165,6 +1183,24 @@ onUnmounted(() => {
 .fab-enter-from,
 .fab-leave-to {
   opacity: 0;
-  transform: scale(0.8);
+  transform: translateY(20px);
 }
+
+.fab-mobile-filter-enter-active,
+.fab-mobile-filter-leave-active {
+  transition: opacity 0.3s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-mobile-filter-enter-from,
+.fab-mobile-filter-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.fab-mobile-filter-enter-to,
+.fab-mobile-filter-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 </style>

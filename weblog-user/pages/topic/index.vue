@@ -17,9 +17,9 @@
 
       <div v-else>
         <!-- 专题列表 -->
-        <div v-if="topics.length" class="topic-grid">
+        <div v-if="displayTopics.length" class="topic-grid">
           <NuxtLink
-            v-for="(item, index) in topics"
+            v-for="(item, index) in displayTopics"
             :key="item.id"
             :to="`/topic/${item.id}`"
             class="topic-card"
@@ -65,7 +65,7 @@
 
         <!-- 分页 -->
         <Pagination
-          v-if="total > 0"
+          v-if="!isMobileView && total > 0"
           :total="total"
           :current-page="currentPage"
           :page-size="pageSize"
@@ -73,6 +73,12 @@
           @update:current-page="handlePageChange"
           @update:page-size="handleSizeChange"
         />
+
+        <div v-if="isMobileView && totalPages > 1" ref="mobileLoadTriggerRef" class="mobile-load-trigger">
+          <span v-if="mobileLoadingMore">加载中...</span>
+          <span v-else-if="mobilePageNum >= totalPages">已到底</span>
+          <span v-else>上滑加载更多</span>
+        </div>
       </div>
     </div>
   </div>
@@ -90,11 +96,22 @@ const currentPage = ref(1)
 const pageSize = ref(6)
 const loading = ref(true)
 const pageEntered = ref(false)
-const listEntered = ref(false)
+const listEntered = ref(true)
+const hasInitialListRendered = ref(false)
+const isMobileView = ref(false)
+const mobilePageNum = ref(1)
+const mobileLoadingMore = ref(false)
+const mobileLoadTriggerRef = ref<HTMLElement | null>(null)
 const MIN_SKELETON_MS = 220
 let fetchTopicsRequestId = 0
 const coverImageErrors = reactive<Record<number, boolean>>({})
 const loadedCoverIds = reactive(new Set<number>())
+let mobileLoadObserver: IntersectionObserver | null = null
+let observedMobileLoadTarget: Element | null = null
+
+const displayTopics = computed(() => topics.value)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+const { setIndicator, clearIndicator } = useFloatingPageIndicator()
 
 function resetCoverLoadState() {
   loadedCoverIds.clear()
@@ -116,42 +133,115 @@ function waitFor(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms))
 }
 
-async function fetchTopics() {
+async function fetchTopics(page = currentPage.value, append = false) {
   const requestId = ++fetchTopicsRequestId
   const startAt = Date.now()
-  resetCoverLoadState()
-  loading.value = true
+
+  if (append) {
+    mobileLoadingMore.value = true
+  } else {
+    resetCoverLoadState()
+    loading.value = true
+  }
+
   try {
-    const res = await topicApi.list(currentPage.value, pageSize.value)
+    const res = await topicApi.list(page, pageSize.value)
     if (requestId !== fetchTopicsRequestId) {
       return
     }
-    topics.value = res.data.records
+    topics.value = append ? [...topics.value, ...res.data.records] : res.data.records
     total.value = res.data.total
+    mobilePageNum.value = page
+    if (!append) {
+      currentPage.value = page
+    }
   } catch { /* 静默 */ }
   finally {
     if (requestId !== fetchTopicsRequestId) {
       return
     }
-    const elapsed = Date.now() - startAt
-    if (elapsed < MIN_SKELETON_MS) {
-      await waitFor(MIN_SKELETON_MS - elapsed)
+    if (!append) {
+      const elapsed = Date.now() - startAt
+      if (elapsed < MIN_SKELETON_MS) {
+        await waitFor(MIN_SKELETON_MS - elapsed)
+      }
+      loading.value = false
     }
-    loading.value = false
+    mobileLoadingMore.value = false
+  }
+}
+
+function syncMobileViewState() {
+  if (!import.meta.client) {
+    isMobileView.value = false
+    return
+  }
+  isMobileView.value = window.innerWidth <= 768
+}
+
+async function loadMoreOnMobile() {
+  if (!isMobileView.value || loading.value || mobileLoadingMore.value) {
+    return
+  }
+  if (mobilePageNum.value >= totalPages.value) {
+    return
+  }
+  await fetchTopics(mobilePageNum.value + 1, true)
+}
+
+function setupMobileLoadObserver() {
+  if (!import.meta.client) {
+    return
+  }
+
+  const shouldObserve = isMobileView.value && Boolean(mobileLoadTriggerRef.value) && mobilePageNum.value < totalPages.value
+  if (!shouldObserve) {
+    if (mobileLoadObserver && observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+      observedMobileLoadTarget = null
+    }
+    return
+  }
+
+  if (!mobileLoadObserver) {
+    mobileLoadObserver = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      if (entry?.isIntersecting) {
+        void loadMoreOnMobile()
+      }
+    }, {
+      root: null,
+      rootMargin: '140px 0px 220px 0px',
+      threshold: 0.01,
+    })
+  }
+
+  const target = mobileLoadTriggerRef.value
+  if (!target) {
+    return
+  }
+  if (observedMobileLoadTarget !== target) {
+    if (observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+    }
+    mobileLoadObserver.observe(target)
+    observedMobileLoadTarget = target
   }
 }
 
 function handlePageChange(page: number) {
+  if (isMobileView.value) {
+    return
+  }
   currentPage.value = page
-  fetchTopics()
+  void fetchTopics()
   if (scrollToTopOnMobilePagination()) return
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function handleSizeChange(size: number) {
   pageSize.value = size
-  currentPage.value = 1
-  fetchTopics()
+  void fetchTopics(1)
   scrollToTopOnMobilePagination()
 }
 
@@ -161,18 +251,42 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(() => {
+  syncMobileViewState()
+  if (import.meta.client) {
+    window.addEventListener('resize', syncMobileViewState, { passive: true })
+  }
+
   if (import.meta.client) {
     window.requestAnimationFrame(() => {
       pageEntered.value = true
     })
   }
 
-  void fetchTopics()
+  void fetchTopics(1)
+})
+
+onUnmounted(() => {
+  if (import.meta.client) {
+    window.removeEventListener('resize', syncMobileViewState)
+  }
+  mobileLoadObserver?.disconnect()
+  mobileLoadObserver = null
+  observedMobileLoadTarget = null
+  clearIndicator()
 })
 
 watch(loading, (isLoading) => {
   if (isLoading) {
+    if (!hasInitialListRendered.value) {
+      return
+    }
     listEntered.value = false
+    return
+  }
+
+  if (!hasInitialListRendered.value) {
+    hasInitialListRendered.value = true
+    listEntered.value = true
     return
   }
 
@@ -183,6 +297,15 @@ watch(loading, (isLoading) => {
 
   window.requestAnimationFrame(() => {
     listEntered.value = true
+  })
+}, { immediate: true })
+
+watch([isMobileView, mobileLoadTriggerRef, totalPages, mobilePageNum, loading], () => {
+  setupMobileLoadObserver()
+  setIndicator({
+    enabled: isMobileView.value && !loading.value,
+    currentPage: isMobileView.value ? mobilePageNum.value : currentPage.value,
+    totalPages: totalPages.value,
   })
 }, { immediate: true })
 </script>
@@ -426,5 +549,13 @@ watch(loading, (isLoading) => {
     transform: none;
     transition: none;
   }
+}
+
+.mobile-load-trigger {
+  margin: 1rem auto 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
 }
 </style>

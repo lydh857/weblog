@@ -205,6 +205,7 @@
       </aside>
     </Transition>
     <LazyAnnouncementPopup />
+    <LazyFloatingPageIndicator />
     <LazyBackToTop />
     <LazyGlobalScrollbar />
     <LazySiteFooter />
@@ -1281,6 +1282,9 @@ onUnmounted(() => {
   box-shadow: none;
   display: flex;
   flex-direction: column;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  contain: layout paint;
 
   .dark & {
     background: $color-dark-bg-secondary;
@@ -1439,6 +1443,7 @@ onUnmounted(() => {
 .mobile-drawer-slide-enter-active,
 .mobile-drawer-slide-leave-active {
   transition: transform 260ms ease;
+  backface-visibility: hidden;
 }
 
 .mobile-drawer-slide-enter-from,
@@ -1526,6 +1531,16 @@ onUnmounted(() => {
   .global-left-ad.is-scrolling-hidden {
     transform: translate3d(-10px, -50%, 0);
   }
+
+  :global(body.with-comment-bottom-bar) .global-left-ad {
+    top: auto;
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 16px);
+    transform: none;
+  }
+
+  :global(body.with-comment-bottom-bar) .global-left-ad.is-scrolling-hidden {
+    transform: translate3d(-10px, 0, 0);
+  }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -1545,6 +1560,16 @@ onUnmounted(() => {
 
   .global-left-ad.is-scrolling-hidden {
     transform: translate3d(-12px, -50%, 0);
+  }
+
+  :global(body.with-comment-bottom-bar) .global-left-ad {
+    top: auto;
+    bottom: calc(var(--comment-bottom-bar-avoidance, 0px) + env(safe-area-inset-bottom) + 12px);
+    transform: none;
+  }
+
+  :global(body.with-comment-bottom-bar) .global-left-ad.is-scrolling-hidden {
+    transform: translate3d(-12px, 0, 0);
   }
 
   .main-content {

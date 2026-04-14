@@ -401,10 +401,18 @@ onMounted(() => {
   justify-content: center;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
-  padding: 1rem;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  overflow: auto;
 
   .dark & {
     background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .cropper-overlay {
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.52);
   }
 }
 
@@ -413,12 +421,18 @@ onMounted(() => {
 }
 
 .avatar-cropper-modal {
+  --cropper-shell-height: clamp(220px, 52dvh, 390px);
   width: min(960px, 100%);
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem);
+  display: flex;
+  flex-direction: column;
   border: 1px solid $color-border;
   border-radius: 12px;
   background: $color-bg;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 
   .dark & {
     border-color: rgba(148, 163, 184, 0.14);
@@ -483,6 +497,9 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 240px;
   gap: 0.9rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .editor-panel {
@@ -522,7 +539,7 @@ onMounted(() => {
 }
 
 .cropper-shell {
-  min-height: 390px;
+  min-height: var(--cropper-shell-height);
   border: 1px solid $color-border;
   border-radius: 10px;
   overflow: hidden;
@@ -530,7 +547,7 @@ onMounted(() => {
 
   :deep(.cropper-container) {
     width: 100%;
-    height: 390px;
+    height: var(--cropper-shell-height);
   }
 
   :deep(.cropper-view-box),
@@ -569,7 +586,7 @@ onMounted(() => {
 
 .empty-select {
   width: 100%;
-  min-height: 390px;
+  min-height: var(--cropper-shell-height);
   border: none;
   background: transparent;
   color: $color-text-muted;
@@ -657,6 +674,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  flex-shrink: 0;
 
   .dark & {
     border-top-color: $color-dark-border;
@@ -733,19 +751,36 @@ onMounted(() => {
 }
 
 @media (max-width: $breakpoint-md) {
-  .cropper-body {
-    grid-template-columns: 1fr;
+  .cropper-overlay {
+    align-items: flex-start;
+    padding: max(0.55rem, env(safe-area-inset-top)) max(0.55rem, env(safe-area-inset-right)) max(0.55rem, env(safe-area-inset-bottom)) max(0.55rem, env(safe-area-inset-left));
   }
 
-  .cropper-shell,
-  .cropper-shell :deep(.cropper-container),
-  .empty-select {
-    min-height: 300px;
-    height: 300px;
+  .avatar-cropper-modal {
+    --cropper-shell-height: clamp(180px, 38dvh, 300px);
+    width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.1rem);
+    border-radius: 10px;
+  }
+
+  .cropper-header {
+    padding: 0.8rem 0.85rem;
+
+    p {
+      margin-top: 0.24rem;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+  }
+
+  .cropper-body {
+    padding: 0.78rem 0.85rem;
+    grid-template-columns: 1fr;
   }
 
   .preview-panel {
     align-items: flex-start;
+    padding: 0.62rem;
   }
 
   .preview-canvas {
@@ -754,6 +789,7 @@ onMounted(() => {
   }
 
   .cropper-footer {
+    padding: 0.75rem 0.85rem max(0.75rem, env(safe-area-inset-bottom));
     flex-direction: column;
     align-items: stretch;
   }
@@ -761,6 +797,11 @@ onMounted(() => {
   .left-actions,
   .right-actions {
     justify-content: space-between;
+  }
+
+  .error-msg {
+    white-space: normal;
+    line-height: 1.35;
   }
 }
 </style>

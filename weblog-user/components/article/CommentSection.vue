@@ -1,6 +1,7 @@
 <template>
-  <div class="comment-section">
-    <div class="section-header">
+  <div ref="sectionRef" class="comment-section">
+    <div ref="sectionViewportRef" class="comment-section-viewport" :class="{ 'with-bottom-bar-space': showBottomBar }">
+      <div class="section-header">
       <h3 class="section-title">
         <Icon name="heroicons:chat-bubble-left-ellipsis-20-solid" size="20" />
         评论区 ({{ totalCount }})
@@ -255,9 +256,11 @@
       </div>
     </div>
 
+    </div>
+
     <!-- 底部固定评论栏 -->
     <Transition name="bottom-bar-slide">
-      <div v-if="showBottomBar" class="bottom-comment-bar" :style="bottomBarStyle">
+      <div v-if="showBottomBar" ref="bottomBarRef" class="bottom-comment-bar" :style="bottomBarStyle">
         <div class="bottom-bar-inner">
           <div class="form-avatar sm">
             <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
@@ -341,6 +344,8 @@ const mainTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const inlineTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const formRef = ref<HTMLElement | null>(null)
 const sectionRef = ref<HTMLElement | null>(null)
+const sectionViewportRef = ref<HTMLElement | null>(null)
+const bottomBarRef = ref<HTMLElement | null>(null)
 const mainEmojiBtnRef = ref<HTMLElement | null>(null)
 const bottomEmojiBtnRef = ref<HTMLElement | null>(null)
 const replyTo = ref<{ id: number; nickname: string; userId: number } | null>(null)
@@ -359,8 +364,11 @@ const inlineReplyUserId = ref(0)
 // 底部栏
 const formInView = ref(true)
 const sectionInView = ref(false)
-const showBottomBar = computed(() => !formInView.value && sectionInView.value && comments.value.length > 0)
+const showBottomBar = computed(() => !formInView.value && sectionInView.value)
+const bottomBarMode = ref<'fixed' | 'docked'>('fixed')
 const bottomBarStyle = ref<Record<string, string>>({})
+const shouldLiftFloatingButtons = computed(() => showBottomBar.value)
+const bottomBarDockOffset = ref(0)
 
 // 表情
 const showEmojiPicker = ref(false)
@@ -739,37 +747,93 @@ async function loadComments(page = 1) {
 
 // 底部栏位置
 function updateBottomBarPosition() {
-  const el = sectionRef.value; if (!el) return
-  const rect = el.getBoundingClientRect()
-  bottomBarStyle.value = { position: 'fixed', left: `${rect.left}px`, width: `${rect.width}px`, bottom: '0', zIndex: '200' }
+  const sectionEl = sectionRef.value
+  if (!sectionEl) return
+
+  const sectionRect = sectionEl.getBoundingClientRect()
+  const dockOffset = Math.max(0, window.innerHeight - sectionRect.bottom)
+  bottomBarDockOffset.value = dockOffset
+  bottomBarMode.value = dockOffset > 0 ? 'docked' : 'fixed'
+  const rect = sectionRect
+  const left = Math.max(0, rect.left)
+  const width = Math.max(0, Math.min(rect.width, window.innerWidth - left))
+
+  bottomBarStyle.value = {
+    position: 'fixed',
+    left: `${left}px`,
+    width: `${width}px`,
+    bottom: `${dockOffset}px`,
+    zIndex: '54',
+  }
+
+  syncFloatingButtonsLiftClass(shouldLiftFloatingButtons.value)
 }
 
 let formObserver: IntersectionObserver | null = null
 let sectionObserver: IntersectionObserver | null = null
 let rafId = 0
-function onScrollUpdate() { if (showBottomBar.value) rafId = requestAnimationFrame(() => updateBottomBarPosition()) }
+function onScrollUpdate() {
+  if (!showBottomBar.value) return
+  if (rafId) cancelAnimationFrame(rafId)
+  rafId = requestAnimationFrame(() => {
+    updateBottomBarPosition()
+  })
+}
+
+function syncFloatingButtonsLiftClass(active: boolean) {
+  if (!import.meta.client) return
+  const body = document.body
+  body.classList.toggle('with-comment-bottom-bar', active)
+  if (!active) {
+    body.style.removeProperty('--comment-bottom-bar-avoidance')
+    return
+  }
+
+  const fallbackHeight = window.innerWidth <= 1100 ? 86 : 74
+  const barHeight = bottomBarRef.value?.offsetHeight ?? fallbackHeight
+  const avoidance = Math.max(0, Math.round(bottomBarDockOffset.value + barHeight + 12))
+  body.style.setProperty('--comment-bottom-bar-avoidance', `${avoidance}px`)
+}
+
+watch(showBottomBar, (visible) => {
+  if (!visible) {
+    syncFloatingButtonsLiftClass(false)
+    return
+  }
+  nextTick(() => {
+    updateBottomBarPosition()
+    syncFloatingButtonsLiftClass(true)
+  })
+})
+
+watch(shouldLiftFloatingButtons, (active) => {
+  syncFloatingButtonsLiftClass(active)
+}, { immediate: true })
+
+watch(bottomBarDockOffset, () => {
+  if (!shouldLiftFloatingButtons.value) return
+  syncFloatingButtonsLiftClass(true)
+})
 
 onMounted(() => {
   loadComments()
   nextTick(() => {
-    const rootEl = document.querySelector('.comment-section') as HTMLElement
-    if (rootEl) sectionRef.value = rootEl
     if (formRef.value) {
       formObserver = new IntersectionObserver((entries) => {
         const entry = entries[0]
         if (!entry) return
         formInView.value = entry.isIntersecting
-      }, { threshold: 0.1 })
+      }, { threshold: 0 })
       formObserver.observe(formRef.value)
     }
-    if (sectionRef.value) {
+    if (sectionViewportRef.value) {
       sectionObserver = new IntersectionObserver((entries) => {
         const entry = entries[0]
         if (!entry) return
         sectionInView.value = entry.isIntersecting
         if (entry.isIntersecting) updateBottomBarPosition()
       }, { threshold: 0 })
-      sectionObserver.observe(sectionRef.value)
+      sectionObserver.observe(sectionViewportRef.value)
     }
     window.addEventListener('scroll', onScrollUpdate, { passive: true })
     window.addEventListener('resize', onScrollUpdate, { passive: true })
@@ -779,11 +843,26 @@ onUnmounted(() => {
   formObserver?.disconnect(); sectionObserver?.disconnect()
   window.removeEventListener('scroll', onScrollUpdate); window.removeEventListener('resize', onScrollUpdate)
   if (rafId) cancelAnimationFrame(rafId)
+  syncFloatingButtonsLiftClass(false)
+  bottomBarMode.value = 'fixed'
 })
 </script>
 
 <style scoped lang="scss">
-.comment-section { margin-top: 2rem; }
+.comment-section {
+  position: relative;
+  margin-top: 2rem;
+}
+
+.comment-section-viewport.with-bottom-bar-space {
+  padding-bottom: 92px;
+}
+
+@media (max-width: 1100px) {
+  .comment-section-viewport.with-bottom-bar-space {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+}
 
 /* 标题 + 排序 */
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
@@ -1127,6 +1206,48 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;
   &:hover { background: $color-primary-dark; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+@media (max-width: 1100px) {
+  .bottom-comment-bar {
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.16);
+    padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom));
+  }
+
+  .bottom-bar-inner {
+    gap: 0.4rem;
+  }
+
+  .bottom-input {
+    min-height: 40px;
+    font-size: 0.86rem;
+  }
+
+  .bottom-send,
+  .bottom-comment-bar .emoji-toggle.sm {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .bottom-comment-bar {
+    border-radius: 12px 12px 0 0;
+    padding-left: 0.62rem;
+    padding-right: 0.62rem;
+  }
+
+  .bottom-input {
+    min-width: 0;
+  }
 }
 .bottom-bar-slide-enter-active { transition: transform 0.25s ease-out, opacity 0.25s; }
 .bottom-bar-slide-leave-active { transition: transform 0.2s ease-in, opacity 0.2s; }

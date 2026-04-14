@@ -19,7 +19,7 @@
     <template v-else-if="links.length">
       <div class="links-grid">
         <a
-          v-for="(link, index) in pagedLinks"
+          v-for="(link, index) in displayLinks"
           :key="link.id"
           :href="getSafeHref(link.url) || '#'"
           target="_blank"
@@ -48,7 +48,18 @@
         </a>
       </div>
 
-      <Pagination :total="links.length" :current-page="currentPage" :page-size="pageSize" @update:current-page="handlePageChange" />
+      <Pagination
+        v-if="!isMobileView"
+        :total="links.length"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        @update:current-page="handlePageChange"
+      />
+
+      <div v-if="isMobileView && totalPages > 1" ref="mobileLoadTriggerRef" class="mobile-load-trigger">
+        <span v-if="mobileVisiblePage >= totalPages">已到底</span>
+        <span v-else>上滑加载更多</span>
+      </div>
     </template>
 
     <div v-else class="empty-state">
@@ -84,14 +95,29 @@ const applySwitchLoading = ref(true)
 const applyEnabled = ref(true)
 const myLink = ref<FriendLinkVO | null>(null)
 const pageEntered = ref(false)
-const listEntered = ref(false)
+const listEntered = ref(true)
+const hasInitialListRendered = ref(false)
+const isMobileView = ref(false)
+const mobileVisiblePage = ref(1)
+const mobileLoadTriggerRef = ref<HTMLElement | null>(null)
+let mobileLoadObserver: IntersectionObserver | null = null
+let observedMobileLoadTarget: Element | null = null
 
 const currentPage = ref(1)
 const pageSize = 12
+const totalPages = computed(() => Math.max(1, Math.ceil(links.value.length / pageSize)))
+const { setIndicator, clearIndicator } = useFloatingPageIndicator()
 
 const pagedLinks = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   return links.value.slice(start, start + pageSize)
+})
+
+const displayLinks = computed(() => {
+  if (!isMobileView.value) {
+    return pagedLinks.value
+  }
+  return links.value.slice(0, mobileVisiblePage.value * pageSize)
 })
 
 const logoErrors = reactive<Record<number, boolean>>({})
@@ -169,6 +195,9 @@ function handleApplyClick() {
 }
 
 function handlePageChange(page: number) {
+  if (isMobileView.value) {
+    return
+  }
   currentPage.value = page
   if (!import.meta.client) {
     listEntered.value = true
@@ -181,12 +210,75 @@ function handlePageChange(page: number) {
   scrollToTopOnMobilePagination()
 }
 
+function syncMobileViewState() {
+  if (!import.meta.client) {
+    isMobileView.value = false
+    return
+  }
+  isMobileView.value = window.innerWidth <= 768
+}
+
+function loadMoreOnMobile() {
+  if (!isMobileView.value) {
+    return
+  }
+  if (mobileVisiblePage.value >= totalPages.value) {
+    return
+  }
+  mobileVisiblePage.value += 1
+}
+
+function setupMobileLoadObserver() {
+  if (!import.meta.client) {
+    return
+  }
+
+  const shouldObserve = isMobileView.value && Boolean(mobileLoadTriggerRef.value) && mobileVisiblePage.value < totalPages.value
+  if (!shouldObserve) {
+    if (mobileLoadObserver && observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+      observedMobileLoadTarget = null
+    }
+    return
+  }
+
+  if (!mobileLoadObserver) {
+    mobileLoadObserver = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      if (entry?.isIntersecting) {
+        loadMoreOnMobile()
+      }
+    }, {
+      root: null,
+      rootMargin: '140px 0px 220px 0px',
+      threshold: 0.01,
+    })
+  }
+
+  const target = mobileLoadTriggerRef.value
+  if (!target) {
+    return
+  }
+  if (observedMobileLoadTarget !== target) {
+    if (observedMobileLoadTarget) {
+      mobileLoadObserver.unobserve(observedMobileLoadTarget)
+    }
+    mobileLoadObserver.observe(target)
+    observedMobileLoadTarget = target
+  }
+}
+
 function refreshData() {
   fetchLinks()
   fetchMyStatus()
 }
 
 onMounted(() => {
+  syncMobileViewState()
+  if (import.meta.client) {
+    window.addEventListener('resize', syncMobileViewState, { passive: true })
+  }
+
   if (import.meta.client) {
     window.requestAnimationFrame(() => {
       pageEntered.value = true
@@ -198,9 +290,28 @@ onMounted(() => {
   fetchMyStatus()
 })
 
+onUnmounted(() => {
+  if (import.meta.client) {
+    window.removeEventListener('resize', syncMobileViewState)
+  }
+  mobileLoadObserver?.disconnect()
+  mobileLoadObserver = null
+  observedMobileLoadTarget = null
+  clearIndicator()
+})
+
 watch(loading, (isLoading) => {
   if (isLoading) {
+    if (!hasInitialListRendered.value) {
+      return
+    }
     listEntered.value = false
+    return
+  }
+
+  if (!hasInitialListRendered.value) {
+    hasInitialListRendered.value = true
+    listEntered.value = true
     return
   }
 
@@ -211,6 +322,21 @@ watch(loading, (isLoading) => {
 
   window.requestAnimationFrame(() => {
     listEntered.value = true
+  })
+}, { immediate: true })
+
+watch([links, isMobileView], () => {
+  if (isMobileView.value) {
+    mobileVisiblePage.value = 1
+  }
+}, { immediate: true })
+
+watch([isMobileView, mobileLoadTriggerRef, mobileVisiblePage, totalPages, loading], () => {
+  setupMobileLoadObserver()
+  setIndicator({
+    enabled: isMobileView.value && !loading.value,
+    currentPage: isMobileView.value ? mobileVisiblePage.value : currentPage.value,
+    totalPages: totalPages.value,
   })
 }, { immediate: true })
 </script>
@@ -300,6 +426,14 @@ watch(loading, (isLoading) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 0.9rem;
+}
+
+.mobile-load-trigger {
+  margin: 1rem auto 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
 }
 
 .link-card {
