@@ -23,6 +23,8 @@
             :key="item.id"
             :to="`/topic/${item.id}`"
             class="topic-card"
+            target="_blank"
+            rel="noopener noreferrer"
             :class="{ 'card-entered': listEntered }"
             :style="{ '--enter-index': index }"
           >

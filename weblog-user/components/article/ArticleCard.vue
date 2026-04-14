@@ -1,5 +1,10 @@
 <template>
-  <NuxtLink :to="`/post/${post.slug}`" class="article-card">
+  <NuxtLink
+    :to="`/post/${post.slug}`"
+    class="article-card"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
     <!-- 置顶角标 -->
     <div v-if="post.isTop" class="top-ribbon">
       <span class="ribbon-text">置顶</span>

@@ -151,6 +151,8 @@ services:
     environment:
       # API_BASE_URL 仅填写协议+域名(+端口)，不包含 /api
       - NUXT_PUBLIC_API_BASE=${API_BASE_URL:-http://weblog-api:9091}/api
+      # SSR 服务端请求优先走内网地址，避免被外层 WAF/Challenge 误拦截
+      - NUXT_API_INTERNAL_BASE=${API_INTERNAL_BASE_URL:-http://weblog-api:9091}
       - NODE_ENV=production
       - TZ=Asia/Shanghai
     deploy:

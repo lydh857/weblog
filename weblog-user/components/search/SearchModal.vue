@@ -178,6 +178,12 @@
                 </a>
               </div>
 
+              <div v-else-if="searchErrorMessage" class="search-empty search-error">
+                <Icon name="heroicons:exclamation-triangle-16-solid" size="40" />
+                <p>{{ searchErrorMessage }}</p>
+                <span>请稍后重试，或刷新页面后再试</span>
+              </div>
+
               <!-- 无结果 -->
               <div v-else-if="shouldShowEmpty" class="search-empty">
                 <Icon name="heroicons:magnifying-glass-16-solid" size="40" />
@@ -239,6 +245,7 @@ const {
   results,
   searching,
   activeIndex,
+  searchErrorMessage,
   hasKeyword,
   showShortcutHints,
   shouldShowEmpty,

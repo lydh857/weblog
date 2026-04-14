@@ -7,6 +7,18 @@ const securityHeaders: Record<string, string> = {
   'Report-To': '{"group":"csp-endpoint","max_age":10886400,"endpoints":[{"url":"/api/security/csp/report"}]}',
 }
 
+function normalizeApiBase(raw: string | undefined, fallback: string): string {
+  const value = (raw || '').trim()
+  if (!value) {
+    return fallback
+  }
+  const withoutTrailingSlash = value.replace(/\/+$/, '')
+  if (withoutTrailingSlash.endsWith('/api')) {
+    return withoutTrailingSlash
+  }
+  return `${withoutTrailingSlash}/api`
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-02-11',
   // SSR 模式
@@ -73,8 +85,12 @@ export default defineNuxtConfig({
 
   // 运行时配置
   runtimeConfig: {
+    apiInternalBase: normalizeApiBase(
+      process.env.NUXT_API_INTERNAL_BASE || process.env.API_BASE_URL,
+      'http://weblog-api:9091/api'
+    ),
     public: {
-      apiBase: import.meta.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9091/api',
+      apiBase: normalizeApiBase(import.meta.env.NUXT_PUBLIC_API_BASE, 'http://localhost:9091/api'),
     },
   },
 

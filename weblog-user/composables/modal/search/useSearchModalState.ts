@@ -1,4 +1,5 @@
 import { searchApi, type SearchHit } from '~/api/content/search'
+import { isSecurityGatewayBlockedError } from '~/utils/network/http'
 
 interface UseSearchModalStateOptions {
   defaultPlaceholder?: string
@@ -33,11 +34,16 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
   const searching = ref(false)
   const activeIndex = ref(-1)
   const hasSearched = ref(false)
+  const searchErrorMessage = ref('')
   const inputPlaceholderText = ref(defaultPlaceholder)
 
   const hasKeyword = computed(() => keyword.value.trim().length > 0)
   const showShortcutHints = computed(() => hasKeyword.value && !searching.value && results.value.length > 0)
-  const shouldShowEmpty = computed(() => hasKeyword.value && hasSearched.value && !searching.value && results.value.length === 0)
+  const shouldShowEmpty = computed(() => hasKeyword.value
+    && hasSearched.value
+    && !searching.value
+    && results.value.length === 0
+    && !searchErrorMessage.value)
   const showPlaceholderFire = computed(() => !keyword.value.trim() && inputPlaceholderText.value !== defaultPlaceholder)
   const actualInputPlaceholder = computed(() => (showPlaceholderFire.value ? '' : inputPlaceholderText.value))
 
@@ -57,6 +63,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
     const kw = normalizedKeyword.trim()
     if (!kw) {
       hasSearched.value = false
+      searchErrorMessage.value = ''
       results.value = []
       searching.value = false
       return
@@ -69,12 +76,16 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
       if (requestId !== searchRequestId) {
         return
       }
+      searchErrorMessage.value = ''
       results.value = res.data.hits
       activeIndex.value = results.value.length > 0 ? 0 : -1
-    } catch {
+    } catch (error) {
       if (requestId !== searchRequestId) {
         return
       }
+      searchErrorMessage.value = isSecurityGatewayBlockedError(error)
+        ? '搜索请求被安全网关拦截，请稍后重试'
+        : '搜索失败，请稍后重试'
       results.value = []
     } finally {
       if (requestId === searchRequestId) {
@@ -87,6 +98,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
     keyword.value = normalizeKeywordValue(keyword.value)
     activeIndex.value = -1
     hasSearched.value = false
+    searchErrorMessage.value = ''
     invalidateSearchRequest()
     if (!keyword.value.trim()) {
       results.value = []
@@ -109,6 +121,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
     invalidateSearchRequest()
     keyword.value = ''
     hasSearched.value = false
+    searchErrorMessage.value = ''
     results.value = []
     activeIndex.value = -1
     searching.value = false
@@ -118,6 +131,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
     invalidateSearchRequest()
     keyword.value = ''
     hasSearched.value = false
+    searchErrorMessage.value = ''
     results.value = []
     activeIndex.value = -1
     searching.value = false
@@ -302,6 +316,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
     results,
     searching,
     activeIndex,
+    searchErrorMessage,
     hasKeyword,
     showShortcutHints,
     hasSearched,

@@ -14,6 +14,7 @@ type RetryRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
 
 interface HttpError extends Error {
   code?: number
+  isSecurityGatewayBlocked?: boolean
 }
 
 interface RefreshSubscriber {
@@ -37,15 +38,54 @@ function onTokenRefreshFailed(error: HttpError) {
   refreshSubscribers = []
 }
 
-function createHttpError(message: string, code?: number): HttpError {
+function createHttpError(message: string, code?: number, isSecurityGatewayBlocked = false): HttpError {
   const error = new Error(message) as HttpError
   error.code = code
+  error.isSecurityGatewayBlocked = isSecurityGatewayBlocked
   return error
+}
+
+function getHeaderValue(headers: unknown, key: string): string {
+  if (!headers || typeof headers !== 'object') {
+    return ''
+  }
+  const value = (headers as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function isCloudflareChallengeError(error: AxiosError<{ code?: number; message?: string }>): boolean {
+  const response = error.response
+  if (!response) {
+    return false
+  }
+
+  const cfMitigated = getHeaderValue(response.headers, 'cf-mitigated').toLowerCase()
+  if (cfMitigated === 'challenge') {
+    return true
+  }
+
+  const contentType = getHeaderValue(response.headers, 'content-type').toLowerCase()
+  if (!contentType.includes('text/html')) {
+    return false
+  }
+
+  const body = response.data
+  if (typeof body !== 'string') {
+    return false
+  }
+
+  const lowerBody = body.toLowerCase()
+  return lowerBody.includes('just a moment')
+    || lowerBody.includes('cf_chl_opt')
+    || lowerBody.includes('/cdn-cgi/challenge-platform/')
 }
 
 function getBaseURL(): string {
   try {
     const config = useRuntimeConfig()
+    if (import.meta.server) {
+      return (config.apiInternalBase as string) || (config.public.apiBase as string)
+    }
     return config.public.apiBase as string
   } catch {
     return 'http://localhost:9091/api'
@@ -89,6 +129,14 @@ function createHttp(): AxiosInstance {
       const responseStatus = Number(error.response?.status || 0)
       const businessCode = Number(error.response?.data?.code || 0)
       const businessMessage = error.response?.data?.message
+
+      if (isCloudflareChallengeError(error)) {
+        return Promise.reject(createHttpError(
+          '请求被安全网关拦截，请稍后重试',
+          40390,
+          true
+        ))
+      }
 
       if (businessCode === 40103 || businessCode === 403 || businessCode === 429 || responseStatus === 429) {
         return Promise.reject(createHttpError(
@@ -153,6 +201,14 @@ function createHttp(): AxiosInstance {
   )
 
   return instance
+}
+
+export function isSecurityGatewayBlockedError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const candidate = error as HttpError
+  return candidate.isSecurityGatewayBlocked === true || candidate.code === 40390
 }
 
 export const http = createHttp()

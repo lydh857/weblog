@@ -217,6 +217,7 @@ import ReadLimitOverlay from '~/components/article/ReadLimitOverlay.vue'
 import { useUserStore } from '~/stores/user'
 import { useLoginModal } from '~/composables/modal/useLoginModal'
 import { buildCategoryPathById } from '~/utils/navigation/categoryRoute'
+import { isSecurityGatewayBlockedError } from '~/utils/network/http'
 import { sanitizeHtml } from '~/utils/security/xss'
 
 definePageMeta({
@@ -261,6 +262,10 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
       return res.data
     } catch (error) {
       const code = getHttpErrorCode(error)
+      if (isSecurityGatewayBlockedError(error)) {
+        detailErrorMessage.value = '请求被安全网关拦截，请稍后重试'
+        return null
+      }
       if (code !== 404) {
         detailErrorMessage.value = '文章加载失败，请稍后重试'
       }
