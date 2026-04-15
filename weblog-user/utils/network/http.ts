@@ -104,6 +104,22 @@ function getPublicApiBase(): string {
   }
 }
 
+function shouldRetryWithServerFallback(originalRequest?: RetryRequestConfig): originalRequest is RetryRequestConfig {
+  return import.meta.server && !!originalRequest && !originalRequest._serverNetworkFallbackRetried
+}
+
+function applyServerFallbackBase(originalRequest: RetryRequestConfig): boolean {
+  const fallbackBase = getPublicApiBase()
+  const currentBase = (originalRequest.baseURL || '').replace(/\/+$/, '')
+  const normalizedFallback = fallbackBase.replace(/\/+$/, '')
+  if (!normalizedFallback || normalizedFallback === currentBase) {
+    return false
+  }
+  originalRequest._serverNetworkFallbackRetried = true
+  originalRequest.baseURL = fallbackBase
+  return true
+}
+
 function createHttp(): AxiosInstance {
   const instance = axios.create({
     timeout: 15000,
@@ -143,6 +159,9 @@ function createHttp(): AxiosInstance {
       const businessMessage = error.response?.data?.message
 
       if (isCloudflareChallengeError(error)) {
+        if (shouldRetryWithServerFallback(originalRequest) && applyServerFallbackBase(originalRequest)) {
+          return instance(originalRequest)
+        }
         return Promise.reject(createHttpError(
           '请求被安全网关拦截，请稍后重试',
           40390,
@@ -205,20 +224,8 @@ function createHttp(): AxiosInstance {
 
       // SSR 场景下，优先内网 API；若内网地址不可达，自动回退到 public API 再试一次
       // 仅对网络层失败（无响应）生效，且只重试一次避免循环。
-      if (
-        import.meta.server
-        && !error.response
-        && originalRequest
-        && !originalRequest._serverNetworkFallbackRetried
-      ) {
-        const fallbackBase = getPublicApiBase()
-        const currentBase = (originalRequest.baseURL || '').replace(/\/+$/, '')
-        const normalizedFallback = fallbackBase.replace(/\/+$/, '')
-        if (normalizedFallback && normalizedFallback !== currentBase) {
-          originalRequest._serverNetworkFallbackRetried = true
-          originalRequest.baseURL = fallbackBase
-          return instance(originalRequest)
-        }
+      if (!error.response && shouldRetryWithServerFallback(originalRequest) && applyServerFallbackBase(originalRequest)) {
+        return instance(originalRequest)
       }
 
       // 其他错误
