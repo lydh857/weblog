@@ -315,6 +315,7 @@ const commentSectionRef = ref<HTMLElement | null>(null)
 const pageEntered = ref(false)
 const contentEntered = ref(false)
 const hydrationReady = ref(false)
+const hasClientRecoveryRetried = ref(false)
 const MOBILE_LAYOUT_BREAKPOINT = 1100
 
 const userStore = useUserStore()
@@ -336,6 +337,24 @@ watch(detailData, (value) => {
   prevPost.value = value?.prev ?? null
   nextPost.value = value?.next ?? null
 }, { immediate: true })
+
+watch(
+  [() => loading.value, () => post.value?.id, () => detailErrorMessage.value, slug],
+  ([isLoading, postId, currentError, currentSlug]) => {
+    if (!import.meta.client) {
+      return
+    }
+    if (hasClientRecoveryRetried.value) {
+      return
+    }
+    if (!currentSlug || isLoading || postId || !currentError) {
+      return
+    }
+    hasClientRecoveryRetried.value = true
+    void refreshDetailData()
+  },
+  { immediate: true },
+)
 
 useHead(() => ({
   title: post.value?.title ? `${post.value.title} - Weblog` : 'Weblog',
@@ -582,7 +601,8 @@ onMounted(() => {
 
   hydrationReady.value = true
 
-  if (!loading.value && !post.value && slug.value) {
+  if (!post.value && slug.value) {
+    hasClientRecoveryRetried.value = true
     void refreshDetailData()
   }
 
