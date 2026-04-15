@@ -10,7 +10,10 @@ import { useLoginModal } from '~/composables/modal/useLoginModal'
 
 // 防止刷新死循环
 let isRefreshing = false
-type RetryRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
+type RetryRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean
+  _serverNetworkFallbackRetried?: boolean
+}
 
 interface HttpError extends Error {
   code?: number
@@ -86,6 +89,15 @@ function getBaseURL(): string {
     if (import.meta.server) {
       return (config.apiInternalBase as string) || (config.public.apiBase as string)
     }
+    return config.public.apiBase as string
+  } catch {
+    return 'http://localhost:9091/api'
+  }
+}
+
+function getPublicApiBase(): string {
+  try {
+    const config = useRuntimeConfig()
     return config.public.apiBase as string
   } catch {
     return 'http://localhost:9091/api'
@@ -189,6 +201,24 @@ function createHttp(): AxiosInstance {
 
       if (error.response?.status === 403) {
         return Promise.reject(createHttpError(businessMessage || '无权限访问', 403))
+      }
+
+      // SSR 场景下，优先内网 API；若内网地址不可达，自动回退到 public API 再试一次
+      // 仅对网络层失败（无响应）生效，且只重试一次避免循环。
+      if (
+        import.meta.server
+        && !error.response
+        && originalRequest
+        && !originalRequest._serverNetworkFallbackRetried
+      ) {
+        const fallbackBase = getPublicApiBase()
+        const currentBase = (originalRequest.baseURL || '').replace(/\/+$/, '')
+        const normalizedFallback = fallbackBase.replace(/\/+$/, '')
+        if (normalizedFallback && normalizedFallback !== currentBase) {
+          originalRequest._serverNetworkFallbackRetried = true
+          originalRequest.baseURL = fallbackBase
+          return instance(originalRequest)
+        }
       }
 
       // 其他错误
