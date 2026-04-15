@@ -244,6 +244,18 @@ function getHttpErrorCode(error: unknown): number | null {
   return null
 }
 
+function getHttpErrorMessage(error: unknown): string | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+  const candidate = (error as { message?: unknown }).message
+  if (typeof candidate !== 'string') {
+    return null
+  }
+  const trimmed = candidate.trim()
+  return trimmed || null
+}
+
 // sticky top 值：导航栏 + 间距 10px + 公告栏（如果有）
 const stickyTop = computed(() => {
   if (bannerVisible.value) {
@@ -268,7 +280,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
         return null
       }
       if (code !== 404) {
-        detailErrorMessage.value = '文章加载失败，请稍后重试'
+        detailErrorMessage.value = getHttpErrorMessage(error) || '文章加载失败，请稍后重试'
       }
       return null
     }

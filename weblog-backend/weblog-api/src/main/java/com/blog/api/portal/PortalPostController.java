@@ -62,7 +62,7 @@ public class PortalPostController {
 
     @Operation(summary = "文章详情（含上下篇导航、阅读计数）")
     @GetMapping("/{slug}")
-    @RateLimit(key = "portal-post-detail", capacity = 180, seconds = 60)
+    @RateLimit(key = "portal-post-detail", capacity = 1200, seconds = 60)
     public Result<Map<String, Object>> detail(@PathVariable String slug, HttpServletRequest request) {
         PostVO post = postService.getBySlug(slug);
 

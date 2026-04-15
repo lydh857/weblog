@@ -248,9 +248,9 @@ function handleSlideClick(slide: CarouselVO) {
 
   if (slide.type === 'article') {
     if (slide.slug) {
-      navigateTo(`/post/${slide.slug}`)
+      window.open(`/post/${slide.slug}`, '_blank', 'noopener,noreferrer')
     } else if (safeLink) {
-      navigateTo(safeLink, { external: true })
+      window.open(safeLink, '_blank', 'noopener,noreferrer')
     }
   } else if (slide.type === 'image' && safeLink) {
     window.open(safeLink, '_blank', 'noopener,noreferrer')

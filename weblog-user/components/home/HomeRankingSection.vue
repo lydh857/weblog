@@ -47,7 +47,7 @@
         </div>
         <template v-else-if="dailyBoard.items.length">
           <!-- 第1名封面 -->
-          <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" class="hero-card">
+          <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
             <div class="hero-cover">
               <img
                 v-if="dailyTopItem.cover_image && !isImageBroken('daily-top', dailyTopItem.post_id)"
@@ -81,6 +81,8 @@
               v-for="(item, idx) in dailyDisplayItems.slice(1)"
               :key="item.post_id"
               :to="`/post/${item.slug}`"
+              target="_blank"
+              rel="noopener noreferrer"
               class="rank-row rank-row--with-cover"
               :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
             >
@@ -121,7 +123,7 @@
         </div>
         <template v-else-if="weekBoard.items.length">
           <template v-if="isMobileView">
-            <NuxtLink v-if="weekTopItem" :to="`/post/${weekTopItem.slug}`" class="hero-card">
+            <NuxtLink v-if="weekTopItem" :to="`/post/${weekTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
               <div class="hero-cover">
                 <img
                   v-if="weekTopItem.cover_image && !isImageBroken('week-top', weekTopItem.post_id)"
@@ -150,7 +152,7 @@
               </div>
             </NuxtLink>
             <div class="card-list">
-              <NuxtLink v-for="(item, idx) in weekBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+              <NuxtLink v-for="(item, idx) in weekBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row rank-row--with-cover">
                 <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
                 <div class="rank-cover">
                   <img
@@ -168,7 +170,7 @@
             </div>
           </template>
           <div v-else class="card-list">
-            <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row">
               <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
@@ -196,7 +198,7 @@
         </div>
         <template v-else-if="monthBoard.items.length">
           <template v-if="isMobileView">
-            <NuxtLink v-if="monthTopItem" :to="`/post/${monthTopItem.slug}`" class="hero-card">
+            <NuxtLink v-if="monthTopItem" :to="`/post/${monthTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
               <div class="hero-cover">
                 <img
                   v-if="monthTopItem.cover_image && !isImageBroken('month-top', monthTopItem.post_id)"
@@ -225,7 +227,7 @@
               </div>
             </NuxtLink>
             <div class="card-list">
-              <NuxtLink v-for="(item, idx) in monthBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row rank-row--with-cover">
+              <NuxtLink v-for="(item, idx) in monthBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row rank-row--with-cover">
                 <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
                 <div class="rank-cover">
                   <img
@@ -243,7 +245,7 @@
             </div>
           </template>
           <div v-else class="card-list">
-            <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" class="rank-row">
+            <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row">
               <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
               <span class="rank-title">{{ item.title }}</span>
               <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
@@ -287,7 +289,7 @@
         </div>
         <template v-else-if="totalBoard.items.length">
           <!-- 第1名封面 -->
-          <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" class="hero-card">
+          <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
             <div class="hero-cover">
               <img
                 v-if="totalTopItem.cover_image && !isImageBroken('total-top', totalTopItem.post_id)"
@@ -321,6 +323,8 @@
               v-for="(item, idx) in totalDisplayItems.slice(1)"
               :key="item.post_id"
               :to="`/post/${item.slug}`"
+              target="_blank"
+              rel="noopener noreferrer"
               class="rank-row rank-row--with-cover"
               :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
             >

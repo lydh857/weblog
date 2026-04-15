@@ -41,6 +41,8 @@
         v-for="post in posts"
         :key="post.id"
         :to="`/post/${post.slug}`"
+        target="_blank"
+        rel="noopener noreferrer"
         class="grid-card"
       >
         <!-- 背景图占满 -->
