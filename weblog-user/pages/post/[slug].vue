@@ -231,6 +231,12 @@ const { bannerVisible } = useAnnouncementBar()
 const { isDark } = useDarkMode()
 
 const detailAsyncKey = computed(() => `post-detail:${slug.value}`)
+interface PostDetailAsyncState {
+  post: PostVO | null
+  prev: { id: number; title: string; slug: string; coverImage?: string } | null
+  next: { id: number; title: string; slug: string; coverImage?: string } | null
+  errorMessage: string | null
+}
 const detailErrorMessage = ref<string | null>(null)
 
 function getHttpErrorCode(error: unknown): number | null {
@@ -267,22 +273,47 @@ const stickyTop = computed(() => {
 
 const { data: detailData, pending: loading, refresh: refreshDetailData } = await useAsyncData(
   detailAsyncKey,
-  async () => {
-    if (!slug.value) return null
-    detailErrorMessage.value = null
+  async (): Promise<PostDetailAsyncState> => {
+    if (!slug.value) {
+      return {
+        post: null,
+        prev: null,
+        next: null,
+        errorMessage: null,
+      }
+    }
     try {
       const res = await postApi.detail(slug.value)
-      return res.data
+      return {
+        post: res.data.post,
+        prev: res.data.prev,
+        next: res.data.next,
+        errorMessage: null,
+      }
     } catch (error) {
       const code = getHttpErrorCode(error)
       if (isSecurityGatewayBlockedError(error)) {
-        detailErrorMessage.value = '请求被安全网关拦截，请稍后重试'
-        return null
+        return {
+          post: null,
+          prev: null,
+          next: null,
+          errorMessage: '请求被安全网关拦截，请稍后重试',
+        }
       }
       if (code !== 404) {
-        detailErrorMessage.value = getHttpErrorMessage(error) || '文章加载失败，请稍后重试'
+        return {
+          post: null,
+          prev: null,
+          next: null,
+          errorMessage: getHttpErrorMessage(error) || '文章加载失败，请稍后重试',
+        }
       }
-      return null
+      return {
+        post: null,
+        prev: null,
+        next: null,
+        errorMessage: null,
+      }
     }
   },
 )
@@ -336,6 +367,7 @@ watch(detailData, (value) => {
   post.value = value?.post ?? null
   prevPost.value = value?.prev ?? null
   nextPost.value = value?.next ?? null
+  detailErrorMessage.value = value?.errorMessage ?? null
 }, { immediate: true })
 
 watch(
