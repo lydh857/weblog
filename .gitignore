@@ -8,6 +8,7 @@
 .history/
 .codebuddy/
 .trae/
+.codex/
 参考案例/
 # Docker 数据卷（包含数据库数据，不提交）
 docker-data/
