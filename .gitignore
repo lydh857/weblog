@@ -3,13 +3,8 @@
 # ============================================
 
 # 规范文档（本地开发用，不提交）
-.kiro/
 .claude/
 .history/
-.codebuddy/
-.trae/
-.codex/
-参考案例/
 # Docker 数据卷（包含数据库数据，不提交）
 docker-data/
 database/*
