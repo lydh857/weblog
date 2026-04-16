@@ -189,13 +189,17 @@
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
 
-    <div v-else-if="!hydrationReady" class="article-loading">
+    <div v-else-if="!hydrationReady || (!post && !detailErrorMessage && !isPostNotFound)" class="article-loading">
       <UnifiedSkeleton variant="article" :rows="12" />
     </div>
 
-    <div v-else class="empty-state">
+    <div v-else-if="isPostNotFound" class="empty-state">
       <p>文章不存在</p>
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
+    </div>
+
+    <div v-else class="article-loading">
+      <UnifiedSkeleton variant="article" :rows="12" />
     </div>
     
     <!-- 阅读限制弹窗 -->
@@ -240,6 +244,7 @@ interface PostDetailAsyncState {
   prev: { id: number; title: string; slug: string; coverImage?: string } | null
   next: { id: number; title: string; slug: string; coverImage?: string } | null
   errorMessage: string | null
+  notFound: boolean
 }
 const detailErrorMessage = ref<string | null>(null)
 
@@ -284,6 +289,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
         prev: null,
         next: null,
         errorMessage: null,
+        notFound: false,
       }
     }
     try {
@@ -293,6 +299,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
         prev: res.data.prev,
         next: res.data.next,
         errorMessage: null,
+        notFound: false,
       }
     } catch (error) {
       const code = getHttpErrorCode(error)
@@ -302,6 +309,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
           prev: null,
           next: null,
           errorMessage: import.meta.server ? null : '请求被安全网关拦截，请稍后重试',
+          notFound: false,
         }
       }
       if (code !== 404) {
@@ -310,6 +318,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
           prev: null,
           next: null,
           errorMessage: import.meta.server ? null : (getHttpErrorMessage(error) || '文章加载失败，请稍后重试'),
+          notFound: false,
         }
       }
       return {
@@ -317,6 +326,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
         prev: null,
         next: null,
         errorMessage: null,
+        notFound: true,
       }
     }
   },
@@ -350,6 +360,7 @@ const commentSectionRef = ref<HTMLElement | null>(null)
 const pageEntered = ref(false)
 const contentEntered = ref(false)
 const hydrationReady = ref(false)
+const isPostNotFound = ref(false)
 const hasClientRecoveryRetried = ref(false)
 const MOBILE_LAYOUT_BREAKPOINT = 1100
 
@@ -372,6 +383,7 @@ watch(detailData, (value) => {
   prevPost.value = value?.prev ?? null
   nextPost.value = value?.next ?? null
   detailErrorMessage.value = value?.errorMessage ?? null
+  isPostNotFound.value = value?.notFound ?? false
 }, { immediate: true })
 
 watch(
