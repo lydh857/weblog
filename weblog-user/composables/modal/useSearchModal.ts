@@ -6,6 +6,16 @@ const initialKeyword = ref('')
 const inputPlaceholder = ref('搜索文章...')
 const autoSearchOnOpen = ref(false)
 
+export function normalizeSearchSeed(value?: string): string {
+  if (!value) return ''
+  return value
+    .replace(/\u00A0/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 interface SearchModalOpenOptions {
   keyword?: string
   placeholder?: string
@@ -14,8 +24,8 @@ interface SearchModalOpenOptions {
 
 export function useSearchModal() {
   function open(options?: SearchModalOpenOptions) {
-    initialKeyword.value = options?.keyword?.trim() || ''
-    inputPlaceholder.value = options?.placeholder?.trim() || '搜索文章...'
+    initialKeyword.value = normalizeSearchSeed(options?.keyword)
+    inputPlaceholder.value = normalizeSearchSeed(options?.placeholder) || '搜索文章...'
     autoSearchOnOpen.value = Boolean(options?.autoSearch)
     isVisible.value = true
   }

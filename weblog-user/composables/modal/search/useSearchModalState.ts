@@ -1,5 +1,6 @@
 import { searchApi, type SearchHit } from '~/api/content/search'
 import { isSecurityGatewayBlockedError } from '~/utils/network/http'
+import { normalizeSearchSeed } from '~/composables/modal/useSearchModal'
 
 interface UseSearchModalStateOptions {
   defaultPlaceholder?: string
@@ -19,11 +20,11 @@ const LONG_PRESS_MOVE_TOLERANCE = 10
 
 function normalizeKeywordValue(value: string): string {
   if (!value) return ''
-  return value.slice(0, MAX_KEYWORD_LENGTH)
+  return normalizeSearchSeed(value).slice(0, MAX_KEYWORD_LENGTH)
 }
 
 function toTrimmedOrEmpty(value: string | undefined): string {
-  return value?.trim() || ''
+  return normalizeSearchSeed(value)
 }
 
 export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
@@ -108,7 +109,7 @@ export function useSearchModalState(options: UseSearchModalStateOptions = {}) {
 
   function handleSearchSubmit() {
     if (!keyword.value.trim()) {
-      const placeholderKeyword = normalizeKeywordValue(inputPlaceholderText.value).trim()
+      const placeholderKeyword = normalizeKeywordValue(normalizeSearchSeed(inputPlaceholderText.value)).trim()
       if (!placeholderKeyword || placeholderKeyword === defaultPlaceholder) {
         return
       }

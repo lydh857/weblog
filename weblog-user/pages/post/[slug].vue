@@ -1,7 +1,7 @@
 <template>
   <div class="post-detail-bg" :style="{ '--sticky-top': stickyTop }">
     <div class="post-detail-page" :class="{ 'page-entered': pageEntered }">
-    <UnifiedPageLoader v-if="loading" text="加载中..." />
+    <UnifiedPageLoader v-if="loading" text="" plain />
 
     <template v-else-if="post">
       <div :key="post.id" class="three-col-layout" :class="{ 'content-entered': contentEntered }">
@@ -189,8 +189,8 @@
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
 
-    <div v-else-if="!hydrationReady || (!post && !detailErrorMessage && !isPostNotFound)" class="empty-state">
-      <p>正在加载文章...</p>
+    <div v-else-if="!hydrationReady || (!post && !detailErrorMessage && !isPostNotFound)" class="article-loading-indicator">
+      <UnifiedPageLoader text="" plain compact />
     </div>
 
     <div v-else-if="isPostNotFound" class="empty-state">
@@ -198,8 +198,8 @@
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
 
-    <div v-else class="empty-state">
-      <p>正在加载文章...</p>
+    <div v-else class="article-loading-indicator">
+      <UnifiedPageLoader text="" plain compact />
     </div>
     
     <!-- 阅读限制弹窗 -->
@@ -706,6 +706,13 @@ onUnmounted(() => {
   transition:
     opacity 680ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.article-loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 160px;
 }
 
 .post-detail-page.page-entered {
