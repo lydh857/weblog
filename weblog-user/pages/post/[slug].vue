@@ -183,10 +183,14 @@
       </Teleport>
     </template>
 
-    <div v-else-if="detailErrorMessage" class="empty-state">
+    <div v-else-if="detailErrorMessage && hydrationReady" class="empty-state">
       <p>{{ detailErrorMessage }}</p>
       <button type="button" class="retry-btn" @click="retryLoadPost">重试</button>
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
+    </div>
+
+    <div v-else-if="!hydrationReady" class="article-loading">
+      <UnifiedSkeleton variant="article" :rows="12" />
     </div>
 
     <div v-else class="empty-state">
@@ -297,7 +301,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
           post: null,
           prev: null,
           next: null,
-          errorMessage: '请求被安全网关拦截，请稍后重试',
+          errorMessage: import.meta.server ? null : '请求被安全网关拦截，请稍后重试',
         }
       }
       if (code !== 404) {
@@ -305,7 +309,7 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
           post: null,
           prev: null,
           next: null,
-          errorMessage: getHttpErrorMessage(error) || '文章加载失败，请稍后重试',
+          errorMessage: import.meta.server ? null : (getHttpErrorMessage(error) || '文章加载失败，请稍后重试'),
         }
       }
       return {
