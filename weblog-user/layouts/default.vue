@@ -840,6 +840,7 @@ onUnmounted(() => {
 .layout {
   --layout-navbar-height: 60px;
   --layout-announcement-height: 36px;
+  --nav-scroll-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ===== 导航栏入场动画 ===== */
@@ -872,19 +873,20 @@ onUnmounted(() => {
   z-index: 100;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid $color-border;
-  transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+  border-bottom: none;
+  transition:
+    transform 0.44s var(--nav-scroll-ease),
+    opacity 0.36s ease,
+    background-color 0.42s var(--nav-scroll-ease),
+    backdrop-filter 0.42s var(--nav-scroll-ease);
   .dark & {
     background: rgba(16, 18, 21, 0.86);
-    border-bottom-color: $color-dark-border;
   }
   &--transparent {
     background: transparent;
     backdrop-filter: none;
-    border-bottom-color: transparent;
     .dark & {
       background: transparent;
-      border-bottom-color: transparent;
       .nav-logo .logo-text { color: rgba(255, 255, 255, 0.88); }
     }
     .nav-logo .logo-text { color: rgba(255, 255, 255, 0.88); }
@@ -918,7 +920,11 @@ onUnmounted(() => {
 @media (max-width: $breakpoint-md) {
   .navbar {
     padding-right: 0;
-    transition: transform 0.3s ease, opacity 0.24s ease;
+    transition:
+      transform 0.4s var(--nav-scroll-ease),
+      opacity 0.3s ease,
+      background-color 0.38s var(--nav-scroll-ease),
+      backdrop-filter 0.38s var(--nav-scroll-ease);
   }
 }
 

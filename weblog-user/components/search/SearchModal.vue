@@ -727,6 +727,18 @@ onUnmounted(() => {
 
 .search-body--results {
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.search-body--results::-webkit-scrollbar,
+.search-body--results::-webkit-scrollbar-button,
+.search-body--results::-webkit-scrollbar-track,
+.search-body--results::-webkit-scrollbar-thumb,
+.search-body--results::-webkit-scrollbar-corner {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .search-body--ranking {
@@ -776,6 +788,22 @@ onUnmounted(() => {
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.search-body :deep(.v-custom-scrollbar-host .v-custom-scrollbar-rail) {
+  opacity: 0;
+  transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+.search-body :deep(.v-custom-scrollbar-host:hover .v-custom-scrollbar-rail),
+.search-body :deep(.v-custom-scrollbar-host:focus-within .v-custom-scrollbar-rail) {
+  opacity: 0.72;
+}
+
+.search-body :deep(.v-custom-scrollbar-host .v-custom-scrollbar-rail:hover),
+.search-body :deep(.v-custom-scrollbar-host .v-custom-scrollbar-rail.is-dragging) {
+  width: 8px;
+  opacity: 1;
 }
 
 /* ===== 搜索历史 ===== */

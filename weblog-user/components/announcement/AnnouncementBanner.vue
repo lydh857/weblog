@@ -141,18 +141,22 @@ onUnmounted(() => stopAutoPlay())
   box-sizing: border-box;
   padding-right: var(--scrollbar-width, 0px);
   z-index: 99; /* 低于导航栏(100)，高于页面内容 */
-  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
-  transition: transform 0.3s ease;
+  background: rgba(239, 246, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: none;
+  transition:
+    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 
   &.nav-hidden {
     transform: translateY(calc(var(--layout-navbar-height, 60px) * -1));
   }
 
   &.transparent {
-    background: rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(8px);
-    border-bottom-color: rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.34);
+    backdrop-filter: blur(4px);
+    box-shadow: none;
 
     .ann-icon { color: rgba(255, 255, 255, 0.9); }
     .ann-link { color: rgba(255, 255, 255, 0.9); &:hover { color: #fff; } }
@@ -165,8 +169,8 @@ onUnmounted(() => stopAutoPlay())
   }
 
   .dark & {
-    background: linear-gradient(135deg, #1d232a 0%, #171b20 100%);
-    border-bottom-color: rgba(148, 163, 184, 0.24);
+    background: rgba(23, 27, 32, 0.9);
+    box-shadow: none;
   }
 
   @media (max-width: $breakpoint-md) {
@@ -187,6 +191,7 @@ onUnmounted(() => stopAutoPlay())
 .ann-icon {
   flex-shrink: 0;
   color: $color-primary;
+  transition: color 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ann-marquee {
@@ -205,7 +210,7 @@ onUnmounted(() => stopAutoPlay())
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.2s;
+  transition: color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 
   &:hover {
     color: $color-primary;
@@ -228,11 +233,13 @@ onUnmounted(() => stopAutoPlay())
 .ann-sep {
   color: #93c5fd;
   flex-shrink: 0;
+  transition: color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ann-summary {
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ann-nav {
@@ -259,7 +266,7 @@ onUnmounted(() => stopAutoPlay())
   background: transparent;
   color: #1e40af;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.24s ease, color 0.24s ease;
 
   &:hover {
     background: rgba(59, 130, 246, 0.1);
@@ -279,6 +286,7 @@ onUnmounted(() => stopAutoPlay())
   color: #6b7280;
   min-width: 24px;
   text-align: center;
+  transition: color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 
   .dark & {
     color: #9aa5b5;
@@ -297,7 +305,7 @@ onUnmounted(() => stopAutoPlay())
   background: transparent;
   color: #6b7280;
   cursor: pointer;
-  transition: opacity 0.2s ease, background 0.15s, color 0.15s;
+  transition: opacity 0.24s ease, background-color 0.24s ease, color 0.24s ease;
 
   &:hover {
     background: rgba(0, 0, 0, 0.06);
