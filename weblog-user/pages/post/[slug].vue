@@ -189,8 +189,8 @@
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
 
-    <div v-else-if="!hydrationReady || (!post && !detailErrorMessage && !isPostNotFound)" class="article-loading">
-      <UnifiedSkeleton variant="article" :rows="12" />
+    <div v-else-if="!hydrationReady || (!post && !detailErrorMessage && !isPostNotFound)" class="empty-state">
+      <p>正在加载文章...</p>
     </div>
 
     <div v-else-if="isPostNotFound" class="empty-state">
@@ -198,8 +198,8 @@
       <NuxtLink to="/" class="back-link">返回首页</NuxtLink>
     </div>
 
-    <div v-else class="article-loading">
-      <UnifiedSkeleton variant="article" :rows="12" />
+    <div v-else class="empty-state">
+      <p>正在加载文章...</p>
     </div>
     
     <!-- 阅读限制弹窗 -->
@@ -313,11 +313,21 @@ const { data: detailData, pending: loading, refresh: refreshDetailData } = await
         }
       }
       if (code !== 404) {
+        const message = getHttpErrorMessage(error)
+        if (message?.includes('不存在')) {
+          return {
+            post: null,
+            prev: null,
+            next: null,
+            errorMessage: null,
+            notFound: true,
+          }
+        }
         return {
           post: null,
           prev: null,
           next: null,
-          errorMessage: import.meta.server ? null : (getHttpErrorMessage(error) || '文章加载失败，请稍后重试'),
+          errorMessage: import.meta.server ? null : (message || '文章加载失败，请稍后重试'),
           notFound: false,
         }
       }
@@ -361,7 +371,6 @@ const pageEntered = ref(false)
 const contentEntered = ref(false)
 const hydrationReady = ref(false)
 const isPostNotFound = ref(false)
-const hasClientRecoveryRetried = ref(false)
 const MOBILE_LAYOUT_BREAKPOINT = 1100
 
 const userStore = useUserStore()
@@ -386,23 +395,27 @@ watch(detailData, (value) => {
   isPostNotFound.value = value?.notFound ?? false
 }, { immediate: true })
 
-watch(
-  [() => loading.value, () => post.value?.id, () => detailErrorMessage.value, slug],
-  ([isLoading, postId, currentError, currentSlug]) => {
-    if (!import.meta.client) {
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+async function recoverDetailAfterHydration() {
+  if (!import.meta.client || !slug.value || post.value || detailErrorMessage.value || isPostNotFound.value) {
+    return
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await refreshDetailData()
+    if (post.value || detailErrorMessage.value || isPostNotFound.value) {
       return
     }
-    if (hasClientRecoveryRetried.value) {
-      return
-    }
-    if (!currentSlug || isLoading || postId || !currentError) {
-      return
-    }
-    hasClientRecoveryRetried.value = true
-    void refreshDetailData()
-  },
-  { immediate: true },
-)
+    await wait(300)
+  }
+
+  detailErrorMessage.value = '文章加载失败，请稍后重试'
+}
 
 useHead(() => ({
   title: post.value?.title ? `${post.value.title} - Weblog` : 'Weblog',
@@ -650,8 +663,7 @@ onMounted(() => {
   hydrationReady.value = true
 
   if (!post.value && slug.value) {
-    hasClientRecoveryRetried.value = true
-    void refreshDetailData()
+    void recoverDetailAfterHydration()
   }
 
   window.addEventListener('resize', handleWindowResize)
