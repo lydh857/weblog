@@ -1,6 +1,10 @@
 <template>
   <div ref="sectionRef" class="comment-section">
-    <div ref="sectionViewportRef" class="comment-section-viewport" :class="{ 'with-bottom-bar-space': showBottomBar }">
+    <div
+      ref="sectionViewportRef"
+      class="comment-section-viewport"
+      :class="{ 'with-bottom-bar-space': showBottomBar }"
+    >
       <div class="section-header">
       <h3 class="section-title">
         <Icon name="heroicons:chat-bubble-left-ellipsis-20-solid" size="20" />
@@ -260,7 +264,13 @@
 
     <!-- 底部固定评论栏 -->
     <Transition name="bottom-bar-slide">
-      <div v-if="showBottomBar" ref="bottomBarRef" class="bottom-comment-bar" :style="bottomBarStyle">
+      <div
+        v-if="showBottomBar"
+        ref="bottomBarRef"
+        class="bottom-comment-bar"
+        :class="{ 'is-docked': bottomBarMode === 'docked' }"
+        :style="bottomBarStyle"
+      >
         <div class="bottom-bar-inner">
           <div class="form-avatar sm">
             <img v-if="showSelfAvatar" :src="userStore.userInfo.avatar" alt="头像" @error="handleSelfAvatarError" >
@@ -367,7 +377,7 @@ const sectionInView = ref(false)
 const showBottomBar = computed(() => !formInView.value && sectionInView.value)
 const bottomBarMode = ref<'fixed' | 'docked'>('fixed')
 const bottomBarStyle = ref<Record<string, string>>({})
-const shouldLiftFloatingButtons = computed(() => showBottomBar.value)
+const shouldLiftFloatingButtons = computed(() => showBottomBar.value && bottomBarMode.value === 'fixed')
 const bottomBarDockOffset = ref(0)
 
 // 表情
@@ -751,18 +761,37 @@ function updateBottomBarPosition() {
   if (!sectionEl) return
 
   const sectionRect = sectionEl.getBoundingClientRect()
-  const dockOffset = Math.max(0, window.innerHeight - sectionRect.bottom)
-  bottomBarDockOffset.value = dockOffset
-  bottomBarMode.value = dockOffset > 0 ? 'docked' : 'fixed'
+  const rawDockOffset = window.innerHeight - sectionRect.bottom
+  const nextDockOffset = Math.max(0, Math.round(rawDockOffset))
+  if (bottomBarMode.value === 'docked') {
+    bottomBarMode.value = rawDockOffset <= 1 ? 'fixed' : 'docked'
+  } else {
+    bottomBarMode.value = rawDockOffset >= 4 ? 'docked' : 'fixed'
+  }
+
+  bottomBarDockOffset.value = bottomBarMode.value === 'docked' ? nextDockOffset : 0
   const rect = sectionRect
-  const left = Math.max(0, rect.left)
-  const width = Math.max(0, Math.min(rect.width, window.innerWidth - left))
+  const left = Math.max(0, Math.round(rect.left))
+  const width = Math.max(0, Math.min(Math.round(rect.width), window.innerWidth - left))
+
+  if (bottomBarMode.value === 'docked') {
+    bottomBarStyle.value = {
+      position: 'absolute',
+      left: '0',
+      width: '100%',
+      bottom: '12px',
+      zIndex: '40',
+    }
+    syncFloatingButtonsLiftClass(false)
+    return
+  }
 
   bottomBarStyle.value = {
     position: 'fixed',
-    left: `${left}px`,
-    width: `${width}px`,
-    bottom: `${dockOffset}px`,
+    left: window.innerWidth <= 1100 ? '0' : `${left}px`,
+    right: window.innerWidth <= 1100 ? '0' : 'auto',
+    width: window.innerWidth <= 1100 ? '100%' : `${width}px`,
+    bottom: '0',
     zIndex: '54',
   }
 
