@@ -3,34 +3,44 @@
 
 // ===== Element Plus + 管理端统一主题变量 =====
 :root {
-  --admin-primary: #{$color-primary};
-  --admin-primary-soft: #eaf1fd;
-  --admin-primary-soft-hover: #dce8fc;
-  --admin-aside-text: #4b5f7a;
-  --admin-surface-0: #{$color-bg-light};
-  --admin-surface-1: #{$color-bg-secondary-light};
-  --admin-surface-2: #{$color-bg-tertiary-light};
-  --admin-border-1: #{$color-border-light};
-  --admin-border-2: #{$color-border-strong-light};
+  --admin-primary: #1a73e8;
+  --admin-primary-soft: #edf3fb;
+  --admin-primary-soft-hover: #e3ebf6;
+  --admin-aside-text: #566171;
+  --admin-aside-text-muted: #8a94a3;
+  --admin-aside-text-active: #1f2937;
+  --admin-menu-bg: #fafafa;
+  --admin-menu-hover-bg: #f2f2f2;
+  --admin-menu-active-bg: #f2f2f2;
+  --admin-menu-active-border: rgba(15, 23, 42, 0.08);
+  --admin-topbar-bg: #fafafa;
+  --admin-topbar-border: #e5e7eb;
+  --admin-tab-hover-bg: #f2f2f2;
+  --admin-tab-active-bg: #f2f2f2;
+  --admin-surface-0: #f5f7fb;
+  --admin-surface-1: #ffffff;
+  --admin-surface-2: #f7f9fc;
+  --admin-border-1: #e3e8ef;
+  --admin-border-2: #d6dde8;
 
-  --el-color-primary: #{$color-primary};
-  --el-color-primary-light-3: #7ba4f2;
-  --el-color-primary-light-5: #9dbcf5;
-  --el-color-primary-light-7: #bdd3f8;
-  --el-color-primary-light-8: #d4e3fa;
-  --el-color-primary-light-9: #eaf1fd;
-  --el-color-primary-dark-2: #{$color-primary-hover};
+  --el-color-primary: #1a73e8;
+  --el-color-primary-light-3: #4c8fe8;
+  --el-color-primary-light-5: #75a9ef;
+  --el-color-primary-light-7: #a8c9f6;
+  --el-color-primary-light-8: #c6daf8;
+  --el-color-primary-light-9: #e8f1fd;
+  --el-color-primary-dark-2: #155ec1;
 
   --el-color-success: #{$color-success};
   --el-color-warning: #{$color-warning};
   --el-color-danger: #{$color-danger};
   --el-color-info: #{$color-info};
 
-  --el-text-color-primary: #{$color-text-light};
-  --el-text-color-regular: #31465f;
-  --el-text-color-secondary: #647d98;
-  --el-text-color-placeholder: #8fa1b6;
-  --el-text-color-disabled: #a5b3c5;
+  --el-text-color-primary: #1f2937;
+  --el-text-color-regular: #374151;
+  --el-text-color-secondary: #6b7280;
+  --el-text-color-placeholder: #9aa3b2;
+  --el-text-color-disabled: #b6bfcb;
 
   --el-bg-color-page: var(--admin-surface-0);
   --el-bg-color: var(--admin-surface-1);
@@ -38,11 +48,11 @@
 
   --el-fill-color-blank: var(--admin-surface-0);
   --el-fill-color-extra-light: var(--admin-surface-2);
-  --el-fill-color-light: #e4edf9;
-  --el-fill-color: #d8e5f7;
-  --el-fill-color-dark: #c8d9f1;
+  --el-fill-color-light: #eef2f7;
+  --el-fill-color: #e6ebf3;
+  --el-fill-color-dark: #dbe2ec;
 
-  --el-border-color-extra-light: #e8eff9;
+  --el-border-color-extra-light: #edf1f6;
   --el-border-color-light: var(--admin-border-1);
   --el-border-color: var(--admin-border-1);
   --el-border-color-lighter: var(--admin-border-1);
@@ -56,34 +66,44 @@
 }
 
 html.dark {
-  --admin-primary: #5a6574;
-  --admin-primary-soft: rgba(255, 255, 255, 0.12);
-  --admin-primary-soft-hover: rgba(255, 255, 255, 0.18);
-  --admin-aside-text: #e2e8f0;
-  --admin-surface-0: #{$color-bg-dark};
-  --admin-surface-1: #{$color-bg-secondary-dark};
-  --admin-surface-2: #{$color-bg-tertiary-dark};
-  --admin-border-1: #{$color-border-dark};
-  --admin-border-2: #{$color-border-strong-dark};
+  --admin-primary: #2f86ff;
+  --admin-primary-soft: rgba(66, 153, 255, 0.16);
+  --admin-primary-soft-hover: rgba(66, 153, 255, 0.24);
+  --admin-aside-text: #b8c1ce;
+  --admin-aside-text-muted: #8590a1;
+  --admin-aside-text-active: #eef3fb;
+  --admin-menu-bg: #000000;
+  --admin-menu-hover-bg: #171717;
+  --admin-menu-active-bg: #171717;
+  --admin-menu-active-border: rgba(111, 168, 255, 0.34);
+  --admin-topbar-bg: #000000;
+  --admin-topbar-border: #171717;
+  --admin-tab-hover-bg: #171717;
+  --admin-tab-active-bg: #171717;
+  --admin-surface-0: #090d12;
+  --admin-surface-1: #0e131b;
+  --admin-surface-2: #111822;
+  --admin-border-1: #1f2733;
+  --admin-border-2: #2b3645;
 
-  --el-color-primary: #5a6574;
-  --el-color-primary-light-3: #717b89;
-  --el-color-primary-light-5: #87909d;
-  --el-color-primary-light-7: #9ea6b1;
-  --el-color-primary-light-8: #b5bcc5;
-  --el-color-primary-light-9: #ccd1d8;
-  --el-color-primary-dark-2: #49525f;
+  --el-color-primary: #2f86ff;
+  --el-color-primary-light-3: #56a0ff;
+  --el-color-primary-light-5: #7cb7ff;
+  --el-color-primary-light-7: #a6d0ff;
+  --el-color-primary-light-8: #bfdfff;
+  --el-color-primary-light-9: #e5f2ff;
+  --el-color-primary-dark-2: #266bcc;
 
   --el-color-success: #63c28d;
   --el-color-warning: #e0b062;
   --el-color-danger: #e3838d;
   --el-color-info: #8da4bf;
 
-  --el-text-color-primary: #edf2f7;
-  --el-text-color-regular: #dbe3ef;
-  --el-text-color-secondary: #c3cede;
-  --el-text-color-placeholder: #aab7cb;
-  --el-text-color-disabled: #8f9db3;
+  --el-text-color-primary: #e6edf6;
+  --el-text-color-regular: #ced8e5;
+  --el-text-color-secondary: #99a6b8;
+  --el-text-color-placeholder: #7f8c9f;
+  --el-text-color-disabled: #6e7a8b;
 
   --el-bg-color-page: var(--admin-surface-0);
   --el-bg-color: var(--admin-surface-1);
@@ -91,17 +111,53 @@ html.dark {
 
   --el-fill-color-blank: var(--admin-surface-0);
   --el-fill-color-extra-light: var(--admin-surface-2);
-  --el-fill-color-light: #232b35;
-  --el-fill-color: #2c3642;
-  --el-fill-color-dark: #344150;
+  --el-fill-color-light: #141c26;
+  --el-fill-color: #1b2532;
+  --el-fill-color-dark: #253245;
 
-  --el-border-color-extra-light: #27303a;
+  --el-border-color-extra-light: #1b2330;
   --el-border-color-light: var(--admin-border-1);
   --el-border-color: var(--admin-border-1);
   --el-border-color-lighter: var(--admin-border-1);
   --el-border-color-dark: var(--admin-border-2);
 
-  --el-mask-color: rgba(7, 10, 14, 0.65);
+  --el-mask-color: rgba(5, 8, 12, 0.74);
+}
+
+html.dark .admin-layout .admin-aside,
+html.dark .admin-layout .admin-sidebar-menu,
+html.dark .admin-layout .admin-sidebar-menu .el-menu,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu .el-menu {
+  background: #000000 !important;
+}
+
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item:hover,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title:hover,
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item.is-active,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu.is-active > .el-sub-menu__title,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu.is-opened > .el-sub-menu__title {
+  background: #171717 !important;
+}
+
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title,
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item:focus,
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item:active,
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item:focus-visible,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title:focus,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title:active,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title:focus-visible {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item::before,
+html.dark .admin-layout .admin-sidebar-menu .el-menu-item::after,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title::before,
+html.dark .admin-layout .admin-sidebar-menu .el-sub-menu__title::after {
+  border: none !important;
+  box-shadow: none !important;
 }
 
 // ===== 全局重置 =====
@@ -209,4 +265,78 @@ html.dark ::-webkit-scrollbar-thumb {
   height: 100%;
   object-fit: cover;
   image-rendering: -webkit-optimize-contrast;
+}
+
+// ===== 管理端侧边栏折叠态统一尺寸与性能兜底（全局强覆盖） =====
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-menu-item,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-sub-menu__title,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title {
+  width: 48px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-menu-item > .el-menu-tooltip__trigger,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-tooltip__trigger,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-sub-menu__title {
+  width: 48px !important;
+  height: 40px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: block !important;
+}
+
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-menu-item > .el-menu-tooltip__trigger,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-sub-menu__title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-menu-item .el-icon,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow),
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow) {
+  position: static !important;
+  margin: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  transform: none !important;
+}
+
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-sub-menu__title > .el-sub-menu__icon-arrow,
+.admin-layout .admin-sidebar-menu.el-menu--collapse > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-sub-menu__icon-arrow {
+  display: none !important;
+}
+
+// 收缩/展开时的帧率优化：禁用侧边栏菜单过渡动画
+.admin-layout .admin-sidebar-menu .el-menu-item,
+.admin-layout .admin-sidebar-menu .el-sub-menu__title,
+.admin-layout .admin-sidebar-menu .el-menu--inline,
+.admin-layout .admin-sidebar-menu .el-collapse-transition {
+  transition: none !important;
+}
+
+.admin-layout .el-zoom-in-left-enter-active,
+.admin-layout .el-zoom-in-left-leave-active,
+.admin-layout .el-zoom-in-top-enter-active,
+.admin-layout .el-zoom-in-top-leave-active,
+.admin-layout .el-collapse-transition-enter-active,
+.admin-layout .el-collapse-transition-leave-active,
+.admin-layout .collapse-transition {
+  transition: none !important;
+  animation: none !important;
+}
+
+.admin-layout .el-zoom-in-left-enter-from,
+.admin-layout .el-zoom-in-left-leave-active,
+.admin-layout .el-zoom-in-top-enter-from,
+.admin-layout .el-zoom-in-top-leave-active {
+  opacity: 1 !important;
+  transform: none !important;
 }

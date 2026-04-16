@@ -1,7 +1,7 @@
 <template>
   <el-container class="admin-layout">
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapsed ? '64px' : '220px'" class="admin-aside">
+    <el-aside :width="isCollapsed ? '64px' : '220px'" :class="{ 'is-collapsed': isCollapsed }" class="admin-aside">
       <div class="logo" @click="navigateTo('/')">
         <div class="logo-icon">
           <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-icon-img app-brand-logo">
@@ -11,6 +11,8 @@
         </Transition>
       </div>
       <el-menu
+        class="admin-sidebar-menu"
+        :class="{ 'is-collapsed': isCollapsed }"
         :default-active="activeMenu"
         :collapse="isCollapsed"
         :collapse-transition="false"
@@ -280,13 +282,14 @@ onMounted(() => {
 
 // ===== 侧边栏 =====
 .admin-aside {
-  background: var(--el-bg-color);
+  background: var(--admin-menu-bg);
   border-right: 1px solid var(--el-border-color-light);
   display: flex;
   flex-direction: column;
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: width 0.18s cubic-bezier(0.4, 0, 0.2, 1),
     background-color 0.3s ease,
     border-color 0.3s ease;
+  will-change: width;
   overflow: hidden;
 }
 
@@ -298,7 +301,7 @@ onMounted(() => {
   padding: 0 16px;
   cursor: pointer;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--el-border-color-light);
+  border-bottom: 1px solid var(--el-border-color-extra-light);
   overflow: hidden;
   transition: border-color 0.3s ease;
 }
@@ -322,8 +325,8 @@ onMounted(() => {
 }
 
 .logo-text {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
   white-space: nowrap;
   letter-spacing: 0.2px;
@@ -364,81 +367,170 @@ onMounted(() => {
 }
 
 .el-menu {
+  background: var(--admin-menu-bg);
   border-right: none;
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px 8px;
 }
 
 // 菜单项样式
 :deep(.el-menu-item),
 :deep(.el-sub-menu__title) {
+  position: relative;
+  padding-left: 44px !important;
+  color: var(--admin-aside-text);
   border-radius: 8px;
   margin-bottom: 4px;
   height: 40px;
   line-height: 40px;
   font-size: 13px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+:deep(.el-menu-item > .el-icon),
+:deep(.el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)) {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  margin: 0 !important;
+  color: var(--admin-aside-text-muted);
+  transition: color 0.2s ease;
 }
 
 :deep(.el-menu-item.is-active) {
-  background: var(--admin-primary-soft);
-  color: var(--el-color-primary);
+  background: var(--admin-menu-active-bg);
+  color: var(--admin-aside-text-active);
+  border: none;
+  box-shadow: none;
   font-weight: 500;
 }
 
-:deep(html.dark .el-menu-item.is-active),
-:deep(body.dark .el-menu-item.is-active),
-:deep(.dark .el-menu-item.is-active) {
-  color: var(--el-text-color-primary) !important;
-}
-
-:deep(html.dark .el-menu-item),
-:deep(html.dark .el-sub-menu__title),
-:deep(body.dark .el-menu-item),
-:deep(body.dark .el-sub-menu__title),
-:deep(.dark .el-menu-item),
-:deep(.dark .el-sub-menu__title) {
-  color: var(--admin-aside-text) !important;
-}
-
-:deep(html.dark .el-menu-item .el-icon),
-:deep(html.dark .el-sub-menu__title .el-icon),
-:deep(body.dark .el-menu-item .el-icon),
-:deep(body.dark .el-sub-menu__title .el-icon),
-:deep(.dark .el-menu-item .el-icon),
-:deep(.dark .el-sub-menu__title .el-icon) {
-  color: var(--admin-aside-text) !important;
+:deep(.el-menu-item.is-active > .el-icon),
+:deep(.el-sub-menu.is-opened > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)) {
+  color: var(--admin-aside-text-active);
 }
 
 :deep(.el-menu-item:hover),
 :deep(.el-sub-menu__title:hover) {
-  background: var(--admin-primary-soft-hover) !important;
+  background: var(--admin-menu-hover-bg) !important;
+  color: var(--admin-aside-text-active) !important;
 }
 
-// 折叠状态下菜单项居中
-:deep(.el-menu--collapse .el-menu-item),
-:deep(.el-menu--collapse .el-sub-menu__title) {
+:deep(.el-menu-item:focus),
+:deep(.el-menu-item:focus-visible),
+:deep(.el-menu-item:active),
+:deep(.el-sub-menu__title:focus),
+:deep(.el-sub-menu__title:focus-visible),
+:deep(.el-sub-menu__title:active) {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+:deep(.el-menu-item:hover > .el-icon),
+:deep(.el-sub-menu__title:hover > .el-icon:not(.el-sub-menu__icon-arrow)) {
+  color: var(--admin-aside-text-active) !important;
+}
+
+:deep(.el-sub-menu .el-menu) {
+  background: transparent;
+}
+
+:deep(.el-menu--popup-container) {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+:deep(.el-menu--popup) {
+  padding: 6px;
+  background: var(--admin-surface-1);
+}
+
+:deep(.el-sub-menu .el-menu-item) {
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+// 折叠状态下顶层菜单项居中
+:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title) {
   padding: 0 !important;
+  width: 48px;
+  margin-left: auto;
+  margin-right: auto;
+  height: 40px;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-:deep(.el-menu--collapse .el-menu-item .el-icon),
-:deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
-  margin-right: 0 !important;
+:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > .el-menu-tooltip__trigger),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger) {
+  width: 48px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > .el-menu-tooltip__trigger),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title) {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item .el-icon),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)) {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+}
+
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > .el-sub-menu__icon-arrow),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-sub-menu__icon-arrow) {
+  display: none !important;
+}
+
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > span),
+:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > span),
+:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > span) {
+  display: none !important;
 }
 
 // 子菜单缩进
-:deep(.el-sub-menu .el-menu-item) {
-  padding-left: 48px !important;
+:deep(.admin-sidebar-menu:not(.is-collapsed) .el-sub-menu .el-menu-item) {
+  padding-left: 72px !important;
   min-width: auto;
+}
+
+:deep(.admin-sidebar-menu:not(.is-collapsed) .el-sub-menu .el-menu-item > .el-icon) {
+  left: 40px;
 }
 
 // ===== 头部 =====
 .admin-header {
   height: 56px;
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--admin-topbar-bg);
+  border-bottom: 1px solid var(--admin-topbar-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -468,7 +560,7 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 
   &:hover {
-    background: var(--admin-primary-soft);
+    background: var(--admin-menu-hover-bg);
   }
 }
 

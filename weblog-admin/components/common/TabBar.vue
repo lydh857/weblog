@@ -129,8 +129,8 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .tab-bar {
   height: 34px;
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--admin-topbar-bg);
+  border-bottom: 1px solid var(--admin-topbar-border);
   display: flex;
   align-items: center;
   padding: 0 6px;
@@ -159,34 +159,32 @@ onUnmounted(() => {
   padding: 0 8px;
   height: 24px;
   border-radius: 5px;
-  border: 1px solid transparent;
+  border: none;
   font-size: 12px;
   color: var(--el-text-color-regular);
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 
   &:hover {
-    background: var(--admin-primary-soft);
-    border-color: var(--el-color-primary-light-8);
-    color: var(--el-color-primary);
+    background: var(--admin-tab-hover-bg);
+    color: var(--admin-aside-text-active);
   }
 
   &.active {
-    background: var(--admin-primary-soft-hover);
-    border-color: var(--el-color-primary-light-7);
-    color: var(--el-color-primary);
+    background: var(--admin-tab-active-bg);
+    color: var(--admin-aside-text-active);
     font-weight: 600;
 
     .tab-close {
-      border-color: var(--el-color-primary-light-7);
-      color: var(--el-color-primary);
+      border-color: transparent;
+      color: var(--admin-aside-text-active);
 
       &:hover {
         color: var(--el-color-danger);
-        background: var(--el-color-danger-light-9);
-        border-color: var(--el-color-danger-light-5);
+        background: var(--admin-tab-hover-bg);
+        border-color: transparent;
       }
     }
   }
@@ -210,15 +208,15 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid var(--el-border-color-light);
-  background: var(--el-bg-color);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--el-text-color-secondary);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-1px) scale(0.86);
   pointer-events: none;
   z-index: 5;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s;
+  transition: background-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 
   :deep(.el-icon) {
     font-size: 11px;
@@ -228,8 +226,7 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: var(--el-color-danger-light-9);
-    border-color: var(--el-color-danger-light-5);
+    background: var(--admin-tab-hover-bg);
     color: var(--el-color-danger);
     transform: scale(1);
   }
@@ -246,8 +243,8 @@ onUnmounted(() => {
 .tab-context-menu {
   position: fixed;
   z-index: 9999;
-  background: var(--el-bg-color-overlay);
-  border: 1px solid var(--el-border-color-light);
+  background: var(--admin-topbar-bg);
+  border: 1px solid var(--admin-topbar-border);
   border-radius: 8px;
   padding: 4px 0;
   min-width: 108px;
@@ -262,8 +259,8 @@ onUnmounted(() => {
   transition: background-color 0.15s;
 
   &:hover {
-    background: var(--admin-primary-soft);
-    color: var(--el-color-primary);
+    background: var(--admin-tab-hover-bg);
+    color: var(--admin-aside-text-active);
   }
 }
 </style>
