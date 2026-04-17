@@ -364,9 +364,9 @@ onMounted(async () => {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 
   &:hover {
-    color: var(--el-color-primary);
-    border-color: var(--el-color-primary-light-5);
-    background: var(--admin-primary-soft);
+    color: var(--admin-aside-text-active);
+    border-color: var(--admin-panel-border);
+    background: var(--admin-panel-hover);
   }
 }
 
@@ -377,8 +377,8 @@ onMounted(async () => {
   min-height: 500px;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
 }
 
 .brand-panel {
@@ -387,8 +387,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   padding: 2.5rem 2rem;
-  background: var(--el-color-primary);
-  color: #fff;
+  background: var(--admin-panel-bg-soft);
+  color: var(--el-text-color-primary);
+  border-right: 1px solid var(--admin-panel-border);
 }
 
 .brand-inner {
@@ -400,7 +401,8 @@ onMounted(async () => {
   height: 64px;
   margin: 0 auto 1rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -422,14 +424,14 @@ onMounted(async () => {
 
 .brand-slogan {
   font-size: 0.86rem;
-  opacity: 0.88;
+  color: var(--el-text-color-secondary);
   margin-bottom: 1.25rem;
 }
 
 .brand-divider {
   width: 36px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--admin-panel-border);
   margin: 0 auto 1.25rem;
   border-radius: 1px;
 }
@@ -449,8 +451,9 @@ onMounted(async () => {
     font-size: 0.8rem;
     padding: 0.4rem 0.75rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--el-text-color-regular);
+    background: var(--admin-panel-bg);
+    border: 1px solid var(--admin-panel-border);
   }
 }
 
@@ -544,6 +547,8 @@ onMounted(async () => {
   .brand-panel {
     flex: none;
     padding: 1.75rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--admin-panel-border);
   }
 
   .brand-features,

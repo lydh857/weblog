@@ -576,7 +576,7 @@ onMounted(() => {
 
 // ===== 主内容区 =====
 .admin-main {
-  background: var(--el-bg-color-page);
+  background: var(--admin-content-bg);
   overflow-y: auto;
   transition: background-color 0.3s ease;
 }

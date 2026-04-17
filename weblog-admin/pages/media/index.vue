@@ -263,6 +263,7 @@ function storageLabel(source: StorageSource) {
 
 function resolveStorageSource(item: Pick<MediaVO, 'url' | 'filePath'>): StorageSource {
   const sourceText = `${item.url || ''} ${item.filePath || ''}`.toLowerCase()
+  const normalizedFilePath = (item.filePath || '').toLowerCase()
 
   if (sourceText.includes('/uploads/') || sourceText.includes('localhost') || sourceText.includes('127.0.0.1')) {
     return 'local'
@@ -278,8 +279,20 @@ function resolveStorageSource(item: Pick<MediaVO, 'url' | 'filePath'>): StorageS
     const host = new URL(item.url).host.toLowerCase()
     if (host.includes('aliyuncs.com') || host.includes('oss-')) return 'oss'
     if (host.includes('r2.cloudflarestorage.com') || host.includes('.r2.dev') || host.includes('cloudflare')) return 'r2'
+
+    // R2 绑定自定义域后，host 可能不包含 cloudflare 关键字。
+    // 当前系统仅支持 local / oss / r2，命中对象路径且非本地/OSS 时按 R2 识别。
+    if ((normalizedFilePath.startsWith('images/') || normalizedFilePath.startsWith('temp/'))
+      && !host.includes('localhost')
+      && !host.includes('127.0.0.1')) {
+      return 'r2'
+    }
   } catch {
     // ignore malformed url
+  }
+
+  if (normalizedFilePath.startsWith('images/') || normalizedFilePath.startsWith('temp/')) {
+    return 'r2'
   }
 
   return 'unknown'

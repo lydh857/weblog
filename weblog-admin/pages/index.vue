@@ -889,6 +889,7 @@ onUnmounted(() => {
 <style scoped>
 .dashboard-page {
   padding: 16px;
+  background: var(--admin-content-bg);
 }
 
 /* 统计卡片 */
@@ -900,9 +901,9 @@ onUnmounted(() => {
 }
 .stat-card {
   min-width: 0;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
   padding: 18px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -970,9 +971,9 @@ onUnmounted(() => {
 }
 .chart-card {
   min-width: 0;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
   padding: 16px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -986,13 +987,9 @@ onUnmounted(() => {
   display: inline-flex;
   gap: 4px;
   flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--admin-panel-bg-soft);
   border-radius: 10px;
   padding: 3px;
-
-  .dark & {
-    background: rgba(255, 255, 255, 0.06);
-  }
 }
 
 .toggle-btn {
@@ -1015,14 +1012,9 @@ onUnmounted(() => {
   }
 
   &.active {
-    background: var(--admin-primary-soft);
-    color: var(--el-color-primary);
+    background: var(--admin-panel-hover);
+    color: var(--admin-aside-text-active);
     box-shadow: none;
-
-    .dark & {
-      background: var(--admin-primary-soft);
-      color: var(--el-color-primary);
-    }
   }
 }
 .chart-title {
@@ -1044,9 +1036,9 @@ onUnmounted(() => {
   align-items: stretch;
 }
 .info-card {
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
   padding: 16px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
   height: 100%;
@@ -1081,7 +1073,7 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 500;
   color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
+  background: var(--admin-panel-bg-soft);
 }
 
 .todo-summary {
@@ -1097,7 +1089,7 @@ onUnmounted(() => {
   gap: 4px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--el-fill-color-light);
+  background: var(--admin-panel-bg-soft);
 }
 
 .todo-summary-label {
@@ -1120,7 +1112,7 @@ onUnmounted(() => {
 .todo-task {
   border: none;
   border-radius: 8px;
-  background: var(--el-fill-color-extra-light);
+  background: var(--admin-panel-bg-soft);
   min-height: 72px;
   padding: 10px 12px;
   text-align: left;
@@ -1133,7 +1125,7 @@ onUnmounted(() => {
 }
 
 .todo-task:hover {
-  background: var(--el-fill-color-light);
+  background: var(--admin-panel-hover);
 }
 
 .todo-task:focus-visible {
@@ -1256,10 +1248,10 @@ onUnmounted(() => {
   cursor: pointer;
 }
 .hot-post-item:hover {
-  background: var(--el-fill-color-light);
+  background: var(--admin-panel-hover);
 }
 .hot-post-item.top-item {
-  background: var(--el-fill-color-extra-light);
+  background: var(--admin-panel-bg-soft);
 }
 .hot-rank {
   width: 24px;
@@ -1278,15 +1270,15 @@ onUnmounted(() => {
 }
 .hot-rank.rank-2 {
   color: var(--el-text-color-primary);
-  background: var(--el-color-primary-light-5);
+  background: var(--admin-panel-hover);
 }
 .hot-rank.rank-3 {
   color: var(--el-text-color-primary);
-  background: var(--el-color-primary-light-7);
+  background: var(--admin-panel-bg-soft);
 }
 .hot-rank.rank-normal {
   color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
+  background: var(--admin-panel-bg-soft);
 }
 .hot-content {
   flex: 1;
@@ -1310,8 +1302,8 @@ onUnmounted(() => {
 }
 .hot-category {
   font-size: 11px;
-  color: #5b8def;
-  background: rgba(91, 141, 239, 0.08);
+  color: var(--admin-aside-text-active);
+  background: var(--admin-panel-bg-soft);
   padding: 1px 6px;
   border-radius: 3px;
 }
@@ -1324,8 +1316,8 @@ onUnmounted(() => {
 }
 .hot-tag-badge {
   font-size: 10px;
-  color: var(--el-color-primary);
-  background: var(--admin-primary-soft);
+  color: var(--admin-aside-text-active);
+  background: var(--admin-panel-bg-soft);
   padding: 0 5px;
   border-radius: 3px;
   cursor: default;
@@ -1334,7 +1326,7 @@ onUnmounted(() => {
 .hot-score {
   font-size: 16px;
   font-weight: 600;
-  color: #5b8def;
+  color: var(--admin-aside-text-active);
   flex-shrink: 0;
   line-height: 1;
 }
@@ -1381,7 +1373,7 @@ onUnmounted(() => {
 .ai-meta-item {
   padding: 6px 8px;
   border-radius: 8px;
-  background: var(--el-fill-color-extra-light);
+  background: var(--admin-panel-bg-soft);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1449,7 +1441,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 6px;
   padding-top: 10px;
-  border-top: 1px solid var(--el-border-color-extra-light);
+  border-top: 1px solid var(--admin-panel-border);
 }
 .ai-breakdown-item {
   display: flex;

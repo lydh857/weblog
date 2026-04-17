@@ -4,8 +4,8 @@
 // ===== Element Plus + 管理端统一主题变量 =====
 :root {
   --admin-primary: #1a73e8;
-  --admin-primary-soft: #edf3fb;
-  --admin-primary-soft-hover: #e3ebf6;
+  --admin-primary-soft: #f2f2f2;
+  --admin-primary-soft-hover: #ebebeb;
   --admin-aside-text: #566171;
   --admin-aside-text-muted: #8a94a3;
   --admin-aside-text-active: #1f2937;
@@ -22,6 +22,11 @@
   --admin-surface-2: #f7f9fc;
   --admin-border-1: #e3e8ef;
   --admin-border-2: #d6dde8;
+  --admin-panel-bg: #ffffff;
+  --admin-panel-bg-soft: #f7f8fa;
+  --admin-panel-border: #e5e7eb;
+  --admin-panel-hover: #f2f2f2;
+  --admin-content-bg: #f2f3f5;
 
   --el-color-primary: #1a73e8;
   --el-color-primary-light-3: #4c8fe8;
@@ -67,8 +72,8 @@
 
 html.dark {
   --admin-primary: #2f86ff;
-  --admin-primary-soft: rgba(66, 153, 255, 0.16);
-  --admin-primary-soft-hover: rgba(66, 153, 255, 0.24);
+  --admin-primary-soft: #171717;
+  --admin-primary-soft-hover: #1d1d1d;
   --admin-aside-text: #b8c1ce;
   --admin-aside-text-muted: #8590a1;
   --admin-aside-text-active: #eef3fb;
@@ -85,6 +90,11 @@ html.dark {
   --admin-surface-2: #111822;
   --admin-border-1: #1f2733;
   --admin-border-2: #2b3645;
+  --admin-panel-bg: #0d0d0d;
+  --admin-panel-bg-soft: #141414;
+  --admin-panel-border: #1f1f1f;
+  --admin-panel-hover: #171717;
+  --admin-content-bg: #080808;
 
   --el-color-primary: #2f86ff;
   --el-color-primary-light-3: #56a0ff;
@@ -191,11 +201,11 @@ body {
 // ===== 全局滚动条样式 =====
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(91, 141, 239, 0.25) transparent;
+  scrollbar-color: rgba(107, 114, 128, 0.34) transparent;
 }
 
 html.dark * {
-  scrollbar-color: rgba(146, 156, 171, 0.35) transparent;
+  scrollbar-color: rgba(107, 114, 128, 0.44) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -208,19 +218,19 @@ html.dark * {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(91, 141, 239, 0.22);
+  background: rgba(107, 114, 128, 0.32);
   border-radius: 3px;
 
   &:hover {
-    background: rgba(91, 141, 239, 0.34);
+    background: rgba(75, 85, 99, 0.45);
   }
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(146, 156, 171, 0.3);
+  background: rgba(107, 114, 128, 0.42);
 
   &:hover {
-    background: rgba(146, 156, 171, 0.42);
+    background: rgba(107, 114, 128, 0.56);
   }
 }
 
@@ -339,4 +349,114 @@ html.dark ::-webkit-scrollbar-thumb {
 .admin-layout .el-zoom-in-top-leave-active {
   opacity: 1 !important;
   transform: none !important;
+}
+
+// ===== 管理端页面风格统一（亮/暗主题） =====
+.admin-layout .admin-main {
+  background: var(--admin-content-bg);
+}
+
+.admin-layout .admin-main .page-header,
+.admin-layout .admin-main .toolbar,
+.admin-layout .admin-main .toolbar-row,
+.admin-layout .admin-main .filter-bar,
+.admin-layout .admin-main .draft-toolbar,
+.admin-layout .admin-main .catalog-toolbar,
+.admin-layout .admin-main .trash-toolbar,
+.admin-layout .admin-main .filter-switch,
+.admin-layout .admin-main .search-bar {
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
+}
+
+.admin-layout .admin-main .page-header {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.admin-layout .admin-main .filter-bar,
+.admin-layout .admin-main .toolbar,
+.admin-layout .admin-main .toolbar-row,
+.admin-layout .admin-main .draft-toolbar,
+.admin-layout .admin-main .catalog-toolbar,
+.admin-layout .admin-main .trash-toolbar {
+  padding: 10px 12px;
+}
+
+.admin-layout .admin-main .el-card {
+  background: var(--admin-panel-bg) !important;
+  border-color: var(--admin-panel-border) !important;
+  border-radius: 12px !important;
+}
+
+.admin-layout .admin-main .el-card__header {
+  border-bottom-color: var(--admin-panel-border);
+}
+
+.admin-layout .admin-main .el-table,
+.admin-layout .admin-main .el-table tr,
+.admin-layout .admin-main .el-table__inner-wrapper::before {
+  background: var(--admin-panel-bg) !important;
+}
+
+.admin-layout .admin-main .el-table th.el-table__cell {
+  background: var(--admin-panel-bg-soft) !important;
+}
+
+.admin-layout .admin-main .el-table td.el-table__cell,
+.admin-layout .admin-main .el-table th.el-table__cell {
+  border-bottom-color: var(--admin-panel-border) !important;
+}
+
+.admin-layout .admin-main .el-table--striped .el-table__body tr.el-table__row--striped > td.el-table__cell {
+  background: color-mix(in srgb, var(--admin-panel-bg-soft) 70%, transparent) !important;
+}
+
+.admin-layout .admin-main .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+  background: var(--admin-panel-hover) !important;
+}
+
+.admin-layout .admin-main .el-input__wrapper,
+.admin-layout .admin-main .el-textarea__inner,
+.admin-layout .admin-main .el-select__wrapper,
+.admin-layout .admin-main .el-input-number,
+.admin-layout .admin-main .el-date-editor,
+.admin-layout .admin-main .el-picker__popper {
+  background: var(--admin-panel-bg-soft);
+  border-color: var(--admin-panel-border);
+}
+
+.admin-layout .admin-main .el-button--default,
+.admin-layout .admin-main .el-pagination button,
+.admin-layout .admin-main .el-pager li {
+  background: var(--admin-panel-bg);
+  border-color: var(--admin-panel-border);
+}
+
+.admin-layout .admin-main .el-button--default:hover,
+.admin-layout .admin-main .el-pagination button:hover,
+.admin-layout .admin-main .el-pager li:hover {
+  background: var(--admin-panel-hover);
+}
+
+.admin-layout .admin-main .el-tabs__item.is-active {
+  color: var(--admin-aside-text-active);
+}
+
+.admin-layout .admin-main .el-tabs__item:hover {
+  color: var(--admin-aside-text-active);
+}
+
+.admin-layout .admin-main .el-tabs__active-bar {
+  background-color: var(--admin-aside-text-active);
+}
+
+.admin-layout .el-dialog,
+.admin-layout .el-drawer,
+.admin-layout .el-popover,
+.admin-layout .el-dropdown__popper,
+.admin-layout .el-picker-panel {
+  background: var(--admin-panel-bg);
+  border-color: var(--admin-panel-border);
 }
