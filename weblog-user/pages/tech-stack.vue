@@ -3,7 +3,7 @@
     <section class="hero-card">
       <p class="hero-kicker">Tech Stack</p>
       <h1 class="hero-title">技术栈</h1>
-      <p class="hero-desc">Weblog 是一个前后端分离的全栈博客系统，聚焦 SSR 渲染、内容管理、全文检索与互动能力。</p>
+      <p class="hero-desc">zhhhkl 是一个前后端分离的全栈博客系统，聚焦 SSR 渲染、内容管理、全文检索与互动能力。</p>
       <div class="hero-meta">
         <span>Spring Boot 3.2 + Nuxt 4</span>
         <span>Java 21 + TypeScript</span>

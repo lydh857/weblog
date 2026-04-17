@@ -772,8 +772,8 @@ function openSearchDefault() {
 
 function openSearchWithPlaceholder(title: string) {
   closeMobileMenu()
-  const placeholder = title.trim() || '搜索文章...'
-  searchModal.open({ placeholder })
+  void title
+  searchModal.open({ placeholder: '搜索文章...' })
 }
 
 function openSearchWithDirectKeyword(title: string) {
