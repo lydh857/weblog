@@ -6,6 +6,9 @@
         <el-button type="primary" plain @click="navigateTo('/rate-limit')">
           前往限流与风控
         </el-button>
+        <el-button type="warning" plain :loading="restoringDefaults" @click="handleRestoreDefaults">
+          恢复默认值
+        </el-button>
       </div>
     </div>
 
@@ -25,6 +28,21 @@
           <el-form-item label="站点描述">
             <el-input v-model="form.site_description" type="textarea" :rows="2" placeholder="请输入站点描述" />
           </el-form-item>
+          <el-form-item label="页脚说明文案">
+            <el-input v-model="form.site_footer_notice" type="textarea" :rows="2" placeholder="示例：本站内容仅供学习与交流，商业使用请联系原作者授权。" />
+          </el-form-item>
+          <el-form-item label="页脚版权文案">
+            <el-input v-model="form.site_footer_copyright" placeholder="示例：© 2026 zhhhkl. All rights reserved." />
+          </el-form-item>
+          <el-form-item label="免责声明文案">
+            <el-input
+              v-model="form.site_disclaimer_content"
+              type="textarea"
+              :rows="5"
+              placeholder="每行一条免责声明"
+            />
+            <span class="form-tip">支持多行展示，用户端文章页将按行渲染。</span>
+          </el-form-item>
         </el-form>
       </el-card>
 
@@ -37,13 +55,6 @@
           </div>
         </template>
         <el-form label-width="140px" label-position="right">
-          <el-form-item label="最大失败次数">
-            <el-input-number v-model.number="form.login_max_attempts" :min="1" :max="20" />
-            <span class="form-tip">超过此次数账号将被锁定</span>
-          </el-form-item>
-          <el-form-item label="锁定时间（分钟）">
-            <el-input-number v-model.number="form.login_lock_minutes" :min="1" :max="1440" />
-          </el-form-item>
           <el-form-item label="登录日志保留天数">
             <el-input-number v-model.number="form.login_log_retention_days" :min="7" :max="3650" />
             <span class="form-tip">建议 30~365 天，超期日志可在日志中心手动清理</span>
@@ -102,46 +113,6 @@
         </el-form>
       </el-card>
 
-      <!-- 邮件设置（跨两列） -->
-      <el-card shadow="never" class="config-card config-card--wide">
-        <template #header>
-          <div class="card-header">
-            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            <span class="card-title">邮件设置</span>
-          </div>
-        </template>
-        <div class="mail-grid">
-          <el-form label-width="160px" label-position="right">
-            <el-form-item label="SMTP服务器">
-              <el-input v-model="form.mail_smtp_host" placeholder="如 smtp.qq.com" />
-            </el-form-item>
-            <el-form-item label="SMTP端口">
-              <el-input-number v-model.number="form.mail_smtp_port" :min="1" :max="65535" />
-            </el-form-item>
-            <el-form-item label="发件邮箱">
-              <el-input v-model="form.mail_username" placeholder="如 noreply@example.com" />
-            </el-form-item>
-            <el-form-item label="邮箱授权码">
-              <el-input v-model="form.mail_password" type="password" show-password placeholder="SMTP授权码" />
-            </el-form-item>
-          </el-form>
-          <el-form label-width="160px" label-position="right">
-            <el-form-item label="发件人名称">
-              <el-input v-model="form.mail_from_name" placeholder="如 我的博客" />
-            </el-form-item>
-            <el-form-item label="启用SSL">
-              <el-switch v-model="form.mail_ssl_enabled" active-value="true" inactive-value="false" />
-            </el-form-item>
-            <el-form-item label="验证码有效期（分钟）">
-              <el-input-number v-model.number="form.mail_code_expire_minutes" :min="1" :max="30" />
-            </el-form-item>
-            <el-form-item label="发送冷却时间（秒）">
-              <el-input-number v-model.number="form.mail_code_cooldown_seconds" :min="30" :max="300" />
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-card>
-
     </div>
 
     <!-- 悬浮保存按钮 -->
@@ -156,67 +127,20 @@ import { systemConfigApi, type SystemConfigVO } from '~/api/system/system-config
 const loading = ref(false)
 const saving = ref(false)
 const refreshingRanking = ref(false)
-const resettingRateLimit = ref(false)
+const restoringDefaults = ref(false)
 
-const rateLimitDefaults: Record<string, string | number> = {
-  login_rate_limit: 5,
-  register_rate_limit: 5,
-  admin_login_rate_limit: 5,
-  send_code_rate_limit: 3,
-  check_email_rate_limit: 10,
-  forgot_password_rate_limit: 5,
-  captcha_generate_rate_limit: 10,
-  captcha_verify_rate_limit: 20,
-  comment_rate_limit: 5,
-  upload_rate_limit: 20,
-  ad_apply_rate_limit: 5,
-  friend_link_apply_rate_limit: 5,
-  friend_link_update_rate_limit: 10,
-  access_read_rate_limit: 120,
-  access_unlock_rate_limit: 5,
-  interaction_like_toggle_rate_limit: 60,
-  interaction_like_state_rate_limit: 90,
-  interaction_favorite_toggle_rate_limit: 60,
-  interaction_favorite_state_rate_limit: 90,
-  interaction_favorite_batch_rate_limit: 20,
-  comment_delete_rate_limit: 30,
-  comment_batch_delete_rate_limit: 10,
-  comment_like_toggle_rate_limit: 60,
-  comment_like_state_rate_limit: 90,
-  ai_writing_rate_limit: 20,
-  ai_chat_rate_limit: 30,
-  ai_meta_rate_limit: 20,
-  admin_revoke_token_rate_limit: 20,
-  admin_revoke_all_tokens_rate_limit: 5,
-  system_config_batch_update_rate_limit: 20,
-  ranking_refresh_rate_limit: 5,
-  admin_post_delete_rate_limit: 20,
-  admin_post_permanent_delete_rate_limit: 10,
-  admin_topic_delete_rate_limit: 20,
-  admin_topic_permanent_delete_rate_limit: 10,
-  admin_media_delete_rate_limit: 30,
-  admin_media_cleanup_rate_limit: 5,
-  admin_user_status_update_rate_limit: 20,
-  admin_user_reset_password_rate_limit: 10,
-  admin_ad_status_update_rate_limit: 30,
-  admin_ad_delete_rate_limit: 20,
-  admin_ad_permanent_delete_rate_limit: 10,
-  admin_ad_apply_switch_rate_limit: 20,
-  admin_ad_price_rules_rate_limit: 10,
-  admin_ad_pit_update_rate_limit: 20,
-  admin_friend_link_status_update_rate_limit: 30,
-  admin_friend_link_delete_rate_limit: 20,
-  admin_announcement_status_update_rate_limit: 30,
-  admin_announcement_delete_rate_limit: 20,
-  user_bind_email_rate_limit: 8,
-  user_change_email_rate_limit: 8,
-  user_set_password_rate_limit: 8,
-  user_reset_password_rate_limit: 8,
-  rate_limit_auto_block_enabled: 'false',
-  rate_limit_auto_block_threshold: 20,
-  rate_limit_auto_block_window_minutes: 10,
-  rate_limit_auto_block_minutes: 60,
-  rate_limit_auto_block_key_prefixes: 'register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete',
+const systemDefaults: Record<string, string | number> = {
+  site_name: 'Weblog',
+  site_description: '记录经验、分享洞察、连接有价值的内容。',
+  site_footer_notice: '本站内容仅供学习与交流，商业使用请联系原作者授权。',
+  site_footer_copyright: '© 2026 zhhhkl. All rights reserved.',
+  site_disclaimer_content: '1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。\n2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。\n3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。',
+  login_log_retention_days: 180,
+  audit_log_retention_days: 180,
+  daily_read_limit: 3,
+  ranking_update_interval: 60,
+  comment_audit_enabled: 'true',
+  comment_max_length: 1000,
 }
 
 // 数值类型的配置 key
@@ -272,6 +196,15 @@ async function loadData() {
     // 评论审核开关默认开启（如果后端还没有这个配置项）
     if (form.comment_audit_enabled === undefined || form.comment_audit_enabled === '') {
       form.comment_audit_enabled = 'true'
+    }
+    if (form.site_footer_notice === undefined || form.site_footer_notice === '') {
+      form.site_footer_notice = '本站内容仅供学习与交流，商业使用请联系原作者授权。'
+    }
+    if (form.site_footer_copyright === undefined || form.site_footer_copyright === '') {
+      form.site_footer_copyright = '© 2026 zhhhkl. All rights reserved.'
+    }
+    if (form.site_disclaimer_content === undefined || form.site_disclaimer_content === '') {
+      form.site_disclaimer_content = '1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。\n2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。\n3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。'
     }
     if (form.login_log_retention_days === undefined) {
       form.login_log_retention_days = 180
@@ -482,11 +415,11 @@ async function handleRefreshRanking() {
   }
 }
 
-async function handleResetRateLimitDefaults() {
+async function handleRestoreDefaults() {
   try {
     await ElMessageBox.confirm(
-      '将仅恢复限流相关配置到默认值，并立即保存生效。是否继续？',
-      '恢复限流默认值',
+      '将把当前页面可配置项恢复为默认值并立即保存，是否继续？',
+      '恢复系统默认值',
       {
         type: 'warning',
         confirmButtonText: '恢复并保存',
@@ -497,19 +430,19 @@ async function handleResetRateLimitDefaults() {
     return
   }
 
-  resettingRateLimit.value = true
+  restoringDefaults.value = true
   try {
     const payload: Record<string, string> = {}
-    for (const [key, value] of Object.entries(rateLimitDefaults)) {
+    for (const [key, value] of Object.entries(systemDefaults)) {
       payload[key] = String(value)
       form[key] = value
     }
     await systemConfigApi.batchUpdate(payload)
-    ElMessage.success('限流配置已恢复默认值并保存成功')
+    ElMessage.success('系统配置已恢复默认值并保存成功')
   } catch (e: unknown) {
-    ElMessage.error((e as Error).message || '恢复限流默认值失败')
+    ElMessage.error((e as Error).message || '恢复系统默认值失败')
   } finally {
-    resettingRateLimit.value = false
+    restoringDefaults.value = false
   }
 }
 
@@ -598,21 +531,6 @@ onMounted(loadData)
 .switch-row {
   display: flex;
   align-items: center;
-}
-
-// ========== 邮件双列 ==========
-.mail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0 24px;
-  :deep(.el-form-item__label) {
-    white-space: nowrap;
-  }
-}
-@media (max-width: 900px) {
-  .mail-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 // ========== Card ==========
