@@ -110,6 +110,13 @@ vim .env.prod
 chmod 600 .env.prod
 ```
 
+外链治理配置说明：
+
+- `BLOG_SECURITY_OUTBOUND_LINK_ALLOWED_DOMAINS` 是静态种子名单，不是最终唯一准入白名单。
+- 服务运行时会优先读取域名策略表 `t_link_domain_policy`（`pending/trusted/blocked`），并以数据库策略为准。
+- 若数据库策略为 `blocked`，即使命中静态种子名单也会被拒绝。
+- 使用 GitHub Actions 部署时，请通过 Secret `ENV_PROD_OUTBOUND_LINK_ALLOWED_DOMAINS` 维护该变量，避免手工修改服务器 `.env.prod` 后被流水线覆盖。
+
 ### 2. 生成强随机密钥
 
 ```bash

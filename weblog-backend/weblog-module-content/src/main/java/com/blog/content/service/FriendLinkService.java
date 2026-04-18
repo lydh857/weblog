@@ -19,6 +19,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -37,29 +38,35 @@ public class FriendLinkService {
     private static final int MAX_LOGO_URL_LENGTH = 500;
     private static final int MAX_DESCRIPTION_LENGTH = 200;
     private static final int MAX_REJECT_REASON_LENGTH = 500;
+    private static final Set<String> FRIEND_LINK_PENDING_STATUSES = Set.of("pending", "pending_domain_review");
 
     private final FriendLinkMapper friendLinkMapper;
     private final SensitiveWordService sensitiveWordService;
+    private final ExternalLinkGovernanceService externalLinkGovernanceService;
 
     /**
      * 查询所有友链（管理端）
      */
     public List<FriendLink> listAll() {
-        return friendLinkMapper.selectList(
+        List<FriendLink> records = friendLinkMapper.selectList(
                 new LambdaQueryWrapper<FriendLink>()
                         .orderByAsc(FriendLink::getSortOrder)
                         .orderByDesc(FriendLink::getCreateTime));
+        attachLinkPolicyMetadata(records);
+        return records;
     }
 
     /**
      * 查询有效友链（用户端展示）
      */
     public List<FriendLink> listActive() {
-        return friendLinkMapper.selectList(
+        List<FriendLink> records = friendLinkMapper.selectList(
                 new LambdaQueryWrapper<FriendLink>()
                         .eq(FriendLink::getStatus, "active")
                         .orderByAsc(FriendLink::getSortOrder)
                         .orderByDesc(FriendLink::getCreateTime));
+        attachLinkPolicyMetadata(records);
+        return records;
     }
 
     /**
@@ -70,6 +77,7 @@ public class FriendLinkService {
         if (link == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "友链不存在");
         }
+        attachLinkPolicyMetadata(link);
         return link;
     }
 
@@ -79,7 +87,8 @@ public class FriendLinkService {
     @Transactional
     public FriendLink create(String name, String url, String logo, String description, Integer sortOrder) {
         name = sanitizeName(name);
-        url = validateAndCleanUrl(url);
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(url, true);
+        url = linkCheck.cleanedUrl();
         logo = validateAndCleanOptionalUrl(logo);
         description = sanitizeDescription(description);
         validateSensitiveWord("网站名称", name);
@@ -90,9 +99,10 @@ public class FriendLinkService {
         link.setUrl(url);
         link.setLogo(logo);
         link.setDescription(description);
-        link.setStatus("active");
+        link.setStatus(linkCheck.trusted() ? "active" : "pending_domain_review");
         link.setSortOrder(sortOrder != null ? sortOrder : 0);
         friendLinkMapper.insert(link);
+        attachLinkPolicyMetadata(link, linkCheck);
         log.info("友链创建成功: id={}, name={}, url={}", link.getId(), link.getName(), link.getUrl());
         return link;
     }
@@ -104,17 +114,22 @@ public class FriendLinkService {
     public FriendLink update(Long id, String name, String url, String logo, String description,
                              String status, Integer sortOrder) {
         FriendLink link = getById(id);
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(url, true);
         link.setName(sanitizeName(name));
-        link.setUrl(validateAndCleanUrl(url));
+        link.setUrl(linkCheck.cleanedUrl());
         link.setLogo(validateAndCleanOptionalUrl(logo));
         link.setDescription(sanitizeDescription(description));
         if (status != null) {
+            if ("active".equals(status) && !linkCheck.trusted()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能启用友链");
+            }
             link.setStatus(status);
         }
         if (sortOrder != null) {
             link.setSortOrder(sortOrder);
         }
         friendLinkMapper.updateById(link);
+        attachLinkPolicyMetadata(link, linkCheck);
         log.info("友链更新成功: id={}", id);
         return link;
     }
@@ -262,7 +277,8 @@ public class FriendLinkService {
         }
 
         name = sanitizeName(name);
-        url = validateAndCleanUrl(url);
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(url, true);
+        url = linkCheck.cleanedUrl();
         logo = validateAndCleanOptionalUrl(logo);
         description = sanitizeDescription(description);
 
@@ -271,10 +287,11 @@ public class FriendLinkService {
         link.setUrl(url);
         link.setLogo(logo);
         link.setDescription(description);
-        link.setStatus("pending");
+        link.setStatus(linkCheck.pending() ? "pending_domain_review" : "pending");
         link.setSortOrder(0);
         link.setApplicantUserId(userId);
         friendLinkMapper.insert(link);
+        attachLinkPolicyMetadata(link, linkCheck);
         log.info("友链申请成功: userId={}, name={}, url={}", userId, name, url);
         return link;
     }
@@ -283,9 +300,11 @@ public class FriendLinkService {
      * 查询我的友链申请
      */
     public FriendLink getMyLink(Long userId) {
-        return friendLinkMapper.selectOne(
+        FriendLink link = friendLinkMapper.selectOne(
             new LambdaQueryWrapper<FriendLink>()
                 .eq(FriendLink::getApplicantUserId, userId));
+        attachLinkPolicyMetadata(link);
+        return link;
     }
 
     /**
@@ -301,14 +320,16 @@ public class FriendLinkService {
         }
 
         link.setName(sanitizeName(name));
-        link.setUrl(validateAndCleanUrl(url));
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(url, true);
+        link.setUrl(linkCheck.cleanedUrl());
         link.setLogo(validateAndCleanOptionalUrl(logo));
         link.setDescription(sanitizeDescription(description));
         validateSensitiveWord("网站名称", link.getName());
         validateSensitiveWord("网站描述", link.getDescription());
-        link.setStatus("pending");
+        link.setStatus(linkCheck.pending() ? "pending_domain_review" : "pending");
         link.setReason(null);
         friendLinkMapper.updateById(link);
+        attachLinkPolicyMetadata(link, linkCheck);
         log.info("友链申请更新: userId={}, id={}", userId, link.getId());
         return link;
     }
@@ -319,12 +340,19 @@ public class FriendLinkService {
     @Transactional
     public FriendLink approveLink(Long id) {
         FriendLink link = getById(id);
-        if (!"pending".equals(link.getStatus())) {
+        if (!FRIEND_LINK_PENDING_STATUSES.contains(link.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "只能审核待审批状态的友链");
         }
+
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(link.getUrl(), true);
+        if (!linkCheck.trusted()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能通过友链申请");
+        }
+
         link.setStatus("active");
         link.setReason(null);
         friendLinkMapper.updateById(link);
+        attachLinkPolicyMetadata(link, linkCheck);
         log.info("友链审核通过: id={}, name={}", id, link.getName());
         return link;
     }
@@ -335,7 +363,7 @@ public class FriendLinkService {
     @Transactional
     public FriendLink rejectLink(Long id, String reason) {
         FriendLink link = getById(id);
-        if (!"pending".equals(link.getStatus())) {
+        if (!FRIEND_LINK_PENDING_STATUSES.contains(link.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "只能审核待审批状态的友链");
         }
         link.setStatus("rejected");
@@ -345,8 +373,41 @@ public class FriendLinkService {
         }
         link.setReason(sanitizedReason);
         friendLinkMapper.updateById(link);
+        attachLinkPolicyMetadata(link);
         log.info("友链审核拒绝: id={}, name={}, reason={}", id, link.getName(), sanitizedReason);
         return link;
+    }
+
+    private void attachLinkPolicyMetadata(FriendLink link) {
+        if (link == null) {
+            return;
+        }
+        try {
+            ExternalLinkGovernanceService.LinkCheckResult check = externalLinkGovernanceService.inspectForDisplay(link.getUrl());
+            attachLinkPolicyMetadata(link, check);
+        } catch (BusinessException ex) {
+            link.setLinkDomain(externalLinkGovernanceService.extractNormalizedDomain(link.getUrl()));
+            link.setLinkDomainPolicyStatus("blocked");
+            link.setLinkDomainPolicyReason(ex.getMessage());
+        }
+    }
+
+    private void attachLinkPolicyMetadata(FriendLink link, ExternalLinkGovernanceService.LinkCheckResult check) {
+        if (link == null || check == null) {
+            return;
+        }
+        link.setLinkDomain(check.domain());
+        link.setLinkDomainPolicyStatus(check.policyStatus());
+        link.setLinkDomainPolicyReason(check.reason());
+    }
+
+    private void attachLinkPolicyMetadata(List<FriendLink> links) {
+        if (links == null || links.isEmpty()) {
+            return;
+        }
+        for (FriendLink link : links) {
+            attachLinkPolicyMetadata(link);
+        }
     }
 
     /**

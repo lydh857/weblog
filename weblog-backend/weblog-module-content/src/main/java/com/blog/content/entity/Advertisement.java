@@ -91,6 +91,18 @@ public class Advertisement extends BaseEntity {
     @TableField(exist = false)
     private String advertiserNickname;
 
+    /** 归一化外链域名（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomain;
+
+    /** 外链域名策略状态（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomainPolicyStatus;
+
+    /** 外链域名策略说明（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomainPolicyReason;
+
     public String getTitle() {
         return title;
     }
@@ -281,5 +293,29 @@ public class Advertisement extends BaseEntity {
 
     public void setAdvertiserNickname(String advertiserNickname) {
         this.advertiserNickname = advertiserNickname;
+    }
+
+    public String getLinkDomain() {
+        return linkDomain;
+    }
+
+    public void setLinkDomain(String linkDomain) {
+        this.linkDomain = linkDomain;
+    }
+
+    public String getLinkDomainPolicyStatus() {
+        return linkDomainPolicyStatus;
+    }
+
+    public void setLinkDomainPolicyStatus(String linkDomainPolicyStatus) {
+        this.linkDomainPolicyStatus = linkDomainPolicyStatus;
+    }
+
+    public String getLinkDomainPolicyReason() {
+        return linkDomainPolicyReason;
+    }
+
+    public void setLinkDomainPolicyReason(String linkDomainPolicyReason) {
+        this.linkDomainPolicyReason = linkDomainPolicyReason;
     }
 }

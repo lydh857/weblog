@@ -170,6 +170,13 @@ cp .env.example .env
 # 编辑 .env 填入实际配置
 ```
 
+外链治理相关配置：
+
+- `BLOG_SECURITY_OUTBOUND_LINK_ALLOWED_DOMAINS` 仅用于初始化阶段的静态种子名单（seed allowlist）。
+- 运行时最终准入以域名策略表 `t_link_domain_policy` 为准，支持 `pending/trusted/blocked` 动态治理。
+- 当域名策略已存在 `blocked` 记录时，即使命中 `BLOG_SECURITY_OUTBOUND_LINK_ALLOWED_DOMAINS` 也会被拒绝。
+- GitHub Actions 部署时请通过 `ENV_PROD_OUTBOUND_LINK_ALLOWED_DOMAINS` Secret 下发，避免手工改服务器 `.env.prod` 被后续部署覆盖。
+
 ### 2. 申请 SSL 证书
 
 ```bash

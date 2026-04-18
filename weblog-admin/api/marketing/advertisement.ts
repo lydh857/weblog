@@ -21,6 +21,9 @@ export interface AdvertisementVO {
   advertiserId: number | null
   advertiserEmail?: string | null
   advertiserNickname?: string | null
+  linkDomain?: string | null
+  linkDomainPolicyStatus?: string | null
+  linkDomainPolicyReason?: string | null
   status: string
   startTime: string | null
   endTime: string | null

@@ -101,7 +101,7 @@ public class AuthService {
         try {
             checkAccountLock(user);
         } catch (BusinessException ex) {
-            if (ex.getCode() == ResultCode.ACCOUNT_LOCKED.getCode()) {
+            if (ex.getCode() == 40103) {
                 recordAuthBlocked(user.getId(), user.getEmail(), loginType, "账号锁定中", clientIp, userAgent, ex.getCode());
             }
             throw ex;
@@ -121,7 +121,7 @@ public class AuthService {
 
         // 检查账户状态
         if ("disabled".equals(user.getStatus())) {
-            recordAuthBlocked(user.getId(), user.getEmail(), loginType, "账号已禁用", clientIp, userAgent, ResultCode.FORBIDDEN.getCode());
+            recordAuthBlocked(user.getId(), user.getEmail(), loginType, "账号已禁用", clientIp, userAgent, 403);
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已被禁用");
         }
 
@@ -193,14 +193,14 @@ public class AuthService {
         securityRiskControlService.assertUserAllowed(user.getId(), "login-code-user", clientIp, userAgent);
 
         if ("disabled".equals(user.getStatus())) {
-            recordAuthBlocked(user.getId(), user.getEmail(), "user", "账号已禁用", clientIp, userAgent, ResultCode.FORBIDDEN.getCode());
+            recordAuthBlocked(user.getId(), user.getEmail(), "user", "账号已禁用", clientIp, userAgent, 403);
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已被禁用");
         }
         if ("locked".equals(user.getStatus())) {
             try {
                 checkAccountLock(user);
             } catch (BusinessException ex) {
-                if (ex.getCode() == ResultCode.ACCOUNT_LOCKED.getCode()) {
+                if (ex.getCode() == 40103) {
                     recordAuthBlocked(user.getId(), user.getEmail(), "user", "账号锁定中", clientIp, userAgent, ex.getCode());
                 }
                 throw ex;
@@ -296,7 +296,7 @@ public class AuthService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }
         if (!"admin".equals(user.getRole())) {
-            recordAuthBlocked(user.getId(), user.getEmail(), "admin", "非管理员", clientIp, userAgent, ResultCode.UNAUTHORIZED.getCode());
+            recordAuthBlocked(user.getId(), user.getEmail(), "admin", "非管理员", clientIp, userAgent, 401);
             applyFailureDelay();
             throw new BusinessException(ResultCode.UNAUTHORIZED, "邮箱或密码错误");
         }

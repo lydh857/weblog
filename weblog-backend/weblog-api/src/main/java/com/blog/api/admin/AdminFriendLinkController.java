@@ -50,7 +50,7 @@ public class AdminFriendLinkController {
     private final UserMapper userMapper;
     private final SystemConfigService systemConfigService;
     private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
-    private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "rejected");
+    private static final Set<String> VALID_LINK_STATUSES = Set.of("active", "inactive", "broken", "pending", "pending_domain_review", "rejected");
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
@@ -174,7 +174,7 @@ public class AdminFriendLinkController {
         List<Number> ids = (List<Number>) body.get("ids");
         String status = (String) body.get("status");
         if (status != null && !VALID_LINK_STATUSES.contains(status)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: active, inactive, broken, pending, rejected");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: active, inactive, broken, pending, pending_domain_review, rejected");
         }
         if (ids != null && !ids.isEmpty() && status != null) {
             friendLinkService.batchUpdateStatus(
@@ -314,6 +314,9 @@ public class AdminFriendLinkController {
         private String applicantNickname;
         private String applicantEmail;
         private String applicantAvatar;
+        private String linkDomain;
+        private String linkDomainPolicyStatus;
+        private String linkDomainPolicyReason;
     }
 
     @Data

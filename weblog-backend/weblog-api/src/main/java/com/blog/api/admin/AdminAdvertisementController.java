@@ -53,7 +53,7 @@ public class AdminAdvertisementController {
     private final SystemConfigService systemConfigService;
     private final ObjectMapper objectMapper;
     private final DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
-    private static final Set<String> VALID_AD_STATUSES = Set.of("pending", "approved", "rejected", "active", "expired");
+    private static final Set<String> VALID_AD_STATUSES = Set.of("pending", "pending_domain_review", "approved", "rejected", "active", "expired");
     private static final String AD_PRICE_RULES_KEY = "ad_price_rules";
     private static final String AD_REVIEW_REASONS_KEY = "ad_review_reasons";
     private static final String AD_APPLY_PIT_IDS_KEY = "ad_apply_pit_ids";
@@ -253,7 +253,7 @@ public class AdminAdvertisementController {
                 "更新广告状态过于频繁，请稍后再试"
         );
         if (!VALID_AD_STATUSES.contains(status)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: pending, approved, rejected, active, expired");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: pending, pending_domain_review, approved, rejected, active, expired");
         }
 
         String normalizedReason = null;
@@ -277,7 +277,7 @@ public class AdminAdvertisementController {
         if ("active".equals(status)) {
             pitTarget = resolvePitReplacement(existing);
             if (existing.getAdvertiserId() != null
-                    && "pending".equals(existing.getStatus())
+                    && ("pending".equals(existing.getStatus()) || "pending_domain_review".equals(existing.getStatus()))
                     && pitTarget == null) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "该申请未绑定有效坑位，请让用户重新提交申请");
             }
@@ -393,7 +393,7 @@ public class AdminAdvertisementController {
         List<Number> ids = (List<Number>) body.get("ids");
         String status = (String) body.get("status");
         if (status != null && !VALID_AD_STATUSES.contains(status)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: pending, approved, rejected, active, expired");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的状态值，仅支持: pending, pending_domain_review, approved, rejected, active, expired");
         }
         if ("rejected".equals(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "批量拒绝请在申请详情中逐条填写原因");
@@ -409,7 +409,7 @@ public class AdminAdvertisementController {
 
                     Advertisement pitTarget = resolvePitReplacement(existing);
                     if (existing.getAdvertiserId() != null
-                            && "pending".equals(existing.getStatus())
+                            && ("pending".equals(existing.getStatus()) || "pending_domain_review".equals(existing.getStatus()))
                             && pitTarget == null) {
                         throw new BusinessException(ResultCode.BAD_REQUEST,
                                 "广告ID " + longId + " 未绑定有效坑位，请改为在详情中处理或让用户重新提交申请");
@@ -907,7 +907,7 @@ public class AdminAdvertisementController {
         if (target == null || target.getId() == null || target.getAdvertiserId() == null) {
             return null;
         }
-        if (!"pending".equals(target.getStatus())) {
+        if (!"pending".equals(target.getStatus()) && !"pending_domain_review".equals(target.getStatus())) {
             return null;
         }
 

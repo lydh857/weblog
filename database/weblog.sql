@@ -55,7 +55,7 @@ CREATE TABLE `t_advertisement`  (
   `auto_rotate` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动轮播',
   `rotate_interval_sec` int NULL DEFAULT 6 COMMENT '轮播间隔秒',
   `advertiser_id` bigint NULL DEFAULT NULL COMMENT '广告申请者用户ID',
-  `status` enum('pending','approved','rejected','active','expired') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'pending' COMMENT '状态',
+  `status` enum('pending','pending_domain_review','approved','rejected','active','expired') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'pending' COMMENT '状态',
   `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',
   `end_time` datetime NULL DEFAULT NULL COMMENT '结束时间',
   `click_count` int NULL DEFAULT 0 COMMENT '点击数',
@@ -1450,7 +1450,7 @@ CREATE TABLE `t_friend_link`  (
   `url` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '网站链接',
   `logo` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'Logo URL',
   `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '网站描述',
-  `status` enum('active','inactive','broken','pending','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'active' COMMENT '状态: active/inactive/broken/pending/rejected',
+  `status` enum('active','inactive','broken','pending','pending_domain_review','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'active' COMMENT '状态: active/inactive/broken/pending/pending_domain_review/rejected',
   `sort_order` int NULL DEFAULT 0 COMMENT '排序',
   `applicant_user_id` bigint NULL DEFAULT NULL COMMENT '申请人用户ID',
   `reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审批原因（拒绝时填写）',
@@ -1473,6 +1473,29 @@ INSERT INTO `t_friend_link` VALUES (4, '美团技术团队', 'https://tech.meitu
 INSERT INTO `t_friend_link` VALUES (5, '字节跳动技术团队', 'https://juejin.cn/team/6943816948029374472', NULL, '字节技术分享', 'active', 5, NULL, NULL, '2026-03-29 14:44:26', '2026-02-21 12:09:14', '2026-02-21 12:09:14');
 INSERT INTO `t_friend_link` VALUES (6, 'GitHub Trending', 'https://github.com/trending', NULL, '开源项目趋势', 'active', 6, NULL, NULL, '2026-03-29 14:44:27', '2026-02-21 12:09:14', '2026-02-21 12:09:14');
 INSERT INTO `t_friend_link` VALUES (8, '123', 'http://8.149.244.100', 'http://8.149.244.100', 'http://8.149.244.100', 'pending', 0, 1, NULL, NULL, '2026-03-29 14:49:29', '2026-03-29 14:49:29');
+
+-- ----------------------------
+-- Table structure for t_link_domain_policy
+-- ----------------------------
+DROP TABLE IF EXISTS `t_link_domain_policy`;
+CREATE TABLE `t_link_domain_policy`  (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `domain` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '归一化域名',
+  `status` enum('pending','trusted','blocked') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '策略状态',
+  `source` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'auto' COMMENT '来源: auto/seed/manual',
+  `reviewer` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核人',
+  `review_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核备注',
+  `expire_at` datetime NULL DEFAULT NULL COMMENT '过期时间（NULL 表示不过期）',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_domain`(`domain` ASC) USING BTREE,
+  INDEX `idx_status_expire`(`status` ASC, `expire_at` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '外链域名治理策略表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of t_link_domain_policy
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for t_ip_blacklist

@@ -1,6 +1,7 @@
 package com.blog.content.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.blog.common.entity.BaseEntityNoDelete;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -41,4 +42,16 @@ public class FriendLink extends BaseEntityNoDelete {
 
     /** 最后检测时间 */
     private LocalDateTime lastCheckTime;
+
+    /** 归一化外链域名（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomain;
+
+    /** 外链域名策略状态（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomainPolicyStatus;
+
+    /** 外链域名策略说明（仅展示，不落库） */
+    @TableField(exist = false)
+    private String linkDomainPolicyReason;
 }

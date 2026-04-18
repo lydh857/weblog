@@ -22,21 +22,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.IDN;
-import java.net.Inet6Address;
-import java.net.InetAddress;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * 广告服务
@@ -69,24 +63,16 @@ public class AdvertisementService {
     private static final int MAX_APPLICATION_MIMIC_CONTENT_LENGTH = 120;
     private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
     private static final List<String> CAROUSEL_POSITIONS = List.of("home_left", "post_top", "post_bottom");
-    private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "approved", "active");
-    private static final Set<String> URL_SHORTENER_HOSTS = Set.of(
-            "bit.ly", "t.co", "tinyurl.com", "goo.gl", "is.gd", "ow.ly", "buff.ly", "reurl.cc", "u.nu", "shorturl.at"
-    );
-    private static final Pattern HIGH_RISK_LINK_PATTERN = Pattern.compile(
-            "(?i)(^|[/?#&=_\\-])(login|sign[-_]?in|verify|verification|reset[-_]?password|wallet|payment|bank|credit[-_]?card|otp|2fa|captcha)([/?#&=_\\-]|$)"
-    );
+    private static final Set<String> PIT_OCCUPIED_STATUSES = Set.of("pending", "pending_domain_review", "approved", "active");
 
     private final AdvertisementMapper advertisementMapper;
     private final PostMapper postMapper;
     private final AdPitBindingService adPitBindingService;
     private final SensitiveWordService sensitiveWordService;
+    private final ExternalLinkGovernanceService externalLinkGovernanceService;
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
-
-    @Value("${blog.security.outbound-link-allowed-domains:}")
-    private String outboundLinkAllowedDomains;
 
     /**
      * 按位置获取有效广告（用户端）
@@ -146,14 +132,18 @@ public class AdvertisementService {
         if (id == null) {
             return null;
         }
-        return advertisementMapper.selectById(id);
+        Advertisement ad = advertisementMapper.selectById(id);
+        attachLinkPolicyMetadata(ad, false);
+        return ad;
     }
 
     public List<Advertisement> listByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        return advertisementMapper.selectByIds(ids);
+        List<Advertisement> records = advertisementMapper.selectByIds(ids);
+        attachLinkPolicyMetadata(records, false);
+        return records;
     }
 
     public long countActiveByPosition(String position) {
@@ -200,7 +190,9 @@ public class AdvertisementService {
             wrapper.in(Advertisement::getPosition, buildCandidatePositions(normalized));
         }
         wrapper.orderByDesc(Advertisement::getCreateTime);
-        return advertisementMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
+        IPage<Advertisement> page = advertisementMapper.selectPage(new Page<>(pageParams.pageNum(), pageParams.pageSize()), wrapper);
+        attachLinkPolicyMetadata(page.getRecords(), false);
+        return page;
     }
 
     /**
@@ -210,7 +202,13 @@ public class AdvertisementService {
         sanitizeAdvertisementFields(ad, ad.getType(), true);
         normalizeDisplaySettings(ad);
         validateSchedule(ad);
+
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(ad.getLinkUrl(), true);
+        applyLinkPolicyMetadata(ad, linkCheck);
         if (ad.getStatus() == null) ad.setStatus("pending");
+        if ("active".equals(ad.getStatus()) && !linkCheck.trusted()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能直接投放");
+        }
         if (ad.getClickCount() == null) ad.setClickCount(0);
         if (ad.getWeight() == null) ad.setWeight(1);
         advertisementMapper.insert(ad);
@@ -231,6 +229,15 @@ public class AdvertisementService {
         normalizeDisplaySettings(ad);
         validateSchedule(ad);
 
+        String nextLink = ad.getLinkUrl() != null ? ad.getLinkUrl() : existing.getLinkUrl();
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(nextLink, true);
+        applyLinkPolicyMetadata(ad, linkCheck);
+
+        String nextStatus = ad.getStatus() != null ? ad.getStatus() : existing.getStatus();
+        if ("active".equals(nextStatus) && !linkCheck.trusted()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能直接投放");
+        }
+
         ad.setId(id);
         advertisementMapper.updateById(ad);
     }
@@ -248,9 +255,14 @@ public class AdvertisementService {
         update.setId(id);
         update.setStatus(status);
 
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(existing.getLinkUrl(), false);
+        if ("active".equals(status) && !linkCheck.trusted()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能激活投放");
+        }
+
         // 用户申请广告从待审核转为投放中时，若审核时刻已晚于申请起始时刻，自动顺延完整投放时长
         if ("active".equals(status)
-                && "pending".equals(existing.getStatus())
+                && isApplicationPendingStatus(existing.getStatus())
                 && existing.getAdvertiserId() != null
                 && existing.getStartTime() != null
                 && existing.getEndTime() != null
@@ -311,7 +323,7 @@ public class AdvertisementService {
                 update.setId(id);
                 update.setStatus(status);
 
-                if ("pending".equals(existing.getStatus())
+                if (isApplicationPendingStatus(existing.getStatus())
                         && existing.getAdvertiserId() != null
                         && existing.getStartTime() != null
                         && existing.getEndTime() != null
@@ -324,6 +336,11 @@ public class AdvertisementService {
                             update.setEndTime(now.plusSeconds(durationSeconds));
                         }
                     }
+                }
+
+                ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(existing.getLinkUrl(), false);
+                if (!linkCheck.trusted()) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能激活投放");
                 }
 
                 advertisementMapper.updateById(update);
@@ -344,6 +361,9 @@ public class AdvertisementService {
         normalizeDisplaySettings(ad);
         validateSchedule(ad);
         validateApplicationInput(ad);
+
+        ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(ad.getLinkUrl(), true);
+        applyLinkPolicyMetadata(ad, linkCheck);
 
         if (ad.getPosition() == null || ad.getPosition().isBlank()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "广告位置不能为空");
@@ -370,7 +390,7 @@ public class AdvertisementService {
             }
             ad.setId(existing.getId());
             ad.setAdvertiserId(userId);
-            ad.setStatus("pending");
+            ad.setStatus(linkCheck.pending() ? "pending_domain_review" : "pending");
             ad.setClickCount(existing.getClickCount() != null ? existing.getClickCount() : 0);
             if (ad.getWeight() == null) {
                 ad.setWeight(existing.getWeight() != null ? existing.getWeight() : 1);
@@ -381,7 +401,7 @@ public class AdvertisementService {
         }
 
         ad.setAdvertiserId(userId);
-        ad.setStatus("pending");
+        ad.setStatus(linkCheck.pending() ? "pending_domain_review" : "pending");
         ad.setClickCount(0);
         if (ad.getWeight() == null) ad.setWeight(1);
         advertisementMapper.insert(ad);
@@ -598,7 +618,7 @@ public class AdvertisementService {
         }
 
         if (sanitizeLinkAlways || ad.getLinkUrl() != null) {
-            ad.setLinkUrl(validateAndCleanLinkUrl(ad.getLinkUrl()));
+            ad.setLinkUrl(externalLinkGovernanceService.inspectForDisplay(ad.getLinkUrl()).cleanedUrl());
         }
     }
 
@@ -723,195 +743,56 @@ public class AdvertisementService {
         return base;
     }
 
-    private String validateAndCleanLinkUrl(String linkUrl) {
-        if (linkUrl == null || linkUrl.isBlank()) {
-            return null;
-        }
-
-        String trimmed = linkUrl.trim();
-        if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
-            return XssUtil.cleanText(trimmed);
-        }
-
-        URI uri;
-        try {
-            uri = URI.create(trimmed);
-        } catch (Exception e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接格式不正确");
-        }
-
-        String scheme = uri.getScheme();
-        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接仅支持 http/https 协议");
-        }
-        if (!"https".equalsIgnoreCase(scheme)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接仅支持 HTTPS 协议");
-        }
-
-        if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接不允许包含用户信息");
-        }
-
-        String host = uri.getHost();
-        if (host == null || host.isBlank()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接缺少有效主机名");
-        }
-
-        String normalizedHost;
-        try {
-            normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
-        } catch (Exception e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接主机名无效");
-        }
-
-        if (!isPublicHost(normalizedHost)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用本地或内网跳转链接");
-        }
-
-        if (isKnownUrlShortener(normalizedHost)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "不允许使用短链跳转");
-        }
-
-        if (containsHighRiskLinkPattern(uri)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接包含高风险路径特征");
-        }
-
-        if (!isAllowedOutboundHost(normalizedHost)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "跳转链接域名不在白名单内");
-        }
-
-        return XssUtil.cleanText(uri.toString());
-    }
-
     private String filterUnsafeLinkForDisplay(String linkUrl) {
         if (linkUrl == null || linkUrl.isBlank()) {
             return null;
         }
         try {
-            return validateAndCleanLinkUrl(linkUrl);
+            return externalLinkGovernanceService.inspectForDisplay(linkUrl).cleanedUrl();
         } catch (BusinessException ex) {
             log.debug("广告外链已被拦截: {}", ex.getMessage());
             return null;
         }
     }
 
-    private boolean isAllowedOutboundHost(String normalizedHost) {
-        Set<String> allowList = resolveAllowedOutboundDomains();
-        if (allowList.isEmpty()) {
-            return true;
-        }
-
-        for (String allowDomain : allowList) {
-            if (normalizedHost.equals(allowDomain) || normalizedHost.endsWith("." + allowDomain)) {
-                return true;
-            }
-        }
-        return false;
+    private ExternalLinkGovernanceService.LinkCheckResult evaluateLinkPolicy(String linkUrl, boolean createPendingIfUnknown) {
+        return externalLinkGovernanceService.evaluateForSubmission(linkUrl, createPendingIfUnknown);
     }
 
-    private boolean isKnownUrlShortener(String normalizedHost) {
-        if (normalizedHost == null || normalizedHost.isBlank()) {
-            return false;
+    private void applyLinkPolicyMetadata(Advertisement ad, ExternalLinkGovernanceService.LinkCheckResult result) {
+        if (ad == null || result == null) {
+            return;
         }
-        for (String shortener : URL_SHORTENER_HOSTS) {
-            if (normalizedHost.equals(shortener) || normalizedHost.endsWith("." + shortener)) {
-                return true;
-            }
-        }
-        return false;
+        ad.setLinkUrl(result.cleanedUrl());
+        ad.setLinkDomain(result.domain());
+        ad.setLinkDomainPolicyStatus(result.policyStatus());
+        ad.setLinkDomainPolicyReason(result.reason());
     }
 
-    private boolean containsHighRiskLinkPattern(URI uri) {
-        if (uri == null) {
-            return false;
+    private void attachLinkPolicyMetadata(Advertisement ad, boolean createPendingIfUnknown) {
+        if (ad == null) {
+            return;
         }
-        String path = uri.getRawPath() == null ? "" : uri.getRawPath();
-        String query = uri.getRawQuery() == null ? "" : uri.getRawQuery();
-        String fragment = uri.getRawFragment() == null ? "" : uri.getRawFragment();
-        String candidate = (path + "?" + query + "#" + fragment).toLowerCase(Locale.ROOT);
-        return HIGH_RISK_LINK_PATTERN.matcher(candidate).find();
-    }
-
-    private Set<String> resolveAllowedOutboundDomains() {
-        return parseAllowedDomainList(outboundLinkAllowedDomains);
-    }
-
-    private Set<String> parseAllowedDomainList(String rawList) {
-        if (rawList == null || rawList.isBlank()) {
-            return Set.of();
-        }
-        return Arrays.stream(rawList.split(","))
-                .map(this::normalizeAllowedDomain)
-                .filter(StrUtil::isNotBlank)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    private String normalizeAllowedDomain(String rawDomain) {
-        if (rawDomain == null || rawDomain.isBlank()) {
-            return null;
-        }
-
-        String value = rawDomain.trim();
         try {
-            if (value.contains("://")) {
-                URI uri = URI.create(value);
-                value = uri.getHost();
-            }
-        } catch (Exception e) {
-            return null;
-        }
-
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        value = value.toLowerCase(Locale.ROOT);
-        if (value.startsWith("*.")) {
-            value = value.substring(2);
-        }
-        if (value.endsWith(".")) {
-            value = value.substring(0, value.length() - 1);
-        }
-
-        try {
-            return IDN.toASCII(value, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
-        } catch (Exception e) {
-            return null;
+            applyLinkPolicyMetadata(ad, evaluateLinkPolicy(ad.getLinkUrl(), createPendingIfUnknown));
+        } catch (BusinessException ex) {
+            ad.setLinkDomain(externalLinkGovernanceService.extractNormalizedDomain(ad.getLinkUrl()));
+            ad.setLinkDomainPolicyStatus("blocked");
+            ad.setLinkDomainPolicyReason(ex.getMessage());
         }
     }
 
-    private boolean isPublicHost(String host) {
-        if ("localhost".equals(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
-            return false;
+    private void attachLinkPolicyMetadata(List<Advertisement> ads, boolean createPendingIfUnknown) {
+        if (ads == null || ads.isEmpty()) {
+            return;
         }
-
-        try {
-            InetAddress[] addresses = InetAddress.getAllByName(host);
-            if (addresses.length == 0) {
-                return false;
-            }
-
-            for (InetAddress address : addresses) {
-                if (address.isAnyLocalAddress()
-                        || address.isLoopbackAddress()
-                        || address.isLinkLocalAddress()
-                        || address.isSiteLocalAddress()
-                        || address.isMulticastAddress()) {
-                    return false;
-                }
-
-                if (address instanceof Inet6Address inet6Address) {
-                    byte first = inet6Address.getAddress()[0];
-                    if ((first & (byte) 0xFE) == (byte) 0xFC) {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        } catch (Exception e) {
-            return false;
+        for (Advertisement ad : ads) {
+            attachLinkPolicyMetadata(ad, createPendingIfUnknown);
         }
+    }
+
+    private boolean isApplicationPendingStatus(String status) {
+        return "pending".equals(status) || "pending_domain_review".equals(status);
     }
 
     // ========== 回收站方法 ==========

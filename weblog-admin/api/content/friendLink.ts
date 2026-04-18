@@ -12,6 +12,9 @@ export interface FriendLinkVO {
   applicantNickname?: string | null
   applicantEmail?: string | null
   applicantAvatar?: string | null
+  linkDomain?: string | null
+  linkDomainPolicyStatus?: string | null
+  linkDomainPolicyReason?: string | null
   reason: string | null
   lastCheckTime: string
   createTime: string
