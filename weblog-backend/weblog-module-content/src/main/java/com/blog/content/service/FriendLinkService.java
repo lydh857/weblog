@@ -99,7 +99,7 @@ public class FriendLinkService {
         link.setUrl(url);
         link.setLogo(logo);
         link.setDescription(description);
-        link.setStatus(linkCheck.trusted() ? "active" : "pending_domain_review");
+        link.setStatus("active");
         link.setSortOrder(sortOrder != null ? sortOrder : 0);
         friendLinkMapper.insert(link);
         attachLinkPolicyMetadata(link, linkCheck);
@@ -120,7 +120,7 @@ public class FriendLinkService {
         link.setLogo(validateAndCleanOptionalUrl(logo));
         link.setDescription(sanitizeDescription(description));
         if (status != null) {
-            if ("active".equals(status) && !linkCheck.trusted()) {
+            if ("active".equals(status) && link.getApplicantUserId() != null && !linkCheck.trusted()) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能启用友链");
             }
             link.setStatus(status);

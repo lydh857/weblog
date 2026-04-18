@@ -206,7 +206,7 @@ public class AdvertisementService {
         ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(ad.getLinkUrl(), true);
         applyLinkPolicyMetadata(ad, linkCheck);
         if (ad.getStatus() == null) ad.setStatus("pending");
-        if ("active".equals(ad.getStatus()) && !linkCheck.trusted()) {
+        if ("active".equals(ad.getStatus()) && ad.getAdvertiserId() != null && !linkCheck.trusted()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能直接投放");
         }
         if (ad.getClickCount() == null) ad.setClickCount(0);
@@ -234,7 +234,7 @@ public class AdvertisementService {
         applyLinkPolicyMetadata(ad, linkCheck);
 
         String nextStatus = ad.getStatus() != null ? ad.getStatus() : existing.getStatus();
-        if ("active".equals(nextStatus) && !linkCheck.trusted()) {
+        if ("active".equals(nextStatus) && existing.getAdvertiserId() != null && !linkCheck.trusted()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能直接投放");
         }
 
@@ -256,7 +256,7 @@ public class AdvertisementService {
         update.setStatus(status);
 
         ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(existing.getLinkUrl(), false);
-        if ("active".equals(status) && !linkCheck.trusted()) {
+        if ("active".equals(status) && existing.getAdvertiserId() != null && !linkCheck.trusted()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能激活投放");
         }
 
@@ -339,7 +339,7 @@ public class AdvertisementService {
                 }
 
                 ExternalLinkGovernanceService.LinkCheckResult linkCheck = evaluateLinkPolicy(existing.getLinkUrl(), false);
-                if (!linkCheck.trusted()) {
+                if (existing.getAdvertiserId() != null && !linkCheck.trusted()) {
                     throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能激活投放");
                 }
 
