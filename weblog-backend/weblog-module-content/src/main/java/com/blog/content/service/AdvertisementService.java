@@ -238,6 +238,13 @@ public class AdvertisementService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "外链域名未审核通过，不能直接投放");
         }
 
+        if (ad.getAdInfo() == null && existing.getAdInfo() != null) {
+            ad.setAdInfo("");
+        }
+        if (ad.getMimicContent() == null && existing.getMimicContent() != null) {
+            ad.setMimicContent("");
+        }
+
         ad.setId(id);
         advertisementMapper.updateById(ad);
     }

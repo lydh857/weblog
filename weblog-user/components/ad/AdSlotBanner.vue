@@ -307,6 +307,25 @@ function handleMouseLeave() {
 
 function handleClick(id: number) {
   advertisementApi.recordClick(id).catch(() => {})
+  clearActiveElementFocus()
+}
+
+function clearActiveElementFocus() {
+  if (!import.meta.client) return
+  const active = document.activeElement
+  if (active instanceof HTMLElement) {
+    active.blur()
+  }
+}
+
+function handlePageShow() {
+  clearActiveElementFocus()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    clearActiveElementFocus()
+  }
 }
 
 function handleApplyClick() {
@@ -451,6 +470,10 @@ watch(() => adApplyModal.applicationVersion.value, async () => {
 })
 
 onMounted(async () => {
+  if (import.meta.client) {
+    window.addEventListener('pageshow', handlePageShow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
   void loadAdApplyConfig()
   void loadMyApplicationStatus()
   try {
@@ -479,6 +502,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   clearRotateTimer()
+  if (import.meta.client) {
+    window.removeEventListener('pageshow', handlePageShow)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
 })
 </script>
 
