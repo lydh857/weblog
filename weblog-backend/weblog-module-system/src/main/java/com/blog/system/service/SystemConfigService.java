@@ -32,6 +32,15 @@ public class SystemConfigService {
     private static final Set<String> SENSITIVE_CONFIG_KEYS = Set.of(
             "mail_password"
     );
+    private static final Map<String, String> ENV_FALLBACK_KEYS = Map.of(
+            "mail_smtp_host", "MAIL_SMTP_HOST",
+            "mail_smtp_port", "MAIL_SMTP_PORT",
+            "mail_username", "MAIL_USERNAME",
+            "mail_password", "MAIL_PASSWORD",
+            "mail_ssl_enabled", "MAIL_SSL_ENABLED",
+            "mail_from_name", "MAIL_FROM_NAME",
+            "mail_code_expire_minutes", "MAIL_CODE_EXPIRE_MINUTES"
+    );
 
     /**
      * 查询所有配置
@@ -72,6 +81,12 @@ public class SystemConfigService {
         long now = System.currentTimeMillis();
         if (cached != null && now - cached.cachedAt <= CACHE_TTL_MILLIS) {
             return cached.value;
+        }
+
+        String envValue = readEnvFallback(key);
+        if (envValue != null) {
+            valueCache.put(key, new ConfigCacheEntry(envValue, now));
+            return envValue;
         }
 
         SystemConfig config = configMapper.selectOne(
@@ -151,6 +166,21 @@ public class SystemConfigService {
 
     private boolean isSensitiveKey(String key) {
         return key != null && SENSITIVE_CONFIG_KEYS.contains(key);
+    }
+
+    private String readEnvFallback(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        String envKey = ENV_FALLBACK_KEYS.get(key);
+        if (envKey == null) {
+            return null;
+        }
+        String envValue = System.getenv(envKey);
+        if (envValue == null || envValue.isBlank()) {
+            return null;
+        }
+        return envValue;
     }
 
     private String maskSensitiveValue(String value) {
