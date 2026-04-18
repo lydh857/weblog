@@ -46,8 +46,8 @@
     </div>
 
     <div class="footer-bottom">
-      <p>本站内容仅供学习与交流，商业使用请联系原作者授权。</p>
-      <p>&copy; {{ currentYear }} {{ siteName }}. All rights reserved.</p>
+      <p>{{ footerNotice }}</p>
+      <p>{{ footerCopyright }}</p>
     </div>
   </footer>
 </template>
@@ -61,6 +61,14 @@ const userStore = useUserStore()
 const siteConfig = useSiteConfigState()
 const siteName = computed(() => siteConfig.value.siteName || DEFAULT_SITE_NAME)
 const siteDescription = computed(() => siteConfig.value.siteDescription || DEFAULT_SITE_DESCRIPTION)
+const footerNotice = computed(() => siteConfig.value.siteFooterNotice || DEFAULT_SITE_FOOTER_NOTICE)
+const footerCopyright = computed(() => {
+  const value = siteConfig.value.siteFooterCopyright?.trim()
+  if (value) {
+    return value
+  }
+  return `© ${currentYear} ${siteName.value}. All rights reserved.`
+})
 
 function openSearchModal() {
   searchModal.open()

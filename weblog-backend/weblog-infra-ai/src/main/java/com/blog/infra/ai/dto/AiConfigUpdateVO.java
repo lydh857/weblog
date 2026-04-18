@@ -9,11 +9,7 @@ import lombok.Data;
 public class AiConfigUpdateVO {
 
   private Boolean enabled;
-  private String provider;
-  private String apiKey;
-  private String baseUrl;
   private String model;
-  private Integer maxTokens;
   private Integer timeout;
   private Long monthlyTokenLimit;
   private FeatureToggleUpdateVO features;

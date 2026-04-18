@@ -4,6 +4,13 @@
       <h2>AI 配置</h2>
     </div>
 
+    <el-alert
+      title="敏感连接参数（API Key、Base URL）由服务端环境变量统一管理，不在页面中维护。"
+      type="info"
+      :closable="false"
+      class="env-alert"
+    />
+
     <el-tabs v-model="activeTab" class="config-tabs compact-tabs">
       <!-- Tab 1: 基础配置 -->
       <el-tab-pane label="基础配置" name="config">
@@ -20,26 +27,8 @@
               <el-form-item label="启用 AI">
                 <el-switch v-model="configForm.enabled" />
               </el-form-item>
-              <el-form-item label="模型提供商">
-                <el-select v-model="configForm.provider" style="width: 100%">
-                  <el-option label="OpenAI" value="openai" />
-                  <el-option label="DeepSeek" value="deepseek" />
-                  <el-option label="通义千问" value="qwen" />
-                  <el-option label="其他（兼容 OpenAI）" value="custom" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="API Key">
-                <el-input v-model="configForm.apiKey" type="password" show-password placeholder="sk-..." />
-              </el-form-item>
-              <el-form-item label="Base URL">
-                <el-input v-model="configForm.baseUrl" placeholder="https://api.openai.com" />
-                <span class="form-tip">不要包含 /v1 后缀，系统会自动拼接</span>
-              </el-form-item>
               <el-form-item label="模型名称">
                 <el-input v-model="configForm.model" placeholder="gpt-4o-mini" />
-              </el-form-item>
-              <el-form-item label="最大 Token">
-                <el-input-number v-model="configForm.maxTokens" :min="100" :max="128000" :step="100" />
               </el-form-item>
               <el-form-item label="超时（秒）">
                 <el-input-number v-model="configForm.timeout" :min="5" :max="120" />
@@ -149,11 +138,7 @@ const saving = ref(false)
 const testing = ref(false)
 const configForm = reactive<AiConfig>({
   enabled: false,
-  provider: 'openai',
-  apiKey: '',
-  baseUrl: '',
   model: '',
-  maxTokens: 4096,
   timeout: 30,
   monthlyTokenLimit: 0,
   features: {
@@ -179,26 +164,10 @@ async function loadConfig() {
 async function handleSaveConfig() {
   // 基础表单验证
   if (configForm.enabled) {
-    if (!configForm.apiKey?.trim()) {
-      ElMessage.warning('启用 AI 时必须填写 API Key')
-      return
-    }
-    if (!configForm.baseUrl?.trim()) {
-      ElMessage.warning('启用 AI 时必须填写 Base URL')
-      return
-    }
     if (!configForm.model?.trim()) {
       ElMessage.warning('启用 AI 时必须填写模型名称')
       return
     }
-    try {
-      new URL(configForm.baseUrl)
-    } catch {
-      ElMessage.warning('Base URL 格式不正确，请输入完整的 URL')
-      return
-    }
-    // 自动去除末尾的 /v1，Spring AI 会自动拼接
-    configForm.baseUrl = configForm.baseUrl.replace(/\/v1\/?$/, '')
   }
   saving.value = true
   try {
@@ -215,19 +184,6 @@ async function handleSaveConfig() {
 }
 
 async function handleTestConnection() {
-  // 验证并规范化 URL（与保存时保持一致）
-  if (!configForm.baseUrl?.trim()) {
-    ElMessage.warning('请先填写 Base URL')
-    return
-  }
-  // 去除末尾的 /v1，与保存时保持一致
-  const testUrl = configForm.baseUrl.replace(/\/v1\/?$/, '')
-  try {
-    new URL(testUrl)
-  } catch {
-    ElMessage.warning('Base URL 格式不正确，请输入完整的 URL')
-    return
-  }
   testing.value = true
   try {
     const res = await aiApi.testConnection()
@@ -334,6 +290,10 @@ onMounted(() => {
       letter-spacing: 0.3px;
     }
   }
+}
+
+.env-alert {
+  margin-bottom: 12px;
 }
 
 // ========== 配置网格 ==========

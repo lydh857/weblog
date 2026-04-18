@@ -207,14 +207,10 @@ public class AdminAiController {
   public Result<AiConfigVO> getConfig() {
 
     AiConfigVO vo = new AiConfigVO();
-    // 连接参数（来自 AiProperties，修改需重启）
+    // 基础参数（来自 AiProperties）
     vo.setEnabled(aiProperties.isEnabled());
-    vo.setProvider(aiProperties.getProvider());
-    vo.setApiKey(maskApiKey(aiProperties.getApiKey()));
-    vo.setBaseUrl(aiProperties.getBaseUrl());
     vo.setModel(aiProperties.getModel());
     // 运行时参数（来自 AiProperties 内存缓存，DB 加载）
-    vo.setMaxTokens(aiProperties.getMaxTokens());
     vo.setTimeout(aiProperties.getTimeout());
     vo.setMonthlyTokenLimit(aiProperties.getMonthlyTokenLimit());
 
@@ -237,13 +233,7 @@ public class AdminAiController {
     // 构建配置实体
     AiConfig config = new AiConfig();
     config.setEnabled(req.getEnabled());
-    config.setProvider(req.getProvider());
-    // API Key 脱敏值不更新
-    String apiKey = req.getApiKey();
-    config.setApiKey(apiKey != null && apiKey.contains("****") ? null : apiKey);
-    config.setBaseUrl(req.getBaseUrl());
     config.setModel(req.getModel());
-    config.setMaxTokens(req.getMaxTokens());
     config.setTimeout(req.getTimeout());
     config.setMonthlyTokenLimit(req.getMonthlyTokenLimit());
     if (req.getFeatures() != null) {
@@ -274,14 +264,6 @@ public class AdminAiController {
   @GetMapping("/token-usage")
   public Result<TokenUsageVO> getTokenUsage(@RequestParam(required = false) String month) {
     return Result.success(tokenMeterService.getMonthlyUsage(month));
-  }
-
-  /** API Key 脱敏：保留前3位和后4位 */
-  private String maskApiKey(String apiKey) {
-    if (apiKey == null || apiKey.length() <= 7) {
-      return "****";
-    }
-    return apiKey.substring(0, 3) + "****" + apiKey.substring(apiKey.length() - 4);
   }
 
   // ========== 提示词模板接口 ==========

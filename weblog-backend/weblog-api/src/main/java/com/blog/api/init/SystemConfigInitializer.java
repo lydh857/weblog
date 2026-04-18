@@ -20,6 +20,14 @@ public class SystemConfigInitializer {
     public void init() {
         systemConfigService.createIfAbsent("site_name", "Weblog", "站点名称");
         systemConfigService.createIfAbsent("site_description", "记录经验、分享洞察、连接有价值的内容。", "站点描述");
+        systemConfigService.createIfAbsent("site_footer_notice", "本站内容仅供学习与交流，商业使用请联系原作者授权。", "站点页脚说明文案");
+        systemConfigService.createIfAbsent("site_footer_copyright", "© 2026 zhhhkl. All rights reserved.", "站点页脚版权文案");
+        systemConfigService.createIfAbsent(
+                "site_disclaimer_content",
+                "1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。\n"
+                        + "2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。\n"
+                        + "3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。",
+                "文章页免责声明文案（多行）");
         systemConfigService.createIfAbsent("comment_audit_enabled", "true", "评论审核开关（true=开启审核）");
         systemConfigService.createIfAbsent("friend_link_apply_enabled", "true", "友链申请入口开关（true=开放申请）");
         systemConfigService.createIfAbsent("ad_apply_enabled", "false", "广告申请入口开关（true=开放申请）");
@@ -94,6 +102,7 @@ public class SystemConfigInitializer {
         systemConfigService.createIfAbsent("login_log_retention_days", "180", "登录日志保留天数");
         systemConfigService.createIfAbsent("audit_log_retention_days", "180", "审计日志保留天数");
         systemConfigService.createIfAbsent("rate_limit_auto_block_enabled", "false", "接口限流自动封禁开关（true=开启）");
+        systemConfigService.createIfAbsent("rate_limit_auto_block_permanent_enabled", "false", "接口限流自动封禁是否永久封禁（true=永久封禁）");
         systemConfigService.createIfAbsent("rate_limit_auto_block_threshold", "20", "接口限流自动封禁触发阈值（窗口内命中次数）");
         systemConfigService.createIfAbsent("rate_limit_auto_block_window_minutes", "10", "接口限流自动封禁统计窗口（分钟）");
         systemConfigService.createIfAbsent("rate_limit_auto_block_minutes", "60", "接口限流自动封禁时长（分钟）");

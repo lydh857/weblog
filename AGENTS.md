@@ -15,6 +15,8 @@
 仓库内未发现以下文件（已核查）：`.cursor/rules/`、`.cursorrules`、`.github/copilot-instructions.md`。
 结论：当前仅遵循本 `AGENTS.md` 与仓库既有代码约定。
 
+规则优先级：仓库内本文件高于全局规则；如存在冲突，以本文件为准。
+
 ## 3. 目录结构（核心）
 
 - `weblog-backend/`：Maven 多模块后端
@@ -111,8 +113,15 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - `database/sql/init/02-schema.sql`：结构初始化脚本（由快照同步生成）。
 - `database/sql/init/03-data.sql`：数据初始化脚本（由快照同步生成）。
 - `database/sql/init/01-grant-permissions.sql`：手动授权脚本（可选）。
+- `weblog-backend/weblog-api/src/main/resources/db/migration/`：Flyway 增量迁移脚本目录（生产/开发环境启用）。
 
 初始化顺序：`02-schema.sql` -> `03-data.sql`。
+
+结构变更强制要求：凡涉及建表/改表/索引/枚举/约束，必须同时更新
+1) Flyway 增量迁移脚本（`db/migration/Vx__*.sql`）
+2) `database/sql/init/02-schema.sql`
+3) `database/weblog.sql`
+禁止仅修改其中一部分。
 
 ## 6. 代码风格总则
 
@@ -157,3 +166,5 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 3. 若改动后端接口，补跑对应回归脚本或关键单测。
 4. 若改动前端构建配置，补跑 chunk/warning 门禁脚本。
 5. 更新必要文档（命令、路径、行为变化）并保持与代码一致。
+6. 若涉及数据库结构，逐项核对“`db/migration` + `02-schema.sql` + `weblog.sql`”三联一致。
+7. 若按 OpenSpec 流程实施，完成实现后同步 `tasks.md` 勾选状态；变更完成后再执行 archive。

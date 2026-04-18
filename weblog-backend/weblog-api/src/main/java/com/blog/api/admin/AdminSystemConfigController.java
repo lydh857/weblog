@@ -36,6 +36,7 @@ public class AdminSystemConfigController {
 
     private static final String RATE_LIMIT_AUTO_BLOCK_KEY_PREFIXES_KEY = "rate_limit_auto_block_key_prefixes";
     private static final String RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY = "rate_limit_auto_block_enabled";
+    private static final String RATE_LIMIT_AUTO_BLOCK_PERMANENT_ENABLED_KEY = "rate_limit_auto_block_permanent_enabled";
     private static final String RATE_LIMIT_AUTO_BLOCK_THRESHOLD_KEY = "rate_limit_auto_block_threshold";
     private static final String RATE_LIMIT_AUTO_BLOCK_WINDOW_MINUTES_KEY = "rate_limit_auto_block_window_minutes";
     private static final String RATE_LIMIT_AUTO_BLOCK_MINUTES_KEY = "rate_limit_auto_block_minutes";
@@ -171,13 +172,8 @@ public class AdminSystemConfigController {
                         String.format("%s 超出允许范围[%d,%d]", key, rule.min(), rule.max()));
             }
         }
-        if (configs.containsKey(RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY)) {
-            String enabledValue = configs.get(RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY);
-            if (!"true".equalsIgnoreCase(enabledValue) && !"false".equalsIgnoreCase(enabledValue)) {
-                throw new BusinessException(ResultCode.PARAM_INVALID,
-                        RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY + " 仅允许 true 或 false");
-            }
-        }
+        validateBooleanConfig(configs, RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY);
+        validateBooleanConfig(configs, RATE_LIMIT_AUTO_BLOCK_PERMANENT_ENABLED_KEY);
     }
 
     private void validateDynamicRateLimitStepChange(Map<String, String> configs) {
@@ -214,6 +210,7 @@ public class AdminSystemConfigController {
     private String buildAuditSummary(Map<String, String> configs) {
         Set<String> trackedKeys = new HashSet<>(DYNAMIC_RATE_LIMIT_RULES.keySet());
         trackedKeys.add(RATE_LIMIT_AUTO_BLOCK_ENABLED_KEY);
+        trackedKeys.add(RATE_LIMIT_AUTO_BLOCK_PERMANENT_ENABLED_KEY);
         trackedKeys.add(RATE_LIMIT_AUTO_BLOCK_KEY_PREFIXES_KEY);
 
         List<String> changeItems = new ArrayList<>();
@@ -282,6 +279,16 @@ public class AdminSystemConfigController {
             return Integer.parseInt(rawValue.trim());
         } catch (NumberFormatException ex) {
             return defaultValue;
+        }
+    }
+
+    private void validateBooleanConfig(Map<String, String> configs, String key) {
+        if (!configs.containsKey(key)) {
+            return;
+        }
+        String value = configs.get(key);
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, key + " 仅允许 true 或 false");
         }
     }
 

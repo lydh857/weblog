@@ -73,11 +73,7 @@ export interface SeoResult {
 
 export interface AiConfig {
   enabled: boolean
-  provider: string
-  apiKey: string
-  baseUrl: string
   model: string
-  maxTokens: number
   timeout: number
   monthlyTokenLimit: number
   features: FeatureToggle
@@ -92,11 +88,7 @@ export interface FeatureToggle {
 
 export interface AiConfigUpdate {
   enabled?: boolean
-  provider?: string
-  apiKey?: string
-  baseUrl?: string
   model?: string
-  maxTokens?: number
   timeout?: number
   monthlyTokenLimit?: number
   features?: Partial<FeatureToggle>

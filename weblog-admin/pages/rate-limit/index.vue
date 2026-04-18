@@ -6,7 +6,7 @@
         <div class="quick-stats">
           <el-tag size="small" effect="plain">用户端 {{ userLimitCount }} 项</el-tag>
           <el-tag size="small" effect="plain">管理端 {{ adminLimitCount }} 项</el-tag>
-          <el-tag size="small" effect="plain">自动封禁 5 项</el-tag>
+          <el-tag size="small" effect="plain">自动封禁 6 项</el-tag>
         </div>
       </div>
       <div class="header-actions">
@@ -125,6 +125,16 @@
               </div>
               <p class="form-tip">高风险接口短时间多次触发限流后自动封禁 IP</p>
             </div>
+            <div class="limit-item" :class="{ 'limit-item--changed': isChangedFromDefault('rate_limit_auto_block_permanent_enabled') }">
+              <div class="limit-main">
+                <span class="item-label">自动封禁为永久</span>
+                <div class="limit-actions">
+                  <el-switch v-model="form.rate_limit_auto_block_permanent_enabled" active-value="true" inactive-value="false" />
+                  <el-button v-if="isChangedFromDefault('rate_limit_auto_block_permanent_enabled')" size="small" link type="primary" @click="handleResetOne('rate_limit_auto_block_permanent_enabled')">恢复默认</el-button>
+                </div>
+              </div>
+              <p class="form-tip">开启后自动封禁不设置过期时间，需要手动解封</p>
+            </div>
             <div class="limit-item" :class="{ 'limit-item--changed': isChangedFromDefault('rate_limit_auto_block_threshold') }">
               <div class="limit-main">
                 <span class="item-label">触发阈值（次）</span>
@@ -149,11 +159,11 @@
               <div class="limit-main">
                 <span class="item-label">封禁时长（分钟）</span>
                 <div class="limit-actions">
-                  <el-input-number v-model.number="form.rate_limit_auto_block_minutes" size="small" :min="1" :max="43200" controls-position="right" />
+                  <el-input-number v-model.number="form.rate_limit_auto_block_minutes" size="small" :min="1" :max="43200" controls-position="right" :disabled="form.rate_limit_auto_block_permanent_enabled === 'true'" />
                   <el-button v-if="isChangedFromDefault('rate_limit_auto_block_minutes')" size="small" link type="primary" @click="handleResetOne('rate_limit_auto_block_minutes')">恢复默认</el-button>
                 </div>
               </div>
-              <p class="form-tip">默认 60，建议 30~1440</p>
+              <p class="form-tip">默认 60，建议 30~1440；开启永久封禁后此项不生效</p>
             </div>
             <div class="limit-item" :class="{ 'limit-item--changed': isChangedFromDefault('rate_limit_auto_block_key_prefixes') }">
               <div class="limit-main limit-main--input">
@@ -246,6 +256,7 @@ const rateLimitDefaults: Record<string, string | number> = {
   user_set_password_rate_limit: 8,
   user_reset_password_rate_limit: 8,
   rate_limit_auto_block_enabled: 'false',
+  rate_limit_auto_block_permanent_enabled: 'false',
   rate_limit_auto_block_threshold: 20,
   rate_limit_auto_block_window_minutes: 10,
   rate_limit_auto_block_minutes: 60,
@@ -253,7 +264,7 @@ const rateLimitDefaults: Record<string, string | number> = {
 }
 
 const numberKeys = new Set(Object.keys(rateLimitDefaults).filter((key) =>
-  key !== 'rate_limit_auto_block_enabled' && key !== 'rate_limit_auto_block_key_prefixes',
+  key !== 'rate_limit_auto_block_enabled' && key !== 'rate_limit_auto_block_permanent_enabled' && key !== 'rate_limit_auto_block_key_prefixes',
 ))
 
 const form = reactive<Record<string, string | number>>({ ...rateLimitDefaults })

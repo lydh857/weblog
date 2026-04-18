@@ -10,12 +10,24 @@ export default defineNuxtPlugin(async () => {
     const res = await siteConfigApi.getPublic()
     const siteName = res.data.siteName?.trim()
     const siteDescription = res.data.siteDescription?.trim()
+    const siteFooterNotice = res.data.siteFooterNotice?.trim()
+    const siteFooterCopyright = res.data.siteFooterCopyright?.trim()
+    const siteDisclaimerContent = res.data.siteDisclaimerContent?.trim()
 
     if (siteName) {
       state.value.siteName = siteName
     }
     if (siteDescription) {
       state.value.siteDescription = siteDescription
+    }
+    if (siteFooterNotice) {
+      state.value.siteFooterNotice = siteFooterNotice
+    }
+    if (siteFooterCopyright) {
+      state.value.siteFooterCopyright = siteFooterCopyright
+    }
+    if (siteDisclaimerContent) {
+      state.value.siteDisclaimerContent = siteDisclaimerContent
     }
   } catch {
     // 失败时保留默认值

@@ -5,12 +5,22 @@
       <span>免责声明</span>
     </div>
     <div class="disclaimer-content">
-      <p>1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。</p>
-      <p>2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。</p>
-      <p>3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。</p>
+      <p v-for="(line, index) in disclaimerLines" :key="`${index}-${line}`">{{ line }}</p>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+const siteConfig = useSiteConfigState()
+
+const disclaimerLines = computed(() => {
+  const text = siteConfig.value.siteDisclaimerContent || DEFAULT_SITE_DISCLAIMER_CONTENT
+  return text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+})
+</script>
 
 <style scoped lang="scss">
 .article-disclaimer {

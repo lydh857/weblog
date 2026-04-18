@@ -80,10 +80,6 @@ public class AiConfigService {
 
   // ========== 读取接口 ==========
 
-  public int getMaxTokens() {
-    return aiProperties.getMaxTokens();
-  }
-
   public int getTimeout() {
     return aiProperties.getTimeout();
   }

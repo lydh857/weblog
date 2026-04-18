@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class RateLimitPenaltyService {
 
     private static final String AUTO_BLOCK_ENABLED_KEY = "rate_limit_auto_block_enabled";
+    private static final String AUTO_BLOCK_PERMANENT_ENABLED_KEY = "rate_limit_auto_block_permanent_enabled";
     private static final String AUTO_BLOCK_THRESHOLD_KEY = "rate_limit_auto_block_threshold";
     private static final String AUTO_BLOCK_WINDOW_MINUTES_KEY = "rate_limit_auto_block_window_minutes";
     private static final String AUTO_BLOCK_MINUTES_KEY = "rate_limit_auto_block_minutes";
@@ -32,6 +33,7 @@ public class RateLimitPenaltyService {
     private static final String AUTO_BLOCK_COUNTER_REDIS_PREFIX = "security:rate-limit:strike:";
 
     private static final boolean DEFAULT_AUTO_BLOCK_ENABLED = false;
+    private static final boolean DEFAULT_AUTO_BLOCK_PERMANENT_ENABLED = false;
     private static final int DEFAULT_THRESHOLD = 20;
     private static final int DEFAULT_WINDOW_MINUTES = 10;
     private static final int DEFAULT_BLOCK_MINUTES = 60;
@@ -71,6 +73,7 @@ public class RateLimitPenaltyService {
                 MIN_THRESHOLD, MAX_THRESHOLD, DEFAULT_THRESHOLD);
         int windowMinutes = clamp(systemConfigService.getIntValue(AUTO_BLOCK_WINDOW_MINUTES_KEY, DEFAULT_WINDOW_MINUTES),
                 MIN_WINDOW_MINUTES, MAX_WINDOW_MINUTES, DEFAULT_WINDOW_MINUTES);
+        boolean permanentBlockEnabled = isAutoBlockPermanentEnabled();
         int blockMinutes = clamp(systemConfigService.getIntValue(AUTO_BLOCK_MINUTES_KEY, DEFAULT_BLOCK_MINUTES),
                 MIN_BLOCK_MINUTES, MAX_BLOCK_MINUTES, DEFAULT_BLOCK_MINUTES);
         long expireSeconds = windowMinutes * 60L;
@@ -88,7 +91,9 @@ public class RateLimitPenaltyService {
 
         String reason = String.format("接口限流触发自动封禁（key=%s, window=%d分钟, 次数=%d, 阈值=%d）",
                 keyPrefix, windowMinutes, count, threshold);
-        SecurityRiskControlService.IpBlockStatus blocked = securityRiskControlService.blockIp(clientIp, blockMinutes, reason, false);
+        SecurityRiskControlService.IpBlockStatus blocked = permanentBlockEnabled
+                ? securityRiskControlService.blockIp(clientIp, null, true, reason, false)
+                : securityRiskControlService.blockIp(clientIp, blockMinutes, reason, false);
         if (!blocked.blocked()) {
             return;
         }
@@ -105,14 +110,22 @@ public class RateLimitPenaltyService {
                 request.getMethod(),
                 request.getRequestURI()
         );
-        log.warn("接口限流自动封禁生效: keyPrefix={}, ip={}, blockMinutes={}, remainingSeconds={}",
-                keyPrefix, clientIp, blockMinutes, blocked.remainingSeconds());
+        log.warn("接口限流自动封禁生效: keyPrefix={}, ip={}, blockMode={}, blockMinutes={}, remainingSeconds={}",
+                keyPrefix, clientIp, permanentBlockEnabled ? "PERMANENT" : "DURATION", blockMinutes, blocked.remainingSeconds());
     }
 
     private boolean isAutoBlockEnabled() {
         String raw = systemConfigService.getValue(AUTO_BLOCK_ENABLED_KEY);
         if (!StringUtils.hasText(raw)) {
             return DEFAULT_AUTO_BLOCK_ENABLED;
+        }
+        return "true".equalsIgnoreCase(raw.trim());
+    }
+
+    private boolean isAutoBlockPermanentEnabled() {
+        String raw = systemConfigService.getValue(AUTO_BLOCK_PERMANENT_ENABLED_KEY);
+        if (!StringUtils.hasText(raw)) {
+            return DEFAULT_AUTO_BLOCK_PERMANENT_ENABLED;
         }
         return "true".equalsIgnoreCase(raw.trim());
     }

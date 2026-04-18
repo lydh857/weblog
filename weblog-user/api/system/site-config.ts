@@ -3,6 +3,9 @@ import { http } from '~/utils/network/http'
 export interface SiteConfigVO {
   siteName: string
   siteDescription: string
+  siteFooterNotice: string
+  siteFooterCopyright: string
+  siteDisclaimerContent: string
 }
 
 export const siteConfigApi = {
