@@ -74,7 +74,11 @@ export default defineNuxtConfig({
     },
     resolve: {},
     optimizeDeps: {
-      include: ['dayjs'],
+      include: [
+        'dayjs',
+        'dayjs/plugin/*.js',
+        'lodash-unified',
+      ],
     },
     server: {
       proxy: {
