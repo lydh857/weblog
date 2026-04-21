@@ -205,6 +205,7 @@
       </aside>
     </Transition>
     <LazyAnnouncementPopup />
+    <LazyAnnouncementModal />
     <LazyFloatingPageIndicator />
     <LazyBackToTop />
     <LazyGlobalScrollbar />

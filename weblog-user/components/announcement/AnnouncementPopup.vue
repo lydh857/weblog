@@ -10,7 +10,7 @@
             @mouseleave="handleEnvelopeMouseLeave"
             @click="toggleEnvelopeByTap"
           >
-            <article class="popup-letter" role="dialog" aria-modal="true" :aria-label="`弹窗公告：${currentAnn.title}`">
+            <article class="popup-letter" role="dialog" aria-modal="true" :aria-label="`信封公告：${currentAnn.title}`">
               <button
                 v-if="currentAnn.isClosable"
                 type="button"
@@ -23,9 +23,28 @@
               </button>
 
               <h3 class="popup-title">{{ currentAnn.title }}</h3>
-              <!-- 已经过 sanitizeHtml 净化 -->
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div class="popup-body" v-html="sanitize(currentAnn.content)" />
+              <div class="popup-body">
+                <ClientOnly>
+                  <MdPreview
+                    editor-id="announcement-envelope-preview"
+                    :model-value="currentAnn.content"
+                    :sanitize="sanitize"
+                    :theme="editorTheme"
+                    :preview-theme="previewTheme"
+                    :code-theme="codeTheme"
+                    :code-foldable="false"
+                    :show-code-row-number="true"
+                    :no-mermaid="true"
+                    :no-katex="true"
+                    class="popup-md-preview"
+                  />
+                  <template #fallback>
+                    <!-- 已经过 sanitizeHtml 净化 -->
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div class="popup-md-fallback" v-html="sanitize(currentAnn.content)" />
+                  </template>
+                </ClientOnly>
+              </div>
               <p class="popup-time">{{ announcementTimeText }}</p>
               <p class="popup-signature">zhhhkl</p>
 
@@ -60,8 +79,11 @@
 </template>
 
 <script setup lang="ts">
+import { MdPreview } from 'md-editor-v3'
+import 'md-editor-v3/lib/preview.css'
 import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
 import { fetchAllAnnouncements } from '~/composables/announcement/useAnnouncementRequestCache'
+import { lockScroll, unlockScroll } from '~/composables/layout/useScrollLock'
 import { sanitizeHtml } from '~/utils/security/xss'
 
 const visible = ref(false)
@@ -70,9 +92,11 @@ const currentIndex = ref(0)
 const envelopeOpen = ref(false)
 const closedByUserInSession = ref(false)
 const route = useRoute()
+const colorMode = useColorMode()
 
 const DISMISSED_STORAGE_KEY = 'dismissed_announcements_envelope_v2'
 const POPUP_CACHE_STORAGE_KEY = 'announcement_popup_cache_v1'
+const ENVELOPE_STATE_EVENT = 'weblog:envelope-popup-state'
 const POPUP_CACHE_MAX_AGE = 1000 * 60 * 30
 const FETCH_RETRY_COUNT = 2
 const FETCH_RETRY_DELAY = 260
@@ -88,6 +112,23 @@ let popupRequestPromise: Promise<AnnouncementVO[]> | null = null
 let popupIdlePrefetchCancel: (() => void) | null = null
 let interactionPrefetchCleanup: (() => void) | null = null
 let envelopeHoverOpenTimer: ReturnType<typeof window.setTimeout> | null = null
+let scrollLocked = false
+
+function emitEnvelopeState(active: boolean, closed = false, pending = false) {
+  if (!import.meta.client) {
+    return
+  }
+
+  const runtimeWindow = window as Window & {
+    __weblogEnvelopeAnnouncementActive?: boolean
+    __weblogEnvelopeAnnouncementPending?: boolean
+  }
+  runtimeWindow.__weblogEnvelopeAnnouncementActive = active
+  runtimeWindow.__weblogEnvelopeAnnouncementPending = pending
+  window.dispatchEvent(new CustomEvent(ENVELOPE_STATE_EVENT, {
+    detail: { active, closed, pending },
+  }))
+}
 
 function clearEnvelopeHoverOpenTimer() {
   if (!import.meta.client || !envelopeHoverOpenTimer) {
@@ -106,6 +147,9 @@ const forcePopupPreview = computed(() => {
 
   return popupPreview === '1' || forcePopup === '1'
 })
+const previewTheme = computed(() => (colorMode.value === 'dark' ? 'github' : 'default'))
+const codeTheme = computed(() => (colorMode.value === 'dark' ? 'atom' : 'atom'))
+const editorTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
 const announcementTimeText = computed(() => {
   const source = currentAnn.value?.updateTime || currentAnn.value?.createTime || ''
   return `时间：${formatAnnouncementTime(source)}`
@@ -147,6 +191,10 @@ function handleEnvelopeMouseEnter() {
 }
 
 function handleEnvelopeMouseLeave() {
+  if (!import.meta.client || !window.matchMedia('(hover: hover)').matches) {
+    return
+  }
+
   clearEnvelopeHoverOpenTimer()
   envelopeOpen.value = false
 }
@@ -160,12 +208,39 @@ function toggleEnvelopeByTap() {
     return
   }
 
-  envelopeOpen.value = !envelopeOpen.value
+  if (envelopeOpen.value) {
+    return
+  }
+
+  clearEnvelopeHoverOpenTimer()
+  envelopeOpen.value = true
 }
 
 function showCurrentAnnouncement() {
   clearEnvelopeHoverOpenTimer()
   envelopeOpen.value = false
+}
+
+function syncPageScrollLock(lock: boolean) {
+  if (!import.meta.client) {
+    return
+  }
+
+  if (lock) {
+    if (scrollLocked) {
+      return
+    }
+    lockScroll()
+    scrollLocked = true
+    return
+  }
+
+  if (!scrollLocked) {
+    return
+  }
+
+  unlockScroll()
+  scrollLocked = false
 }
 
 function hasStartupDone() {
@@ -188,6 +263,7 @@ function revealPopupIfReady() {
 
   currentIndex.value = 0
   visible.value = true
+  emitEnvelopeState(true)
   showCurrentAnnouncement()
 }
 
@@ -358,6 +434,7 @@ function tryClose() {
   closedByUserInSession.value = true
   visible.value = false
   envelopeOpen.value = false
+  emitEnvelopeState(false, true)
 }
 
 function handleCloseAction(event: Event) {
@@ -368,7 +445,7 @@ function handleCloseAction(event: Event) {
 
 function filterPopupAnnouncements(source: AnnouncementVO[], dismissed: Set<string>): AnnouncementVO[] {
   return source
-    .filter(item => item.type === 'popup' && !dismissed.has(getAnnouncementDismissKey(item)))
+    .filter(item => item.type === 'envelope' && !dismissed.has(getAnnouncementDismissKey(item)))
     .sort((a, b) => {
       if (b.priority !== a.priority) {
         return b.priority - a.priority
@@ -396,7 +473,7 @@ async function fetchPopupAnnouncements(): Promise<AnnouncementVO[]> {
 
   for (let attempt = 0; attempt <= FETCH_RETRY_COUNT; attempt += 1) {
     try {
-      const byType = await announcementApi.getByType('popup').then(res => res.data || [])
+      const byType = await announcementApi.getByType('envelope').then(res => res.data || [])
       const filteredByType = filterPopupAnnouncements(byType, dismissed)
       if (filteredByType.length > 0) {
         savePopupCache(filteredByType)
@@ -431,6 +508,13 @@ async function fetchPopupAnnouncements(): Promise<AnnouncementVO[]> {
 
 function applyPopupAnnouncements(announcements: AnnouncementVO[]) {
   popupAnnouncements.value = announcements
+
+  if (announcements.length > 0 && !closedByUserInSession.value) {
+    emitEnvelopeState(true, false, false)
+  } else {
+    emitEnvelopeState(false, false, false)
+  }
+
   revealPopupIfReady()
 }
 
@@ -492,6 +576,8 @@ function setupInteractionPrefetch() {
 }
 
 onMounted(async () => {
+  emitEnvelopeState(true, false, true)
+
   isStartupDone.value = hasStartupDone()
 
   if (import.meta.client && !isStartupDone.value && !startupDoneHandlerAttached) {
@@ -535,7 +621,13 @@ onMounted(async () => {
   }
 })
 
+watch(visible, (value) => {
+  syncPageScrollLock(value)
+})
+
 onUnmounted(() => {
+  syncPageScrollLock(false)
+
   if (import.meta.client && visibilityChangeHandler && visibilityHandlerAttached) {
     document.removeEventListener('visibilitychange', visibilityChangeHandler)
     visibilityChangeHandler = null
@@ -556,6 +648,8 @@ onUnmounted(() => {
   clearEnvelopeHoverOpenTimer()
 
   clearInteractionPrefetchListeners()
+
+  emitEnvelopeState(false, false, false)
 })
 </script>
 
@@ -632,7 +726,7 @@ onUnmounted(() => {
   align-items: center;
   text-align: center;
   justify-content: flex-start;
-  padding: 1.35rem 1.7rem 2rem;
+  padding: 1rem 1.7rem 1.85rem;
   transform: translateY(var(--letter-closed-shift));
   clip-path: inset(0 2px calc(var(--letter-closed-shift) + var(--letter-clip-safe)) 0);
   z-index: 12;
@@ -645,7 +739,7 @@ onUnmounted(() => {
   box-shadow: none;
 
   .dark & {
-    background: #e5e7eb;
+    background: #f5f5f5;
   }
 }
 
@@ -659,7 +753,7 @@ onUnmounted(() => {
 }
 
 .popup-title {
-  margin: 0.8rem 0 0.7rem;
+  margin: 0.45rem 0 0.45rem;
   max-width: min(84%, 520px);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.65rem, 2.4vw, 2.75rem);
@@ -712,11 +806,12 @@ onUnmounted(() => {
 
 .popup-body {
   width: min(84%, 500px);
-  max-height: 37%;
+  max-height: 46%;
   overflow-y: auto;
   font-size: clamp(0.95rem, 1.5vw, 1.1rem);
   line-height: 1.55;
   color: #374151;
+  background: #f5f5f5;
 
   :deep(a) {
     color: #2563eb;
@@ -725,23 +820,44 @@ onUnmounted(() => {
 
   :deep(p) {
     margin: 0;
+    background: #f5f5f5;
   }
 
   :deep(p + p) {
     margin-top: 0.5rem;
   }
+
+  :deep(.md-editor),
+  :deep(.md-editor-preview-wrapper),
+  :deep(.md-editor-preview),
+  :deep(.md-editor-preview *),
+  :deep(pre),
+  :deep(code),
+  :deep(blockquote),
+  :deep(table),
+  :deep(thead),
+  :deep(tbody),
+  :deep(tr),
+  :deep(td),
+  :deep(th),
+  :deep(ul),
+  :deep(ol),
+  :deep(li) {
+    background: #f5f5f5 !important;
+    background-color: #f5f5f5 !important;
+  }
 }
 
 .popup-time {
   width: min(84%, 500px);
-  margin: 0.8rem 0 0;
+  margin: 0.5rem 0 0;
   font-size: 0.8rem;
   color: #6b7280;
 }
 
 .popup-signature {
   width: min(84%, 500px);
-  margin: 0.45rem 0 0;
+  margin: 0.3rem 0 0;
   font-size: 0.95rem;
   letter-spacing: 0.4px;
   color: #334155;
@@ -754,7 +870,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-top: 0.85rem;
+  padding-top: 0.55rem;
 }
 
 .popup-count {
@@ -862,12 +978,13 @@ onUnmounted(() => {
   }
 
   .popup-envelope {
+    --letter-open-shift: 23%;
     min-height: 248px;
     aspect-ratio: 16 / 9;
   }
 
   .popup-letter {
-    padding: 1rem 1rem 1.35rem;
+    padding: 0.7rem 0.75rem 1rem;
   }
 
   .popup-title,
@@ -880,26 +997,48 @@ onUnmounted(() => {
   }
 
   .popup-title {
-    font-size: 1.4rem;
+    margin-top: 0.2rem;
+    margin-bottom: 0.3rem;
+    font-size: 1.15rem;
+    line-height: 1.16;
   }
 
   .popup-body {
-    max-height: 38%;
-    font-size: 0.92rem;
+    max-height: 56%;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .popup-time {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+  }
+
+  .popup-signature {
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
   }
 
   .popup-meta {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.5rem;
+    gap: 0.35rem;
+    padding-top: 0.35rem;
   }
 
   .popup-count {
     text-align: left;
+    font-size: 0.72rem;
   }
 
   .popup-actions {
     justify-content: flex-end;
+  }
+
+  .popup-next {
+    min-height: 26px;
+    font-size: 0.7rem;
+    padding: 0 0.52rem;
   }
 
 }

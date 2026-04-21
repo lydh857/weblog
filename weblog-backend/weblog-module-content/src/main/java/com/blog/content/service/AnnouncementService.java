@@ -26,7 +26,7 @@ import java.util.Set;
 public class AnnouncementService {
 
     private final AnnouncementMapper announcementMapper;
-    private static final Set<String> VALID_ANNOUNCEMENT_TYPES = Set.of("popup", "banner");
+    private static final Set<String> VALID_ANNOUNCEMENT_TYPES = Set.of("envelope", "modal", "banner");
 
     /**
      * 按类型获取有效公告（用户端）
@@ -117,9 +117,9 @@ public class AnnouncementService {
         if (ann.getPriority() == null) ann.setPriority(0);
         if (ann.getIsClosable() == null) ann.setIsClosable(true);
         announcementMapper.insert(ann);
-        // 如果直接以 published 状态创建 popup，归档其他已发布的 popup
-        if ("published".equals(ann.getStatus()) && "popup".equals(ann.getType())) {
-            archiveOtherPopupsIfNeeded(ann.getId());
+        // 如果直接以 published 状态创建 envelope，归档其他已发布的 envelope
+        if ("published".equals(ann.getStatus()) && "envelope".equals(ann.getType())) {
+            archiveOtherEnvelopesIfNeeded(ann.getId());
         }
         return ann;
     }
@@ -135,7 +135,7 @@ public class AnnouncementService {
 
         if (ann.getType() != null) {
             if (ann.getType().isBlank()) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "公告类型不能为空，仅支持: popup, banner");
+                throw new BusinessException(ResultCode.BAD_REQUEST, "公告类型不能为空，仅支持: envelope, modal, banner");
             }
             String normalizedType = normalizeType(ann.getType());
             validateType(normalizedType);
@@ -144,19 +144,19 @@ public class AnnouncementService {
 
         ann.setId(id);
         announcementMapper.updateById(ann);
-        // 如果更新后是已发布的 popup，归档其他已发布的 popup
-        if ("published".equals(ann.getStatus()) && "popup".equals(ann.getType())) {
-            archiveOtherPopupsIfNeeded(id);
+        // 如果更新后是已发布的 envelope，归档其他已发布的 envelope
+        if ("published".equals(ann.getStatus()) && "envelope".equals(ann.getType())) {
+            archiveOtherEnvelopesIfNeeded(id);
         }
     }
 
     /**
      * 更新公告状态
-     * popup 类型发布时自动归档其他已发布的 popup
+     * envelope 类型发布时自动归档其他已发布的 envelope
      */
     public void updateStatus(Long id, String status) {
         if ("published".equals(status)) {
-            archiveOtherPopupsIfNeeded(id);
+            archiveOtherEnvelopesIfNeeded(id);
         }
         announcementMapper.update(null, new LambdaUpdateWrapper<Announcement>()
                 .eq(Announcement::getId, id)
@@ -179,12 +179,12 @@ public class AnnouncementService {
 
     /**
      * 批量更新公告状态
-     * popup 类型发布时自动归档其他已发布的 popup
+     * envelope 类型发布时自动归档其他已发布的 envelope
      */
     public void batchUpdateStatus(List<Long> ids, String status) {
         if ("published".equals(status)) {
             for (Long id : ids) {
-                archiveOtherPopupsIfNeeded(id);
+                archiveOtherEnvelopesIfNeeded(id);
             }
         }
         announcementMapper.update(null, new LambdaUpdateWrapper<Announcement>()
@@ -193,13 +193,13 @@ public class AnnouncementService {
     }
 
     /**
-     * 如果目标公告是 popup 类型，归档其他已发布的 popup 公告
+     * 如果目标公告是 envelope 类型，归档其他已发布的 envelope 公告
      */
-    private void archiveOtherPopupsIfNeeded(Long excludeId) {
+    private void archiveOtherEnvelopesIfNeeded(Long excludeId) {
         Announcement ann = announcementMapper.selectById(excludeId);
-        if (ann == null || !"popup".equals(ann.getType())) return;
+        if (ann == null || !"envelope".equals(ann.getType())) return;
         announcementMapper.update(null, new LambdaUpdateWrapper<Announcement>()
-                .eq(Announcement::getType, "popup")
+                .eq(Announcement::getType, "envelope")
                 .eq(Announcement::getStatus, "published")
                 .ne(Announcement::getId, excludeId)
                 .set(Announcement::getStatus, "archived"));
@@ -207,11 +207,14 @@ public class AnnouncementService {
 
     private void validateType(String type) {
         if (!VALID_ANNOUNCEMENT_TYPES.contains(type)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的公告类型，仅支持: popup, banner");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的公告类型，仅支持: envelope, modal, banner");
         }
     }
 
     private String normalizeType(String type) {
-        return type == null ? null : type.trim().toLowerCase();
+        if (type == null) {
+            return null;
+        }
+        return type.trim().toLowerCase();
     }
 }

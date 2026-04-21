@@ -99,9 +99,9 @@ const stackGroups: StackGroup[] = [
 ]
 
 useHead({
-  title: '技术栈 - Weblog',
+  title: '技术栈 - zhhhkl',
   meta: [
-    { name: 'description', content: 'Weblog 技术栈说明：后端、前端、数据库与部署基础设施。' },
+    { name: 'description', content: 'zhhhkl 技术栈说明：后端、前端、数据库与部署基础设施。' },
   ],
 })
 

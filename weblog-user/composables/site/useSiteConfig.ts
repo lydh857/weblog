@@ -1,4 +1,4 @@
-export const DEFAULT_SITE_NAME = 'Weblog'
+export const DEFAULT_SITE_NAME = 'zhhhkl'
 export const DEFAULT_SITE_DESCRIPTION = '记录经验、分享洞察、连接有价值的内容。'
 export const DEFAULT_SITE_FOOTER_NOTICE = '本站内容仅供学习与交流，商业使用请联系原作者授权。'
 export const DEFAULT_SITE_FOOTER_COPYRIGHT = '© 2026 zhhhkl. All rights reserved.'

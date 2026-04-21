@@ -192,7 +192,7 @@ INSERT INTO `t_ai_token_log` VALUES (126, 'writing', 78, 96, 'qwen3-max', '2026-
 -- Records of t_announcement
 -- ----------------------------
 INSERT INTO `t_announcement` VALUES (2, '评论功能升级通知', '评论系统已升级，支持 Markdown 格式和表情回复。', 'banner', 'published', 80, NULL, NULL, 0, '2026-02-21 12:09:14', '2026-03-26 14:57:53');
-INSERT INTO `t_announcement` VALUES (3, '春节放假通知', '2026年春节期间（2月14日-2月20日）博客正常运行，但回复可能延迟。', 'popup', 'published', 1, '2026-03-25 15:34:17', '2027-03-25 15:34:17', 1, '2026-02-21 12:09:14', '2026-03-26 14:35:08');
+INSERT INTO `t_announcement` VALUES (3, '春节放假通知', '2026年春节期间（2月14日-2月20日）博客正常运行，但回复可能延迟。', 'envelope', 'published', 1, '2026-03-25 15:34:17', '2027-03-25 15:34:17', 1, '2026-02-21 12:09:14', '2026-03-26 14:35:08');
 INSERT INTO `t_announcement` VALUES (12, '博客系统 v2.0 正式上线', '博客系统 v2.0 正式上线', 'banner', 'published', 0, NULL, NULL, 1, '2026-03-13 13:06:45', '2026-03-26 06:34:24');
 
 -- ----------------------------

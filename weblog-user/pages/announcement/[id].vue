@@ -28,9 +28,28 @@
         </div>
       </header>
 
-      <!-- 已经过 sanitizeHtml 净化 -->
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <div class="detail-body" v-html="sanitize(announcement.content)" />
+      <div class="detail-body">
+        <ClientOnly>
+          <MdPreview
+            editor-id="announcement-detail-preview"
+            :model-value="announcement.content"
+            :sanitize="sanitize"
+            :theme="editorTheme"
+            :preview-theme="previewTheme"
+            :code-theme="codeTheme"
+            :code-foldable="false"
+            :show-code-row-number="true"
+            :no-mermaid="true"
+            :no-katex="true"
+            class="detail-md-preview"
+          />
+          <template #fallback>
+            <!-- 已经过 sanitizeHtml 净化 -->
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div class="detail-md-fallback" v-html="sanitize(announcement.content)" />
+          </template>
+        </ClientOnly>
+      </div>
     </article>
 
     <div v-else-if="loadErrorMessage" class="detail-empty">
@@ -49,13 +68,19 @@
 </template>
 
 <script setup lang="ts">
+import { MdPreview } from 'md-editor-v3'
+import 'md-editor-v3/lib/preview.css'
 import { announcementApi, type AnnouncementVO } from '~/api/marketing/ad'
 import { sanitizeHtml } from '~/utils/security/xss'
 
 const route = useRoute()
 const loadErrorMessage = ref<string | null>(null)
+const colorMode = useColorMode()
 
 const announcementId = computed(() => Number(route.params.id))
+const previewTheme = computed(() => (colorMode.value === 'dark' ? 'github' : 'default'))
+const codeTheme = computed(() => (colorMode.value === 'dark' ? 'atom' : 'atom'))
+const editorTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
 
 function getHttpErrorCode(error: unknown): number | null {
   if (!error || typeof error !== 'object') {
@@ -278,6 +303,40 @@ useHead({
   p {
     margin: 0;
     font-size: 0.95rem;
+  }
+}
+
+.detail-md-preview {
+  :deep(.md-editor),
+  :deep(.md-editor-preview-wrapper) {
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  :deep(.md-editor-preview) {
+    color: inherit;
+    font-size: inherit;
+    line-height: 1.8;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  }
+
+  :deep(.md-editor-preview p) {
+    margin: 0 0 0.95rem;
+  }
+
+  :deep(.md-editor-preview p:last-child) {
+    margin-bottom: 0;
+  }
+}
+
+.detail-md-fallback {
+  :deep(p) {
+    margin: 0 0 0.95rem;
+  }
+
+  :deep(p:last-child) {
+    margin-bottom: 0;
   }
 }
 

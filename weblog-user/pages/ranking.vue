@@ -84,7 +84,7 @@
 import type { ComponentPublicInstance } from 'vue'
 import { rankingApi, type RankingItem, type RankingMeta } from '~/api/content/ranking'
 
-useHead({ title: '排行榜 - Weblog' })
+useHead({ title: '排行榜 - zhhhkl' })
 
 const tabs = [
   { label: '今日飙升', value: 1 },

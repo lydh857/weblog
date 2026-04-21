@@ -11,7 +11,7 @@ spring:
       max-lifetime: 1800000  # 连接最大生命周期 30 分钟
       connection-timeout: 20000  # 连接超时 20 秒（原 30 秒）
       connection-test-query: SELECT 1  # 连接测试查询
-      pool-name: WeblogHikariCP  # 连接池名称
+      pool-name: zhhhklHikariCP  # 连接池名称
       leak-detection-threshold: 60000  # 连接泄露检测 60 秒
 
   data:

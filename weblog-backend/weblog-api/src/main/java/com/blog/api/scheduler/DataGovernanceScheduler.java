@@ -248,7 +248,7 @@ public class DataGovernanceScheduler {
         if (!notifyOnAnomaly) {
             return;
         }
-        String subject = String.format("[Weblog数据治理告警] %d 个风险项", anomalies.size());
+        String subject = String.format("[zhhhkl数据治理告警] %d 个风险项", anomalies.size());
         StringBuilder content = new StringBuilder();
         content.append("检测时间: ").append(LocalDateTime.now()).append('\n')
                 .append("任务耗时(ms): ").append(costMs).append('\n')

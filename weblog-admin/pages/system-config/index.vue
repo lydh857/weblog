@@ -130,7 +130,7 @@ const refreshingRanking = ref(false)
 const restoringDefaults = ref(false)
 
 const systemDefaults: Record<string, string | number> = {
-  site_name: 'Weblog',
+  site_name: 'zhhhkl',
   site_description: '记录经验、分享洞察、连接有价值的内容。',
   site_footer_notice: '本站内容仅供学习与交流，商业使用请联系原作者授权。',
   site_footer_copyright: '© 2026 zhhhkl. All rights reserved.',

@@ -18,7 +18,7 @@ public class SystemConfigInitializer {
 
     @PostConstruct
     public void init() {
-        systemConfigService.createIfAbsent("site_name", "Weblog", "站点名称");
+        systemConfigService.createIfAbsent("site_name", "zhhhkl", "站点名称");
         systemConfigService.createIfAbsent("site_description", "记录经验、分享洞察、连接有价值的内容。", "站点描述");
         systemConfigService.createIfAbsent("site_footer_notice", "本站内容仅供学习与交流，商业使用请联系原作者授权。", "站点页脚说明文案");
         systemConfigService.createIfAbsent("site_footer_copyright", "© 2026 zhhhkl. All rights reserved.", "站点页脚版权文案");

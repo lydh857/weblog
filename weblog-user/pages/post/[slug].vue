@@ -418,7 +418,7 @@ async function recoverDetailAfterHydration() {
 }
 
 useHead(() => ({
-  title: post.value?.title ? `${post.value.title} - Weblog` : 'Weblog',
+  title: post.value?.title ? `${post.value.title} - zhhhkl` : 'zhhhkl',
   meta: [
     { name: 'description', content: post.value?.seoDescription || post.value?.summary || '' },
     { name: 'keywords', content: post.value?.seoKeywords || '' },

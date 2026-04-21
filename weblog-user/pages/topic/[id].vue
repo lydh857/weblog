@@ -302,7 +302,7 @@ async function loadArticle(slug: string, articleId: number) {
       return
     }
     currentPost.value = res.data.post
-    useHead({ title: `${currentPost.value.title} - ${topic.value?.title} - Weblog` })
+    useHead({ title: `${currentPost.value.title} - ${topic.value?.title} - zhhhkl` })
   } catch {
     if (requestId !== articleRequestId) {
       return
@@ -424,7 +424,7 @@ async function loadTopicDetail() {
 
     topic.value = detailRes.data
     catalogs.value = catalogRes.data
-    useHead({ title: `${topic.value.title} - Weblog` })
+    useHead({ title: `${topic.value.title} - zhhhkl` })
 
     const first = findFirstArticle(catalogs.value)
     if (first) {

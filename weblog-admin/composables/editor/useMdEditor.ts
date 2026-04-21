@@ -1,4 +1,4 @@
-import xss from 'xss'
+import { sanitizeHtml } from '~/utils/security/xss'
 
 let mdEditorConfigPromise: Promise<void> | null = null
 
@@ -24,49 +24,17 @@ interface MarkdownItLike {
   core: MarkdownCore
 }
 
-interface XssPluginOptions {
-  extendedWhiteList?: Record<string, string[]>
-}
-
-function createMdEditorXssPlugin(markdown: MarkdownItLike, options: XssPluginOptions): void {
-  const extendedWhiteList = options.extendedWhiteList ?? {}
-  const defaultWhiteList = xss.getDefaultWhiteList()
-  const builtInWhiteList: Record<string, string[]> = {
-    img: ['class'],
-    input: ['class', 'disabled', 'type', 'checked'],
-    iframe: [
-      'class',
-      'width',
-      'height',
-      'src',
-      'title',
-      'border',
-      'frameborder',
-      'framespacing',
-      'allow',
-      'allowfullscreen',
-    ],
-  }
-
-  const mergedWhiteList: Record<string, string[]> = { ...defaultWhiteList }
-  for (const key of new Set([...Object.keys(builtInWhiteList), ...Object.keys(extendedWhiteList)])) {
-    const baseAttrs = mergedWhiteList[key] ?? []
-    const builtInAttrs = builtInWhiteList[key] ?? []
-    const customAttrs = extendedWhiteList[key] ?? []
-    mergedWhiteList[key] = Array.from(new Set([...baseAttrs, ...builtInAttrs, ...customAttrs]))
-  }
-
-  const sanitizer = new xss.FilterXSS({ whiteList: mergedWhiteList })
+function createMdEditorXssPlugin(markdown: MarkdownItLike): void {
   markdown.core.ruler.after('linkify', 'xss', (state) => {
     for (const token of state.tokens) {
       if (token.type === 'html_block') {
-        token.content = sanitizer.process(token.content)
+        token.content = sanitizeHtml(token.content)
       }
 
       if (token.type === 'inline' && token.children) {
         token.children.forEach((childToken) => {
           if (childToken.type === 'html_inline') {
-            childToken.content = sanitizer.process(childToken.content)
+            childToken.content = sanitizeHtml(childToken.content)
           }
         })
       }
@@ -84,11 +52,6 @@ export function ensureMdEditorConfigured(): Promise<void> {
             {
               type: 'xss',
               plugin: createMdEditorXssPlugin,
-              options: {
-                extendedWhiteList: {
-                  img: ['style', 'class', 'alt', 'src', 'width', 'height'],
-                },
-              },
             },
           ]
         },

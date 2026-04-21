@@ -9,7 +9,8 @@
           <el-option label="已归档" value="archived" />
         </el-select>
         <el-select v-model="filterType" placeholder="类型" clearable style="width: 120px" @change="handleFilterChange">
-          <el-option label="弹窗" value="popup" />
+          <el-option label="信封" value="envelope" />
+          <el-option label="弹窗" value="modal" />
           <el-option label="横幅" value="banner" />
         </el-select>
       </div>
@@ -87,15 +88,31 @@
     </div>
 
     <!-- 公告弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑公告' : '新建公告'" width="560px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑公告' : '新建公告'" width="860px" destroy-on-close>
       <el-form :model="form" label-width="80px">
         <el-form-item label="标题"><el-input v-model="form.title" maxlength="100" clearable /></el-form-item>
         <el-form-item label="类型">
           <el-select v-model="form.type" style="width:100%" clearable>
-            <el-option label="弹窗" value="popup" /><el-option label="横幅" value="banner" />
+            <el-option label="信封" value="envelope" />
+            <el-option label="弹窗" value="modal" />
+            <el-option label="横幅" value="banner" />
           </el-select>
         </el-form-item>
-        <el-form-item label="内容"><el-input v-model="form.content" type="textarea" :rows="4" clearable /></el-form-item>
+        <el-form-item label="内容">
+          <div class="announcement-editor-wrap">
+            <ClientOnly>
+              <MarkdownEditor
+                v-model="form.content"
+                :height="announcementEditorHeight"
+                editor-id="announcement-md-editor"
+              />
+              <template #fallback>
+                <el-input v-model="form.content" type="textarea" :rows="8" resize="vertical" clearable />
+              </template>
+            </ClientOnly>
+            <p class="announcement-editor-tip">支持 Markdown 排版（标题、列表、引用、代码块、表格等），用户端按格式渲染显示。</p>
+          </div>
+        </el-form-item>
         <el-form-item label="优先级">
           <div class="priority-section">
             <div class="priority-simple">
@@ -133,6 +150,7 @@
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { announcementApi, type AnnouncementVO } from '~/api/marketing/announcement'
+import MarkdownEditor from '~/components/editor/MarkdownEditor.vue'
 
 const loading = ref(false)
 const records = ref<AnnouncementVO[]>([])
@@ -147,6 +165,7 @@ const editingId = ref<number | null>(null)
 const selectedIds = ref<number[]>([])
 const isPermanent = ref(true)
 const isImportant = ref(false)
+const announcementEditorHeight = '320px'
 
 const form = reactive({
   title: '', type: 'banner', content: '', priority: 0, isClosable: true,
@@ -161,7 +180,7 @@ const presets = [
   { label: '1年', days: 365 },
 ]
 
-function typeLabel(t: string) { return { popup: '弹窗', banner: '横幅' }[t] || t }
+function typeLabel(t: string) { return { envelope: '信封', modal: '弹窗', banner: '横幅' }[t] || t }
 function fmt(t: string | null) { return t ? t.replace('T', ' ').slice(0, 16) : '' }
 
 /** 计算剩余时间文本 */
@@ -246,11 +265,11 @@ function toISO(v: string | Date | null): string | null {
 }
 
 async function handleStatus(row: AnnouncementVO, status: string) {
-  // popup 类型发布时提示互斥
-  if (status === 'published' && row.type === 'popup') {
-    const hasOther = records.value.some(r => r.id !== row.id && r.type === 'popup' && r.status === 'published')
+  // envelope 类型发布时提示互斥
+  if (status === 'published' && row.type === 'envelope') {
+    const hasOther = records.value.some(r => r.id !== row.id && r.type === 'envelope' && r.status === 'published')
     if (hasOther) {
-      await ElMessageBox.confirm('发布此弹窗公告后，其他已发布的弹窗公告将自动归档（同时只允许一条弹窗公告生效）', '提示', { type: 'warning' })
+      await ElMessageBox.confirm('发布此信封公告后，其他已发布的信封公告将自动归档（同时只允许一条信封公告生效）', '提示', { type: 'warning' })
     }
   }
   try { await announcementApi.updateStatus(row.id, status); ElMessage.success('操作成功'); loadData() }
@@ -348,6 +367,24 @@ onMounted(loadData)
   font-size: 12px;
   color: var(--el-text-color-secondary);
   line-height: 1.5;
+}
+
+.announcement-editor-wrap {
+  width: 100%;
+  border: 1px solid var(--el-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+
+  :deep(#announcement-md-editor) {
+    border: none;
+  }
+}
+
+.announcement-editor-tip {
+  margin: 8px 10px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
 }
 
 // ========== Switch ==========

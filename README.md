@@ -1,4 +1,4 @@
-# Weblog 博客系统
+# zhhhkl 博客系统
 
 基于 Spring Boot 3 + Nuxt 4 的全栈博客系统，支持 SSR、全文搜索、互动系统、广告管理等功能。
 

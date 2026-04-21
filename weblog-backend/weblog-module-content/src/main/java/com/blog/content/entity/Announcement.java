@@ -22,7 +22,7 @@ public class Announcement extends BaseEntityNoDelete {
     /** 公告内容（HTML） */
     private String content;
 
-    /** 公告类型: popup/banner */
+    /** 公告类型: envelope/modal/banner */
     private String type;
 
     /** 状态: draft/published/archived */

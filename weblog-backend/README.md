@@ -1,4 +1,4 @@
-# Weblog Backend
+# zhhhkl Backend
 
 博客系统后端 - Spring Boot 3.2.x + JDK 21 多模块架构
 
@@ -155,7 +155,7 @@ java -jar weblog-api/target/weblog-api-1.0.0-SNAPSHOT.jar \
 
 ```ini
 [Unit]
-Description=Weblog API Service
+Description=zhhhkl API Service
 After=network.target mysql.service redis.service
 
 [Service]

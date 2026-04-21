@@ -169,7 +169,7 @@ public class SecurityLogCleanupScheduler {
     List<String> autoBlockedIps = autoBlockSuspiciousIps(hotIps, safeWindowMinutes);
 
     if (allowAlertByHourlyQuota()) {
-      String subject = String.format("[Weblog安全告警] 登录失败激增 (%d分钟内%d次)", safeWindowMinutes, failedCount);
+      String subject = String.format("[zhhhkl安全告警] 登录失败激增 (%d分钟内%d次)", safeWindowMinutes, failedCount);
       String hotIpText = hotIps.isEmpty()
               ? "无"
               : hotIps.stream().map(String::valueOf).collect(Collectors.joining("\n"));

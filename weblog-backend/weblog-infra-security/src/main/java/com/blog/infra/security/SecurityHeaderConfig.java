@@ -54,7 +54,7 @@ public class SecurityHeaderConfig {
                 }
 
                 // 移除服务器版本信息
-                httpResponse.setHeader("Server", "Weblog");
+                httpResponse.setHeader("Server", "zhhhkl");
 
                 chain.doFilter(request, response);
             }

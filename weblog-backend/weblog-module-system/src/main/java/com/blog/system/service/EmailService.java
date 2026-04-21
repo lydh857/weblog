@@ -245,7 +245,7 @@ public class EmailService {
             String fromName = configService.getValue("mail_from_name");
             String username = configService.getValue("mail_username");
             if (fromName == null || fromName.isBlank()) {
-                fromName = "Weblog 安全中心";
+                fromName = "zhhhkl 安全中心";
             }
 
             JavaMailSender mailSender = createMailSender();

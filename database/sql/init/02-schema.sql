@@ -166,7 +166,7 @@ CREATE TABLE `t_announcement`  (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '公告标题',
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '公告内容（HTML）',
-  `type` enum('popup','banner') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'banner' COMMENT '公告类型',
+  `type` enum('envelope','modal','banner') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'banner' COMMENT '公告类型',
   `status` enum('draft','published','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'draft' COMMENT '状态',
   `priority` int NULL DEFAULT 0 COMMENT '优先级（越大越优先）',
   `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',

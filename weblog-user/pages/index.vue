@@ -99,7 +99,7 @@ import type { PostVO } from '~/api/content/post'
 import type { AdvertisementVO } from '~/api/marketing/advertisement'
 import { getErrorMessage } from '~/utils/security/error'
 
-useHead({ title: 'Weblog - 首页' })
+useHead({ title: 'zhhhkl - 首页' })
 
 const posts = ref<PostVO[]>([])
 const message = useMessage()

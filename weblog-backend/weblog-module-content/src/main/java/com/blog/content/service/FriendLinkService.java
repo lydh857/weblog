@@ -248,7 +248,7 @@ public class FriendLinkService {
             conn.setConnectTimeout(LINK_CHECK_CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(LINK_CHECK_READ_TIMEOUT_MS);
             conn.setInstanceFollowRedirects(true);
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; WeblogBot/1.0)");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; zhhhklBot/1.0)");
             conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
             if ("GET".equals(method)) {
                 conn.setRequestProperty("Range", "bytes=0-0");

@@ -101,7 +101,7 @@ import { tagApi, type TagCloudVO } from '~/api/content/tag'
 import { getTagColor } from '~/utils/content/tagColor'
 
 useHead({
-  title: '标签云 - Weblog',
+  title: '标签云 - zhhhkl',
   meta: [{ name: 'description', content: '博客标签云与标签导航' }],
 })
 
