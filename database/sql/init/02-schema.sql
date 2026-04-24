@@ -58,46 +58,6 @@ CREATE TABLE `t_advertisement`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 31 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '广告表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for t_ai_chat_log
--- ----------------------------
-DROP TABLE IF EXISTS `t_ai_chat_log`;
-CREATE TABLE `t_ai_chat_log`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
-  `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID（未登录为NULL）',
-  `device_hash` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '设备指纹',
-  `question` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户问题',
-  `answer` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT 'AI 回答',
-  `referenced_post_ids` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '引用的文章ID列表（逗号分隔）',
-  `token_used` int NULL DEFAULT NULL COMMENT '消耗 token 数',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_session`(`session_id` ASC) USING BTREE,
-  INDEX `idx_user`(`user_id` ASC) USING BTREE,
-  INDEX `idx_device`(`device_hash` ASC) USING BTREE,
-  INDEX `idx_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI问答记录表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Table structure for t_ai_comment_review
--- ----------------------------
-DROP TABLE IF EXISTS `t_ai_comment_review`;
-CREATE TABLE `t_ai_comment_review`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `comment_id` bigint NOT NULL COMMENT '评论ID',
-  `result` enum('pass','suspect','reject') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '审核结果',
-  `reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核理由',
-  `confidence` decimal(3, 2) NULL DEFAULT NULL COMMENT '置信度 0.00-1.00',
-  `model` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '使用的模型',
-  `token_used` int NULL DEFAULT NULL COMMENT '消耗 token 数',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_comment`(`comment_id` ASC) USING BTREE,
-  INDEX `idx_result`(`result` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 14 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI评论审核记录表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
 -- Table structure for t_ai_config
 -- ----------------------------
 DROP TABLE IF EXISTS `t_ai_config`;
@@ -113,7 +73,6 @@ CREATE TABLE `t_ai_config`  (
   `monthly_token_limit` bigint NOT NULL DEFAULT 0 COMMENT '月度 token 上限（0=不限制）',
   `feature_writing` tinyint(1) NOT NULL DEFAULT 1 COMMENT '写作助手开关',
   `feature_meta` tinyint(1) NOT NULL DEFAULT 1 COMMENT '元信息生成开关',
-  `feature_comment_review` tinyint(1) NOT NULL DEFAULT 1 COMMENT '评论审核开关',
   `feature_chat` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'AI 问答开关',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -294,8 +253,6 @@ CREATE TABLE `t_comment`  (
   `is_top` tinyint(1) NULL DEFAULT 0 COMMENT '是否置顶',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `ai_review_status` enum('pending','pass','suspect','reject') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'AI审核状态',
-  `ai_review_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'AI审核理由',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_post`(`post_id` ASC) USING BTREE,
   INDEX `idx_user`(`user_id` ASC) USING BTREE,
@@ -303,7 +260,6 @@ CREATE TABLE `t_comment`  (
   INDEX `idx_status`(`status` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE,
   INDEX `idx_post_status`(`post_id` ASC, `status` ASC) USING BTREE,
-  INDEX `idx_ai_review`(`ai_review_status` ASC) USING BTREE,
   INDEX `idx_comment_post_parent_status_time`(`post_id` ASC, `parent_id` ASC, `status` ASC, `create_time` DESC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 89 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评论表' ROW_FORMAT = Dynamic;
 

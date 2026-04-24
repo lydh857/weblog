@@ -34,7 +34,6 @@ public class CommentService {
     private final StringRedisTemplate redisTemplate;
     private final JdbcTemplate jdbcTemplate;
     private final SensitiveWordService sensitiveWordService;
-    private final AiReviewService aiReviewService;
 
     /** Redis key: 文章评论数 */
     private static final String KEY_COMMENT_COUNT = "post:comment:";
@@ -88,13 +87,6 @@ public class CommentService {
         }
 
         log.info("评论发表: userId={}, postId={}, commentId={}", userId, req.getPostId(), comment.getId());
-
-        // 异步触发 AI 审核（不阻塞评论提交）
-        try {
-            aiReviewService.reviewComment(comment.getId(), null);
-        } catch (Exception e) {
-            log.warn("触发 AI 审核失败，不影响评论提交: {}", e.getMessage());
-        }
 
         return comment;
     }

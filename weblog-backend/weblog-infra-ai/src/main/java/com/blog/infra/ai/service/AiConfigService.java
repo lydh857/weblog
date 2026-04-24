@@ -93,7 +93,6 @@ public class AiConfigService {
     return switch (feature) {
       case "writing" -> f.isWriting();
       case "meta" -> f.isMeta();
-      case "commentReview" -> f.isCommentReview();
       case "chat" -> f.isChat();
       default -> {
         log.warn("未知的 AI 功能标识: {}", feature);
@@ -234,7 +233,6 @@ public class AiConfigService {
     AiProperties.FeatureToggle features = aiProperties.getFeatures();
     if (config.getFeatureWriting() != null) features.setWriting(config.getFeatureWriting());
     if (config.getFeatureMeta() != null) features.setMeta(config.getFeatureMeta());
-    if (config.getFeatureCommentReview() != null) features.setCommentReview(config.getFeatureCommentReview());
     if (config.getFeatureChat() != null) features.setChat(config.getFeatureChat());
   }
 }

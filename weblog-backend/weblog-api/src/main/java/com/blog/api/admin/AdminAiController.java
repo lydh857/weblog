@@ -15,9 +15,6 @@ import com.blog.infra.ai.service.PromptTemplateService;
 import com.blog.infra.ai.service.TokenMeterService;
 import com.blog.infra.security.audit.AuditLog;
 import com.blog.infra.security.ratelimit.RateLimit;
-import com.blog.interaction.dto.BatchReviewReqVO;
-import com.blog.interaction.dto.CommentReviewReqVO;
-import com.blog.interaction.service.AiReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,7 +28,7 @@ import java.util.stream.Collectors;
 /**
  * 管理端 - AI 功能接口
  */
-@Tag(name = "管理端-AI功能", description = "AI写作、元信息生成、评论审核、配置管理、提示词模板")
+@Tag(name = "管理端-AI功能", description = "AI写作、元信息生成、配置管理、提示词模板")
 @RestController
 @RequestMapping("/api/admin/ai")
 @RequiredArgsConstructor
@@ -39,7 +36,6 @@ public class AdminAiController {
 
   private final AiWritingService aiWritingService;
   private final AiMetaService aiMetaService;
-  private final AiReviewService aiReviewService;
   private final TokenMeterService tokenMeterService;
   private final PromptTemplateService promptTemplateService;
   private final AiPromptTemplateMapper promptTemplateMapper;
@@ -182,24 +178,6 @@ public class AdminAiController {
     );
   }
 
-  // ========== 评论审核接口 ==========
-
-  @Operation(summary = "AI 审核单条评论")
-  @PostMapping("/comment/review")
-  @AuditLog(module = "AI评论审核", operation = "CREATE", description = "AI审核评论")
-  public Result<Void> reviewComment(@Valid @RequestBody CommentReviewReqVO req) {
-    aiReviewService.reviewComment(req.getCommentId(), null);
-    return Result.success();
-  }
-
-  @Operation(summary = "AI 批量审核评论")
-  @PostMapping("/comment/batch-review")
-  @AuditLog(module = "AI评论审核", operation = "CREATE", description = "AI批量审核评论")
-  public Result<Void> batchReview(@Valid @RequestBody BatchReviewReqVO req) {
-    aiReviewService.batchReview(req.getIds(), null);
-    return Result.success();
-  }
-
   // ========== 配置管理接口 ==========
 
   @Operation(summary = "获取 AI 配置")
@@ -218,7 +196,6 @@ public class AdminAiController {
     AiProperties.FeatureToggle ft = aiProperties.getFeatures();
     features.setWriting(ft.isWriting());
     features.setMeta(ft.isMeta());
-    features.setCommentReview(ft.isCommentReview());
     features.setChat(ft.isChat());
     vo.setFeatures(features);
 
@@ -240,7 +217,6 @@ public class AdminAiController {
       AiConfigUpdateVO.FeatureToggleUpdateVO f = req.getFeatures();
       config.setFeatureWriting(f.getWriting());
       config.setFeatureMeta(f.getMeta());
-      config.setFeatureCommentReview(f.getCommentReview());
       config.setFeatureChat(f.getChat());
     }
 

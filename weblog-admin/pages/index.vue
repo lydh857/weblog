@@ -394,7 +394,6 @@ function formatCommentStatus(status: string): string {
 const aiFeatureNameMap: Record<string, string> = {
   writing: '写作助手',
   meta: '元信息生成',
-  commentReview: '评论审核',
   review: '评论审核',
   chat: 'AI 问答',
 }

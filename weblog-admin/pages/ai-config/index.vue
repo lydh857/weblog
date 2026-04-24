@@ -51,9 +51,6 @@
               <el-form-item label="元信息生成">
                 <el-switch v-model="configForm.features.meta" />
               </el-form-item>
-              <el-form-item label="评论 AI 审核">
-                <el-switch v-model="configForm.features.commentReview" />
-              </el-form-item>
               <el-form-item label="AI 问答">
                 <el-switch v-model="configForm.features.chat" />
               </el-form-item>
@@ -144,7 +141,6 @@ const configForm = reactive<AiConfig>({
   features: {
     writing: true,
     meta: true,
-    commentReview: true,
     chat: true,
   },
 })

@@ -11,7 +11,6 @@ import com.blog.infra.ai.mapper.AiPromptTemplateMapper;
 import com.blog.infra.ai.service.AiConfigService;
 import com.blog.infra.ai.service.PromptTemplateService;
 import com.blog.infra.ai.service.TokenMeterService;
-import com.blog.interaction.service.AiReviewService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,9 +33,6 @@ class AdminAiControllerDynamicRateLimitTest {
   private AiWritingService aiWritingService;
   @Mock
   private AiMetaService aiMetaService;
-  @Mock
-  private AiReviewService aiReviewService;
-  @Mock
   private TokenMeterService tokenMeterService;
   @Mock
   private PromptTemplateService promptTemplateService;

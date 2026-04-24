@@ -18,7 +18,6 @@ public class AiConfigVO {
   public static class FeatureToggleVO {
     private boolean writing;
     private boolean meta;
-    private boolean commentReview;
     private boolean chat;
   }
 }

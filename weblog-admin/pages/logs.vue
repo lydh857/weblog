@@ -324,7 +324,6 @@ const auditModuleOptions = [
   '个人中心',
   '个人信息审核',
   'AI配置',
-  'AI评论审核',
   'AI提示词',
 ]
 

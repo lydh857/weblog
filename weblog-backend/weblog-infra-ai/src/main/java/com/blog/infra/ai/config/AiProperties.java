@@ -46,7 +46,6 @@ public class AiProperties {
   public static class FeatureToggle {
     private boolean writing = true;
     private boolean meta = true;
-    private boolean commentReview = true;
     private boolean chat = true;
   }
 }

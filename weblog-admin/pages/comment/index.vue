@@ -16,12 +16,6 @@
           <el-option label="已通过" value="approved" />
           <el-option label="已拒绝" value="rejected" />
         </el-select>
-        <el-select v-model="filterAiReview" placeholder="AI审核" clearable style="width: 130px" @change="handleFilterChange">
-          <el-option label="AI通过" value="pass" />
-          <el-option label="AI疑似" value="suspect" />
-          <el-option label="AI违规" value="reject" />
-          <el-option label="待AI审核" value="pending" />
-        </el-select>
         <el-select v-model="filterTop" placeholder="置顶" clearable style="width: 100px" @change="handleFilterChange">
           <el-option label="置顶" value="true" />
           <el-option label="非置顶" value="false" />
@@ -38,7 +32,6 @@
               <el-dropdown-menu>
                 <el-dropdown-item command="approved">通过</el-dropdown-item>
                 <el-dropdown-item command="rejected">拒绝</el-dropdown-item>
-                <el-dropdown-item command="aiReview" divided>AI 重新审核</el-dropdown-item>
                 <el-dropdown-item command="delete" divided>
                   <span style="color: var(--el-color-danger)">删除</span>
                 </el-dropdown-item>
@@ -79,14 +72,6 @@
       <el-table-column label="状态" width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="AI审核" width="100" align="center">
-        <template #default="{ row }">
-          <el-tooltip v-if="row.aiReviewReason" :content="row.aiReviewReason" placement="top">
-            <el-tag :type="aiReviewType(row.aiReviewStatus)" size="small">{{ aiReviewLabel(row.aiReviewStatus) }}</el-tag>
-          </el-tooltip>
-          <el-tag v-else :type="aiReviewType(row.aiReviewStatus)" size="small">{{ aiReviewLabel(row.aiReviewStatus) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="点赞" prop="likeCount" width="65" align="center" />
@@ -131,8 +116,6 @@
 import { ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { commentApi, type CommentVO } from '~/api/content/comment'
-import { aiApi } from '~/api/ai/ai'
-import { handleAiError } from '~/utils/ai/aiError'
 
 const loading = ref(false)
 const records = ref<CommentVO[]>([])
@@ -142,7 +125,6 @@ const pageSize = ref(20)
 const filterStatus = ref('')
 const filterPostTitle = ref('')
 const filterTop = ref('')
-const filterAiReview = ref('')
 const selectedIds = ref<number[]>([])
 const tableHeight = useAdminTableHeight()
 
@@ -177,7 +159,6 @@ async function loadData() {
       status: filterStatus.value || undefined,
       postTitle: filterPostTitle.value || undefined,
       isTop: filterTop.value ? filterTop.value === 'true' : undefined,
-      aiReviewStatus: filterAiReview.value || undefined,
     })
     records.value = res.data.records
     total.value = res.data.total
@@ -221,7 +202,6 @@ async function handleDelete(row: CommentVO) {
 
 async function handleBatchCommand(command: string) {
   if (command === 'delete') handleBatchDelete()
-  else if (command === 'aiReview') handleBatchAiReview()
   else handleBatchAudit(command)
 }
 
@@ -248,30 +228,6 @@ async function handleBatchDelete() {
   } catch (e: unknown) {
     ElMessage.error((e as Error).message || '删除失败')
   }
-}
-
-async function handleBatchAiReview() {
-  await ElMessageBox.confirm(`确定对选中的 ${selectedIds.value.length} 条评论进行 AI 重新审核？`, 'AI 审核', { type: 'info' })
-  try {
-    await aiApi.batchReview(selectedIds.value)
-    ElMessage.success('已提交 AI 审核，结果将稍后更新')
-    selectedIds.value = []
-    loadData()
-  } catch (e: unknown) {
-    handleAiError(e)
-  }
-}
-
-function aiReviewLabel(status: string | null): string {
-  if (!status) return '—'
-  const map: Record<string, string> = { pass: 'AI通过', suspect: 'AI疑似', reject: 'AI违规', pending: '待AI审核' }
-  return map[status] || '—'
-}
-
-function aiReviewType(status: string | null): '' | 'success' | 'warning' | 'danger' | 'info' {
-  if (!status) return 'info'
-  const map: Record<string, '' | 'success' | 'warning' | 'danger' | 'info'> = { pass: 'success', suspect: 'warning', reject: 'danger', pending: 'info' }
-  return map[status] || 'info'
 }
 
 function statusLabel(s: string) {

@@ -83,67 +83,6 @@ INSERT INTO `t_advertisement` VALUES (23, '标题7', 'image', 'http://localhost:
 INSERT INTO `t_advertisement` VALUES (30, '1971697432-home_left-image', 'image', 'http://localhost:9091/uploads/images/2026/03/63398d50-d8e8-4783-9e07-4e675d5ae16d.webp', NULL, NULL, NULL, 'home_left', NULL, 1, 1, 6, 1, 'active', '2026-03-29 16:17:40', '2026-04-05 16:17:40', 0, 1, '2026-03-29 15:34:39', '2026-03-29 16:17:40', 0);
 
 -- ----------------------------
--- Table structure for t_ai_chat_log
--- ----------------------------
-DROP TABLE IF EXISTS `t_ai_chat_log`;
-CREATE TABLE `t_ai_chat_log`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
-  `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID（未登录为NULL）',
-  `device_hash` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '设备指纹',
-  `question` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户问题',
-  `answer` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT 'AI 回答',
-  `referenced_post_ids` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '引用的文章ID列表（逗号分隔）',
-  `token_used` int NULL DEFAULT NULL COMMENT '消耗 token 数',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_session`(`session_id` ASC) USING BTREE,
-  INDEX `idx_user`(`user_id` ASC) USING BTREE,
-  INDEX `idx_device`(`device_hash` ASC) USING BTREE,
-  INDEX `idx_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI问答记录表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of t_ai_chat_log
--- ----------------------------
-
--- ----------------------------
--- Table structure for t_ai_comment_review
--- ----------------------------
-DROP TABLE IF EXISTS `t_ai_comment_review`;
-CREATE TABLE `t_ai_comment_review`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `comment_id` bigint NOT NULL COMMENT '评论ID',
-  `result` enum('pass','suspect','reject') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '审核结果',
-  `reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核理由',
-  `confidence` decimal(3, 2) NULL DEFAULT NULL COMMENT '置信度 0.00-1.00',
-  `model` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '使用的模型',
-  `token_used` int NULL DEFAULT NULL COMMENT '消耗 token 数',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_comment`(`comment_id` ASC) USING BTREE,
-  INDEX `idx_result`(`result` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 14 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI评论审核记录表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of t_ai_comment_review
--- ----------------------------
-INSERT INTO `t_ai_comment_review` VALUES (1, 71, 'suspect', '', 0.50, 'qwen3-max', 19, '2026-02-24 13:47:05', '2026-02-24 13:47:05');
-INSERT INTO `t_ai_comment_review` VALUES (2, 72, 'suspect', '', 0.50, 'qwen3-max', 16, '2026-02-24 13:48:22', '2026-02-24 13:48:22');
-INSERT INTO `t_ai_comment_review` VALUES (3, 73, 'suspect', '评论内容为无意义数字，不包含不当、违法、攻击性或敏感信息，虽无实质内容但不违反审核标准。', 0.50, 'qwen3-max', 24, '2026-02-24 13:48:49', '2026-02-24 13:48:49');
-INSERT INTO `t_ai_comment_review` VALUES (4, 74, 'suspect', '评论内容为数字\'23\'，无明显不当、违法、攻击性或违规信息。', 0.50, 'qwen3-max', 20, '2026-02-24 13:55:15', '2026-02-24 13:55:15');
-INSERT INTO `t_ai_comment_review` VALUES (5, 75, 'suspect', '评论内容为无意义数字，但未包含违法、违规、侮辱、诽谤、广告、敏感词等不当内容。', 0.50, 'qwen3-max', 22, '2026-02-24 13:55:20', '2026-02-24 13:55:20');
-INSERT INTO `t_ai_comment_review` VALUES (6, 76, 'suspect', '评论内容为数字\'1\'，无明显不当、攻击性、违法或违反社区规范的内容。', 0.50, 'qwen3-max', 20, '2026-02-24 13:55:46', '2026-02-24 13:55:46');
-INSERT INTO `t_ai_comment_review` VALUES (7, 77, 'suspect', '评论内容为数字\'2\'，无明显不当、违法、违规或有害信息。', 0.50, 'qwen3-max', 19, '2026-02-24 13:55:54', '2026-02-24 13:55:54');
-INSERT INTO `t_ai_comment_review` VALUES (8, 78, 'suspect', '评论内容简短但无不当言论、无敏感词、无攻击性或违规信息，属于中性表达。', 0.50, 'qwen3-max', 21, '2026-02-24 14:00:44', '2026-02-24 14:00:44');
-INSERT INTO `t_ai_comment_review` VALUES (9, 79, 'suspect', '评论内容为无意义数字，不包含不当、违法、色情、暴力、广告或人身攻击等违规信息。', 0.50, 'qwen3-max', 22, '2026-02-24 14:00:50', '2026-02-24 14:00:50');
-INSERT INTO `t_ai_comment_review` VALUES (10, 80, 'suspect', '', 0.50, 'qwen3-max', 16, '2026-02-24 15:11:47', '2026-02-24 15:11:47');
-INSERT INTO `t_ai_comment_review` VALUES (11, 81, 'suspect', '评论内容为数字\'2\'，无明显不当、违规或敏感信息。', 0.50, 'qwen3-max', 18, '2026-02-24 15:11:56', '2026-02-24 15:11:56');
-INSERT INTO `t_ai_comment_review` VALUES (12, 82, 'suspect', '评论内容为无意义的数字字符串，不包含违法、违规、侮辱、诽谤、广告、敏感词或其他不当内容。', 0.50, 'qwen3-max', 24, '2026-02-24 19:05:31', '2026-02-24 19:05:31');
-INSERT INTO `t_ai_comment_review` VALUES (13, 83, 'suspect', '评论内容为数字\'2\'，无明显不当、违规或敏感信息。', 0.50, 'qwen3-max', 18, '2026-02-24 19:05:39', '2026-02-24 19:05:39');
-
--- ----------------------------
 -- Table structure for t_ai_config
 -- ----------------------------
 DROP TABLE IF EXISTS `t_ai_config`;
@@ -159,7 +98,6 @@ CREATE TABLE `t_ai_config`  (
   `monthly_token_limit` bigint NOT NULL DEFAULT 0 COMMENT '月度 token 上限（0=不限制）',
   `feature_writing` tinyint(1) NOT NULL DEFAULT 1 COMMENT '写作助手开关',
   `feature_meta` tinyint(1) NOT NULL DEFAULT 1 COMMENT '元信息生成开关',
-  `feature_comment_review` tinyint(1) NOT NULL DEFAULT 1 COMMENT '评论审核开关',
   `feature_chat` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'AI 问答开关',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -169,7 +107,7 @@ CREATE TABLE `t_ai_config`  (
 -- ----------------------------
 -- Records of t_ai_config
 -- ----------------------------
-INSERT INTO `t_ai_config` VALUES (1, 1, 'qwen', '', 'https://dashscope.aliyuncs.com/compatible-mode', 'qwen3-max', 4096, 30, 0, 1, 1, 1, 1, '2026-02-19 05:07:05', '2026-03-18 04:58:29');
+INSERT INTO `t_ai_config` VALUES (1, 1, 'qwen', '', 'https://dashscope.aliyuncs.com/compatible-mode', 'qwen3-max', 4096, 30, 0, 1, 1, 1, '2026-02-19 05:07:05', '2026-03-18 04:58:29');
 
 -- ----------------------------
 -- Table structure for t_ai_prompt_template
@@ -205,7 +143,6 @@ INSERT INTO `t_ai_prompt_template` VALUES (8, 'meta_seo', '生成 SEO', '生成 
 INSERT INTO `t_ai_prompt_template` VALUES (9, 'meta_tags', '推荐标签', '根据文章内容推荐合适的标签', '你是一位专业的博客标签推荐助手。请根据文章内容推荐合适的标签。\r\n你必须严格按照以下 JSON 数组格式输出，必须包含3-5个标签：\r\n\r\n```json\r\n[\r\n  {\"name\": \"标签1\"},\r\n  {\"name\": \"标签2\"},\r\n  {\"name\": \"标签3\"},\r\n  {\"name\": \"标签4\"}\r\n]\r\n```\r\n\r\n规则：\r\n1. 必须推荐3-5个标签，严禁只返回1个\r\n2. 优先从已有标签列表中匹配，但如果已有标签与文章内容不相关，不要强行匹配\r\n3. 可以全部推荐新标签，只要它们与文章内容高度相关\r\n4. 标签应该精准概括文章的核心主题和技术点', '文章标题：{{title}} 文章内容： {{content}} 已有标签列表：{{existingTags}} 请推荐标签（严格按 JSON 数组格式输出）：', '[\"title\", \"content\", \"existingTags\"]', 0, 0, '2026-02-19 04:09:02', '2026-02-19 12:04:39');
 INSERT INTO `t_ai_prompt_template` VALUES (10, 'meta_categories', '推荐分类', '根据文章内容推荐合适的分类', '你是一位专业的博客分类推荐助手。请根据文章内容推荐合适的分类。\r\n你必须严格按照以下 JSON 数组格式输出，必须包含2-4个分类选项：\r\n\r\n```json\r\n[\r\n  {\"name\": \"子分类名\", \"parentName\": \"父分类名\"},\r\n  {\"name\": \"一级分类名\", \"parentName\": \"\"},\r\n  {\"name\": \"另一个相关分类\", \"parentName\": \"父分类名\"}\r\n]\r\n```\r\n\r\n规则：\r\n1. 必须推荐2-4个分类选项，严禁只返回1个\r\n2. 应包含不同层级的选项（一级分类和二级分类）\r\n3. 已有分类列表格式为「父分类/子分类」，优先匹配已有分类\r\n4. 如果推荐的是二级分类，parentName 填写其父分类名\r\n5. 如果推荐的是一级分类，parentName 填空字符串', '文章标题：{{title}} 文章内容： {{content}} 已有分类列表：{{existingCategories}} 请推荐分类（严格按 JSON 数组格式输出）：', '[\"title\", \"content\", \"existingCategories\"]', 0, 0, '2026-02-19 04:09:02', '2026-02-19 12:04:39');
 INSERT INTO `t_ai_prompt_template` VALUES (11, 'meta_slug', '生成 Slug', '根据文章标题生成 URL 友好的 slug', '你是一位 URL Slug 生成助手。请根据文章标题生成 URL 友好的 slug。', '文章标题：{{title}}\n\n请生成 slug：', '[\"title\"]', 0, 0, '2026-02-19 04:09:02', '2026-02-19 04:09:02');
-INSERT INTO `t_ai_prompt_template` VALUES (12, 'comment_review', '评论审核', 'AI 审核评论内容是否违规', '你是一位评论内容审核助手。请审核用户评论是否包含不当内容。', '文章标题：{{postTitle}}\n\n评论内容：\n{{commentContent}}\n\n请审核该评论（严格按 JSON 格式输出）：', '[\"postTitle\", \"commentContent\"]', 0, 0, '2026-02-19 04:09:02', '2026-02-19 04:09:02');
 INSERT INTO `t_ai_prompt_template` VALUES (13, 'rag_chat', 'RAG 问答', '基于博客文章内容的智能问答', '你是一位博客智能问答助手。你的任务是根据提供的博客文章内容回答用户的问题。', '参考文章：\n{{articleContexts}}\n\n用户问题：{{question}}', '[\"articleContexts\", \"question\"]', 0, 0, '2026-02-19 04:09:02', '2026-02-19 04:09:02');
 
 -- ----------------------------
@@ -283,65 +220,8 @@ INSERT INTO `t_ai_token_log` VALUES (52, 'meta', 2146, 199, 'qwen3-max', '2026-0
 INSERT INTO `t_ai_token_log` VALUES (56, 'chat', 882, 39, 'qwen3-max', '2026-02-20 13:44:25', '2026-02-20 13:44:25');
 INSERT INTO `t_ai_token_log` VALUES (57, 'meta', 2170, 198, 'qwen3-max', '2026-02-21 13:28:51', '2026-02-21 13:28:51');
 INSERT INTO `t_ai_token_log` VALUES (59, 'meta', 2295, 200, 'qwen3-max', '2026-02-21 13:31:21', '2026-02-21 13:31:21');
-INSERT INTO `t_ai_token_log` VALUES (61, 'commentReview', 51, 27, 'qwen3-max', '2026-02-21 14:19:27', '2026-02-21 14:19:27');
-INSERT INTO `t_ai_token_log` VALUES (62, 'commentReview', 51, 34, 'qwen3-max', '2026-02-21 14:30:05', '2026-02-21 14:30:05');
-INSERT INTO `t_ai_token_log` VALUES (64, 'commentReview', 51, 35, 'qwen3-max', '2026-02-23 21:03:27', '2026-02-23 21:03:27');
-INSERT INTO `t_ai_token_log` VALUES (65, 'commentReview', 51, 36, 'qwen3-max', '2026-02-23 21:03:27', '2026-02-23 21:03:27');
-INSERT INTO `t_ai_token_log` VALUES (66, 'commentReview', 51, 33, 'qwen3-max', '2026-02-23 21:03:57', '2026-02-23 21:03:57');
-INSERT INTO `t_ai_token_log` VALUES (67, 'commentReview', 51, 43, 'qwen3-max', '2026-02-23 21:49:29', '2026-02-23 21:49:29');
-INSERT INTO `t_ai_token_log` VALUES (68, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 12:19:09', '2026-02-24 12:19:09');
-INSERT INTO `t_ai_token_log` VALUES (69, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 12:19:09', '2026-02-24 12:19:09');
-INSERT INTO `t_ai_token_log` VALUES (70, 'commentReview', 51, 52, 'qwen3-max', '2026-02-24 12:19:09', '2026-02-24 12:19:09');
-INSERT INTO `t_ai_token_log` VALUES (71, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 12:20:39', '2026-02-24 12:20:39');
-INSERT INTO `t_ai_token_log` VALUES (72, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 12:20:39', '2026-02-24 12:20:39');
-INSERT INTO `t_ai_token_log` VALUES (73, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 12:20:39', '2026-02-24 12:20:39');
-INSERT INTO `t_ai_token_log` VALUES (74, 'commentReview', 59, 44, 'qwen3-max', '2026-02-24 12:20:39', '2026-02-24 12:20:39');
-INSERT INTO `t_ai_token_log` VALUES (75, 'commentReview', 56, 51, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (76, 'commentReview', 59, 44, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (77, 'commentReview', 59, 41, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (78, 'commentReview', 59, 42, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (79, 'commentReview', 59, 42, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (80, 'commentReview', 65, 43, 'qwen3-max', '2026-02-24 12:21:09', '2026-02-24 12:21:09');
-INSERT INTO `t_ai_token_log` VALUES (81, 'commentReview', 65, 41, 'qwen3-max', '2026-02-24 12:21:39', '2026-02-24 12:21:39');
-INSERT INTO `t_ai_token_log` VALUES (82, 'commentReview', 62, 50, 'qwen3-max', '2026-02-24 12:21:39', '2026-02-24 12:21:39');
-INSERT INTO `t_ai_token_log` VALUES (83, 'commentReview', 56, 39, 'qwen3-max', '2026-02-24 12:44:00', '2026-02-24 12:44:00');
-INSERT INTO `t_ai_token_log` VALUES (84, 'commentReview', 52, 31, 'qwen3-max', '2026-02-24 12:50:00', '2026-02-24 12:50:00');
-INSERT INTO `t_ai_token_log` VALUES (85, 'commentReview', 56, 54, 'qwen3-max', '2026-02-24 12:50:00', '2026-02-24 12:50:00');
-INSERT INTO `t_ai_token_log` VALUES (86, 'commentReview', 51, 38, 'qwen3-max', '2026-02-24 12:50:30', '2026-02-24 12:50:30');
-INSERT INTO `t_ai_token_log` VALUES (87, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 12:51:00', '2026-02-24 12:51:00');
-INSERT INTO `t_ai_token_log` VALUES (88, 'commentReview', 53, 44, 'qwen3-max', '2026-02-24 12:51:30', '2026-02-24 12:51:30');
-INSERT INTO `t_ai_token_log` VALUES (89, 'commentReview', 56, 44, 'qwen3-max', '2026-02-24 13:02:00', '2026-02-24 13:02:00');
-INSERT INTO `t_ai_token_log` VALUES (90, 'commentReview', 54, 31, 'qwen3-max', '2026-02-24 13:02:00', '2026-02-24 13:02:00');
-INSERT INTO `t_ai_token_log` VALUES (91, 'commentReview', 56, 44, 'qwen3-max', '2026-02-24 13:02:30', '2026-02-24 13:02:30');
-INSERT INTO `t_ai_token_log` VALUES (92, 'commentReview', 60, 44, 'qwen3-max', '2026-02-24 13:02:30', '2026-02-24 13:02:30');
-INSERT INTO `t_ai_token_log` VALUES (93, 'commentReview', 55, 39, 'qwen3-max', '2026-02-24 13:05:00', '2026-02-24 13:05:00');
-INSERT INTO `t_ai_token_log` VALUES (94, 'commentReview', 55, 33, 'qwen3-max', '2026-02-24 13:05:30', '2026-02-24 13:05:30');
-INSERT INTO `t_ai_token_log` VALUES (95, 'commentReview', 53, 37, 'qwen3-max', '2026-02-24 13:25:31', '2026-02-24 13:25:31');
-INSERT INTO `t_ai_token_log` VALUES (96, 'commentReview', 55, 40, 'qwen3-max', '2026-02-24 13:26:01', '2026-02-24 13:26:01');
-INSERT INTO `t_ai_token_log` VALUES (97, 'commentReview', 53, 37, 'qwen3-max', '2026-02-24 13:26:01', '2026-02-24 13:26:01');
-INSERT INTO `t_ai_token_log` VALUES (98, 'commentReview', 55, 36, 'qwen3-max', '2026-02-24 13:26:31', '2026-02-24 13:26:31');
-INSERT INTO `t_ai_token_log` VALUES (99, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 13:32:57', '2026-02-24 13:32:57');
-INSERT INTO `t_ai_token_log` VALUES (100, 'commentReview', 51, 29, 'qwen3-max', '2026-02-24 13:32:57', '2026-02-24 13:32:57');
-INSERT INTO `t_ai_token_log` VALUES (101, 'commentReview', 53, 36, 'qwen3-max', '2026-02-24 13:32:57', '2026-02-24 13:32:57');
-INSERT INTO `t_ai_token_log` VALUES (102, 'commentReview', 51, 38, 'qwen3-max', '2026-02-24 13:34:27', '2026-02-24 13:34:27');
-INSERT INTO `t_ai_token_log` VALUES (103, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 13:34:57', '2026-02-24 13:34:57');
-INSERT INTO `t_ai_token_log` VALUES (104, 'commentReview', 52, 39, 'qwen3-max', '2026-02-24 13:37:11', '2026-02-24 13:37:11');
-INSERT INTO `t_ai_token_log` VALUES (105, 'commentReview', 61, 41, 'qwen3-max', '2026-02-24 13:37:41', '2026-02-24 13:37:41');
-INSERT INTO `t_ai_token_log` VALUES (106, 'commentReview', 51, 43, 'qwen3-max', '2026-02-24 13:47:25', '2026-02-24 13:47:25');
-INSERT INTO `t_ai_token_log` VALUES (107, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 13:48:25', '2026-02-24 13:48:25');
-INSERT INTO `t_ai_token_log` VALUES (108, 'commentReview', 55, 45, 'qwen3-max', '2026-02-24 13:48:55', '2026-02-24 13:48:55');
-INSERT INTO `t_ai_token_log` VALUES (109, 'commentReview', 52, 37, 'qwen3-max', '2026-02-24 13:55:25', '2026-02-24 13:55:25');
-INSERT INTO `t_ai_token_log` VALUES (110, 'commentReview', 54, 43, 'qwen3-max', '2026-02-24 13:55:25', '2026-02-24 13:55:25');
-INSERT INTO `t_ai_token_log` VALUES (111, 'commentReview', 51, 38, 'qwen3-max', '2026-02-24 13:55:55', '2026-02-24 13:55:55');
-INSERT INTO `t_ai_token_log` VALUES (112, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 13:55:55', '2026-02-24 13:55:55');
-INSERT INTO `t_ai_token_log` VALUES (113, 'commentReview', 52, 41, 'qwen3-max', '2026-02-24 14:00:55', '2026-02-24 14:00:55');
-INSERT INTO `t_ai_token_log` VALUES (114, 'commentReview', 54, 41, 'qwen3-max', '2026-02-24 14:00:55', '2026-02-24 14:00:55');
-INSERT INTO `t_ai_token_log` VALUES (115, 'commentReview', 51, 35, 'qwen3-max', '2026-02-24 15:11:53', '2026-02-24 15:11:53');
-INSERT INTO `t_ai_token_log` VALUES (116, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 15:12:23', '2026-02-24 15:12:23');
 INSERT INTO `t_ai_token_log` VALUES (117, 'writing', 115, 153, 'qwen3-max', '2026-02-24 16:06:33', '2026-02-24 16:06:33');
 INSERT INTO `t_ai_token_log` VALUES (120, 'chat', 114, 73, 'qwen3-max', '2026-02-24 16:57:58', '2026-02-24 16:57:58');
-INSERT INTO `t_ai_token_log` VALUES (123, 'commentReview', 56, 44, 'qwen3-max', '2026-02-24 19:05:59', '2026-02-24 19:05:59');
-INSERT INTO `t_ai_token_log` VALUES (124, 'commentReview', 51, 33, 'qwen3-max', '2026-02-24 19:05:59', '2026-02-24 19:05:59');
 INSERT INTO `t_ai_token_log` VALUES (125, 'meta', 1357, 184, 'qwen3-max', '2026-03-02 17:11:19', '2026-03-02 17:11:19');
 INSERT INTO `t_ai_token_log` VALUES (126, 'writing', 78, 96, 'qwen3-max', '2026-03-05 21:30:48', '2026-03-05 21:30:48');
 
@@ -1393,8 +1273,6 @@ CREATE TABLE `t_comment`  (
   `is_top` tinyint(1) NULL DEFAULT 0 COMMENT '是否置顶',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `ai_review_status` enum('pending','pass','suspect','reject') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'AI审核状态',
-  `ai_review_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'AI审核理由',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_post`(`post_id` ASC) USING BTREE,
   INDEX `idx_user`(`user_id` ASC) USING BTREE,
@@ -1402,43 +1280,42 @@ CREATE TABLE `t_comment`  (
   INDEX `idx_status`(`status` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE,
   INDEX `idx_post_status`(`post_id` ASC, `status` ASC) USING BTREE,
-  INDEX `idx_ai_review`(`ai_review_status` ASC) USING BTREE,
   INDEX `idx_comment_post_parent_status_time`(`post_id` ASC, `parent_id` ASC, `status` ASC, `create_time` DESC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 89 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评论表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of t_comment
 -- ----------------------------
-INSERT INTO `t_comment` VALUES (1, 1, 2, 0, NULL, '写得非常详细，Vue3 的组合式 API 确实比 Options API 灵活很多', 12, 'approved', 0, '2025-08-16 09:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (2, 1, 3, 1, NULL, '同意，特别是 setup 语法糖，代码量减少了不少', 8, 'approved', 0, '2025-08-16 10:30:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (3, 1, 4, 1, NULL, '请问 ref 和 reactive 在实际项目中怎么选择？', 5, 'approved', 0, '2025-08-16 14:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (5, 7, 5, 0, NULL, 'TypeScript 类型体操太烧脑了，但学会之后确实很爽', 20, 'approved', 0, '2025-06-11 08:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (6, 7, 6, 5, NULL, '推荐 type-challenges 这个仓库，刷题练习很有帮助', 18, 'approved', 0, '2025-06-11 09:30:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (7, 7, 2, 0, NULL, '条件类型那部分讲得很清楚，收藏了', 10, 'approved', 0, '2025-06-12 11:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (8, 12, 3, 0, NULL, '虚拟线程是 Java 21 最重要的特性，终于不用手动管理线程池了', 16, 'approved', 0, '2025-07-06 10:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (9, 12, 5, 8, NULL, '性能对比数据很有说服力，准备在项目中试用', 9, 'approved', 0, '2025-07-06 14:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (10, 25, 4, 0, NULL, 'B+树原理讲得很透彻，面试必备知识', 22, 'approved', 0, '2025-06-16 09:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (11, 25, 2, 10, NULL, '联合索引的最左前缀原则经常被忽略，这篇讲得很好', 14, 'approved', 0, '2025-06-16 11:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (12, 25, 6, 0, NULL, '覆盖索引那部分能再详细讲讲吗？', 6, 'approved', 0, '2025-06-17 15:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (14, 37, 3, 0, NULL, 'LLM 应用开发是今年最火的方向，这篇入门指南很及时', 25, 'approved', 0, '2025-05-21 09:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (15, 37, 5, 14, NULL, 'LangChain 的示例代码很实用，直接能跑', 20, 'approved', 0, '2025-05-21 10:00:00', '2026-02-24 08:15:00', NULL, NULL);
-INSERT INTO `t_comment` VALUES (16, 37, 6, 0, NULL, '向量数据库那部分能展开讲讲吗？Milvus 和 Pinecone 怎么选？', 12, 'approved', 0, '2025-05-22 14:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (18, 45, 2, 0, NULL, '全栈项目实战太棒了，正好在学 Vue3 + Spring Boot', 30, 'approved', 0, '2025-05-11 09:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (19, 45, 4, 18, NULL, '同求，跟着做了一半，收获很大', 12, 'approved', 0, '2025-05-11 14:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (20, 45, 6, 0, NULL, '部署部分讲得很详细，Docker Compose 一键启动太方便了', 18, 'approved', 0, '2025-05-12 10:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (21, 41, 3, 0, NULL, '年终总结写得很真实，有共鸣', 28, 'approved', 0, '2025-12-29 08:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (22, 41, 5, 21, NULL, '从迷茫到清晰，这个过程我也经历过', 15, 'approved', 0, '2025-12-29 09:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (23, 41, 2, 0, NULL, '工作生活平衡那段说到心坎里了', 20, 'approved', 0, '2025-12-29 20:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (24, 43, 4, 0, NULL, 'GitHub Copilot 确实提升了不少效率', 14, 'approved', 0, '2025-08-09 10:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (25, 43, 3, 24, NULL, '我更推荐 Cursor，AI 辅助编程体验更好', 11, 'approved', 0, '2025-08-09 11:00:00', '2026-02-21 12:09:14', NULL, NULL);
-INSERT INTO `t_comment` VALUES (26, 1, 6, 0, NULL, '这篇文章有些地方不太准确', 0, 'approved', 0, '2025-08-20 10:00:00', '2026-02-25 09:01:40', NULL, NULL);
-INSERT INTO `t_comment` VALUES (27, 14, 5, 0, NULL, '升级到 Spring Boot 3 遇到了很多坑', 0, 'approved', 0, '2025-09-10 14:00:00', '2026-02-25 09:01:38', NULL, NULL);
-INSERT INTO `t_comment` VALUES (82, 37, 1, 0, NULL, '123123', 1, 'approved', 0, '2026-02-24 19:05:26', '2026-02-24 11:15:00', 'suspect', '评论内容为无意义的数字字符串，不包含违法、违规、侮辱、诽谤、广告、敏感词或其他不当内容。');
-INSERT INTO `t_comment` VALUES (84, 39, 1, 0, NULL, '1', 0, 'approved', 0, '2026-03-18 19:35:33', '2026-03-18 12:09:18', 'pass', '敏感词过滤通过（AI 不可用）');
-INSERT INTO `t_comment` VALUES (85, 24, 1, 0, NULL, '2', 0, 'approved', 0, '2026-03-18 20:02:36', '2026-03-18 12:09:17', 'pass', '敏感词过滤通过（AI 不可用）');
-INSERT INTO `t_comment` VALUES (86, 24, 1, 0, NULL, '1', 0, 'approved', 0, '2026-03-18 20:08:06', '2026-03-18 12:09:17', 'pass', '敏感词过滤通过（AI 不可用）');
-INSERT INTO `t_comment` VALUES (87, 24, 1, 0, NULL, '2', 0, 'approved', 0, '2026-03-18 20:08:27', '2026-03-18 12:09:16', 'pass', '敏感词过滤通过（AI 不可用）');
-INSERT INTO `t_comment` VALUES (88, 24, 1, 0, NULL, '2', 0, 'rejected', 0, '2026-03-18 20:08:59', '2026-03-18 12:09:15', 'pass', '敏感词过滤通过（AI 不可用）');
+INSERT INTO `t_comment` VALUES (1, 1, 2, 0, NULL, '写得非常详细，Vue3 的组合式 API 确实比 Options API 灵活很多', 12, 'approved', 0, '2025-08-16 09:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (2, 1, 3, 1, NULL, '同意，特别是 setup 语法糖，代码量减少了不少', 8, 'approved', 0, '2025-08-16 10:30:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (3, 1, 4, 1, NULL, '请问 ref 和 reactive 在实际项目中怎么选择？', 5, 'approved', 0, '2025-08-16 14:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (5, 7, 5, 0, NULL, 'TypeScript 类型体操太烧脑了，但学会之后确实很爽', 20, 'approved', 0, '2025-06-11 08:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (6, 7, 6, 5, NULL, '推荐 type-challenges 这个仓库，刷题练习很有帮助', 18, 'approved', 0, '2025-06-11 09:30:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (7, 7, 2, 0, NULL, '条件类型那部分讲得很清楚，收藏了', 10, 'approved', 0, '2025-06-12 11:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (8, 12, 3, 0, NULL, '虚拟线程是 Java 21 最重要的特性，终于不用手动管理线程池了', 16, 'approved', 0, '2025-07-06 10:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (9, 12, 5, 8, NULL, '性能对比数据很有说服力，准备在项目中试用', 9, 'approved', 0, '2025-07-06 14:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (10, 25, 4, 0, NULL, 'B+树原理讲得很透彻，面试必备知识', 22, 'approved', 0, '2025-06-16 09:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (11, 25, 2, 10, NULL, '联合索引的最左前缀原则经常被忽略，这篇讲得很好', 14, 'approved', 0, '2025-06-16 11:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (12, 25, 6, 0, NULL, '覆盖索引那部分能再详细讲讲吗？', 6, 'approved', 0, '2025-06-17 15:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (14, 37, 3, 0, NULL, 'LLM 应用开发是今年最火的方向，这篇入门指南很及时', 25, 'approved', 0, '2025-05-21 09:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (15, 37, 5, 14, NULL, 'LangChain 的示例代码很实用，直接能跑', 20, 'approved', 0, '2025-05-21 10:00:00', '2026-02-24 08:15:00');
+INSERT INTO `t_comment` VALUES (16, 37, 6, 0, NULL, '向量数据库那部分能展开讲讲吗？Milvus 和 Pinecone 怎么选？', 12, 'approved', 0, '2025-05-22 14:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (18, 45, 2, 0, NULL, '全栈项目实战太棒了，正好在学 Vue3 + Spring Boot', 30, 'approved', 0, '2025-05-11 09:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (19, 45, 4, 18, NULL, '同求，跟着做了一半，收获很大', 12, 'approved', 0, '2025-05-11 14:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (20, 45, 6, 0, NULL, '部署部分讲得很详细，Docker Compose 一键启动太方便了', 18, 'approved', 0, '2025-05-12 10:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (21, 41, 3, 0, NULL, '年终总结写得很真实，有共鸣', 28, 'approved', 0, '2025-12-29 08:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (22, 41, 5, 21, NULL, '从迷茫到清晰，这个过程我也经历过', 15, 'approved', 0, '2025-12-29 09:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (23, 41, 2, 0, NULL, '工作生活平衡那段说到心坎里了', 20, 'approved', 0, '2025-12-29 20:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (24, 43, 4, 0, NULL, 'GitHub Copilot 确实提升了不少效率', 14, 'approved', 0, '2025-08-09 10:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (25, 43, 3, 24, NULL, '我更推荐 Cursor，AI 辅助编程体验更好', 11, 'approved', 0, '2025-08-09 11:00:00', '2026-02-21 12:09:14');
+INSERT INTO `t_comment` VALUES (26, 1, 6, 0, NULL, '这篇文章有些地方不太准确', 0, 'approved', 0, '2025-08-20 10:00:00', '2026-02-25 09:01:40');
+INSERT INTO `t_comment` VALUES (27, 14, 5, 0, NULL, '升级到 Spring Boot 3 遇到了很多坑', 0, 'approved', 0, '2025-09-10 14:00:00', '2026-02-25 09:01:38');
+INSERT INTO `t_comment` VALUES (82, 37, 1, 0, NULL, '123123', 1, 'approved', 0, '2026-02-24 19:05:26', '2026-02-24 11:15:00');
+INSERT INTO `t_comment` VALUES (84, 39, 1, 0, NULL, '1', 0, 'approved', 0, '2026-03-18 19:35:33', '2026-03-18 12:09:18');
+INSERT INTO `t_comment` VALUES (85, 24, 1, 0, NULL, '2', 0, 'approved', 0, '2026-03-18 20:02:36', '2026-03-18 12:09:17');
+INSERT INTO `t_comment` VALUES (86, 24, 1, 0, NULL, '1', 0, 'approved', 0, '2026-03-18 20:08:06', '2026-03-18 12:09:17');
+INSERT INTO `t_comment` VALUES (87, 24, 1, 0, NULL, '2', 0, 'approved', 0, '2026-03-18 20:08:27', '2026-03-18 12:09:16');
+INSERT INTO `t_comment` VALUES (88, 24, 1, 0, NULL, '2', 0, 'rejected', 0, '2026-03-18 20:08:59', '2026-03-18 12:09:15');
 
 -- ----------------------------
 -- Table structure for t_friend_link

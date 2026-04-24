@@ -38,12 +38,10 @@ class CommentServiceTest {
     setOperations = createSetOperationsMock();
     JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     SensitiveWordService sensitiveWordService = mock(SensitiveWordService.class);
-    AiReviewService aiReviewService = mock(AiReviewService.class);
-
     when(redisTemplate.opsForSet()).thenReturn(setOperations);
     when(redisTemplate.execute(any(), any(), any())).thenReturn(0L);
 
-    commentService = new CommentService(commentMapper, redisTemplate, jdbcTemplate, sensitiveWordService, aiReviewService);
+    commentService = new CommentService(commentMapper, redisTemplate, jdbcTemplate, sensitiveWordService);
   }
 
   @SuppressWarnings("unchecked")

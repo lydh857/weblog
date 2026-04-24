@@ -82,7 +82,6 @@ export interface AiConfig {
 export interface FeatureToggle {
   writing: boolean
   meta: boolean
-  commentReview: boolean
   chat: boolean
 }
 
@@ -164,12 +163,6 @@ export const aiApi = {
     http.post<unknown, { data: CategorySuggestion[] }>('/admin/ai/meta/categories', data),
   regenerateSlug: (data: SlugRequest) =>
     http.post<unknown, { data: string }>('/admin/ai/meta/slug', data),
-
-  // 评论审核
-  reviewComment: (commentId: number) =>
-    http.post('/admin/ai/comment/review', { commentId }),
-  batchReview: (ids: number[]) =>
-    http.post('/admin/ai/comment/batch-review', { ids }),
 
   // 配置管理
   getConfig: () =>

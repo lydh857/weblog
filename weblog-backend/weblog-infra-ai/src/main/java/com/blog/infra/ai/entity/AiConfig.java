@@ -54,9 +54,6 @@ public class AiConfig implements Serializable {
   /** 元信息生成开关 */
   private Boolean featureMeta;
 
-  /** 评论审核开关 */
-  private Boolean featureCommentReview;
-
   /** AI 问答开关 */
   private Boolean featureChat;
 

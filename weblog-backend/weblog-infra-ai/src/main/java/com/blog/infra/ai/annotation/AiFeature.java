@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 public @interface AiFeature {
 
   /**
-   * 功能标识：writing / meta / commentReview / chat
+   * 功能标识：writing / meta / chat
    */
   String value();
 }

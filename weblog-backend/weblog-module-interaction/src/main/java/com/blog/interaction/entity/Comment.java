@@ -34,12 +34,6 @@ public class Comment implements Serializable {
     /** pending / approved / rejected / spam */
     private String status;
 
-    /** AI 审核状态：pending / pass / suspect / reject */
-    private String aiReviewStatus;
-
-    /** AI 审核理由 */
-    private String aiReviewReason;
-
     private Boolean isTop;
 
     @TableField(fill = FieldFill.INSERT)

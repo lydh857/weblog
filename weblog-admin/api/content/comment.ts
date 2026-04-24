@@ -16,10 +16,6 @@ export interface CommentVO {
   postTitle: string
   /** 回复对象昵称 */
   replyToNickname: string | null
-  /** AI 审核状态 */
-  aiReviewStatus: 'pending' | 'pass' | 'suspect' | 'reject' | null
-  /** AI 审核理由 */
-  aiReviewReason: string | null
 }
 
 export interface CommentPageResult {
@@ -30,7 +26,7 @@ export interface CommentPageResult {
 }
 
 export const commentApi = {
-  list: (params: { pageNum?: number; pageSize?: number; status?: string; postId?: number; postTitle?: string; isTop?: boolean; aiReviewStatus?: string }) =>
+  list: (params: { pageNum?: number; pageSize?: number; status?: string; postId?: number; postTitle?: string; isTop?: boolean }) =>
     http.get<unknown, { data: CommentPageResult }>('/admin/comment', { params }),
 
   updateStatus: (commentId: number, status: string) =>
