@@ -23,7 +23,7 @@
           </div>
         </div>
         <div class="cropper-container">
-          <img v-show="imgSrc" ref="imgRef" :src="imgSrc" class="cropper-image" />
+          <img v-show="imgSrc" ref="imgRef" :src="imgSrc" class="cropper-image" @load="handleImageLoad" />
           <div v-if="!imgSrc" class="cropper-empty" @click="triggerUpload">
             <el-icon :size="40"><Plus /></el-icon>
             <span>点击选择图片</span>
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import Cropper from 'cropperjs'
 import 'cropperjs/dist/cropper.css'
 import { Plus, ZoomIn, ZoomOut, RefreshLeft, RefreshRight, Refresh, Upload } from '@element-plus/icons-vue'
@@ -139,12 +139,14 @@ watch(visible, async (show) => {
     imgSrc.value = ''
     if (props.imageSrc) imgSrc.value = props.imageSrc
     await nextTick()
-    initCropper()
+    if (imgRef.value?.complete) {
+      initCropper()
+    }
   } else {
     destroyCropper(true)
     errorMsg.value = ''
   }
-})
+}, { immediate: true })
 
 // 缓存 canvas 2d 上下文，避免每帧重复获取
 let previewCtx: CanvasRenderingContext2D | null = null
@@ -222,6 +224,7 @@ function initCropper() {
     aspectRatio: ratio,
     viewMode: 1,
     dragMode: 'move',
+    autoCrop: true,
     autoCropArea: 0.8,
     responsive: true,
     restore: true,
@@ -231,12 +234,32 @@ function initCropper() {
     cropBoxMovable: true,
     cropBoxResizable: true,
     toggleDragModeOnDblclick: false,
-    ready: schedulePreview,
+    ready: () => {
+      if (!cropper) return
+      const containerData = cropper.getContainerData()
+      const width = Math.max(120, Math.floor(containerData.width * 0.8))
+      const height = currentAspectRatio && isFinite(currentAspectRatio)
+        ? Math.max(80, Math.floor(width / currentAspectRatio))
+        : Math.max(80, Math.floor(containerData.height * 0.8))
+      cropper.setCropBoxData({
+        left: Math.max(0, Math.floor((containerData.width - width) / 2)),
+        top: Math.max(0, Math.floor((containerData.height - height) / 2)),
+        width,
+        height,
+      })
+      schedulePreview()
+    },
     crop: schedulePreview,
     cropmove: schedulePreview,
   })
   scaleX = 1
   scaleY = 1
+}
+
+async function handleImageLoad() {
+  if (!visible.value || !imgSrc.value) return
+  await nextTick()
+  initCropper()
 }
 
 function destroyCropper(releaseLocalBlobUrl = false) {

@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <el-table :data="records" v-loading="loading" stripe height="560">
+    <el-table :data="records" v-loading="loading" stripe :height="tableHeight">
       <el-table-column type="index" label="#" width="60" align="center" />
       <el-table-column label="域名" prop="domain" min-width="220" show-overflow-tooltip />
       <el-table-column label="状态" width="100" align="center">
@@ -79,6 +79,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const statusFilter = ref<string>('')
 const keyword = ref('')
+const tableHeight = useAdminTableHeight()
 
 function statusLabel(status: LinkDomainPolicyStatus) {
   return {

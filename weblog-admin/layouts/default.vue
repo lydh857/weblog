@@ -2,25 +2,24 @@
   <el-container class="admin-layout">
     <!-- 侧边栏 -->
     <el-aside :width="isCollapsed ? '64px' : '220px'" :class="{ 'is-collapsed': isCollapsed }" class="admin-aside">
-      <div class="logo" @click="navigateTo('/')">
-        <div class="logo-icon">
-          <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-icon-img app-brand-logo">
+        <div class="logo" @click="navigateTo('/')">
+          <div class="logo-icon">
+            <img src="/brand/logo.png" alt="zhhhkl logo" class="logo-icon-img app-brand-logo">
+          </div>
+          <Transition name="fade">
+            <span v-if="!isCollapsed" class="logo-text">zhhhkl</span>
+          </Transition>
         </div>
-        <Transition name="fade">
-          <span v-if="!isCollapsed" class="logo-text">zhhhkl</span>
-        </Transition>
-      </div>
-      <el-menu
-        class="admin-sidebar-menu"
-        :class="{ 'is-collapsed': isCollapsed }"
-        :default-active="activeMenu"
-        :collapse="isCollapsed"
-        :collapse-transition="false"
-        :background-color="'transparent'"
-        :text-color="'var(--admin-aside-text)'"
-        :active-text-color="'var(--el-color-primary)'"
-        router
-      >
+        <el-menu
+          class="admin-sidebar-menu"
+          :default-active="activeMenu"
+          :collapse="isCollapsed"
+          :collapse-transition="false"
+          :background-color="'transparent'"
+          :text-color="'var(--admin-aside-text)'"
+          :active-text-color="'var(--el-color-primary)'"
+          router
+        >
         <el-menu-item index="/">
           <el-icon><HomeFilled /></el-icon>
           <template #title>仪表盘</template>
@@ -112,14 +111,14 @@
           <el-icon><List /></el-icon>
           <template #title>日志中心</template>
         </el-menu-item>
-      </el-menu>
+        </el-menu>
     </el-aside>
 
     <!-- 主内容区 -->
     <el-container>
       <el-header class="admin-header">
         <div class="header-left">
-          <el-button text circle @click="isCollapsed = !isCollapsed">
+          <el-button text circle @click="toggleSidebar">
             <el-icon :size="18">
               <Fold v-if="!isCollapsed" />
               <Expand v-else />
@@ -185,6 +184,10 @@ const isCollapsed = ref(false)
 const pendingProfileReviewCount = useState<number>('pendingProfileReviewCount', () => 0)
 const pendingAdvertisementCount = useState<number>('pendingAdvertisementCount', () => 0)
 const pendingFriendLinkCount = useState<number>('pendingFriendLinkCount', () => 0)
+
+function toggleSidebar() {
+  isCollapsed.value = !isCollapsed.value
+}
 
 function getPortalTargetUrl() {
   const configured = String(runtimeConfig.public.portalBaseUrl || '').trim()
@@ -286,10 +289,7 @@ onMounted(() => {
   border-right: 1px solid var(--el-border-color-light);
   display: flex;
   flex-direction: column;
-  transition: width 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    background-color 0.3s ease,
-    border-color 0.3s ease;
-  will-change: width;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
   overflow: hidden;
 }
 
@@ -372,6 +372,10 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 10px 8px;
+}
+
+.admin-sidebar-menu:not(.el-menu--collapse) {
+  width: 220px;
 }
 
 // 菜单项样式
@@ -462,67 +466,13 @@ onMounted(() => {
   font-weight: 500;
 }
 
-// 折叠状态下顶层菜单项居中
-:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title) {
-  padding: 0 !important;
-  width: 48px;
-  margin-left: auto;
-  margin-right: auto;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > .el-menu-tooltip__trigger),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger) {
-  width: 48px;
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
-}
-
-:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > .el-menu-tooltip__trigger),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title) {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item .el-icon),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-icon:not(.el-sub-menu__icon-arrow)) {
-  position: static !important;
-  left: auto !important;
-  top: auto !important;
-  transform: none !important;
-  margin: 0 !important;
-}
-
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > .el-sub-menu__icon-arrow),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > .el-sub-menu__icon-arrow) {
-  display: none !important;
-}
-
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-sub-menu__title > span),
-:deep(.admin-sidebar-menu.is-collapsed > .el-sub-menu > .el-tooltip__trigger > .el-sub-menu__title > span),
-:deep(.admin-sidebar-menu.is-collapsed > .el-menu-item > span) {
-  display: none !important;
-}
-
 // 子菜单缩进
-:deep(.admin-sidebar-menu:not(.is-collapsed) .el-sub-menu .el-menu-item) {
+:deep(.admin-sidebar-menu:not(.el-menu--collapse) .el-sub-menu .el-menu-item) {
   padding-left: 72px !important;
   min-width: auto;
 }
 
-:deep(.admin-sidebar-menu:not(.is-collapsed) .el-sub-menu .el-menu-item > .el-icon) {
+:deep(.admin-sidebar-menu:not(.el-menu--collapse) .el-sub-menu .el-menu-item > .el-icon) {
   left: 40px;
 }
 

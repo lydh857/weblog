@@ -207,6 +207,8 @@
                     <span class="hot-tag-badge">标签</span>
                   </el-tooltip>
                   <span class="hot-stat"><el-icon :size="12"><View /></el-icon> {{ formatNumber(post.viewCount) }}</span>
+                  <span class="hot-stat">赞 {{ formatNumber(post.likeCount) }}</span>
+                  <span class="hot-stat">藏 {{ formatNumber(post.collectCount) }}</span>
                   <span class="hot-stat"><el-icon :size="12"><ChatDotSquare /></el-icon> {{ post.commentCount }}</span>
                 </div>
               </div>
@@ -216,12 +218,41 @@
         </template>
       </div>
     </div>
+
+    <div v-loading="recentCommentsLoading" class="info-card recent-comments-card">
+      <template v-if="!recentCommentsLoading">
+        <div class="info-card-title recent-comments-title-row">
+          <span>最近评论</span>
+          <el-button text type="primary" @click="handleQuickNavigate('/comment')">查看全部</el-button>
+        </div>
+        <div v-if="recentComments.length" class="recent-comments-list">
+          <button
+            v-for="comment in recentComments"
+            :key="comment.id"
+            type="button"
+            class="recent-comment-item"
+            @click="handleQuickNavigate('/comment')"
+          >
+            <div class="recent-comment-head">
+              <span class="recent-comment-author">{{ comment.nickname || '匿名用户' }}</span>
+              <span class="recent-comment-time">{{ formatDateTimeShort(comment.createTime) }}</span>
+            </div>
+            <div class="recent-comment-content">{{ comment.content }}</div>
+            <div class="recent-comment-meta">
+              <span class="recent-comment-post">文章：{{ comment.postTitle || '未知文章' }}</span>
+              <span class="recent-comment-status" :class="`is-${comment.status}`">{{ formatCommentStatus(comment.status) }}</span>
+            </div>
+          </button>
+        </div>
+        <el-empty v-else description="暂无最新评论" :image-size="72" />
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick, type Component } from 'vue'
-import { Document, View, User, ChatDotSquare } from '@element-plus/icons-vue'
+import { Document, View, User, ChatDotSquare, PriceTag } from '@element-plus/icons-vue'
 import { init as initEcharts, graphic, use as useEcharts, type ECharts } from 'echarts/core'
 import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
@@ -243,6 +274,8 @@ import {
   type CommentStatsVO,
   type AiTokenUsageVO
 } from '~/api/system/dashboard'
+import { tagApi, type TagVO } from '~/api/content/tag'
+import { commentApi, type CommentVO } from '~/api/content/comment'
 
 // 数据格式化
 function formatNumber(n: number): string {
@@ -258,6 +291,7 @@ const pendingLoading = ref(true)
 const categoryLoading = ref(true)
 const hotPostsLoading = ref(true)
 const aiLoading = ref(true)
+const recentCommentsLoading = ref(true)
 
 // 统计数据
 const emptyStats: StatisticsVO = {
@@ -267,6 +301,7 @@ const emptyStats: StatisticsVO = {
 const articleStats = ref<StatisticsVO>({ ...emptyStats })
 const pvStats = ref<StatisticsVO>({ ...emptyStats })
 const userStats = ref<StatisticsVO>({ ...emptyStats })
+const tagStats = ref<StatisticsVO>({ ...emptyStats })
 const hotPosts = ref<HotPostVO[]>([])
 const pending = ref<PendingVO>({
   draftPosts: 0,
@@ -278,6 +313,7 @@ const pending = ref<PendingVO>({
 const categoryDist = ref<CategoryDistVO[]>([])
 const commentStats = ref<CommentStatsVO>({ total: 0, pending: 0, approved: 0, todayNew: 0 })
 const aiTokenUsage = ref<AiTokenUsageVO | null>(null)
+const recentComments = ref<CommentVO[]>([])
 
 function normalizePending(data?: Partial<PendingVO> | null): PendingVO {
   return {
@@ -311,6 +347,48 @@ function normalizeAiUsage(data: Partial<AiTokenUsageVO> | null | undefined): AiT
     dailyTrend: data?.dailyTrend ?? [],
     featureBreakdown: data?.featureBreakdown ?? {},
   }
+}
+
+function countDatesInRange(items: string[], start: Date, end: Date): number {
+  const startMs = start.getTime()
+  const endMs = end.getTime()
+  return items.reduce((count, value) => {
+    const current = new Date(value).getTime()
+    return current >= startMs && current < endMs ? count + 1 : count
+  }, 0)
+}
+
+function buildTagStatistics(tags: TagVO[]): StatisticsVO {
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrowStart = new Date(todayStart.getTime() + 86400000)
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+  const weekStart = new Date(todayStart)
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const createTimes = tags.map(tag => tag.createTime).filter(Boolean)
+
+  return {
+    ...emptyStats,
+    total: tags.length,
+    today: countDatesInRange(createTimes, todayStart, tomorrowStart),
+    yesterday: countDatesInRange(createTimes, yesterdayStart, todayStart),
+    week: countDatesInRange(createTimes, weekStart, tomorrowStart),
+    month: countDatesInRange(createTimes, monthStart, tomorrowStart),
+  }
+}
+
+function formatDateTimeShort(value: string): string {
+  return value ? value.replace('T', ' ').slice(0, 16) : ''
+}
+
+function formatCommentStatus(status: string): string {
+  return {
+    pending: '待审核',
+    approved: '已通过',
+    rejected: '已拒绝',
+    spam: '垃圾评论',
+  }[status] || status
 }
 
 const aiFeatureNameMap: Record<string, string> = {
@@ -492,6 +570,15 @@ const cardConfigs = computed<DashboardCardConfig[]>(() => [
     totalLabel: '总评论数',
     data: commentCardStats.value,
     labels: { today: '今日新增', yesterday: '待审核', week: '已通过', month: '总评论' },
+  },
+  {
+    key: 'tag',
+    title: '标签统计',
+    icon: PriceTag,
+    color: '#8b5cf6',
+    totalLabel: '总标签数',
+    data: tagStats.value,
+    labels: { today: '今日新增', yesterday: '昨日新增', week: '本周新增', month: '本月新增' },
   },
 ])
 
@@ -692,11 +779,15 @@ async function renderCategoryChart() {
   categoryChartInstance.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c}篇 ({d}%)' },
     legend: {
-      orient: 'horizontal', bottom: 0,
+      orient: 'horizontal',
+      bottom: 4,
+      left: 'center',
+      itemWidth: 14,
+      itemHeight: 10,
       textStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 12 }
     },
     series: [{
-      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      type: 'pie', radius: ['34%', '62%'], center: ['50%', '38%'],
       data, label: { show: false },
       emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
       itemStyle: { borderRadius: 6, borderColor: dark ? '#1e293b' : '#fff', borderWidth: 2 }
@@ -800,6 +891,17 @@ async function loadDashboardStats() {
     if (Array.isArray(data.categoryDist)) categoryDist.value = data.categoryDist
     if (data.commentStats) commentStats.value = data.commentStats
 
+    const [tagsResult, recentCommentsResult] = await Promise.allSettled([
+      tagApi.listAll(),
+      commentApi.list({ pageNum: 1, pageSize: 6 })
+    ])
+    if (tagsResult.status === 'fulfilled') {
+      tagStats.value = buildTagStatistics(tagsResult.value.data)
+    }
+    if (recentCommentsResult.status === 'fulfilled') {
+      recentComments.value = recentCommentsResult.value.data.records || []
+    }
+
     await nextTick()
     await nextTick()
     statsReady.value = true
@@ -813,6 +915,7 @@ async function loadDashboardStats() {
   } finally {
     // 无论接口或图表渲染是否异常，都不要让主区域一直转圈
     setCoreLoadingState(false)
+    recentCommentsLoading.value = false
   }
 
   // AI 用量独立加载（可选，失败不影响主面板）
@@ -857,6 +960,17 @@ async function loadDashboardStatsFallback() {
   }
   if (hotPostsResult.status === 'fulfilled') hotPosts.value = hotPostsResult.value.data
 
+  const [tagResult, recentCommentsResult] = await Promise.allSettled([
+    tagApi.listAll(),
+    commentApi.list({ pageNum: 1, pageSize: 6 })
+  ])
+  if (tagResult.status === 'fulfilled') {
+    tagStats.value = buildTagStatistics(tagResult.value.data)
+  }
+  if (recentCommentsResult.status === 'fulfilled') {
+    recentComments.value = recentCommentsResult.value.data.records || []
+  }
+
   await nextTick()
   await nextTick()
   statsReady.value = true
@@ -895,7 +1009,7 @@ onUnmounted(() => {
 /* 统计卡片 */
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -1034,6 +1148,7 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1.18fr);
   gap: 16px;
   align-items: stretch;
+  margin-bottom: 16px;
 }
 .info-card {
   background: var(--admin-panel-bg);
@@ -1223,7 +1338,7 @@ onUnmounted(() => {
 }
 .category-chart-container {
   flex: 1;
-  min-height: 280px;
+  min-height: 320px;
 }
 
 /* 热门文章 */
@@ -1335,6 +1450,101 @@ onUnmounted(() => {
   font-weight: 400;
   color: var(--el-text-color-secondary);
   margin-left: 1px;
+}
+
+.recent-comments-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-comments-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recent-comments-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.recent-comment-item {
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 10px;
+  background: var(--admin-panel-bg-soft);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.recent-comment-item:hover {
+  background: var(--admin-panel-hover);
+}
+
+.recent-comment-head,
+.recent-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recent-comment-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.recent-comment-time,
+.recent-comment-post {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.recent-comment-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  min-height: 42px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recent-comment-post {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-comment-status {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--admin-panel-bg);
+  color: var(--el-text-color-secondary);
+}
+
+.recent-comment-status.is-pending {
+  color: var(--el-color-warning);
+}
+
+.recent-comment-status.is-approved {
+  color: var(--el-color-success);
+}
+
+.recent-comment-status.is-rejected,
+.recent-comment-status.is-spam {
+  color: var(--el-color-danger);
 }
 
 /* AI 用量统计 */
@@ -1460,7 +1670,7 @@ onUnmounted(() => {
 
 @media (max-width: 1600px) {
   .stat-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .bottom-section {
@@ -1470,11 +1680,23 @@ onUnmounted(() => {
   .hot-posts-card {
     grid-column: 1 / -1;
   }
+
+  .recent-comments-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1280px) {
+  .stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chart-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recent-comments-list {
+    grid-template-columns: 1fr;
   }
 }
 

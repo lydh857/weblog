@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <el-table :data="records" v-loading="loading" stripe height="560">
+    <el-table :data="records" v-loading="loading" stripe :height="tableHeight">
       <el-table-column label="#" type="index" width="50" align="center" />
       <el-table-column label="背景图" width="120">
         <template #default="{ row }">
@@ -165,6 +165,7 @@ const records = ref<CarouselItem[]>([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(20)
+const tableHeight = useAdminTableHeight()
 
 // ===== 弹窗状态 =====
 const dialogVisible = ref(false)

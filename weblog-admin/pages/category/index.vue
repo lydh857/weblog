@@ -26,7 +26,7 @@
       v-loading="loading"
       row-key="id"
       :default-expand-all="defaultExpand"
-      height="560"
+      :height="tableHeight"
       stripe
       @selection-change="onSelectionChange"
     >
@@ -109,6 +109,7 @@ const dialogFormRef = ref<FormInstance>()
 const tableRef = ref()
 const selectedIds = ref<number[]>([])
 const defaultExpand = ref(true)
+const tableHeight = useAdminTableHeight()
 
 const dialogForm = reactive({
   name: '',

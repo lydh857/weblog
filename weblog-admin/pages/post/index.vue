@@ -48,7 +48,7 @@
       </div>
     </div>
     <!-- 文章表格 -->
-    <el-table :data="posts" v-loading="loading" stripe height="560" row-key="id"
+    <el-table :data="posts" v-loading="loading" stripe :height="tableHeight" row-key="id"
       :row-class-name="({ row }: { row: PostVO }) => row.isDisabled ? 'row-disabled' : ''"
       @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" />
@@ -453,6 +453,7 @@ async function handleDelete(row: PostVO) {
 
 // ========== 批量操作 ==========
 const selectedIds = ref<number[]>([])
+const tableHeight = useAdminTableHeight()
 
 function handleSelectionChange(rows: PostVO[]) {
   selectedIds.value = rows.map(r => r.id)
@@ -654,6 +655,7 @@ async function handlePublishOneScheduled(row: PostVO) {
   try {
     await postApi.batchPublish([row.id])
     ElMessage.success('发布成功')
+    selectedScheduledIds.value = []
     loadScheduledPosts()
     loadData()
   } catch (e: unknown) { ElMessage.error((e as Error).message || '发布失败') }
@@ -663,6 +665,7 @@ async function handleCancelOneSchedule(row: PostVO) {
   try {
     await postApi.batchCancelSchedule([row.id])
     ElMessage.success('已撤销到草稿箱')
+    selectedScheduledIds.value = []
     loadScheduledPosts()
   } catch (e: unknown) { ElMessage.error((e as Error).message || '撤销失败') }
 }

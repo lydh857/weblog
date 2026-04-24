@@ -22,7 +22,7 @@
       :data="pagedTags"
       v-loading="loading"
       stripe
-      height="560"
+      :height="tableHeight"
       @selection-change="onSelectionChange"
     >
       <el-table-column type="selection" width="45" />
@@ -147,6 +147,7 @@ const keyword = ref('')
 const selectedIds = ref<number[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
+const tableHeight = useAdminTableHeight()
 
 // 搜索防抖
 let debounceTimer: ReturnType<typeof setTimeout> | null = null

@@ -359,7 +359,6 @@ html.dark ::-webkit-scrollbar-thumb {
 .admin-layout .admin-main .page-header,
 .admin-layout .admin-main .toolbar,
 .admin-layout .admin-main .toolbar-row,
-.admin-layout .admin-main .filter-bar,
 .admin-layout .admin-main .draft-toolbar,
 .admin-layout .admin-main .catalog-toolbar,
 .admin-layout .admin-main .trash-toolbar,
@@ -371,17 +370,112 @@ html.dark ::-webkit-scrollbar-thumb {
 }
 
 .admin-layout .admin-main .page-header {
-  padding: 14px 16px;
-  margin-bottom: 14px;
+  padding: 0 20px;
+  min-height: 62px;
+  margin-bottom: 16px;
 }
 
-.admin-layout .admin-main .filter-bar,
+.admin-layout .admin-main > .ad-page,
+.admin-layout .admin-main > .friend-link-page,
+.admin-layout .admin-main > .user-page,
+.admin-layout .admin-main > .topic-page,
+.admin-layout .admin-main > .logs-page,
+.admin-layout .admin-main > .comment-page,
+.admin-layout .admin-main > .category-page,
+.admin-layout .admin-main > .ann-page,
+.admin-layout .admin-main > .carousel-page,
+.admin-layout .admin-main > .link-domain-policy-page,
+.admin-layout .admin-main > .tag-page,
+.admin-layout .admin-main > .post-list-page,
+.admin-layout .admin-main > .media-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-layout .admin-main > .ad-page > .page-header,
+.admin-layout .admin-main > .friend-link-page > .page-header,
+.admin-layout .admin-main > .user-page > .page-header,
+.admin-layout .admin-main > .topic-page > .page-header,
+.admin-layout .admin-main > .logs-page > .page-header,
+.admin-layout .admin-main > .comment-page > .page-header,
+.admin-layout .admin-main > .category-page > .page-header,
+.admin-layout .admin-main > .ann-page > .page-header,
+.admin-layout .admin-main > .carousel-page > .page-header,
+.admin-layout .admin-main > .link-domain-policy-page > .page-header,
+.admin-layout .admin-main > .tag-page > .page-header,
+.admin-layout .admin-main > .post-list-page > .page-header,
+.admin-layout .admin-main > .media-page > .page-header {
+  flex: 0 0 auto;
+}
+
+.admin-layout .admin-main > .ad-page > .pagination-wrap,
+.admin-layout .admin-main > .friend-link-page > .pagination-wrap,
+.admin-layout .admin-main > .user-page > .pagination-wrap,
+.admin-layout .admin-main > .topic-page > .pagination-wrap,
+.admin-layout .admin-main > .logs-page > .pagination-wrap,
+.admin-layout .admin-main > .comment-page > .pagination-wrap,
+.admin-layout .admin-main > .category-page > .pagination-wrap,
+.admin-layout .admin-main > .ann-page > .pagination-wrap,
+.admin-layout .admin-main > .carousel-page > .pagination-wrap,
+.admin-layout .admin-main > .link-domain-policy-page > .pagination-wrap,
+.admin-layout .admin-main > .tag-page > .pagination-wrap,
+.admin-layout .admin-main > .post-list-page > .pagination-wrap,
+.admin-layout .admin-main > .media-page > .pagination-wrap {
+  flex: 0 0 auto;
+}
+
+.admin-layout .admin-main > .ad-page > .el-table,
+.admin-layout .admin-main > .friend-link-page > .el-table,
+.admin-layout .admin-main > .user-page > .el-table,
+.admin-layout .admin-main > .topic-page > .el-table,
+.admin-layout .admin-main > .logs-page > .el-table,
+.admin-layout .admin-main > .comment-page > .el-table,
+.admin-layout .admin-main > .category-page > .el-table,
+.admin-layout .admin-main > .ann-page > .el-table,
+.admin-layout .admin-main > .carousel-page > .el-table,
+.admin-layout .admin-main > .link-domain-policy-page > .el-table,
+.admin-layout .admin-main > .tag-page > .el-table,
+.admin-layout .admin-main > .post-list-page > .el-table,
+.admin-layout .admin-main > .media-page > .el-table {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-layout .admin-main .compact-tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-layout .admin-main .compact-tabs .el-tabs__content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-layout .admin-main .compact-tabs .el-tab-pane {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .admin-layout .admin-main .toolbar,
 .admin-layout .admin-main .toolbar-row,
 .admin-layout .admin-main .draft-toolbar,
 .admin-layout .admin-main .catalog-toolbar,
 .admin-layout .admin-main .trash-toolbar {
   padding: 10px 12px;
+}
+
+.admin-layout .admin-main .filter-bar {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 
 .admin-layout .admin-main .el-card {

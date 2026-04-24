@@ -66,6 +66,37 @@
         </el-form>
       </el-card>
 
+      <!-- 采集集成 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/></svg>
+            <span class="card-title">采集集成</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="开启采集入库">
+            <div class="switch-row">
+              <el-switch v-model="form.crawler_ingest_enabled" active-value="true" inactive-value="false" />
+              <span class="form-tip">开启后允许本地 crawler-worker 调用 /api/admin/crawler/v1 接口</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="集成令牌">
+            <el-input
+              v-model="form.crawler_integration_token"
+              type="password"
+              show-password
+              placeholder="请输入本地采集端集成令牌"
+            />
+            <span class="form-tip">请使用高强度随机令牌，并同步到 crawler-worker .env</span>
+          </el-form-item>
+          <el-form-item label="草稿归属用户ID">
+            <el-input-number v-model.number="form.crawler_draft_owner_user_id" :min="1" :max="999999999" />
+            <span class="form-tip">采集推送生成的草稿将归属该用户</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
       <!-- 阅读设置 -->
       <el-card shadow="never" class="config-card">
         <template #header>
@@ -141,6 +172,9 @@ const systemDefaults: Record<string, string | number> = {
   ranking_update_interval: 60,
   comment_audit_enabled: 'true',
   comment_max_length: 1000,
+  crawler_ingest_enabled: 'false',
+  crawler_integration_token: '',
+  crawler_draft_owner_user_id: 1,
 }
 
 // 数值类型的配置 key
@@ -170,13 +204,15 @@ const numberKeys = new Set([
   'user_bind_email_rate_limit', 'user_change_email_rate_limit',
   'user_set_password_rate_limit', 'user_reset_password_rate_limit',
   'rate_limit_auto_block_threshold', 'rate_limit_auto_block_window_minutes', 'rate_limit_auto_block_minutes',
-  'mail_smtp_port', 'mail_code_expire_minutes', 'mail_code_cooldown_seconds',
-  'login_log_retention_days', 'audit_log_retention_days',
+   'mail_smtp_port', 'mail_code_expire_minutes', 'mail_code_cooldown_seconds',
+   'login_log_retention_days', 'audit_log_retention_days',
+   'crawler_draft_owner_user_id',
 ])
 
 // 开关类型的配置 key（值为 "true"/"false"）
 const switchKeys = new Set([
   'mail_ssl_enabled', 'comment_audit_enabled', 'rate_limit_auto_block_enabled',
+  'crawler_ingest_enabled',
 ])
 
 const form = reactive<Record<string, string | number>>({})
@@ -379,6 +415,15 @@ async function loadData() {
     }
     if (form.rate_limit_auto_block_key_prefixes === undefined || form.rate_limit_auto_block_key_prefixes === '') {
       form.rate_limit_auto_block_key_prefixes = 'register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete'
+    }
+    if (form.crawler_ingest_enabled === undefined || form.crawler_ingest_enabled === '') {
+      form.crawler_ingest_enabled = 'false'
+    }
+    if (form.crawler_integration_token === undefined) {
+      form.crawler_integration_token = ''
+    }
+    if (form.crawler_draft_owner_user_id === undefined) {
+      form.crawler_draft_owner_user_id = 1
     }
   } catch (e: unknown) {
     ElMessage.error((e as Error).message || '加载配置失败')

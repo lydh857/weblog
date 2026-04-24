@@ -254,25 +254,14 @@ import { uploadApi } from '~/api/system/upload'
 import { collectArticleIds, recalculateSort } from '~/utils/content/topicCatalog'
 
 // ========== 表格高度自适应 ==========
-const tableHeight = ref(560)
-function calcTableHeight() {
-  // 页面头部 62px + 间距 16px + 分页 44px + 页面内边距约 40px
-  tableHeight.value = Math.max(300, window.innerHeight - 162)
-}
-onMounted(() => {
-  calcTableHeight()
-  window.addEventListener('resize', calcTableHeight)
-})
-onUnmounted(() => {
-  window.removeEventListener('resize', calcTableHeight)
-})
+const tableHeight = useAdminTableHeight()
 
 // ========== 列表与分页 ==========
 const loading = ref(false)
 const records = ref<TopicVO[]>([])
 const total = ref(0)
 const pageNum = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 
 // ========== 搜索筛选 ==========
 const keyword = ref('')

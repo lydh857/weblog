@@ -142,6 +142,7 @@ import { uploadApi } from '~/api/system/upload'
 import { calculateMdStats, calculateHtmlStats, countCharsAndLines } from '~/composables/editor/useEditorStats'
 import { applyFormat } from '~/composables/editor/useEditorFormat'
 import { ensureMdEditorConfigured } from '~/composables/editor/useMdEditor'
+import { applyWatermarkToFile, shouldApplyWatermark, type ImageWatermarkConfig } from '~/utils/image/watermark'
 
 const MdEditor = defineAsyncComponent(async () => {
   await ensureMdEditorConfigured()
@@ -167,6 +168,7 @@ const props = withDefaults(defineProps<{
   editorId?: string
   previewTheme?: string
   codeTheme?: string
+  imageWatermark?: ImageWatermarkConfig
 }>(), {
   height: '600px',
   editorId: 'md-editor',
@@ -420,6 +422,33 @@ function updateTime() {
 
 // ========== 图片上传 ==========
 
+const IMAGE_UPLOAD_CONCURRENCY = 2
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<Array<PromiseSettledResult<R>>> {
+  const results: Array<PromiseSettledResult<R>> = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      try {
+        results[currentIndex] = { status: 'fulfilled', value: await task(items[currentIndex] as T) }
+      } catch (reason) {
+        results[currentIndex] = { status: 'rejected', reason }
+      }
+    }
+  }
+
+  const workerCount = Math.min(Math.max(limit, 1), items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
 /** 将图片文件转换为 webp 格式 */
 function convertToWebp(file: File, quality = 0.85): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -455,12 +484,17 @@ async function handleUploadImg(
   files: File[],
   callback: (urls: Array<{ url: string; alt: string; title: string }>) => void,
 ) {
-  const settled = await Promise.allSettled(
-    files.map(async (file) => {
+  const settled = await runWithConcurrency(
+    files,
+    IMAGE_UPLOAD_CONCURRENCY,
+    async (file) => {
       const webpFile = await convertToWebp(file)
-      const res = await uploadApi.image(webpFile, 'content')
+      const finalFile = shouldApplyWatermark(props.imageWatermark as ImageWatermarkConfig, 'content')
+        ? await applyWatermarkToFile(webpFile, props.imageWatermark as ImageWatermarkConfig)
+        : webpFile
+      const res = await uploadApi.image(finalFile, 'content')
       return { url: res.data, alt: file.name, title: '' }
-    })
+    },
   )
   const results = settled
     .filter((r): r is PromiseFulfilledResult<{ url: string; alt: string; title: string }> => r.status === 'fulfilled')

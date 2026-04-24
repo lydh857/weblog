@@ -49,7 +49,7 @@
       </div>
     </div>
 
-    <el-table :data="records" v-loading="loading" stripe height="560"
+    <el-table :data="records" v-loading="loading" stripe :height="tableHeight"
       @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" align="center" />
       <el-table-column type="index" label="#" width="50" align="center" />
@@ -144,6 +144,7 @@ const filterPostTitle = ref('')
 const filterTop = ref('')
 const filterAiReview = ref('')
 const selectedIds = ref<number[]>([])
+const tableHeight = useAdminTableHeight()
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 function debouncedSearch() {

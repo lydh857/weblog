@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("deprecation")
 public class DashboardService {
 
   private final PostMapper postMapper;
@@ -273,6 +274,7 @@ public class DashboardService {
       vo.setTagNames((String) row.get("tag_names"));
       vo.setViewCount(row.get("view_count") != null ? ((Number) row.get("view_count")).intValue() : 0);
       vo.setLikeCount(row.get("like_count") != null ? ((Number) row.get("like_count")).intValue() : 0);
+      vo.setCollectCount(row.get("collect_count") != null ? ((Number) row.get("collect_count")).intValue() : 0);
       vo.setCommentCount(row.get("comment_count") != null ? ((Number) row.get("comment_count")).intValue() : 0);
       vo.setScore(((Number) row.get("score")).intValue());
       return vo;
@@ -487,6 +489,7 @@ public class DashboardService {
     private String tagNames;
     private int viewCount;
     private int likeCount;
+    private int collectCount;
     private int commentCount;
     private int score;
   }

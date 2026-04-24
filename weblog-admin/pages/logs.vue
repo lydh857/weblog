@@ -48,7 +48,7 @@
           </el-select>
         </div>
 
-        <el-table v-loading="loginLoading" :data="loginRows" border stripe>
+        <el-table v-loading="loginLoading" :data="loginRows" border stripe :height="tableHeight">
           <el-table-column prop="createTime" label="时间" min-width="160" />
           <el-table-column prop="email" label="邮箱" min-width="180" />
           <el-table-column label="类型" width="120">
@@ -119,7 +119,7 @@
           <el-input v-model="auditFilters.ipAddress" clearable placeholder="IP" style="width: 140px" @keyup.enter="reloadAudit" />
         </div>
 
-        <el-table v-loading="auditLoading" :data="auditRows" border stripe>
+        <el-table v-loading="auditLoading" :data="auditRows" border stripe :height="tableHeight">
           <el-table-column prop="createTime" label="时间" min-width="160" />
           <el-table-column label="用户" width="160">
             <template #default="{ row }">
@@ -188,7 +188,7 @@
           <el-input v-model="blacklistFilters.keyword" clearable placeholder="对象/IP/邮箱" style="width: 220px" />
         </div>
 
-        <el-table v-loading="blacklistLoading" :data="blacklistRows" border stripe>
+        <el-table v-loading="blacklistLoading" :data="blacklistRows" border stripe :height="tableHeight">
           <el-table-column prop="createTime" label="创建时间" min-width="160" />
           <el-table-column label="类型" width="90">
             <template #default="{ row }">
@@ -253,20 +253,21 @@ import type { LocationQueryValue } from 'vue-router'
 
 const route = useRoute()
 const activeTab = ref<'login' | 'audit' | 'blacklist'>('login')
+const tableHeight = useAdminTableHeight()
 
 const loginLoading = ref(false)
 const loginRows = ref<LoginLogVO[]>([])
-const loginPager = reactive({ pageNum: 1, pageSize: 10, total: 0 })
+const loginPager = reactive({ pageNum: 1, pageSize: 20, total: 0 })
 const loginFilters = reactive({ email: '', ip: '', loginType: '', result: '' })
 
 const auditLoading = ref(false)
 const auditRows = ref<AuditLogVO[]>([])
-const auditPager = reactive({ pageNum: 1, pageSize: 10, total: 0 })
+const auditPager = reactive({ pageNum: 1, pageSize: 20, total: 0 })
 const auditFilters = reactive({ operation: '', module: '', username: '', ipAddress: '' })
 
 const blacklistLoading = ref(false)
 const blacklistRows = ref<BlacklistVO[]>([])
-const blacklistPager = reactive({ pageNum: 1, pageSize: 10, total: 0 })
+const blacklistPager = reactive({ pageNum: 1, pageSize: 20, total: 0 })
 const blacklistFilters = reactive<{ blockType: '' | 'IP' | 'USER'; keyword: string; status: '' | 'active' | 'expired' }>({
   blockType: '',
   keyword: '',

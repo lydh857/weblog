@@ -224,7 +224,7 @@
     </div>
 
     <template v-if="contentTab === 'list'">
-      <el-table :data="records" v-loading="loading" stripe height="560" :row-class-name="advertisementRowClassName"
+      <el-table :data="records" v-loading="loading" stripe :height="tableHeight" :row-class-name="advertisementRowClassName"
         @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" align="center" />
       <el-table-column type="index" label="#" width="50" align="center" />
@@ -647,6 +647,7 @@ const submitting = ref(false)
 const editingId = ref<number | null>(null)
 const selectedIds = ref<number[]>([])
 const selectedRows = ref<AdvertisementVO[]>([])
+const tableHeight = useAdminTableHeight()
 const pendingAdvertisementCount = useState<number>('pendingAdvertisementCount', () => 0)
 const disableBatchActivate = computed(() => {
   return selectedRows.value.some(row => row.advertiserId && row.status === 'pending')

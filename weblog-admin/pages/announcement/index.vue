@@ -38,7 +38,7 @@
       </div>
     </div>
 
-    <el-table :data="records" v-loading="loading" stripe height="560" @selection-change="onSelectionChange">
+    <el-table :data="records" v-loading="loading" stripe :height="tableHeight" @selection-change="onSelectionChange">
       <el-table-column type="selection" width="40" align="center" />
       <el-table-column label="#" type="index" width="50" align="center" />
       <el-table-column label="标题" prop="title" min-width="180" show-overflow-tooltip />
@@ -166,6 +166,7 @@ const selectedIds = ref<number[]>([])
 const isPermanent = ref(true)
 const isImportant = ref(false)
 const announcementEditorHeight = '320px'
+const tableHeight = useAdminTableHeight()
 
 const form = reactive({
   title: '', type: 'banner', content: '', priority: 0, isClosable: true,

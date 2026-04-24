@@ -40,7 +40,7 @@
           </div>
         </div>
 
-        <el-table :data="records" v-loading="loading" stripe height="560"
+        <el-table :data="records" v-loading="loading" stripe :height="tableHeight"
           :row-class-name="rowClassName" @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="40" align="center"
             :selectable="(row: UserVO) => row.role !== 'admin'" />
@@ -144,7 +144,7 @@
           </div>
         </div>
 
-        <el-table :data="reviewRecords" v-loading="reviewLoading" stripe height="560" :row-class-name="reviewRowClassName">
+          <el-table :data="reviewRecords" v-loading="reviewLoading" stripe :height="tableHeight" :row-class-name="reviewRowClassName">
           <el-table-column type="index" label="#" width="50" align="center" />
           <el-table-column label="用户" min-width="230">
             <template #default="{ row }">
@@ -248,6 +248,7 @@ const filterRole = ref('')
 const filterStatus = ref('')
 const selectedIds = ref<number[]>([])
 const pendingProfileReviewCount = useState<number>('pendingProfileReviewCount', () => 0)
+const tableHeight = useAdminTableHeight()
 
 const reviewLoading = ref(false)
 const reviewRecords = ref<ProfileReviewVO[]>([])

@@ -9,16 +9,34 @@
       popper-class="ai-meta-popover"
     >
       <template #reference>
-        <el-button
-          :type="result ? 'default' : 'primary'"
-          :loading="generating"
-          :disabled="contentTooShort"
-          @click="handleButtonClick"
-        >
-          <el-icon><MagicStick /></el-icon>
-          {{ buttonText }}
-          <el-icon class="ai-arrow-icon"><ArrowDown /></el-icon>
-        </el-button>
+        <div class="ai-meta-trigger">
+          <el-button
+            :type="result ? 'default' : 'primary'"
+            :loading="generating"
+            :disabled="contentTooShort"
+            class="ai-meta-main-btn"
+            @click="handleButtonClick"
+          >
+            <el-icon><MagicStick /></el-icon>
+            {{ buttonText }}
+          </el-button>
+          <el-dropdown trigger="hover" @command="handleCommand">
+            <el-button class="ai-meta-split-btn" :disabled="contentTooShort" :loading="anyBusy">
+              <el-icon><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="remaining">生成剩余内容</el-dropdown-item>
+                <el-dropdown-item command="summary">生成摘要</el-dropdown-item>
+                <el-dropdown-item command="seo">生成 SEO</el-dropdown-item>
+                <el-dropdown-item command="tags">生成标签</el-dropdown-item>
+                <el-dropdown-item command="categories">生成分类</el-dropdown-item>
+                <el-dropdown-item command="slug">生成 Slug</el-dropdown-item>
+                <el-dropdown-item command="all" divided>全部重新生成</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </template>
 
       <!-- 弹窗内容 -->
@@ -141,6 +159,12 @@ const props = defineProps<{
   title: string
   content: string
   currentTagCount?: number
+  currentSummary?: string
+  currentSeoTitle?: string
+  currentSeoDescription?: string
+  currentSeoKeywords?: string
+  currentSlug?: string
+  hasCategory?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -169,6 +193,7 @@ const regenerating = reactive({
 })
 
 const contentTooShort = computed(() => props.content.length < 100)
+const anyBusy = computed(() => generating.value || Object.values(regenerating).some(Boolean))
 
 // 按钮文字：根据是否已有结果动态显示
 const buttonText = computed(() => {
@@ -181,6 +206,69 @@ function handleButtonClick() {
   popoverVisible.value = !popoverVisible.value
   if (popoverVisible.value && !result.value && !generating.value) {
     handleGenerateAll()
+  }
+}
+
+async function ensureResult() {
+  if (!result.value && !generating.value) {
+    await handleGenerateAll()
+  }
+}
+
+async function handleGenerateRemaining() {
+  if (!result.value) {
+    await handleGenerateAll()
+    return
+  }
+
+  if (!props.currentSummary?.trim()) {
+    await handleRegenerate('summary')
+  }
+  if (!props.currentSeoTitle?.trim() || !props.currentSeoDescription?.trim() || !props.currentSeoKeywords?.trim()) {
+    await handleRegenerate('seo')
+  }
+  if ((props.currentTagCount ?? 0) < MAX_TAGS) {
+    await handleRegenerate('tags')
+  }
+  if (!props.hasCategory) {
+    await handleRegenerate('categories')
+  }
+  if (!props.currentSlug?.trim()) {
+    await handleRegenerate('slug')
+  }
+
+  popoverVisible.value = true
+}
+
+async function handleCommand(command: string) {
+  popoverVisible.value = true
+  switch (command) {
+    case 'remaining':
+      await handleGenerateRemaining()
+      break
+    case 'summary':
+      await ensureResult()
+      await handleRegenerate('summary')
+      break
+    case 'seo':
+      await ensureResult()
+      await handleRegenerate('seo')
+      break
+    case 'tags':
+      await ensureResult()
+      await handleRegenerate('tags')
+      break
+    case 'categories':
+      await ensureResult()
+      await handleRegenerate('categories')
+      break
+    case 'slug':
+      await ensureResult()
+      await handleRegenerate('slug')
+      break
+    case 'all':
+      await handleGenerateAll()
+      break
   }
 }
 
@@ -378,6 +466,23 @@ defineExpose({ getSnapshot, restoreSnapshot })
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.ai-meta-trigger {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.ai-meta-main-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ai-meta-split-btn {
+  padding: 0 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
 }
 
 .ai-arrow-icon {

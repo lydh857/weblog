@@ -23,6 +23,7 @@ export interface HotPostVO {
   tagNames: string | null
   viewCount: number
   likeCount: number
+  collectCount: number
   commentCount: number
   score: number
 }

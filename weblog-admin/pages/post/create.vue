@@ -1,10 +1,27 @@
 <template>
   <div class="post-editor-fullscreen">
     <header class="editor-toolbar">
-      <div class="toolbar-left">
-        <el-button text @click="goBack"><el-icon><ArrowLeft /></el-icon> 返回</el-button>
-        <el-divider direction="vertical" />
-        <span class="editor-title">{{ editorTitle }}</span>
+        <div class="toolbar-left">
+          <el-button text @click="goBack"><el-icon><ArrowLeft /></el-icon> 返回</el-button>
+          <el-divider direction="vertical" />
+          <span class="editor-title">{{ editorTitle }}</span>
+          <el-alert
+            v-if="draftModeText"
+            :title="draftModeText"
+            type="info"
+            :closable="false"
+            show-icon
+            class="draft-mode-alert"
+          />
+          <div v-if="isEdit && isDraft" class="draft-nav-wrap">
+            <el-button text size="small" :disabled="!canGoDraftPrev || draftNavLoading" @click="goDraftNeighbor(-1)">
+              <el-icon><ArrowLeft /></el-icon> 上一篇
+            </el-button>
+          <span class="draft-nav-stat">{{ draftNavText }}</span>
+          <el-button text size="small" :disabled="!canGoDraftNext || draftNavLoading" @click="goDraftNeighbor(1)">
+            下一篇 <el-icon><ArrowRight /></el-icon>
+          </el-button>
+        </div>
         <span v-if="isScheduled && form.scheduledTime" class="schedule-badge">
           <el-icon><Timer /></el-icon> {{ formatScheduleDisplay(form.scheduledTime) }}
         </span>
@@ -32,7 +49,7 @@
         <input v-model="form.title" class="title-input" placeholder="请输入文章标题..." maxlength="200" />
         <div class="editor-wrap">
           <ClientOnly>
-            <LazyMarkdownEditor v-model="form.content" v-model:preview-theme="form.previewTheme" v-model:code-theme="form.codeTheme" :height="editorHeight" @save="handleEditorSave" />
+            <LazyMarkdownEditor v-model="form.content" v-model:preview-theme="form.previewTheme" v-model:code-theme="form.codeTheme" :height="editorHeight" :image-watermark="imageWatermark" @save="handleEditorSave" />
           </ClientOnly>
         </div>
       </div>
@@ -49,6 +66,12 @@
               :title="form.title"
               :content="form.content"
               :current-tag-count="selectedTags.length"
+              :current-summary="form.summary"
+              :current-seo-title="form.seoTitle"
+              :current-seo-description="form.seoDescription"
+              :current-seo-keywords="form.seoKeywords"
+              :current-slug="form.slug"
+              :has-category="categoryValue.length > 0"
               @adopt-summary="(s: string) => form.summary = s"
               @adopt-seo="handleAdoptSeo"
               @adopt-tags="handleAdoptAiTags"
@@ -110,6 +133,84 @@
                 <span>上传封面</span>
               </div>
               <input ref="coverInputRef" type="file" accept="image/*" style="display:none" @change="handleCoverFileChange" />
+            </div>
+          </div>
+
+          <!-- 图片水印 -->
+          <div class="setting-group">
+            <div class="setting-label-row">
+              <label class="setting-label">图片水印</label>
+              <el-button text type="primary" size="small" @click="resetImageWatermark">恢复默认</el-button>
+            </div>
+            <el-switch v-model="imageWatermark.enabled" active-text="启用" inactive-text="关闭" />
+            <div class="watermark-panel" :class="{ disabled: !imageWatermark.enabled }">
+              <el-checkbox-group v-model="imageWatermark.targets">
+                <el-checkbox label="cover">封面图</el-checkbox>
+                <el-checkbox label="content">正文图片</el-checkbox>
+              </el-checkbox-group>
+              <el-input v-model="imageWatermark.text" maxlength="40" placeholder="输入水印文字，例如站点名 / 作者名" clearable />
+              <el-radio-group v-model="imageWatermark.mode">
+                <el-radio-button label="single">单点</el-radio-button>
+                <el-radio-button label="tile">平铺</el-radio-button>
+              </el-radio-group>
+              <el-select v-model="imageWatermark.position" class="full-width">
+                <el-option label="左上角" value="top-left" />
+                <el-option label="右上角" value="top-right" />
+                <el-option label="左下角" value="bottom-left" />
+                <el-option label="右下角" value="bottom-right" />
+                <el-option label="居中" value="center" />
+              </el-select>
+              <div class="watermark-slider-row">
+                <span>字号</span>
+                <el-slider v-model="imageWatermark.fontSize" :min="14" :max="48" />
+              </div>
+              <div class="watermark-slider-row">
+                <span>倾斜</span>
+                <el-slider v-model="imageWatermark.angle" :min="-60" :max="60" />
+              </div>
+              <div class="watermark-slider-row">
+                <span>透明度</span>
+                <el-slider v-model="watermarkOpacityPercent" :min="20" :max="100" />
+              </div>
+              <div class="watermark-slider-row">
+                <span>粗细</span>
+                <el-slider v-model="watermarkFontWeight" :min="400" :max="800" :step="100" />
+              </div>
+              <template v-if="imageWatermark.mode === 'tile'">
+                <div class="watermark-slider-row">
+                  <span>横距</span>
+                  <el-slider v-model="imageWatermark.spacingX" :min="40" :max="240" />
+                </div>
+                <div class="watermark-slider-row">
+                  <span>纵距</span>
+                  <el-slider v-model="imageWatermark.spacingY" :min="30" :max="180" />
+                </div>
+              </template>
+              <el-input v-model="imageWatermark.color" maxlength="16" placeholder="颜色，例如 #ffffff" />
+              <div class="watermark-preview">
+                <div class="watermark-preview__label">预览示意</div>
+                <div class="watermark-preview__canvas" :class="{ 'is-tile': imageWatermark.mode === 'tile' }">
+                  <div
+                    v-if="imageWatermark.text.trim()"
+                    class="watermark-preview__text"
+                    :class="`is-${imageWatermark.position}`"
+                    :style="watermarkPreviewStyle"
+                  >
+                    {{ imageWatermark.text }}
+                  </div>
+                  <template v-if="imageWatermark.mode === 'tile' && imageWatermark.text.trim()">
+                    <div
+                      v-for="index in 16"
+                      :key="index"
+                      class="watermark-preview__tile"
+                      :style="getTilePreviewStyle(index)"
+                    >
+                      {{ imageWatermark.text }}
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <p class="watermark-tip">仅对本次新上传的封面和正文图片生效，不会回写历史图片。</p>
             </div>
           </div>
 
@@ -182,7 +283,7 @@
     </el-dialog>
 
     <!-- 封面裁剪弹窗 -->
-    <LazyImageCropper v-if="showCoverCropper" v-model="showCoverCropper" :image-src="coverCropperSrc" :aspect-ratio="[16, 9]"
+    <LazyImageCropper v-if="showCoverCropper" v-model="showCoverCropper" :image-src="coverCropperSrc" :aspect-ratio="[14, 9]"
       output-type="image/webp" :max-output-width="1200" @crop="handleCoverCropped" />
   </div>
 </template>
@@ -190,10 +291,12 @@
 <script setup lang="ts">
 import { ArrowLeft, ArrowRight, Clock, Timer, Plus, CircleClose } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { postApi, type PostCreateParams } from '~/api/content/post'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { postApi, type PostCreateParams, type PostVO } from '~/api/content/post'
 import { categoryApi, type CategoryVO } from '~/api/content/category'
 import { tagApi, type TagVO } from '~/api/content/tag'
 import { uploadApi } from '~/api/system/upload'
+import { applyWatermarkToBlob, shouldApplyWatermark, type ImageWatermarkConfig } from '~/utils/image/watermark'
 
 const route = useRoute()
 const router = useRouter()
@@ -207,6 +310,8 @@ const sidebarCollapsed = ref(false)
 const autoSaveText = ref('')
 const editorHeight = ref('calc(100vh - 142px)')
 const aiMetaRef = ref<{ getSnapshot: () => unknown; restoreSnapshot: (s: unknown) => void } | null>(null)
+const draftNavLoading = ref(false)
+const draftNavPosts = ref<PostVO[]>([])
 
 const form = reactive({
   title: '',
@@ -224,6 +329,80 @@ const form = reactive({
   codeTheme: 'atom',
 })
 
+const imageWatermark = reactive<ImageWatermarkConfig>({
+  enabled: true,
+  targets: ['cover', 'content'],
+  text: 'www.zhhhkl.top',
+  mode: 'tile',
+  position: 'center',
+  opacity: 0.3,
+  fontSize: 20,
+  angle: -18,
+  spacingX: 105,
+  spacingY: 90,
+  fontWeight: 400,
+  color: '#ffffff',
+})
+
+const defaultImageWatermark = {
+  enabled: true,
+  targets: ['cover', 'content'] as Array<'cover' | 'content'>,
+  text: 'www.zhhhkl.top',
+  mode: 'tile' as const,
+  position: 'center' as const,
+  opacity: 0.3,
+  fontSize: 20,
+  angle: -18,
+  spacingX: 105,
+  spacingY: 90,
+  fontWeight: 400,
+  color: '#ffffff',
+}
+
+const watermarkOpacityPercent = computed({
+  get: () => Math.round(imageWatermark.opacity * 100),
+  set: (value: number) => {
+    imageWatermark.opacity = Math.min(Math.max(value / 100, 0.2), 1)
+  }
+})
+
+const watermarkFontWeight = computed({
+  get: () => imageWatermark.fontWeight,
+  set: (value: number) => {
+    imageWatermark.fontWeight = value
+  }
+})
+
+const watermarkPreviewStyle = computed(() => ({
+  color: imageWatermark.color,
+  opacity: String(imageWatermark.opacity),
+  fontSize: `${Math.max(12, Math.round(imageWatermark.fontSize * 0.7))}px`,
+  fontWeight: String(imageWatermark.fontWeight),
+  transform: imageWatermark.mode === 'single'
+    ? `${imageWatermark.position === 'center' ? 'translate(-50%, -50%) ' : ''}rotate(${imageWatermark.angle}deg)`
+    : `rotate(${imageWatermark.angle}deg)`,
+}))
+
+function getTilePreviewStyle(index: number) {
+  const col = (index - 1) % 4
+  const row = Math.floor((index - 1) / 4)
+  const stepX = Math.max(72, imageWatermark.spacingX * 0.78)
+  const stepY = Math.max(40, imageWatermark.spacingY * 0.42)
+  return {
+    left: `${-12 + col * stepX}px`,
+    top: `${-8 + row * stepY}px`,
+    color: imageWatermark.color,
+    opacity: String(imageWatermark.opacity),
+    fontSize: `${Math.max(11, Math.round(imageWatermark.fontSize * 0.55))}px`,
+    fontWeight: String(imageWatermark.fontWeight),
+    transform: `rotate(${imageWatermark.angle}deg)`,
+  }
+}
+
+function resetImageWatermark() {
+  Object.assign(imageWatermark, defaultImageWatermark)
+}
+
 // 编辑器标题
 const editorTitle = computed(() => {
   if (!isEdit.value) return '写文章'
@@ -236,6 +415,24 @@ const editorTitle = computed(() => {
 const isScheduled = computed(() => form.status === 'scheduled')
 const isPublished = computed(() => isEdit.value && form.status === 'published')
 const isDraft = computed(() => form.status === 'draft')
+const draftModeText = computed(() => {
+  if (!isEdit.value) {
+    return '当前为新建草稿，保存后会创建新的草稿记录。'
+  }
+  if (isDraft.value) {
+    return '当前编辑的是历史草稿，保存将直接更新这篇草稿。'
+  }
+  return ''
+})
+const currentDraftIndex = computed(() => draftNavPosts.value.findIndex(post => post.id === postId.value))
+const canGoDraftPrev = computed(() => currentDraftIndex.value > 0)
+const canGoDraftNext = computed(() => currentDraftIndex.value >= 0 && currentDraftIndex.value < draftNavPosts.value.length - 1)
+const draftNavText = computed(() => {
+  if (!isEdit.value || !isDraft.value || draftNavPosts.value.length === 0 || currentDraftIndex.value < 0) {
+    return '0 / 0'
+  }
+  return `${currentDraftIndex.value + 1} / ${draftNavPosts.value.length}`
+})
 
 function formatScheduleDisplay(t: string): string {
   if (!t) return ''
@@ -445,15 +642,20 @@ async function handleCoverFileChange(e: Event) {
   if (coverInputRef.value) coverInputRef.value.value = ''
 }
 
-function handleCoverCropped(data: { blob: Blob; url: string }) {
+async function handleCoverCropped(data: { blob: Blob; url: string }) {
+  const finalBlob = shouldApplyWatermark(imageWatermark, 'cover')
+    ? await applyWatermarkToBlob(data.blob, imageWatermark)
+    : data.blob
+  const finalUrl = URL.createObjectURL(finalBlob)
+  URL.revokeObjectURL(data.url)
   // 释放旧的 blob URL
   if (form.coverImage.startsWith('blob:')) URL.revokeObjectURL(form.coverImage)
   // 用裁剪后的 blob 作为预览和待上传文件
-  form.coverImage = data.url
-  const ext = data.blob.type === 'image/webp' ? 'webp' : data.blob.type === 'image/png' ? 'png' : 'jpg'
-  pendingCoverFile.value = new File([data.blob], `cover.${ext}`, { type: data.blob.type })
+  form.coverImage = finalUrl
+  const ext = finalBlob.type === 'image/webp' ? 'webp' : finalBlob.type === 'image/png' ? 'png' : 'jpg'
+  pendingCoverFile.value = new File([finalBlob], `cover.${ext}`, { type: finalBlob.type })
   // 同时保存到 IndexedDB 以便自动恢复
-  saveCoverToIDB(data.blob)
+  saveCoverToIDB(finalBlob)
 }
 
 // ========== IndexedDB 封面图持久化（跨刷新恢复） ==========
@@ -539,6 +741,7 @@ function buildSnapshot(): string {
     seoTitle: form.seoTitle, seoDescription: form.seoDescription, seoKeywords: form.seoKeywords,
     categoryValue: categoryValue.value, selectedTags: selectedTags.value,
     previewTheme: form.previewTheme, codeTheme: form.codeTheme,
+    imageWatermark,
   })
 }
 
@@ -549,6 +752,7 @@ function buildLocalData() {
     slug: form.slug, seoTitle: form.seoTitle, seoDescription: form.seoDescription,
     seoKeywords: form.seoKeywords, categoryValue: categoryValue.value,
     selectedTags: selectedTags.value, previewTheme: form.previewTheme, codeTheme: form.codeTheme,
+    imageWatermark,
     aiMeta: aiMetaRef.value?.getSnapshot() ?? null,
   }
 }
@@ -610,6 +814,7 @@ function restoreLocalDraft() {
     if (data.selectedTags) selectedTags.value = data.selectedTags
     if (data.previewTheme) form.previewTheme = data.previewTheme
     if (data.codeTheme) form.codeTheme = data.codeTheme
+    if (data.imageWatermark) Object.assign(imageWatermark, data.imageWatermark)
     autoSaveText.value = '已恢复上次编辑的草稿'
 
     // 恢复 AI 生成结果
@@ -727,6 +932,7 @@ async function handleSaveScheduled() {
     await syncContentBeforeSave()
     const params = buildParams('scheduled', form.scheduledTime)
     await postApi.update(postId.value!, params)
+    lastSavedSnapshot = buildSnapshot()
     ElMessage.success('定时文章已保存')
     router.push(getBackPath())
   } catch (e: unknown) { ElMessage.error((e as Error).message || '保存失败') }
@@ -742,10 +948,12 @@ async function handlePublish() {
     if (isEdit.value && postId.value) {
       await postApi.update(postId.value, params)
       clearLocalDraft()
+      lastSavedSnapshot = buildSnapshot()
       ElMessage.success('更新成功')
     } else {
       await postApi.create(params)
       clearLocalDraft()
+      lastSavedSnapshot = buildSnapshot()
       ElMessage.success('发布成功')
     }
     router.push(getBackPath())
@@ -772,6 +980,7 @@ async function handleSaveDraft() {
       clearLocalDraft()
       ElMessage.success('草稿已保存')
     }
+    lastSavedSnapshot = buildSnapshot()
     router.push(getBackPath())
   } catch (e: unknown) { ElMessage.error((e as Error).message || '保存失败') }
   finally { savingType.value = '' }
@@ -784,6 +993,7 @@ async function handleRevertToDraft() {
     await syncContentBeforeSave()
     const params = buildParams('draft')
     await postApi.update(postId.value, params)
+    lastSavedSnapshot = buildSnapshot()
     ElMessage.success('已撤回到草稿')
     router.push(getBackPath())
   } catch (e: unknown) { ElMessage.error((e as Error).message || '撤回失败') }
@@ -804,6 +1014,7 @@ async function handleSchedulePublish() {
       await postApi.create(params)
       clearLocalDraft()
     }
+    lastSavedSnapshot = buildSnapshot()
     ElMessage.success('定时发布设置成功')
     showScheduleDialog.value = false
     router.push(getBackPath())
@@ -817,19 +1028,28 @@ function getBackPath(): string {
   return from ? `/post?from=${from}` : '/post'
 }
 
-function goBack() {
-  const hasChanges = buildSnapshot() !== lastSavedSnapshot
-  if (hasChanges) {
-    ElMessageBox.confirm('当前内容尚未保存，确定要离开吗？', '提示', {
+function hasUnsavedChanges(): boolean {
+  return buildSnapshot() !== lastSavedSnapshot
+}
+
+async function confirmLeaveIfDirty(): Promise<boolean> {
+  if (!hasUnsavedChanges()) {
+    return true
+  }
+  try {
+    await ElMessageBox.confirm('当前内容尚未保存，确定要离开吗？', '提示', {
       confirmButtonText: '离开',
       cancelButtonText: '继续编辑',
       type: 'warning',
-    }).then(() => {
-      router.push(getBackPath())
-    }).catch(() => { /* 取消，留在页面 */ })
-  } else {
-    router.push(getBackPath())
+    })
+    return true
+  } catch {
+    return false
   }
+}
+
+function goBack() {
+  router.push(getBackPath())
 }
 
 // ========== 加载编辑数据 ==========
@@ -876,6 +1096,7 @@ async function loadPost(id: number) {
           if (data.seoKeywords !== undefined) form.seoKeywords = data.seoKeywords
           if (data.previewTheme) form.previewTheme = data.previewTheme
           if (data.codeTheme) form.codeTheme = data.codeTheme
+          if (data.imageWatermark) Object.assign(imageWatermark, data.imageWatermark)
           if (data.categoryValue) categoryValue.value = data.categoryValue
           if (data.selectedTags) selectedTags.value = data.selectedTags
           autoSaveText.value = '已恢复未发布的编辑内容'
@@ -892,40 +1113,103 @@ async function loadPost(id: number) {
   } catch (e: unknown) { ElMessage.error((e as Error).message || '加载文章失败') }
 }
 
+async function loadDraftNavigation() {
+  if (!isEdit.value || !postId.value) {
+    draftNavPosts.value = []
+    return
+  }
+  if (!isDraft.value) {
+    draftNavPosts.value = []
+    return
+  }
+
+  draftNavLoading.value = true
+  try {
+    const res = await postApi.page({ pageNum: 1, pageSize: 1000, status: 'draft' })
+    draftNavPosts.value = res.data.records
+  } catch (e) {
+    console.warn('加载草稿导航失败', e)
+    draftNavPosts.value = []
+  } finally {
+    draftNavLoading.value = false
+  }
+}
+
+async function goDraftNeighbor(step: -1 | 1) {
+  if (!isEdit.value || !isDraft.value || currentDraftIndex.value < 0) {
+    return
+  }
+  const target = draftNavPosts.value[currentDraftIndex.value + step]
+  if (!target) {
+    return
+  }
+  navigateTo(`/post/create?id=${target.id}&from=drafts`)
+}
+
+let tagInputElement: HTMLInputElement | null = null
+
+function handleTagInputKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && tagQuery.value.trim() && visibleTags.value.length === 0) {
+    e.preventDefault()
+    e.stopPropagation()
+    handleTagEnter()
+  }
+}
+
 // ========== 初始化 ==========
 onMounted(async () => {
   await Promise.all([loadCategories(), loadTags()])
-
-  const id = route.query.id
-  if (id) {
-    postId.value = Number(id)
-    isEdit.value = true
-    await loadPost(postId.value)
-  } else {
-    // 新文章：尝试恢复 localStorage 中的草稿
-    restoreLocalDraft()
-  }
-
-  // 初始化快照（loadPost 或 restoreLocalDraft 之后）
-  lastSavedSnapshot = buildSnapshot()
 
   // 绑定原生 keydown 到标签 select 的 input，实现回车创建新标签
   nextTick(() => {
     const input = tagSelectRef.value?.$el?.querySelector('input') as HTMLInputElement | null
     if (input) {
-      input.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' && tagQuery.value.trim() && visibleTags.value.length === 0) {
-          e.preventDefault()
-          e.stopPropagation()
-          handleTagEnter()
-        }
-      }, true)
+      tagInputElement = input
+      input.addEventListener('keydown', handleTagInputKeydown, true)
     }
   })
 })
 
+watch(
+  () => route.query.id,
+  async (id) => {
+    const nextId = typeof id === 'string' ? Number(id) : Number(id?.[0])
+    if (Number.isFinite(nextId) && nextId > 0) {
+      postId.value = nextId
+      isEdit.value = true
+      await loadPost(nextId)
+      await loadDraftNavigation()
+      return
+    }
+
+    postId.value = null
+    isEdit.value = false
+    draftNavPosts.value = []
+    // 新文章：尝试恢复 localStorage 中的草稿
+    restoreLocalDraft()
+    lastSavedSnapshot = buildSnapshot()
+  },
+  { immediate: true }
+)
+
+onBeforeRouteLeave(async () => {
+  return await confirmLeaveIfDirty()
+})
+
+onBeforeRouteUpdate(async (to) => {
+  const nextId = typeof to.query.id === 'string' ? Number(to.query.id) : Number(to.query.id?.[0])
+  if (Number.isFinite(nextId) && nextId !== postId.value) {
+    return await confirmLeaveIfDirty()
+  }
+  return true
+})
+
 onUnmounted(() => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  if (tagInputElement) {
+    tagInputElement.removeEventListener('keydown', handleTagInputKeydown, true)
+    tagInputElement = null
+  }
   // 释放 blob URL
   if (form.coverImage.startsWith('blob:')) URL.revokeObjectURL(form.coverImage)
 })
@@ -959,6 +1243,21 @@ onUnmounted(() => {
     align-items: center;
     gap: 8px;
   }
+  .draft-nav-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-left: 1px solid var(--el-border-color-lighter);
+    border-right: 1px solid var(--el-border-color-lighter);
+  }
+  .draft-nav-stat {
+    min-width: 64px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
   .toolbar-right {
     display: flex;
     align-items: center;
@@ -969,6 +1268,11 @@ onUnmounted(() => {
     font-weight: 700;
     color: var(--el-text-color-primary);
     letter-spacing: 0.3px;
+  }
+  .draft-mode-alert {
+    margin-left: 8px;
+    width: auto;
+    min-width: 220px;
   }
   .auto-save-status {
     display: flex;
@@ -987,6 +1291,21 @@ onUnmounted(() => {
     padding: 2px 10px;
     border-radius: 10px;
     font-weight: 600;
+  }
+}
+
+@media (max-width: 1100px) {
+  .editor-toolbar {
+    padding: 0 12px;
+    .draft-nav-wrap {
+      display: none;
+    }
+  }
+  .editor-main {
+    padding: 12px 12px 0;
+  }
+  .editor-sidebar {
+    width: 280px;
   }
 }
 
@@ -1114,7 +1433,7 @@ onUnmounted(() => {
   .cover-preview {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 14 / 9;
     border-radius: 10px;
     overflow: hidden;
     cursor: pointer;
@@ -1136,7 +1455,7 @@ onUnmounted(() => {
   }
   .cover-placeholder {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 14 / 9;
     border: 2px dashed var(--el-border-color-light);
     border-radius: 10px;
     display: flex;
@@ -1153,6 +1472,108 @@ onUnmounted(() => {
       color: var(--el-color-primary);
       background: var(--el-color-primary-light-9);
     }
+  }
+}
+
+.watermark-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+
+  &.disabled {
+    opacity: 0.6;
+  }
+}
+
+.watermark-slider-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.watermark-tip {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-placeholder);
+}
+
+.watermark-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__canvas {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 14 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--el-border-color-light);
+    background:
+      linear-gradient(135deg, rgba(20, 24, 35, 0.9), rgba(50, 65, 95, 0.72)),
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 40%);
+
+    &.is-tile .watermark-preview__text {
+      display: none;
+    }
+  }
+
+  &__text {
+    position: absolute;
+    font-weight: 600;
+    line-height: 1.3;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+
+    &.is-top-left {
+      top: 12px;
+      left: 12px;
+    }
+
+    &.is-top-right {
+      top: 12px;
+      right: 12px;
+      text-align: right;
+    }
+
+    &.is-bottom-left {
+      left: 12px;
+      bottom: 12px;
+    }
+
+    &.is-bottom-right {
+      right: 12px;
+      bottom: 12px;
+      text-align: right;
+    }
+
+    &.is-center {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+  }
+
+  &__tile {
+    position: absolute;
+    line-height: 1.2;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
   }
 }
 

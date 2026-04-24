@@ -73,7 +73,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <el-table :data="filteredLinks" v-loading="loading" stripe height="560" :row-class-name="friendLinkRowClassName"
+    <el-table :data="filteredLinks" v-loading="loading" stripe :height="tableHeight" :row-class-name="friendLinkRowClassName"
       @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" align="center" :selectable="isRowSelectable" />
       <el-table-column type="index" label="#" width="50" align="center" />
@@ -251,6 +251,7 @@ const supportedStatusFilter = new Set(['', 'pending', 'active', 'inactive', 'bro
 const applyEnabled = ref(false)
 const switchLoading = ref(false)
 const pendingFriendLinkCount = useState<number>('pendingFriendLinkCount', () => 0)
+const tableHeight = useAdminTableHeight()
 
 // 审核弹窗
 const auditDialogVisible = ref(false)
