@@ -1,0 +1,53 @@
+-- 本地采集端候选内容与推送记录
+
+CREATE TABLE IF NOT EXISTS `t_crawler_candidate` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `request_idempotency_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '批次幂等键',
+  `item_idempotency_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '条目幂等键',
+  `worker_run_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '本地worker运行批次ID',
+  `device_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '采集设备ID',
+  `external_url` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '原始URL',
+  `normalized_url` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '规范化URL',
+  `source_site` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '来源站点',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '标题',
+  `summary` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '摘要',
+  `content_markdown` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '正文markdown',
+  `cover_image` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '封面图',
+  `image_refs_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '图片引用json',
+  `content_fingerprint` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '内容指纹',
+  `published_at` datetime DEFAULT NULL COMMENT '原文发布时间',
+  `author` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '原文作者',
+  `metadata_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '扩展元数据json',
+  `state` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '状态',
+  `target_draft_id` bigint DEFAULT NULL COMMENT '关联草稿ID',
+  `push_message` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '推送消息',
+  `last_pushed_at` datetime DEFAULT NULL COMMENT '最后推送时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_crawler_item_idempotency_key` (`item_idempotency_key`),
+  UNIQUE KEY `uk_crawler_normalized_url` (`normalized_url`(255)),
+  KEY `idx_crawler_content_fingerprint` (`content_fingerprint`),
+  KEY `idx_crawler_state_create_time` (`state`, `create_time`),
+  KEY `idx_crawler_request_idempotency_key` (`request_idempotency_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采集候选内容表';
+
+CREATE TABLE IF NOT EXISTS `t_crawler_push_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `candidate_id` bigint NOT NULL COMMENT '候选内容ID',
+  `push_idempotency_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '推送幂等键',
+  `device_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '采集设备ID',
+  `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '推送状态',
+  `target_draft_id` bigint DEFAULT NULL COMMENT '目标草稿ID',
+  `message` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '状态消息',
+  `retry_count` int NOT NULL DEFAULT 0 COMMENT '重试次数',
+  `error_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '错误码',
+  `error_message` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '错误信息',
+  `pushed_at` datetime DEFAULT NULL COMMENT '推送时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_crawler_push_idempotency_key` (`push_idempotency_key`),
+  KEY `idx_crawler_push_candidate` (`candidate_id`),
+  KEY `idx_crawler_push_status_time` (`status`, `create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采集推送记录表';
