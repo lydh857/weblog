@@ -31,10 +31,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '20'
-          cache: pnpm
-          cache-dependency-path: |
-            weblog-user/pnpm-lock.yaml
-            weblog-admin/pnpm-lock.yaml
 
       - name: Enable pnpm via corepack
         run: corepack enable && corepack prepare pnpm@10 --activate
