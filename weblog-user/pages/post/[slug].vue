@@ -66,6 +66,14 @@
               </div>
             </header>
 
+            <section v-if="post.summary" class="post-summary-panel">
+              <div class="summary-label">
+                <Icon name="heroicons:document-text-20-solid" size="16" />
+                <span>摘要</span>
+              </div>
+              <p class="summary-text">{{ post.summary }}</p>
+            </section>
+
             <!-- 文章内容 -->
             <ClientOnly>
               <MdPreview
@@ -81,6 +89,14 @@
                 :no-katex="true"
                 class="post-content"
               />
+              <template #fallback>
+                <div v-if="post.htmlContent" class="post-content">
+                  <!-- 已经过 sanitizeHtml 净化 -->
+                  <!-- eslint-disable-next-line vue/no-v-html -->
+                  <div class="md-editor-preview" v-html="sanitizeMarkdownPreviewHtml(post.htmlContent)" />
+                </div>
+                <pre v-else class="post-content post-content--plaintext">{{ markdownContent }}</pre>
+              </template>
             </ClientOnly>
 
             <!-- 最后编辑时间 -->
@@ -848,6 +864,36 @@ onUnmounted(() => {
   .dark & { color: $color-dark-text-muted; &:hover { color: $color-primary; } }
 }
 .post-tags { display: flex; gap: 0.5rem; margin-top: 0.625rem; flex-wrap: wrap; }
+.post-summary-panel {
+  margin-top: 0.875rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #e8eaf0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.9));
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  .dark & {
+    border-color: rgba(148, 163, 184, 0.22);
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.82), rgba(15, 23, 42, 0.86));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+}
+.summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
+}
+.summary-text {
+  margin: 0;
+  color: $color-text;
+  line-height: 1.75;
+  font-size: 0.98rem;
+  .dark & { color: $color-dark-text; }
+}
 .tag-link {
   display: inline-flex;
   align-items: center;
@@ -912,6 +958,26 @@ onUnmounted(() => {
   :deep(img) {
     max-width: 100%;
     border-radius: $radius-md;
+  }
+}
+
+.post-content--plaintext {
+  white-space: pre-wrap;
+  font: inherit;
+  color: $color-text;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: $breakpoint-md) {
+  .post-summary-panel {
+    padding: 0.75rem 0.875rem;
+    border-radius: 14px;
+  }
+  .summary-text {
+    font-size: 0.95rem;
   }
 }
 

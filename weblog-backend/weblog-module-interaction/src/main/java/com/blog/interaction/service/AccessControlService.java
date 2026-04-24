@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("deprecation")
 public class AccessControlService {
 
     private final StringRedisTemplate redisTemplate;

@@ -96,7 +96,8 @@ public class AdminPostController {
     public Result<Integer> batchPublish(@Valid @RequestBody BatchIdsRequest req) {
         checkBatchSize(req.getIds().size());
         Long operatorId = StpUtil.getLoginIdAsLong();
-        return Result.success(postService.batchPublish(req.getIds(), operatorId));
+        boolean isAdmin = StpUtil.hasRole("admin");
+        return Result.success(postService.batchPublish(req.getIds(), operatorId, isAdmin));
     }
 
     @Operation(summary = "批量撤销定时发布")
@@ -105,7 +106,8 @@ public class AdminPostController {
     public Result<Integer> batchCancelSchedule(@Valid @RequestBody BatchIdsRequest req) {
         checkBatchSize(req.getIds().size());
         Long operatorId = StpUtil.getLoginIdAsLong();
-        return Result.success(postService.batchCancelSchedule(req.getIds(), operatorId));
+        boolean isAdmin = StpUtil.hasRole("admin");
+        return Result.success(postService.batchCancelSchedule(req.getIds(), operatorId, isAdmin));
     }
 
     @Operation(summary = "批量定时发布")

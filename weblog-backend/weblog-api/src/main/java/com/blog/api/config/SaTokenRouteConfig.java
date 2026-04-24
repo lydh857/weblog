@@ -24,7 +24,8 @@ public class SaTokenRouteConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/admin/**")
                 .excludePathPatterns(
                         "/api/admin/auth/login",
-                        "/api/admin/auth/remember-login"
+                        "/api/admin/auth/remember-login",
+                        "/api/admin/crawler/**"
                 );
     }
 }

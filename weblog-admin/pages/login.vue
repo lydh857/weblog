@@ -258,7 +258,9 @@ async function autoLogin() {
     }
     return false
   } catch (error) {
-    console.error('自动登录失败:', error)
+    if (import.meta.dev) {
+      console.warn('自动登录失败:', error)
+    }
     localStorage.removeItem(REMEMBER_KEY)
     return false
   }

@@ -40,6 +40,7 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
 @RestController
 @RequestMapping("/api/admin/friend-link")
 @RequiredArgsConstructor
+@SuppressWarnings("deprecation")
 public class AdminFriendLinkController {
 
     private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";

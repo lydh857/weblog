@@ -96,6 +96,7 @@ const message = useMessage()
 let scrollLocked = false
 const waitEnvelopeClose = ref(false)
 const useCustomScrollbar = ref(false)
+const closedByUserInSession = ref(false)
 let modalRequestPromise: Promise<AnnouncementVO[]> | null = null
 
 const forceModalPreview = computed(() => {
@@ -188,6 +189,10 @@ function goNext() {
 
 function tryClose() {
   dismissCurrent()
+  closedByUserInSession.value = true
+  if (!forceModalPreview.value) {
+    modalAnnouncements.value = filterModalAnnouncements(modalAnnouncements.value, getDismissedKeys())
+  }
   visible.value = false
 }
 
@@ -399,6 +404,9 @@ function showModalRetryMissHintOnce() {
 
 function revealIfReady() {
   if (modalAnnouncements.value.length === 0) {
+    return
+  }
+  if (closedByUserInSession.value && !forceModalPreview.value) {
     return
   }
   if (waitEnvelopeClose.value) {

@@ -4,7 +4,7 @@
       v-if="shouldRenderNavbar"
       class="navbar"
       :class="{
-        'navbar--transparent': isNavbarTransparent,
+        'navbar--transparent': isHomeChromeTransparent,
         'navbar--hidden': isNavHidden
       }"
     >
@@ -26,7 +26,7 @@
             class="mobile-search-ticker"
             :items="homeNavRankingItems"
             :mobile="true"
-            :transparent="isHomePage && !isScrolled"
+            :transparent="isHomeChromeTransparent"
             @placeholder-search="openSearchWithPlaceholder"
             @direct-search="openSearchWithDirectKeyword"
           />
@@ -36,7 +36,7 @@
           :class="{ 'animate-nav-item': shouldAnimate }"
           :style="shouldAnimate ? '--delay: 0.12s' : ''"
           :items="homeNavRankingItems"
-          :transparent="isHomePage && !isScrolled"
+          :transparent="isHomeChromeTransparent"
           @placeholder-search="openSearchWithPlaceholder"
           @direct-search="openSearchWithDirectKeyword"
         />
@@ -195,7 +195,7 @@
       v-model:visible="announcementCenterVisible"
       @unread-change="handleAnnouncementUnreadChange"
     />
-    <AnnouncementBanner type="banner" :nav-hidden="isNavHidden" :transparent="isHomePage && !isScrolled" />
+    <AnnouncementBanner type="banner" :nav-hidden="isNavHidden" :transparent="isHomeChromeTransparent" />
     <main class="main-content" :class="{ 'has-announcement': announcementBarVisible && !isHomePage }">
       <slot />
     </main>
@@ -247,7 +247,8 @@ let hideUserMenuTimer: ReturnType<typeof setTimeout> | null = null
 
 // ===== 导航栏滚动状态 =====
 const isHomePage = computed(() => route.path === '/')
-const isNavbarTransparent = computed(() => (isHomePage.value && !isScrolled.value) || forceHomeNavbarTransparent.value)
+const isHomeChromeReady = ref(true)
+const isHomeChromeTransparent = computed(() => isHomePage.value && isHomeChromeReady.value && (!isScrolled.value || forceHomeNavbarTransparent.value))
 const globalLeftAdVisible = ref(false)
 const globalLeftAdDismissed = ref(false)
 const isGlobalLeftAdScrollingHidden = ref(false)
@@ -552,7 +553,9 @@ watch(() => route.path, (path, oldPath) => {
 
   const isEnterHomeFromOtherPage = path === '/' && Boolean(oldPath) && oldPath !== '/'
   if (isEnterHomeFromOtherPage) {
-    hasPlayedHomeNavEntrance.value = false
+    isHomeChromeReady.value = false
+  } else if (path !== '/') {
+    isHomeChromeReady.value = true
   }
 
   if (path !== '/') {
@@ -594,6 +597,9 @@ watch(() => route.path, (path, oldPath) => {
     refreshGlobalLeftAdVisibility()
     requestAnimationFrame(() => {
       handleScroll()
+      if (path === '/') {
+        isHomeChromeReady.value = true
+      }
     })
   })
 }, { immediate: true })

@@ -63,9 +63,12 @@ public final class XssUtil {
             return markdown;
         }
 
-        String normalized = markdown.replace("\u0000", "");
+        String normalized = markdown.replace("\u0000", "").replace("\r\n", "\n").replace("\r", "\n");
+        String newlineToken = "__BLOG_MD_NL_TOKEN__";
+        String preserved = normalized.replace("\n", newlineToken);
         Document.OutputSettings outputSettings = new Document.OutputSettings().prettyPrint(false);
-        return Jsoup.clean(normalized, "", MARKDOWN_HTML_SAFELIST, outputSettings);
+        String cleaned = Jsoup.clean(preserved, "", MARKDOWN_HTML_SAFELIST, outputSettings);
+        return cleaned.replace(newlineToken, "\n");
     }
 
     /**

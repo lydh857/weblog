@@ -183,6 +183,9 @@ public class PostService {
         post.setPreviewTheme(req.getPreviewTheme());
         post.setCodeTheme(req.getCodeTheme());
 
+        // 显式刷新更新时间，避免更新填充保留旧值导致列表时间不变
+        post.setUpdateTime(LocalDateTime.now());
+
         // 处理新分类（发布时自动创建）
         handleNewCategory(req, post);
 
@@ -243,10 +246,12 @@ public class PostService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权编辑此文章");
         }
 
+        boolean changed = false;
+
         // 只更新标题
         if (req.getTitle() != null) {
             post.setTitle(XssUtil.cleanText(req.getTitle()));
-            postMapper.updateById(post);
+            changed = true;
         }
 
         // 只更新内容
@@ -263,6 +268,16 @@ public class PostService {
                 content.setHtmlContent(null);
                 postContentMapper.updateById(content);
             }
+            changed = true;
+        }
+
+        if (changed) {
+            post.setUpdateTime(LocalDateTime.now());
+            postMapper.updateById(post);
+        }
+
+        if (req.getTitle() != null || req.getContent() != null) {
+            post.setUpdateTime(LocalDateTime.now());
         }
 
         log.debug("文章自动保存: id={}", id);
@@ -514,12 +529,12 @@ public class PostService {
      * 批量发布草稿
      */
     @Transactional
-    public int batchPublish(List<Long> ids, Long operatorId) {
+    public int batchPublish(List<Long> ids, Long operatorId, boolean isAdmin) {
         int count = 0;
         for (Long id : ids) {
             Post post = postMapper.selectById(id);
             if (post == null) continue;
-            if (!post.getAuthorId().equals(operatorId)) continue;
+            if (!isAdmin && !post.getAuthorId().equals(operatorId)) continue;
             if (!"draft".equals(post.getStatus()) && !"scheduled".equals(post.getStatus())) continue;
             post.setStatus("published");
             post.setIsPublished(true);
@@ -533,7 +548,7 @@ public class PostService {
                     post.getSummary(), post.getCategoryId(), post.getAuthorId());
             count++;
         }
-        log.info("批量发布: count={}, operator={}", count, operatorId);
+        log.info("批量发布: count={}, operator={}, isAdmin={}", count, operatorId, isAdmin);
         return count;
     }
 
@@ -563,12 +578,12 @@ public class PostService {
      * 批量撤销定时发布（回到草稿箱）
      */
     @Transactional
-    public int batchCancelSchedule(List<Long> ids, Long operatorId) {
+    public int batchCancelSchedule(List<Long> ids, Long operatorId, boolean isAdmin) {
         int count = 0;
         for (Long id : ids) {
             Post post = postMapper.selectById(id);
             if (post == null) continue;
-            if (!post.getAuthorId().equals(operatorId)) continue;
+            if (!isAdmin && !post.getAuthorId().equals(operatorId)) continue;
             if (!"scheduled".equals(post.getStatus())) continue;
             post.setStatus("draft");
             post.setPublishType("immediate");
@@ -577,7 +592,7 @@ public class PostService {
             postMapper.updateById(post);
             count++;
         }
-        log.info("批量撤销定时发布: count={}, operator={}", count, operatorId);
+        log.info("批量撤销定时发布: count={}, operator={}, isAdmin={}", count, operatorId, isAdmin);
         return count;
     }
 
@@ -815,6 +830,7 @@ public class PostService {
     /**
      * 获取上一篇文章（比当前文章更早发布的最近一篇）
      */
+    @Cacheable(value = "post:navigation", key = "'prev:' + #currentPostId", unless = "#result == null")
     public PostVO getPrevPost(Long currentPostId) {
         Post current = postMapper.selectById(currentPostId);
         if (current == null) return null;
@@ -840,6 +856,7 @@ public class PostService {
     /**
      * 获取下一篇文章（比当前文章更晚发布的最近一篇）
      */
+    @Cacheable(value = "post:navigation", key = "'next:' + #currentPostId", unless = "#result == null")
     public PostVO getNextPost(Long currentPostId) {
         Post current = postMapper.selectById(currentPostId);
         if (current == null) return null;
@@ -1330,6 +1347,14 @@ public class PostService {
         Cache cache = cacheManager.getCache("post:detail");
         if (cache != null) {
             cache.evict(slug);
+        }
+        evictPostNavigationCache();
+    }
+
+    private void evictPostNavigationCache() {
+        Cache cache = cacheManager.getCache("post:navigation");
+        if (cache != null) {
+            cache.clear();
         }
     }
 

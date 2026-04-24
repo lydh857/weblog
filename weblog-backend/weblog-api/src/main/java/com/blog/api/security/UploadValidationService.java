@@ -52,6 +52,19 @@ public class UploadValidationService {
         }
     }
 
+    public void validateImageExtension(String ext) {
+        String normalized = ext == null ? "" : ext.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+
+        Set<String> allowedTypes = resolveAllowedTypes();
+        if (!allowedTypes.contains(normalized)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "不支持该图片类型，仅允许: " + String.join(",", allowedTypes));
+        }
+    }
+
     private long resolveMaxBytes() {
         int configured = systemConfigService.getIntValue(UPLOAD_MAX_SIZE_MB_KEY, DEFAULT_MAX_SIZE_MB);
         int safe = (configured < MIN_MAX_SIZE_MB || configured > MAX_MAX_SIZE_MB) ? DEFAULT_MAX_SIZE_MB : configured;

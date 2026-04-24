@@ -30,7 +30,8 @@ public class SystemConfigService {
     private static final long CACHE_TTL_MILLIS = 30_000L;
     private static final String MASKED_VALUE = "******";
     private static final Set<String> SENSITIVE_CONFIG_KEYS = Set.of(
-            "mail_password"
+            "mail_password",
+            "crawler_integration_token"
     );
     private static final Map<String, String> ENV_FALLBACK_KEYS = Map.of(
             "mail_smtp_host", "MAIL_SMTP_HOST",

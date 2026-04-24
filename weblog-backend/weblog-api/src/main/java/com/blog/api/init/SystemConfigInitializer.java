@@ -106,6 +106,9 @@ public class SystemConfigInitializer {
         systemConfigService.createIfAbsent("rate_limit_auto_block_threshold", "20", "接口限流自动封禁触发阈值（窗口内命中次数）");
         systemConfigService.createIfAbsent("rate_limit_auto_block_window_minutes", "10", "接口限流自动封禁统计窗口（分钟）");
         systemConfigService.createIfAbsent("rate_limit_auto_block_minutes", "60", "接口限流自动封禁时长（分钟）");
+        systemConfigService.createIfAbsent("crawler_ingest_enabled", "false", "本地采集入库开关（true=允许本地采集端推送）");
+        systemConfigService.createIfAbsent("crawler_integration_token", "", "本地采集端集成令牌（用于 API 鉴权）");
+        systemConfigService.createIfAbsent("crawler_draft_owner_user_id", "1", "本地采集草稿归属用户ID");
         systemConfigService.createIfAbsent(
                 "rate_limit_auto_block_key_prefixes",
                 "register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete",

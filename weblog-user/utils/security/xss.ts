@@ -2,22 +2,59 @@ import DOMPurify from 'dompurify'
 
 interface DomPurifyLike {
   sanitize: (dirty: string, config?: Record<string, unknown>) => string
+  addHook?: (name: 'afterSanitizeAttributes', hook: (node: Element) => void) => void
+}
+
+let linkRelHookInstalled = false
+
+function normalizeAnchorAttributes(node: Element) {
+  if (node.nodeName !== 'A') {
+    return
+  }
+
+  const target = node.getAttribute('target')
+  if (!target) {
+    return
+  }
+
+  if (target !== '_blank' && target !== '_self') {
+    node.removeAttribute('target')
+    return
+  }
+
+  if (target === '_blank') {
+    const rel = new Set((node.getAttribute('rel') || '').split(/\s+/).filter(Boolean))
+    rel.add('noopener')
+    rel.add('noreferrer')
+    node.setAttribute('rel', Array.from(rel).join(' '))
+  }
+}
+
+function installLinkRelHook(purifier: DomPurifyLike) {
+  if (linkRelHookInstalled || !purifier.addHook) {
+    return
+  }
+
+  purifier.addHook('afterSanitizeAttributes', normalizeAnchorAttributes)
+  linkRelHookInstalled = true
 }
 
 function resolvePurify(): DomPurifyLike | null {
   const mod = DOMPurify as unknown as {
     sanitize?: DomPurifyLike['sanitize']
+    addHook?: DomPurifyLike['addHook']
     default?: {
       sanitize?: DomPurifyLike['sanitize']
+      addHook?: DomPurifyLike['addHook']
     }
   } & ((win: Window) => DomPurifyLike)
 
   if (typeof mod?.sanitize === 'function') {
-    return { sanitize: mod.sanitize }
+    return { sanitize: mod.sanitize, addHook: mod.addHook }
   }
 
   if (typeof mod?.default?.sanitize === 'function') {
-    return { sanitize: mod.default.sanitize }
+    return { sanitize: mod.default.sanitize, addHook: mod.default.addHook }
   }
 
   if (import.meta.client && typeof mod === 'function' && typeof window !== 'undefined') {
@@ -35,6 +72,7 @@ function safeSanitize(dirty: string, config?: Record<string, unknown>): string {
   if (!purifier) {
     return escapeHtml(dirty)
   }
+  installLinkRelHook(purifier)
   return purifier.sanitize(dirty, config)
 }
 

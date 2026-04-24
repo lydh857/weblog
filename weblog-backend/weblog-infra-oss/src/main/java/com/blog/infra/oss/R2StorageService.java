@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -284,8 +285,7 @@ public class R2StorageService {
             BufferedInputStream bis = inputStream instanceof BufferedInputStream
                     ? (BufferedInputStream) inputStream
                     : new BufferedInputStream(inputStream);
-            bis.mark((int) MAX_SIZE + 16);
-            byte[] data = bis.readAllBytes();
+            byte[] data = readLimitedBytes(bis);
             if (data.length < 4) {
                 throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容无效");
             }
@@ -296,14 +296,25 @@ public class R2StorageService {
                 throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件内容与扩展名不匹配");
             }
 
-            if (data.length > MAX_SIZE) {
-                throw new BusinessException(ResultCode.FILE_TOO_LARGE);
-            }
-
             return new UploadPayload(data);
         } catch (IOException ex) {
             throw new BusinessException(ResultCode.FILE_TYPE_NOT_ALLOWED, "文件读取失败");
         }
+    }
+
+    private byte[] readLimitedBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        long total = 0;
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            total += read;
+            if (total > MAX_SIZE) {
+                throw new BusinessException(ResultCode.FILE_TOO_LARGE);
+            }
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
     }
 
     private boolean verifyMagicNumber(String ext, byte[] header) {

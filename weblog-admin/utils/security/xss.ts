@@ -1,10 +1,45 @@
 import DOMPurify from 'dompurify'
 
+let linkRelHookInstalled = false
+
+function normalizeAnchorAttributes(node: Element) {
+  if (node.nodeName !== 'A') {
+    return
+  }
+
+  const target = node.getAttribute('target')
+  if (!target) {
+    return
+  }
+
+  if (target !== '_blank' && target !== '_self') {
+    node.removeAttribute('target')
+    return
+  }
+
+  if (target === '_blank') {
+    const rel = new Set((node.getAttribute('rel') || '').split(/\s+/).filter(Boolean))
+    rel.add('noopener')
+    rel.add('noreferrer')
+    node.setAttribute('rel', Array.from(rel).join(' '))
+  }
+}
+
+function installLinkRelHook() {
+  if (linkRelHookInstalled) {
+    return
+  }
+
+  DOMPurify.addHook('afterSanitizeAttributes', normalizeAnchorAttributes)
+  linkRelHookInstalled = true
+}
+
 /**
  * XSS 清理 - 用于用户输入的文本内容
  * 移除所有 HTML 标签，只保留纯文本
  */
 export function sanitizeText(dirty: string): string {
+  installLinkRelHook()
   return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] })
 }
 
@@ -13,6 +48,7 @@ export function sanitizeText(dirty: string): string {
  * 保留安全的 HTML 标签，移除危险标签和属性
  */
 export function sanitizeHtml(dirty: string): string {
+  installLinkRelHook()
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',

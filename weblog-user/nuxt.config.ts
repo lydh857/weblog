@@ -1,3 +1,20 @@
+const cspPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https: http: ws: wss:",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "report-uri /api/security/csp/report",
+  "report-to csp-endpoint",
+].join('; ')
+
+const defaultCspStage = import.meta.env.PROD ? 'report-only' : 'report-only'
+const cspStage = (import.meta.env.NUXT_CSP_STAGE || defaultCspStage).toLowerCase()
+
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'SAMEORIGIN',
   'X-Content-Type-Options': 'nosniff',
@@ -5,6 +22,14 @@ const securityHeaders: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Reporting-Endpoints': 'csp-endpoint="/api/security/csp/report"',
   'Report-To': '{"group":"csp-endpoint","max_age":10886400,"endpoints":[{"url":"/api/security/csp/report"}]}',
+}
+
+if (cspStage === 'enforce' || cspStage === 'dual') {
+  securityHeaders['Content-Security-Policy'] = cspPolicy
+}
+
+if (cspStage === 'report-only' || cspStage === 'dual') {
+  securityHeaders['Content-Security-Policy-Report-Only'] = cspPolicy
 }
 
 function normalizeApiBase(raw: string | undefined, fallback: string): string {
@@ -98,7 +123,7 @@ export default defineNuxtConfig({
 
   // 页面缓存配置（SWR - Stale-While-Revalidate）
   routeRules: {
-    // 基础安全响应头（CSP 统一由网关层下发，避免重复策略冲突）
+    // 基础安全响应头；CSP 默认报告模式，避免影响既有 SSR 与前端增强脚本。
     '/**': {
       headers: securityHeaders,
     },

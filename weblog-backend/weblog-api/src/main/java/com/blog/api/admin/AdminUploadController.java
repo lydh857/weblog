@@ -126,9 +126,10 @@ public class AdminUploadController {
         }
         StpUtil.checkLogin();
         Long userId = StpUtil.getLoginIdAsLong();
-        uploadGuardService.consumeDirectSign(userId, IpUtil.getClientIp(request));
         String normalizedExt = normalizeExt(ext);
+        uploadValidationService.validateImageExtension(normalizedExt);
         String normalizedUsageType = normalizeUsageType(usageType);
+        uploadGuardService.consumeDirectSign(userId, IpUtil.getClientIp(request));
         Map<String, String> policy = storageFacade.generateUploadPolicy(normalizedExt);
 
         if (ossResourceService != null) {
