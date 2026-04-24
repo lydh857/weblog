@@ -219,3 +219,4 @@ blog:
 # 滑块验证码配置
 captcha:
   secret-key: ${CAPTCHA_SECRET_KEY:}
+  verify-token-expire-seconds: ${CAPTCHA_VERIFY_TOKEN_EXPIRE_SECONDS:120}

@@ -1,6 +1,7 @@
-type OpenCaptchaFn = (onSuccess: (verifyToken: string) => void) => void
+type OpenCaptchaFn = (onSuccess: (verifyToken: string) => void, scene?: string) => void
 
 interface RunCaptchaActionOptions {
+  scene: string
   onStart?: () => void
   onFinally?: () => void
   action: (verifyToken: string) => Promise<void>
@@ -15,7 +16,7 @@ export function useCaptchaActionRunner(openCaptcha: OpenCaptchaFn) {
       } finally {
         options.onFinally?.()
       }
-    })
+    }, options.scene)
   }
 
   return {

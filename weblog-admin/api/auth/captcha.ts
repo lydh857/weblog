@@ -22,12 +22,12 @@ export interface CaptchaVerifyResult {
 }
 
 export const captchaApi = {
-  generate: () =>
-    http.get<unknown, { data: CaptchaGenerateResult }>('/captcha/generate'),
+  generate: (scene: string) =>
+    http.get<unknown, { data: CaptchaGenerateResult }>('/captcha/generate', { params: { scene } }),
 
-  verify: (data: { captchaToken: string; sliderPosition: number; slideTrack: TrackPoint[] }) =>
+  verify: (data: { captchaToken: string; scene: string; sliderPosition: number; slideTrack: TrackPoint[] }) =>
     http.post<unknown, { data: CaptchaVerifyResult }>('/captcha/verify', data),
 
-  refresh: (oldToken: string) =>
-    http.post<unknown, { data: CaptchaGenerateResult }>('/captcha/refresh', { oldToken }),
+  refresh: (oldToken: string, scene: string) =>
+    http.post<unknown, { data: CaptchaGenerateResult }>('/captcha/refresh', { oldToken, scene }),
 }

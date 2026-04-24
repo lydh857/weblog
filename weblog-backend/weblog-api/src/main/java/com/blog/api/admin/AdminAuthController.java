@@ -55,6 +55,7 @@ public class AdminAuthController {
     private static final String ADMIN_LOGIN_RATE_LIMIT_KEY = "admin_login_rate_limit";
     private static final String ADMIN_REVOKE_TOKEN_RATE_LIMIT_KEY = "admin_revoke_token_rate_limit";
     private static final String ADMIN_REVOKE_ALL_TOKENS_RATE_LIMIT_KEY = "admin_revoke_all_tokens_rate_limit";
+    private static final String CAPTCHA_SCENE_ADMIN_LOGIN = "admin-login";
 
     @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
     private String uploadBaseUrl;
@@ -81,7 +82,7 @@ public class AdminAuthController {
                 "管理员登录请求过于频繁，请稍后再试"
         );
         loginSecurityPolicyService.enforceLoginRateLimit("admin-login", clientIp);
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_ADMIN_LOGIN);
         LoginResponse loginResponse = authService.adminLogin(req, clientIp, userAgent);
         loginResponse.setAvatar(normalizeLegacyUploadUrl(loginResponse.getAvatar()));
 

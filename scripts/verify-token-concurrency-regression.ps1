@@ -210,7 +210,7 @@ function New-HumanLikeTrack([int]$sliderPosition) {
 }
 
 function Try-AcquireVerifyToken() {
-  $generateUrl = Join-Url $BaseUrl "/api/captcha/generate"
+  $generateUrl = Join-Url $BaseUrl "/api/captcha/generate?scene=access-unlock"
   $verifyUrl = Join-Url $BaseUrl "/api/captcha/verify"
 
   $metrics = [ordered]@{
@@ -250,6 +250,7 @@ function Try-AcquireVerifyToken() {
     $sliderPosition = Get-Random -Minimum $AcquireSliderMin -Maximum ($AcquireSliderMax + 1)
     $verifyBody = [ordered]@{
       captchaToken = $captchaToken
+      scene = 'access-unlock'
       sliderPosition = $sliderPosition
       slideTrack = (New-HumanLikeTrack -sliderPosition $sliderPosition)
     }

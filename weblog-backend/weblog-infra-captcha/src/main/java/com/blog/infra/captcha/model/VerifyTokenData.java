@@ -14,5 +14,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class VerifyTokenData {
     private String clientIp;
+    private String scene;
     private long createTime;
 }

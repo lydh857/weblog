@@ -172,6 +172,7 @@ function New-VerifyPayload([string]$captchaToken) {
   $sliderPosition = 60
   return [ordered]@{
     captchaToken = $captchaToken
+    scene = 'regression'
     sliderPosition = $sliderPosition
     slideTrack = (New-BotTrack -sliderPosition $sliderPosition)
   }
@@ -208,7 +209,7 @@ function Invoke-FailureAttempt(
     'Referer' = "$ClientOrigin/"
   }
 
-  $generateUrl = Join-Url $BaseUrl '/api/captcha/generate'
+  $generateUrl = Join-Url $BaseUrl '/api/captcha/generate?scene=regression'
   $generateResp = Invoke-Api -method 'GET' -url $generateUrl -webSession $webSession -headers $headers
   $generateCode = Get-ResponseCode $generateResp
   $generateMessage = Get-ResponseMessage $generateResp

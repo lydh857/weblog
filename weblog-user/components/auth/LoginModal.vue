@@ -291,7 +291,7 @@
     </div>
 
     <!-- 滑块验证码 -->
-    <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
+    <SliderCaptcha v-model:visible="captchaVisible" :scene="captchaScene" @success="onCaptchaSuccess" />
   </BaseModal>
 </template>
 
@@ -308,7 +308,7 @@ import { useUserStore } from '~/stores/user'
 import { getErrorCode, getErrorMessage } from '~/utils/security/error'
 
 // 滑块验证码
-const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
+const { visible: captchaVisible, scene: captchaScene, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
 
 const loginModal = useLoginModal()
 const message = useMessage()
@@ -664,6 +664,7 @@ async function handleResetSendCode() {
   }
   resetErrors.email = ''; resetErrors.code = ''
   runCaptchaAction({
+    scene: 'send-code:forgot-password',
     onStart: () => {
       resetSendingCode.value = true
     },
@@ -703,6 +704,7 @@ const resetPwdLabel = computed(() => ['', '弱', '一般', '较强', '强'][rese
 async function handleResetSubmit() {
   if (!validateResetForm()) return
   runCaptchaAction({
+    scene: 'forgot-password',
     onStart: () => {
       resetSubmitting.value = true
     },
@@ -770,6 +772,7 @@ async function handleSendCode() {
   if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { errors.email = '请输入有效的邮箱地址'; return }
   errors.email = ''; errors.code = ''
   runCaptchaAction({
+    scene: `send-code:${getCooldownScene()}`,
     onStart: () => {
       sendingCode.value = true
     },
@@ -862,6 +865,7 @@ async function handleSubmit() {
     if (mode.value === 'password') {
       submitting.value = false
       runCaptchaAction({
+        scene: 'login-password',
         onStart: () => {
           submitting.value = true
         },
@@ -891,6 +895,7 @@ async function handleSubmit() {
     if (mode.value === 'code') {
       submitting.value = false
       runCaptchaAction({
+        scene: 'login-code',
         onStart: () => {
           submitting.value = true
         },
@@ -918,6 +923,7 @@ async function handleSubmit() {
 
     submitting.value = false
     runCaptchaAction({
+      scene: 'register',
       onStart: () => {
         submitting.value = true
       },

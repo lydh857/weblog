@@ -3,6 +3,7 @@ package com.blog.infra.captcha.service;
 import com.blog.common.exception.BusinessException;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.DesensitizeUtil;
+import com.blog.infra.captcha.CaptchaProperties;
 import com.blog.infra.captcha.enums.PuzzleShape;
 import com.blog.infra.captcha.model.*;
 import com.blog.infra.redis.RedisService;
@@ -30,6 +31,7 @@ public class CaptchaServiceImpl implements CaptchaService {
     private final CaptchaImageService imageService;
     private final TrackAnalyzer trackAnalyzer;
     private final TokenGenerator tokenGenerator;
+    private final CaptchaProperties captchaProperties;
     private final RedisService redisService;
     private final ObjectMapper objectMapper;
     private final Environment environment;
@@ -50,8 +52,9 @@ public class CaptchaServiceImpl implements CaptchaService {
     // ===== 生成验证码 =====
 
     @Override
-    public CaptchaGenerateVO generateCaptcha(CaptchaRiskContext context) {
+    public CaptchaGenerateVO generateCaptcha(String scene, CaptchaRiskContext context) {
         String clientIp = safeClientIp(context);
+        String normalizedScene = normalizeScene(scene);
         // 黑名单检查
         checkBlacklist(context);
 
@@ -86,6 +89,7 @@ public class CaptchaServiceImpl implements CaptchaService {
                 .puzzleY(puzzleY)
                 .puzzleShape(shape.name())
                 .clientIp(clientIp)
+                .scene(normalizedScene)
                 .createTime(System.currentTimeMillis())
                 .build();
         saveToRedis(CAPTCHA_DATA_PREFIX + captchaToken, data, CAPTCHA_EXPIRE_SECONDS);
@@ -121,6 +125,13 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         CaptchaData data = readJson(json, CaptchaData.class);
         if (data == null) {
+            return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
+        }
+
+        String requestScene = normalizeScene(request.getScene());
+        if (!requestScene.equals(data.getScene())) {
+            log.warn("验证码场景不匹配，token: {}, scene: {}", maskDimension(request.getCaptchaToken()), requestScene);
+            recordFailure(context);
             return CaptchaVerifyVO.builder().success(false).message(MSG_VERIFY_FAIL).build();
         }
 
@@ -161,13 +172,14 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         // 验证成功 → 生成 verifyToken
         long createTime = System.currentTimeMillis();
-        TokenGenerator.TokenResult tokenResult = tokenGenerator.generateToken(clientIp, createTime);
+        TokenGenerator.TokenResult tokenResult = tokenGenerator.generateToken(clientIp, requestScene, createTime);
 
         VerifyTokenData tokenData = VerifyTokenData.builder()
                 .clientIp(clientIp)
+                .scene(requestScene)
                 .createTime(createTime)
                 .build();
-        saveToRedis(VERIFY_TOKEN_PREFIX + tokenResult.tokenId(), tokenData, VERIFY_TOKEN_EXPIRE_SECONDS);
+        saveToRedis(VERIFY_TOKEN_PREFIX + tokenResult.tokenId(), tokenData, getVerifyTokenExpireSeconds());
 
         clearFailureCounters(context);
 
@@ -183,20 +195,21 @@ public class CaptchaServiceImpl implements CaptchaService {
     // ===== 刷新验证码 =====
 
     @Override
-    public CaptchaGenerateVO refreshCaptcha(String oldToken, CaptchaRiskContext context) {
+    public CaptchaGenerateVO refreshCaptcha(String oldToken, String scene, CaptchaRiskContext context) {
         if (StringUtils.hasText(oldToken)) {
             redisService.delete(CAPTCHA_DATA_PREFIX + oldToken);
         }
-        return generateCaptcha(context);
+        return generateCaptcha(scene, context);
     }
 
     // ===== 校验 Verify_Token =====
 
     @Override
-    public boolean validateVerifyToken(String verifyToken, String clientIp) {
+    public boolean validateVerifyToken(String verifyToken, String clientIp, String scene) {
         if (!StringUtils.hasText(verifyToken)) {
             return false;
         }
+        String normalizedScene = normalizeScene(scene);
 
         // 校验 HMAC 签名
         String tokenId = tokenGenerator.extractTokenId(verifyToken);
@@ -216,7 +229,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         // 校验签名完整性
-        if (!tokenGenerator.validateSignature(verifyToken, tokenData.getClientIp(), tokenData.getCreateTime())) {
+        if (!tokenGenerator.validateSignature(verifyToken, tokenData.getClientIp(), tokenData.getScene(), tokenData.getCreateTime())) {
             log.warn("Verify_Token 签名校验失败");
             return false;
         }
@@ -227,12 +240,17 @@ public class CaptchaServiceImpl implements CaptchaService {
             return false;
         }
 
+        if (!normalizedScene.equals(tokenData.getScene())) {
+            log.warn("Verify_Token 场景不匹配，存储: {}, 请求: {}", tokenData.getScene(), normalizedScene);
+            return false;
+        }
+
         return true;
     }
 
     @Override
-    public void validateVerifyTokenOrThrow(String verifyToken, String clientIp) {
-        if (!validateVerifyToken(verifyToken, clientIp)) {
+    public void validateVerifyTokenOrThrow(String verifyToken, String clientIp, String scene) {
+        if (!validateVerifyToken(verifyToken, clientIp, scene)) {
             throw new BusinessException(ResultCode.PARAM_INVALID, "验证令牌无效或已过期");
         }
     }
@@ -331,6 +349,18 @@ public class CaptchaServiceImpl implements CaptchaService {
             return "unknown";
         }
         return context.getClientIp();
+    }
+
+    private String normalizeScene(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return "default";
+        }
+        return raw.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private int getVerifyTokenExpireSeconds() {
+        int configured = captchaProperties.getVerifyTokenExpireSeconds();
+        return configured > 0 ? configured : VERIFY_TOKEN_EXPIRE_SECONDS;
     }
 
     private String normalizeDimensionValue(String raw) {

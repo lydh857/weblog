@@ -14,4 +14,9 @@ public class CaptchaRefreshRequest {
     @Size(max = 36, message = "令牌格式无效")
     @Pattern(regexp = "^[a-f0-9\\-]{1,36}$", message = "令牌格式无效")
     private String oldToken;
+
+    @NotBlank(message = "scene 不能为空")
+    @Size(max = 50, message = "scene 格式无效")
+    @Pattern(regexp = "^[a-z0-9][a-z0-9:-]{0,49}$", message = "scene 格式无效")
+    private String scene;
 }

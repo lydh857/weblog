@@ -187,7 +187,7 @@
       </div>
     </Transition>
 
-    <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
+    <SliderCaptcha v-model:visible="captchaVisible" :scene="captchaScene" @success="onCaptchaSuccess" />
 
     <AvatarCropper
       v-model="cropperVisible"
@@ -222,7 +222,7 @@ const form = reactive({ nickname: '', bio: '', avatar: null as string | null })
 const currentAvatarSrc = computed(() => avatarPreview.value || form.avatar)
 const showAvatarImage = computed(() => !!currentAvatarSrc.value && !avatarImageLoadFailed.value)
 
-const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
+const { visible: captchaVisible, scene: captchaScene, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
 
 const profileData = ref<UserProfileVO | null>(null)
 const emailDialogVisible = ref(false)
@@ -389,17 +389,17 @@ async function sendEmailCode() {
   }
 
   dlgEmailErrors.email = ''
+  const scene = profileData.value?.needBindEmail ? 'bind' : 'change-email'
   openCaptcha(async (verifyToken: string) => {
     emailSending.value = true
     try {
-      const scene = profileData.value?.needBindEmail ? 'bind' : 'change-email'
       await authApi.sendCode({ email: emailForm.email, scene }, verifyToken)
       startEmailCooldown(60)
       message.success('验证码已发送')
     } catch (e: unknown) {
       message.error(getErrorMessage(e, '发送失败'))
     } finally { emailSending.value = false }
-  })
+  }, `send-code:${scene}`)
 }
 
 async function submitEmail() {
@@ -435,7 +435,7 @@ async function sendPwdCode() {
     } catch (e: unknown) {
       message.error(getErrorMessage(e, '发送失败'))
     } finally { pwdSending.value = false }
-  })
+  }, 'send-code:reset-pwd')
 }
 
 async function submitPassword() {

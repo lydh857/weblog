@@ -16,7 +16,7 @@ import java.util.UUID;
  * <p>
  * Token 格式：{tokenId}.{hmacSignature}
  * <br>
- * 签名内容：tokenId + "|" + clientIp + "|" + createTime
+ * 签名内容：tokenId + "|" + clientIp + "|" + scene + "|" + createTime
  */
 @Component
 public class TokenGenerator {
@@ -34,12 +34,13 @@ public class TokenGenerator {
      * 生成带 HMAC 签名的验证令牌。
      *
      * @param clientIp   客户端 IP
+     * @param scene      使用场景
      * @param createTime 创建时间戳
      * @return tokenId（用于 Redis key）和完整 token（返回给前端）
      */
-    public TokenResult generateToken(String clientIp, long createTime) {
+    public TokenResult generateToken(String clientIp, String scene, long createTime) {
         String tokenId = UUID.randomUUID().toString();
-        String signature = computeSignature(tokenId, clientIp, createTime);
+        String signature = computeSignature(tokenId, clientIp, scene, createTime);
         String fullToken = tokenId + TOKEN_SEPARATOR + signature;
         return new TokenResult(tokenId, fullToken);
     }
@@ -63,10 +64,11 @@ public class TokenGenerator {
      *
      * @param token      完整 token 字符串
      * @param clientIp   客户端 IP
+     * @param scene      使用场景
      * @param createTime 创建时间戳
      * @return true 表示签名有效
      */
-    public boolean validateSignature(String token, String clientIp, long createTime) {
+    public boolean validateSignature(String token, String clientIp, String scene, long createTime) {
         if (token == null || !token.contains(TOKEN_SEPARATOR)) {
             return false;
         }
@@ -74,15 +76,15 @@ public class TokenGenerator {
         String tokenId = token.substring(0, idx);
         String signature = token.substring(idx + 1);
 
-        String expectedSignature = computeSignature(tokenId, clientIp, createTime);
+        String expectedSignature = computeSignature(tokenId, clientIp, scene, createTime);
         return constantTimeEquals(signature, expectedSignature);
     }
 
     /**
      * 计算 HMAC-SHA256 签名。
      */
-    private String computeSignature(String tokenId, String clientIp, long createTime) {
-        String data = tokenId + "|" + clientIp + "|" + createTime;
+    private String computeSignature(String tokenId, String clientIp, String scene, long createTime) {
+        String data = tokenId + "|" + clientIp + "|" + scene + "|" + createTime;
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(

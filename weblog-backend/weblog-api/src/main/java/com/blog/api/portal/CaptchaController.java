@@ -38,7 +38,9 @@ public class CaptchaController {
     @Operation(summary = "生成验证码")
     @GetMapping("/generate")
     @RateLimit(key = "captchaGenerate", capacity = 10, seconds = 60)
-    public Result<CaptchaGenerateVO> generate(HttpServletRequest request, HttpServletResponse response) {
+    public Result<CaptchaGenerateVO> generate(@RequestParam String scene,
+                                              HttpServletRequest request,
+                                              HttpServletResponse response) {
         dynamicRateLimitPolicyService.enforcePerIp(
                 "captchaGenerate",
                 CAPTCHA_GENERATE_RATE_LIMIT_KEY,
@@ -49,7 +51,7 @@ public class CaptchaController {
                 IpUtil.getClientIp(request),
                 "验证码请求过于频繁，请稍后再试"
         );
-        return Result.success(captchaService.generateCaptcha(buildRiskContext(request, response)));
+        return Result.success(captchaService.generateCaptcha(scene, buildRiskContext(request, response)));
     }
 
     @Operation(summary = "验证滑块")
@@ -87,7 +89,7 @@ public class CaptchaController {
                 IpUtil.getClientIp(request),
                 "验证码请求过于频繁，请稍后再试"
         );
-        return Result.success(captchaService.refreshCaptcha(req.getOldToken(), buildRiskContext(request, response)));
+        return Result.success(captchaService.refreshCaptcha(req.getOldToken(), req.getScene(), buildRiskContext(request, response)));
     }
 
     private CaptchaRiskContext buildRiskContext(HttpServletRequest request, HttpServletResponse response) {

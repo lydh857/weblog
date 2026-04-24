@@ -81,6 +81,12 @@ public class AuthController {
     private static final String FORGOT_PASSWORD_RATE_LIMIT_KEY = "forgot_password_rate_limit";
     private static final String REGISTER_RATE_LIMIT_KEY = "register_rate_limit";
     private static final String CHECK_EMAIL_RATE_LIMIT_KEY = "check_email_rate_limit";
+    private static final String CAPTCHA_SCENE_REGISTER = "register";
+    private static final String CAPTCHA_SCENE_LOGIN_PASSWORD = "login-password";
+    private static final String CAPTCHA_SCENE_LOGIN_CODE = "login-code";
+    private static final String CAPTCHA_SCENE_SEND_CODE_PREFIX = "send-code:";
+    private static final String CAPTCHA_SCENE_CHECK_EMAIL = "check-email";
+    private static final String CAPTCHA_SCENE_FORGOT_PASSWORD = "forgot-password";
 
     @Operation(summary = "用户注册", description = "通过邮箱和密码注册新用户，需要邮箱验证码")
     @PostMapping("/register")
@@ -102,7 +108,7 @@ public class AuthController {
                 clientIp,
                 "注册请求过于频繁，请稍后再试"
         );
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_REGISTER);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
         req.setEmail(email);
@@ -123,7 +129,7 @@ public class AuthController {
         String userAgent = request.getHeader("User-Agent");
         securityRiskControlService.assertIpAllowed(clientIp, "portal-login", userAgent);
         loginSecurityPolicyService.enforceLoginRateLimit("portal-login", clientIp);
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_LOGIN_PASSWORD);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
         req.setEmail(email);
@@ -147,7 +153,7 @@ public class AuthController {
         String userAgent = request.getHeader("User-Agent");
         securityRiskControlService.assertIpAllowed(clientIp, "portal-login-by-code", userAgent);
         loginSecurityPolicyService.enforceLoginRateLimit("portal-login-by-code", clientIp);
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_LOGIN_CODE);
 
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
         req.setEmail(email);
@@ -178,8 +184,6 @@ public class AuthController {
                 clientIp,
                 "验证码发送过于频繁，请稍后再试"
         );
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
-
         String email = normalizeEmailValue(req.getEmail(), "邮箱不能为空");
         req.setEmail(email);
 
@@ -188,6 +192,7 @@ public class AuthController {
             throw new BusinessException(ResultCode.PARAM_INVALID, "无效的场景参数");
         }
         req.setScene(scene);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_SEND_CODE_PREFIX + scene);
         enforceEmailActionRateLimit("send-code:" + scene, email, 6, AUTH_USER_RATE_SECONDS);
 
         emailCodeService.sendCode(email, scene);
@@ -284,7 +289,7 @@ public class AuthController {
                 clientIp,
                 "邮箱校验请求过于频繁，请稍后再试"
         );
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_CHECK_EMAIL);
 
         String email = normalizeEmailField(body, "email");
         enforceEmailActionRateLimit("check-email", email, 8, AUTH_USER_RATE_SECONDS);
@@ -316,7 +321,7 @@ public class AuthController {
                 clientIp,
                 "重置密码请求过于频繁，请稍后再试"
         );
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_FORGOT_PASSWORD);
         String email = normalizeEmailField(body, "email");
         enforceEmailActionRateLimit("forgot-password", email, 6, AUTH_USER_RATE_SECONDS);
 

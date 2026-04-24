@@ -112,7 +112,7 @@
       </div>
     </div>
 
-    <SliderCaptcha v-model:visible="captchaVisible" @success="onCaptchaSuccess" />
+    <SliderCaptcha v-model:visible="captchaVisible" :scene="captchaScene" @success="onCaptchaSuccess" />
   </div>
 </template>
 
@@ -130,7 +130,7 @@ import { useDarkMode } from '~/composables/theme/useDarkMode'
 
 definePageMeta({ layout: false })
 
-const { visible: captchaVisible, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
+const { visible: captchaVisible, scene: captchaScene, open: openCaptcha, handleSuccess: onCaptchaSuccess } = useSliderCaptcha()
 
 const REMEMBER_KEY = 'weblog_admin_remember'
 const ACCOUNT_LOCKED_CODE = 40103
@@ -288,7 +288,7 @@ async function handleSubmit() {
 
   openCaptcha((verifyToken: string) => {
     void performLogin(verifyToken)
-  })
+  }, 'admin-login')
 }
 
 async function performLogin(verifyToken: string) {

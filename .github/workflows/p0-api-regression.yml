@@ -159,17 +159,18 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($authToken)) {
             try {
               $clientIp = '127.0.0.1'
+              $captchaScene = 'login-code'
               $tokenId = [guid]::NewGuid().ToString()
               $createTime = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 
               $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($env:CAPTCHA_SECRET_KEY))
-              $payload = "$tokenId|$clientIp|$createTime"
+              $payload = "$tokenId|$clientIp|$captchaScene|$createTime"
               $signatureBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($payload))
               $signature = [Convert]::ToBase64String($signatureBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
               $verifyToken = "$tokenId.$signature"
 
-              $verifyTokenData = "{`"clientIp`":`"$clientIp`",`"createTime`":$createTime}"
-              redis-cli -h 127.0.0.1 -p 6380 SETEX "captcha:verify:$tokenId" 300 "$verifyTokenData" | Out-Null
+              $verifyTokenData = "{`"clientIp`":`"$clientIp`",`"scene`":`"$captchaScene`",`"createTime`":$createTime}"
+              redis-cli -h 127.0.0.1 -p 6380 SETEX "captcha:verify:$tokenId" 120 "$verifyTokenData" | Out-Null
               if ($LASTEXITCODE -ne 0) {
                 throw 'write verify token to redis failed'
               }

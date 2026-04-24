@@ -3,9 +3,11 @@ import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/a
 
 const props = withDefaults(defineProps<{
   visible: boolean
+  scene?: string
   imgWidth?: number
   imgHeight?: number
 }>(), {
+  scene: 'default',
   imgWidth: 320,
   imgHeight: 200,
 })
@@ -77,7 +79,7 @@ async function loadCaptcha() {
   sliderLeft.value = 0
   trackPoints.length = 0
   try {
-    const res = await captchaApi.generate()
+    const res = await captchaApi.generate(props.scene)
     captchaData.value = res.data
   } catch {
     captchaData.value = null
@@ -95,10 +97,10 @@ async function refreshCaptcha() {
   trackPoints.length = 0
   try {
     if (captchaData.value?.captchaToken) {
-      const res = await captchaApi.refresh(captchaData.value.captchaToken)
+      const res = await captchaApi.refresh(captchaData.value.captchaToken, props.scene)
       captchaData.value = res.data
     } else {
-      const res = await captchaApi.generate()
+      const res = await captchaApi.generate(props.scene)
       captchaData.value = res.data
     }
   } catch {
@@ -144,6 +146,7 @@ async function onPointerUp() {
   try {
     const res = await captchaApi.verify({
       captchaToken: captchaData.value.captchaToken,
+      scene: props.scene,
       sliderPosition: Math.round(sliderLeft.value),
       slideTrack: trackPoints,
     })

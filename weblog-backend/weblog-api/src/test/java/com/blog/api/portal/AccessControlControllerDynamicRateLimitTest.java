@@ -73,6 +73,6 @@ class AccessControlControllerDynamicRateLimitTest {
       () -> accessControlController.unlock("captcha-token", request, new MockHttpServletResponse()));
 
     assertEquals(ResultCode.RATE_LIMIT.getCode(), ex.getCode());
-    verify(captchaService, never()).validateVerifyTokenOrThrow(anyString(), anyString());
+    verify(captchaService, never()).validateVerifyTokenOrThrow(anyString(), anyString(), anyString());
   }
 }

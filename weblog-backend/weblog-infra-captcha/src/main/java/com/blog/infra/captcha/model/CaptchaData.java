@@ -17,5 +17,6 @@ public class CaptchaData {
     private int puzzleY;
     private String puzzleShape;
     private String clientIp;
+    private String scene;
     private long createTime;
 }

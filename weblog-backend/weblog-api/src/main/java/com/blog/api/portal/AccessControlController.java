@@ -42,6 +42,7 @@ public class AccessControlController {
     private static final String DAILY_READ_LIMIT_KEY = "daily_read_limit";
     private static final String ACCESS_READ_RATE_LIMIT_KEY = "access_read_rate_limit";
     private static final String ACCESS_UNLOCK_RATE_LIMIT_KEY = "access_unlock_rate_limit";
+    private static final String CAPTCHA_SCENE_ACCESS_UNLOCK = "access-unlock";
 
     @Operation(summary = "检查是否可以阅读文章")
     @GetMapping("/check/{postId}")
@@ -118,7 +119,7 @@ public class AccessControlController {
                 "解锁请求过于频繁，请稍后再试"
         );
         String clientIp = IpUtil.getClientIp(request);
-        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp);
+        captchaService.validateVerifyTokenOrThrow(verifyToken, clientIp, CAPTCHA_SCENE_ACCESS_UNLOCK);
 
         String fingerprint = deviceFingerprintService.resolveFingerprint(request, response);
         accessControlService.unlock(fingerprint);

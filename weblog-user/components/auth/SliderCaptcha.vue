@@ -3,9 +3,11 @@ import { captchaApi, type CaptchaGenerateResult, type TrackPoint } from '~/api/a
 
 const props = withDefaults(defineProps<{
   visible: boolean
+  scene?: string
   imgWidth?: number
   imgHeight?: number
 }>(), {
+  scene: 'default',
   imgWidth: 320,
   imgHeight: 200,
 })
@@ -92,7 +94,7 @@ async function loadCaptcha() {
   currentBgIndex = 0
   currentPuzzleIndex = 0
   try {
-    const res = await captchaApi.generate()
+    const res = await captchaApi.generate(props.scene)
     captchaData.value = res.data
     // 直接设置，无叠化
     bgImages[0]!.src = res.data.backgroundImage
@@ -116,8 +118,8 @@ async function refresh() {
   try {
     const oldToken = captchaData.value?.captchaToken
     const res = oldToken
-      ? await captchaApi.refresh(oldToken)
-      : await captchaApi.generate()
+      ? await captchaApi.refresh(oldToken, props.scene)
+      : await captchaApi.generate(props.scene)
     captchaData.value = res.data
     updateBgImage(res.data.backgroundImage)
     updatePuzzleImage(res.data.puzzleImage, res.data.puzzleY)
@@ -166,6 +168,7 @@ async function onPointerUp() {
   try {
     const res = await captchaApi.verify({
       captchaToken: captchaData.value.captchaToken,
+      scene: props.scene,
       sliderPosition: Math.round(sliderLeft.value),
       slideTrack: trackPoints,
     })
