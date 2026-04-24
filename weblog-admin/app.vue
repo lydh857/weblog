@@ -24,7 +24,7 @@ const pageTransition = computed(() => {
   }
 })
 const showStartup = ref(route.path !== '/login')
-const hasPlayedStartup = ref(false)
+const hasPlayedStartup = ref(route.path === '/login')
 const isPageLoading = ref(false)
 const startupMinDurationReached = ref(false)
 let startupTimer: ReturnType<typeof setTimeout> | null = null
@@ -46,7 +46,7 @@ function hideStartupWhenReady() {
 }
 
 function playStartup() {
-  if (hasPlayedStartup.value) {
+  if (hasPlayedStartup.value || (showStartup.value && startupTimer)) {
     return
   }
 
@@ -67,9 +67,14 @@ function playStartup() {
 watch(
   () => route.path,
   (path) => {
-    if (path !== '/login') {
-      playStartup()
+    if (path === '/login') {
+      clearStartupTimer()
+      showStartup.value = false
+      hasPlayedStartup.value = true
+      return
     }
+
+    playStartup()
   },
 )
 
