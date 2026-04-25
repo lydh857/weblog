@@ -31,6 +31,7 @@
           <h4>内容与服务</h4>
           <NuxtLink to="/ranking">热门排行</NuxtLink>
           <NuxtLink to="/tech-stack">技术栈</NuxtLink>
+          <NuxtLink to="/release-notes">版本更新</NuxtLink>
           <NuxtLink to="/friend-links">友情链接</NuxtLink>
           <button type="button" class="link-btn" @click="openSearchModal">站内搜索</button>
           <button type="button" class="link-btn" @click="openAdApplyModal">广告投放</button>
@@ -47,12 +48,18 @@
 
     <div class="footer-bottom">
       <p>{{ footerNotice }}</p>
+      <p>
+        <NuxtLink to="/release-notes" class="version-link">{{ appReleaseInfo.currentVersion }}</NuxtLink>
+        <span> · 更新于 {{ appReleaseInfo.updatedAt }}</span>
+      </p>
       <p>{{ footerCopyright }}</p>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
+import { appReleaseInfo } from '~/utils/release/appRelease'
+
 const currentYear = new Date().getFullYear()
 const searchModal = useSearchModal()
 const loginModal = useLoginModal()
@@ -236,6 +243,16 @@ function openAdApplyModal() {
     .dark & {
       color: #64748b;
     }
+  }
+}
+
+.version-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $color-primary;
   }
 }
 
