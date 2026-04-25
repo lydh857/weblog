@@ -168,3 +168,52 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 5. 更新必要文档（命令、路径、行为变化）并保持与代码一致。
 6. 若涉及数据库结构，逐项核对“`db/migration` + `02-schema.sql` + `weblog.sql`”三联一致。
 7. 若按 OpenSpec 流程实施，完成实现后同步 `tasks.md` 勾选状态；变更完成后再执行 archive。
+
+## 11. 日常功能开发到线上发布流程（强制）
+
+本项目采用“开发、构建、部署分离”的安全发布模式。推送代码不等于部署生产；生产部署必须手动确认。
+
+### 11.1 开发分支与主线规则
+
+- GitHub（`https://github.com/1971697432/weblog.git`）是唯一开发主线远程。
+- Gitee（`https://gitee.com/chuan123321/weblog.git`）仅用于镜像分发，不作为开发主线来源。
+- 日常功能开发优先从最新 `github/master` 创建分支，例如 `feature/xxx`、`fix/xxx`、`security/xxx`、`docs/xxx`。
+- 合并或提交到 `master` 前，必须完成受影响模块的本地验证，并确认 `git diff --check` 通过。
+- 禁止在生产服务器直接改代码来实现功能更新。
+
+### 11.2 推送与生产部署边界
+
+- 推送 `master` 只允许触发构建、测试、镜像构建和镜像推送，不应自动部署生产。
+- 生产部署只能通过 GitHub Actions 手动触发，并在 `confirm_production` 输入 `production` 后执行。
+- 生产部署任务必须绑定 GitHub Environment `production`；建议在 GitHub 仓库设置中为 `production` 配置审批人。
+- 若未输入 `production` 或审批未通过，部署任务必须跳过，不能改动线上服务。
+
+### 11.3 发布前必做检查
+
+- 后端改动至少运行受影响 Maven 测试；接口或安全相关改动补跑对应回归脚本。
+- 用户端改动至少运行 `pnpm --dir weblog-user lint` 和 `pnpm --dir weblog-user build`。
+- 管理端改动至少运行 `pnpm --dir weblog-admin build`；涉及构建拆包时必须补跑 warning/chunk 门禁脚本。
+- 数据库结构变更必须同步 Flyway 迁移脚本、`database/sql/init/02-schema.sql`、`database/weblog.sql`；涉及种子数据时同步 `03-data.sql`。
+- 文档、脚本、配置变更必须检查是否误写密码、Token、Access Key、Cookie、私钥等敏感信息。
+
+### 11.4 发布前备份要求
+
+- 生产部署前必须备份 MySQL 数据库。
+- 生产部署前必须备份 `/opt/weblog/uploads` 上传文件目录。
+- 生产部署前必须备份 `/opt/weblog/.env.prod` 和 `docker-compose.prod.yml`。
+- 备份完成后必须确认备份文件存在且非空。
+
+### 11.5 发布后验证与回滚
+
+- 部署完成后必须检查 `docker compose --env-file .env.prod -f docker-compose.prod.yml ps`。
+- 必须验证后端健康接口、用户端首页、文章详情页、管理端 `/admin`、管理端登录页和关键管理页面。
+- 必须查看浏览器控制台，确认没有应用初始化错误、chunk 加载失败或持续 401。
+- 未登录访问管理端时，`/api/admin/user/me` 和 `/api/admin/auth/refresh` 返回 401 属于登录态探测；登录后仍持续 401 才按故障处理。
+- 若发布异常，优先回滚到上一版镜像；涉及数据库破坏性变更时，必须进入维护窗口并基于发布前备份恢复。
+
+### 11.6 参考文档
+
+- 线上安全更新完整流程：`docs/safe-production-release-guide.md`
+- 生产部署完整教程：`docs/deployment-guide.md`
+- 开发经验与性能优化：`docs/development-experience-guide.md`
+- 全栈开发离线手册：`docs/full-stack-development-guide.md`
