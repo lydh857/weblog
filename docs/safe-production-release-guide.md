@@ -6,38 +6,38 @@
 
 1. GitHub 是唯一开发主线，Gitee 只做镜像分发。
 2. 功能开发不要直接改生产服务器。
-3. 推送代码不等于部署生产。
-4. 生产部署必须手动触发，并确认本次要发布的提交。
+3. 功能分支推送不部署生产，`master` 是发布分支。
+4. 合并或推送 `master` 前必须确认本次提交可以上线。
 5. 数据库结构变更必须有 Flyway 迁移脚本，并同步初始化 SQL 和完整快照。
 6. 发布前必须有备份，发布后必须有验证，失败必须能回滚。
 
 ## 2. 当前安全发布模式
 
-当前 `.github/workflows/deploy.yml` 已调整为：
+当前 `.github/workflows/deploy.yml` 的发布模式为：
 
-1. 推送 `master`：只构建后端、用户端、管理端镜像并推送到 GHCR，不自动部署生产。
-2. 手动运行工作流：仍会先构建镜像。
-3. 手动输入 `production`：才会执行 `deploy-to-server` 生产部署任务。
-4. 部署任务绑定 GitHub Environment：`production`。
+1. 推送功能分支：只用于开发验证，不部署生产。
+2. 推送或合并到 `master`：自动构建后端、用户端、管理端镜像，推送到 GHCR，并部署生产服务器。
+3. 手动运行工作流：也会执行同一套构建和部署流程。
+4. Gitee 只做镜像分发，不作为生产部署触发来源。
 
-如果在 GitHub 仓库设置里给 `production` 环境配置审批人，则即使手动输入 `production`，也要通过审批后才会真正部署。
+因此 `master` 必须保持可发布状态。没有完成验证的功能只能停留在功能分支，不能推入 `master`。
 
-## 3. GitHub 环境审批设置
+## 3. GitHub 分支保护建议
 
-建议在 GitHub 仓库中配置生产环境保护：
+建议在 GitHub 仓库中给 `master` 配置分支保护：
 
 1. 进入 GitHub 仓库。
 2. 打开 `Settings`。
-3. 打开 `Environments`。
-4. 新建或选择 `production`。
-5. 开启 `Required reviewers`。
-6. 添加允许审批生产部署的账号。
+3. 打开 `Branches`。
+4. 为 `master` 添加保护规则。
+5. 要求 PR 合并前通过必要检查。
+6. 禁止未验证代码直接进入 `master`。
 7. 保存配置。
 
 这样可以形成两道防线：
 
-1. 工作流必须手动输入 `production`。
-2. GitHub Environment 还需要审批后才执行生产部署。
+1. 功能先在分支开发和验证。
+2. 只有通过检查的代码才能进入会自动部署的 `master`。
 
 ## 4. 日常功能开发流程
 
@@ -144,7 +144,7 @@ git diff --check
 git push github feature/your-feature-name
 ```
 
-如果直接合并到 `master`，推送后会触发构建工作流。当前安全模式下，`master` 推送只会构建并推送镜像，不会自动部署生产。
+如果直接合并到 `master`，推送后会触发构建和生产部署。只有确认本次代码可以上线时，才允许进入 `master`。
 
 需要等待以下检查通过：
 
@@ -191,20 +191,25 @@ cp docker-compose.prod.yml backups/config/docker-compose.prod-$(date +%Y%m%d-%H%
 ls -lh backups/mysql backups/uploads backups/config
 ```
 
-## 9. 手动发布生产
+## 9. 发布生产
 
-在 GitHub 页面执行：
+推荐发布方式是合并或推送到 `master`，由 GitHub Actions 自动发布生产。
+
+```bash
+git checkout master
+git pull github master
+git merge --no-ff feature/your-feature-name
+git push github master
+```
+
+如果需要在没有新提交时重新部署，也可以在 GitHub 页面手动触发：
 
 1. 打开仓库。
 2. 进入 `Actions`。
-3. 选择 `Build & Deploy to Aliyun`。
+3. 选择 `Build & Deploy to Server`。
 4. 点击 `Run workflow`。
 5. 选择 `master` 分支。
-6. 在 `confirm_production` 输入框中填写：`production`。
-7. 点击运行。
-8. 如果配置了 `production` 环境审批，等待审批通过。
-
-如果不填写 `production`，部署任务会跳过，只会构建镜像。
+6. 点击运行。
 
 ## 10. 发布后验证
 
@@ -325,11 +330,10 @@ docker exec -i weblog-mysql sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" weblog
 
 发布中：
 
-1. 手动触发 GitHub Actions。
-2. 输入 `production`。
-3. 等待环境审批。
-4. 观察部署日志。
-5. 确认 Docker Compose 启动成功。
+1. 合并或推送到 `master`。
+2. 观察 GitHub Actions 构建和部署日志。
+3. 确认镜像构建成功。
+4. 确认 Docker Compose 启动成功。
 
 发布后：
 
@@ -345,19 +349,19 @@ docker exec -i weblog-mysql sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" weblog
 
 ### 14.1 推送 master 后会不会影响线上
 
-不会直接影响运行中的线上服务。当前配置下，推送 `master` 只会构建并推送镜像，不会执行生产部署任务。
+会。当前配置下，推送或合并到 `master` 会自动构建镜像并部署生产。因此只有完成验证、确认可上线的代码才能进入 `master`。
 
 ### 14.2 为什么还会推送 latest 镜像
 
-推送 `latest` 只是更新镜像仓库中的标签，不会让服务器自动拉取。只有手动部署时，服务器才会拉取并重启容器。
+推送 `latest` 后，生产部署任务会拉取最新镜像并重启容器。功能分支不会触发这套生产部署流程。
 
-### 14.3 如果误触发手动工作流但没输入 production
+### 14.3 如果只想构建验证但不想上线
 
-部署任务会跳过，只执行构建镜像，不会更新生产服务器。
+不要推送到 `master`。请使用功能分支或临时分支，并等待对应 CI 验证。
 
-### 14.4 如果输入了 production 但还想阻止部署
+### 14.4 如果误推 master 后想阻止部署
 
-如果配置了 GitHub Environment 审批，可以拒绝审批。没有配置审批时，需要取消工作流运行。
+立即进入 GitHub Actions 取消正在运行的 `Build & Deploy to Server` 工作流。如果部署已经完成，按回滚流程恢复上一版镜像。
 
 ### 14.5 管理端未登录时 401 是否异常
 

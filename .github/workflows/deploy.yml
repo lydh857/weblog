@@ -1,15 +1,10 @@
-name: Build & Deploy to Aliyun
+name: Build & Deploy to Server
 
 on:
   push:
     branches:
       - master
   workflow_dispatch:
-    inputs:
-      confirm_production:
-        description: '输入 production 才会部署到生产环境；留空或填错只构建镜像'
-        required: false
-        type: string
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -207,10 +202,8 @@ jobs:
           retention-days: 1
 
   deploy-to-server:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production == 'production'
     runs-on: [self-hosted, prod, aws-tokyo]
     needs: [build-and-push-backend, build-and-push-user, build-and-push-admin, prepare-artifacts]
-    environment: production
     permissions:
       packages: read
       contents: read

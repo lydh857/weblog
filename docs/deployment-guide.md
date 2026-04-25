@@ -707,7 +707,7 @@ git push github master
 进入 GitHub 仓库：
 
 ```text
-Actions -> Build & Deploy to Aliyun -> Run workflow
+Actions -> Build & Deploy to Server -> Run workflow
 ```
 
 选择 `master`，点击运行。

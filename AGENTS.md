@@ -171,7 +171,7 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 
 ## 11. 日常功能开发到线上发布流程（强制）
 
-本项目采用“开发、构建、部署分离”的安全发布模式。推送代码不等于部署生产；生产部署必须手动确认。
+本项目采用“分支开发、主线自动发布”的发布模式。功能先在分支开发和验证，确认无问题后再合并或提交到 `master`；推送 `master` 会自动构建并部署生产。
 
 ### 11.1 开发分支与主线规则
 
@@ -183,10 +183,10 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 
 ### 11.2 推送与生产部署边界
 
-- 推送 `master` 只允许触发构建、测试、镜像构建和镜像推送，不应自动部署生产。
-- 生产部署只能通过 GitHub Actions 手动触发，并在 `confirm_production` 输入 `production` 后执行。
-- 生产部署任务必须绑定 GitHub Environment `production`；建议在 GitHub 仓库设置中为 `production` 配置审批人。
-- 若未输入 `production` 或审批未通过，部署任务必须跳过，不能改动线上服务。
+- 推送到功能分支只用于开发验证，不应部署生产。
+- 推送或合并到 `master` 会触发 GitHub Actions 自动构建镜像并部署生产。
+- 因 `master` 会自动发布，提交到 `master` 前必须完成发布前检查，不能把未验证代码推入 `master`。
+- 如果只需要构建验证但不希望上线，必须使用功能分支或临时分支，不要推送到 `master`。
 
 ### 11.3 发布前必做检查
 
@@ -198,9 +198,10 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 
 ### 11.4 发布前备份要求
 
-- 生产部署前必须备份 MySQL 数据库。
-- 生产部署前必须备份 `/opt/weblog/uploads` 上传文件目录。
-- 生产部署前必须备份 `/opt/weblog/.env.prod` 和 `docker-compose.prod.yml`。
+- 合并或推送 `master` 前必须确认最近一次生产备份策略有效。
+- 高风险发布前必须手动备份 MySQL 数据库。
+- 高风险发布前必须备份 `/opt/weblog/uploads` 上传文件目录。
+- 高风险发布前必须备份 `/opt/weblog/.env.prod` 和 `docker-compose.prod.yml`。
 - 备份完成后必须确认备份文件存在且非空。
 
 ### 11.5 发布后验证与回滚
