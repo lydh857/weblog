@@ -253,10 +253,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick, type Component } from 'vue'
 import { Document, View, User, ChatDotSquare, PriceTag } from '@element-plus/icons-vue'
-import { init as initEcharts, graphic, use as useEcharts, type ECharts } from 'echarts/core'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
+import type { DashboardECharts, DashboardEchartsRuntime } from '~/utils/charts/dashboardEcharts'
 import {
   getArticleStatistics,
   getPvStatistics,
@@ -436,19 +433,21 @@ const aiTrendMax = computed(() => {
   return Math.max(...aiRecentTrend.value.map(item => getAiTrendTotal(item)), 1)
 })
 
-useEcharts([
-  BarChart,
-  LineChart,
-  PieChart,
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  LegendComponent,
-  CanvasRenderer,
-])
+let echartsRuntime: DashboardEchartsRuntime | null = null
+let echartsReadyPromise: Promise<DashboardEchartsRuntime> | null = null
 
-async function ensureEchartsReady() {
-  return Promise.resolve()
+async function ensureEchartsReady(): Promise<DashboardEchartsRuntime> {
+  if (echartsRuntime) return echartsRuntime
+
+  echartsReadyPromise ||= import('~/utils/charts/dashboardEcharts').then(({ getDashboardEcharts }) => {
+    echartsRuntime = getDashboardEcharts()
+    return echartsRuntime
+  }).catch((error: unknown) => {
+    echartsReadyPromise = null
+    throw error
+  })
+
+  return echartsReadyPromise
 }
 
 // 卡片配置
@@ -616,9 +615,9 @@ const chartConfigs = reactive<ChartConfig[]>([
 // 图表实例管理
 const chartRowRef = ref<HTMLDivElement | null>(null)
 const chartRefs = new Map<string, HTMLDivElement>()
-const chartInstances = new Map<string, ECharts>()
+const chartInstances = new Map<string, DashboardECharts>()
 const categoryChartRef = ref<HTMLDivElement | null>(null)
-let categoryChartInstance: ECharts | null = null
+let categoryChartInstance: DashboardECharts | null = null
 const chartsActivated = ref(false)
 const statsReady = ref(false)
 let chartObserver: IntersectionObserver | null = null
@@ -707,8 +706,9 @@ async function renderChart(config: ChartConfig) {
     return
   }
 
+  let echarts: DashboardEchartsRuntime
   try {
-    await ensureEchartsReady()
+    echarts = await ensureEchartsReady()
   } catch (error) {
     console.error('[Dashboard] ECharts 加载失败:', error)
     return
@@ -717,7 +717,7 @@ async function renderChart(config: ChartConfig) {
   const dark = isDarkMode()
   let instance = chartInstances.get(config.key)
   if (!instance) {
-    instance = initEcharts(el)
+    instance = echarts.init(el)
     chartInstances.set(config.key, instance)
   }
 
@@ -744,7 +744,7 @@ async function renderChart(config: ChartConfig) {
       itemStyle: { color: config.color, borderRadius: config.chartType === 'bar' ? [4, 4, 0, 0] : 0 },
       lineStyle: config.chartType === 'line' ? { width: 2, color: config.color } : undefined,
       areaStyle: config.chartType === 'line' ? {
-        color: new graphic.LinearGradient(0, 0, 0, 1, [
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: config.color + '40' },
           { offset: 1, color: config.color + '05' }
         ])
@@ -762,8 +762,9 @@ async function renderChart(config: ChartConfig) {
 async function renderCategoryChart() {
   if (!chartsActivated.value || !categoryChartRef.value) return
 
+  let echarts: DashboardEchartsRuntime
   try {
-    await ensureEchartsReady()
+    echarts = await ensureEchartsReady()
   } catch (error) {
     console.error('[Dashboard] ECharts 加载失败:', error)
     return
@@ -771,7 +772,7 @@ async function renderCategoryChart() {
 
   const dark = isDarkMode()
   if (categoryChartInstance) categoryChartInstance.dispose()
-  categoryChartInstance = initEcharts(categoryChartRef.value)
+  categoryChartInstance = echarts.init(categoryChartRef.value)
 
   const data = categoryDist.value.map(item => ({ name: item.name, value: item.count }))
 

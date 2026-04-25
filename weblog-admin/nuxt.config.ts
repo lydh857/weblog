@@ -121,42 +121,20 @@ export default defineNuxtConfig({
               return 'vendor-zrender'
             }
 
-            if (id.includes('node_modules/echarts/charts/')) {
+            if (id.includes('node_modules/echarts/charts/') || id.includes('node_modules/echarts/lib/chart/')) {
               return 'vendor-echarts-charts'
             }
 
-            if (id.includes('node_modules/echarts/components/')) {
+            if (id.includes('node_modules/echarts/components/') || id.includes('node_modules/echarts/lib/component/')) {
               return 'vendor-echarts-components'
             }
 
-            if (id.includes('node_modules/echarts/renderers/')) {
-              return 'vendor-echarts-renderers'
-            }
-
-            if (id.includes('node_modules/echarts/lib/component/')) {
-              const componentPath = id.split('node_modules/echarts/lib/component/')[1]
-              const componentName = componentPath?.split('/')[0]?.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
-              return componentName ? `vendor-echarts-component-${componentName}` : 'vendor-echarts-components'
-            }
-
-            if (id.includes('node_modules/echarts/lib/chart/')) {
-              const chartPath = id.split('node_modules/echarts/lib/chart/')[1]
-              const chartName = chartPath?.split('/')[0]?.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
-              return chartName ? `vendor-echarts-chart-${chartName}` : 'vendor-echarts-charts'
-            }
-
             if (id.includes('node_modules/echarts/lib/coord/')) {
-              const coordPath = id.split('node_modules/echarts/lib/coord/')[1]
-              const coordName = coordPath?.split('/')[0]?.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
-              return coordName ? `vendor-echarts-coord-${coordName}` : 'vendor-echarts-coord'
+              return 'vendor-echarts-coord'
             }
 
             if (id.includes('node_modules/echarts/core') || id.includes('node_modules/echarts/lib/')) {
               return 'vendor-echarts-core'
-            }
-
-            if (id.includes('node_modules/echarts/')) {
-              return 'vendor-echarts-misc'
             }
 
             if (id.includes('node_modules/md-editor-v3/')) {
