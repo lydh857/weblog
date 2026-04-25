@@ -129,6 +129,7 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - 只做与当前任务直接相关的最小修改，不做无关重构。
 - 不引入 `any`、`@ts-ignore`、`eslint-disable` 规避检查。
 - 新增代码注释仅用于解释非直观逻辑，避免注释噪音。
+- Git 提交信息使用中文描述，推荐保留类型前缀并使用中文正文，例如 `feat(user): 新增版本更新页`、`fix(admin): 修复图表初始化异常`、`docs: 补充 PR 发布流程说明`。
 
 ## 7. Java 风格约定（后端）
 
@@ -193,11 +194,20 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - 日常功能、修复、安全和配置改动优先通过 Pull Request 合并到 `master`，不要直接推送 `master`。
 - Pull Request 用于合并前的代码审查、自动化检查、人工验收和变更记录留痕。
 - 功能分支推送后，应创建 `feature/xxx -> master`、`fix/xxx -> master` 等 Pull Request。
+- Pull Request 标题和提交信息使用中文描述；可以保留 `feat/fix/docs/ci/refactor` 类型前缀，便于区分变更性质。
 - Pull Request 必须等待相关 GitHub Actions 检查通过后才能合并；前端改动至少关注 `Frontend Build Size Gate` 和 `Frontend Security Audit`。
 - 合并 Pull Request 后会触发 `master` 自动部署生产；合并前必须确认本次变更已验收且允许上线。
 - Pull Request 合并并确认生产正常后，应删除已合并的远程功能分支，保持分支列表干净。
 
-### 11.4 发布前必做检查
+### 11.4 Issues 使用规则
+
+- Issue 用于记录需要跟踪的问题、需求、优化、安全风险、线上故障和较大的待办事项。
+- 复杂需求、线上问题、需要截图/日志/复现步骤的问题，应先创建 Issue，再通过分支和 Pull Request 解决。
+- 简单错别字、一次性小调整、已明确立即处理且不需要留痕的小改动，可以不创建 Issue。
+- Pull Request 解决某个 Issue 时，应在 PR 描述中写 `Closes #编号` 或 `Fixes #编号`，合并后自动关闭对应 Issue。
+- Issue 内容建议包含背景、现象、期望结果、验收标准；Bug 类 Issue 还应包含复现步骤、实际结果、日志或截图。
+
+### 11.5 发布前必做检查
 
 - 后端改动至少运行受影响 Maven 测试；接口或安全相关改动补跑对应回归脚本。
 - 用户端改动至少运行 `pnpm --dir weblog-user lint` 和 `pnpm --dir weblog-user build`。
@@ -205,7 +215,7 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - 数据库结构变更必须同步 Flyway 迁移脚本、`database/sql/init/02-schema.sql`、`database/weblog.sql`；涉及种子数据时同步 `03-data.sql`。
 - 文档、脚本、配置变更必须检查是否误写密码、Token、Access Key、Cookie、私钥等敏感信息。
 
-### 11.5 发布前备份要求
+### 11.6 发布前备份要求
 
 - 合并或推送 `master` 前必须确认最近一次生产备份策略有效。
 - 高风险发布前必须手动备份 MySQL 数据库。
@@ -213,7 +223,7 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - 高风险发布前必须备份 `/opt/weblog/.env.prod` 和 `docker-compose.prod.yml`。
 - 备份完成后必须确认备份文件存在且非空。
 
-### 11.6 发布后验证与回滚
+### 11.7 发布后验证与回滚
 
 - 部署完成后必须检查 `docker compose --env-file .env.prod -f docker-compose.prod.yml ps`。
 - 必须验证后端健康接口、用户端首页、文章详情页、管理端 `/admin`、管理端登录页和关键管理页面。
@@ -221,7 +231,7 @@ pwsh -File scripts/captcha-attack-regression.ps1 -BaseUrl "http://127.0.0.1:9091
 - 未登录访问管理端时，`/api/admin/user/me` 和 `/api/admin/auth/refresh` 返回 401 属于登录态探测；登录后仍持续 401 才按故障处理。
 - 若发布异常，优先回滚到上一版镜像；涉及数据库破坏性变更时，必须进入维护窗口并基于发布前备份恢复。
 
-### 11.7 参考文档
+### 11.8 参考文档
 
 - 线上安全更新完整流程：`docs/safe-production-release-guide.md`
 - 生产部署完整教程：`docs/deployment-guide.md`
