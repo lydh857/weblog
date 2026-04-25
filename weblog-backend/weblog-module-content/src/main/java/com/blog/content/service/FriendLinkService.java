@@ -84,7 +84,7 @@ public class FriendLinkService {
     /**
      * 创建友链
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink create(String name, String url, String logo, String description, Integer sortOrder) {
         name = sanitizeName(name);
         ExternalLinkGovernanceService.LinkCheckResult linkCheck = externalLinkGovernanceService.evaluateForSubmission(url, true);
@@ -110,7 +110,7 @@ public class FriendLinkService {
     /**
      * 更新友链
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink update(Long id, String name, String url, String logo, String description,
                              String status, Integer sortOrder) {
         FriendLink link = getById(id);
@@ -137,7 +137,7 @@ public class FriendLinkService {
     /**
      * 删除友链
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         getById(id);
         friendLinkMapper.deleteById(id);
@@ -147,7 +147,7 @@ public class FriendLinkService {
     /**
      * 批量删除友链
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         friendLinkMapper.deleteByIds(ids);
         log.info("友链批量删除: ids={}", ids);
@@ -156,7 +156,7 @@ public class FriendLinkService {
     /**
      * 批量更新友链状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchUpdateStatus(List<Long> ids, String status) {
         friendLinkMapper.update(null,
             new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FriendLink>()
@@ -266,7 +266,7 @@ public class FriendLinkService {
     /**
      * 用户申请友链
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink applyLink(Long userId, String name, String url, String logo, String description) {
         // 检查是否已申请过
         FriendLink existing = friendLinkMapper.selectOne(
@@ -310,7 +310,7 @@ public class FriendLinkService {
     /**
      * 更新我的友链申请（修改后重新进入待审批）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink updateMyLink(Long userId, String name, String url, String logo, String description) {
         FriendLink link = friendLinkMapper.selectOne(
             new LambdaQueryWrapper<FriendLink>()
@@ -337,7 +337,7 @@ public class FriendLinkService {
     /**
      * 审核通过友链申请
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink approveLink(Long id) {
         FriendLink link = getById(id);
         if (!FRIEND_LINK_PENDING_STATUSES.contains(link.getStatus())) {
@@ -360,7 +360,7 @@ public class FriendLinkService {
     /**
      * 拒绝友链申请
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FriendLink rejectLink(Long id, String reason) {
         FriendLink link = getById(id);
         if (!FRIEND_LINK_PENDING_STATUSES.contains(link.getStatus())) {

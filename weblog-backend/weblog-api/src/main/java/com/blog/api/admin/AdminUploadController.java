@@ -2,6 +2,7 @@ package com.blog.api.admin;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.IpUtil;
@@ -29,6 +30,7 @@ import java.util.Map;
  * 管理端文件上传接口
  */
 @Tag(name = "管理端-文件上传", description = "图片上传与管理")
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/upload")
 public class AdminUploadController {
@@ -178,8 +180,8 @@ public class AdminUploadController {
     private void cleanupInvalidUpload(String objectKey, Long userId) {
         try {
             storageFacade.delete(objectKey);
-        } catch (Exception ignore) {
-            // ignore
+        } catch (Exception e) {
+            log.warn("文件删除失败: {}", objectKey, e);
         }
         if (ossResourceService != null) {
             ossResourceService.markDeletedByFilePath(objectKey, userId);

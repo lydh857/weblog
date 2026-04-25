@@ -63,14 +63,15 @@ public class AiMetaService {
   }
 
   /**
-   * 重新生成摘要
+   * 重新生成摘要（返回纯文本，去除 markdown 符号）
    */
   @AiFeature("meta")
   public String regenerateSummary(String title, String content) {
     checkContentLength(content);
     RenderedPrompt prompt = promptTemplate.render("meta_summary", Map.of(
       "title", title, "content", truncateContent(content)));
-    return aiClient.call(FEATURE, prompt.systemPrompt(), prompt.userPrompt());
+    String raw = aiClient.call(FEATURE, prompt.systemPrompt(), prompt.userPrompt());
+    return stripMarkdown(raw);
   }
 
   /**
@@ -226,9 +227,9 @@ public class AiMetaService {
       JsonNode root = objectMapper.readTree(json);
       AiMetaResultVO vo = new AiMetaResultVO();
       // 兼容 AI 可能返回的变体字段名
-      vo.setSummary(getTextWithFallback(root, "summary", "excerpt", "description"));
+      vo.setSummary(stripMarkdown(getTextWithFallback(root, "summary", "excerpt", "description")));
       vo.setSeoTitle(getTextWithFallback(root, "seoTitle", "seo_title"));
-      vo.setSeoDescription(getTextWithFallback(root, "seoDescription", "seo_description"));
+      vo.setSeoDescription(stripMarkdown(getTextWithFallback(root, "seoDescription", "seo_description")));
       vo.setSeoKeywords(parseStringList(getNodeWithFallback(root, "seoKeywords", "seo_keywords", "keywords")));
       vo.setTags(parseTagNodes(getNodeWithFallback(root, "tags")));
       vo.setCategories(parseCategoryNodes(getNodeWithFallback(root, "categories", "category")));
@@ -409,5 +410,23 @@ public class AiMetaService {
       result.add(item.asText());
     }
     return result;
+  }
+
+  /**
+   * 去除文本中的 Markdown 格式符号，返回纯文本
+   */
+  private String stripMarkdown(String text) {
+    if (text == null || text.isBlank()) return text;
+    return text
+      .replaceAll("#{1,6}\\s+", "")          // 标题 # ## ###
+      .replaceAll("\\*{1,2}([^*]+?)\\*{1,2}", "$1")  // 加粗/斜体 *text* **text**
+      .replaceAll("_{1,2}([^_]+?)_{1,2}", "$1")     // 加粗/斜体 _text_ __text__
+      .replaceAll("`{1,3}[^`]+?`{1,3}", "")   // 行内代码 `code` ```code```
+      .replaceAll("~{2}[^~]+?~{2}", "")       // 删除线 ~~text~~
+      .replaceAll("\\[([^]]+)]\\([^)]+\\)", "$1")  // 链接 [text](url)
+      .replaceAll("^[-*+]\\s+", "")            // 无序列表 - item / * item
+      .replaceAll("\\n[-*+]\\s+", "\n")        // 多行无序列表
+      .replaceAll(">\\s*", "")                  // 引用 > text
+      .trim();
   }
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.common.result.Result;
 import com.blog.common.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.IpUtil;
 import com.blog.common.util.PageParamUtil;
@@ -42,6 +43,7 @@ import static com.blog.common.constant.CommonConstant.MAX_BATCH_SIZE;
  * 管理端 - 广告管理
  */
 @Tag(name = "管理端-广告管理", description = "广告审核、上下架、配置")
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/advertisement")
 @RequiredArgsConstructor
@@ -987,8 +989,8 @@ public class AdminAdvertisementController {
                     if (value > 0) {
                         result.add(value);
                     }
-                } catch (Exception ignored) {
-                    // 忽略非法ID
+                } catch (Exception e) {
+                    log.warn("广告位查询失败", e);
                 }
             }
             return result;

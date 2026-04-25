@@ -73,12 +73,20 @@ public class AdminAiController {
     return aiWritingService.rewrite(req.getText());
   }
 
-  @Operation(summary = "AI 翻译")
+@Operation(summary = "AI 翻译")
   @PostMapping("/writing/translate")
   @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
   public SseEmitter writingTranslate(@Valid @RequestBody TranslateReqVO req) {
     enforceAiWritingRateLimit();
     return aiWritingService.translate(req.getText(), req.getTargetLang());
+  }
+
+  @Operation(summary = "AI 去重")
+  @PostMapping("/writing/deduplicate")
+  @RateLimit(key = "ai-writing", capacity = 300, seconds = 60, message = "AI 请求过于频繁，请稍后重试")
+  public SseEmitter writingDeduplicate(@RequestBody WritingReqVO req) {
+    enforceAiWritingRateLimit();
+    return aiWritingService.deduplicate(req.getText());
   }
 
   @Operation(summary = "AI 自由对话")

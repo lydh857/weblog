@@ -84,7 +84,7 @@
           <div class="setting-group">
             <div class="setting-label-row">
               <label class="setting-label">分类</label>
-              <el-button text type="primary" size="small" @click="showAddCategory = true">+ 新建</el-button>
+              <el-button text type="primary" size="small" @click="openAddCategoryDialog">+ 新建</el-button>
             </div>
             <el-cascader v-model="categoryValue" :options="categoryTree"
               :props="{ value: 'id', label: 'name', children: 'children', emitPath: true, expandTrigger: 'hover' }"
@@ -124,9 +124,9 @@
           <div class="setting-group">
             <label class="setting-label">封面图</label>
             <div class="cover-upload-area">
-              <div v-if="form.coverImage" class="cover-preview" @click="openCoverCropper">
+              <div v-if="form.coverImage" class="cover-preview" @click="triggerCoverUpload">
                 <AppImage :src="form.coverImage" fit="cover" class="cover-img" />
-                <div class="cover-overlay">裁剪 / 更换</div>
+                <div class="cover-overlay">重新选择 / 裁剪</div>
               </div>
               <div v-else class="cover-placeholder" @click="triggerCoverUpload">
                 <el-icon :size="28"><Plus /></el-icon>
@@ -265,20 +265,23 @@
     </el-dialog>
 
     <!-- 新建分类弹窗 -->
-    <el-dialog v-model="showAddCategory" title="新建分类" width="400px">
+    <el-dialog v-model="showAddCategory" title="新建分类" width="420px" destroy-on-close>
       <el-form label-width="80px">
         <el-form-item label="父分类">
           <el-select v-model="newCategoryParentId" placeholder="顶级分类" clearable class="full-width">
             <el-option v-for="c in topCategories" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="分类名称">
-          <el-input v-model="newCategoryName" maxlength="30" placeholder="输入分类名称" />
+        <el-form-item :label="newCategoryParentId ? '子分类' : '一级分类'">
+          <el-input v-model="newCategoryName" maxlength="30" :placeholder="newCategoryParentId ? '输入子分类名称' : '输入一级分类名称'" />
+        </el-form-item>
+        <el-form-item v-if="!newCategoryParentId" label="二级分类">
+          <el-input v-model="newChildCategoryName" maxlength="30" placeholder="可选：同时创建二级分类" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showAddCategory = false">取消</el-button>
-        <el-button type="primary" @click="handleAddCategory">创建</el-button>
+        <el-button type="primary" :loading="addingCategory" @click="handleAddCategory">创建</el-button>
       </template>
     </el-dialog>
 
@@ -454,37 +457,63 @@ const categoryTree = computed<TreeNode[]>(() => {
 })
 const topCategories = computed(() => categories.value.filter(c => c.parentId === 0))
 
-// 新建分类（暂存本地，发布时才真正创建）
+// 新建分类：立即创建真实分类，避免发布文章时临时分类丢失
 const showAddCategory = ref(false)
+const addingCategory = ref(false)
 const newCategoryName = ref('')
+const newChildCategoryName = ref('')
 const newCategoryParentId = ref<number | undefined>(undefined)
-// 临时分类用负数 ID 标识
-let tempCategoryIdCounter = -1
-const pendingCategories = ref<{ tempId: number; name: string; parentId: number }[]>([])
 
-function handleAddCategory() {
-  if (!newCategoryName.value.trim()) { ElMessage.warning('请输入分类名称'); return }
-  const name = newCategoryName.value.trim()
-  const parentId = newCategoryParentId.value || 0
-  const tempId = tempCategoryIdCounter--
-
-  // 添加到临时分类列表
-  pendingCategories.value.push({ tempId, name, parentId })
-
-  // 添加到 categories 列表中（用临时负数 ID），让 cascader 能选中
-  categories.value.push({ id: tempId, name: `${name}（新）`, parentId } as CategoryVO)
-
-  // 自动选中新分类
-  if (parentId === 0) {
-    categoryValue.value = [tempId]
-  } else {
-    categoryValue.value = [parentId, tempId]
-  }
-
-  ElMessage.success('分类已暂存，保存文章时自动创建')
-  showAddCategory.value = false
+function openAddCategoryDialog() {
   newCategoryName.value = ''
-  newCategoryParentId.value = undefined
+  newChildCategoryName.value = ''
+  const selectedTopId = categoryValue.value[0]
+  newCategoryParentId.value = selectedTopId && selectedTopId > 0 ? selectedTopId : undefined
+  showAddCategory.value = false
+  nextTick(() => { showAddCategory.value = true })
+}
+
+function appendCategory(category: CategoryVO) {
+  const index = categories.value.findIndex(item => item.id === category.id)
+  if (index >= 0) categories.value.splice(index, 1, category)
+  else categories.value.push(category)
+}
+
+async function handleAddCategory() {
+  if (!newCategoryName.value.trim()) { ElMessage.warning('请输入分类名称'); return }
+  addingCategory.value = true
+  try {
+    const name = newCategoryName.value.trim()
+    const parentId = newCategoryParentId.value || 0
+    const created = (await categoryApi.create({ name, parentId })).data
+    appendCategory(created)
+
+    const childName = newChildCategoryName.value.trim()
+    if (parentId === 0 && childName) {
+      try {
+        const child = (await categoryApi.create({ name: childName, parentId: created.id })).data
+        appendCategory(child)
+        categoryValue.value = [created.id, child.id]
+      } catch (e: unknown) {
+        categoryValue.value = [created.id]
+        throw new Error(`一级分类已创建，二级分类创建失败：${(e as Error).message || '未知错误'}`)
+      }
+    } else if (parentId === 0) {
+      categoryValue.value = [created.id]
+    } else {
+      categoryValue.value = [parentId, created.id]
+    }
+
+    ElMessage.success(childName && parentId === 0 ? '一级分类和二级分类已创建' : '分类已创建')
+    showAddCategory.value = false
+    newCategoryName.value = ''
+    newChildCategoryName.value = ''
+    newCategoryParentId.value = undefined
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '分类创建失败')
+  } finally {
+    addingCategory.value = false
+  }
 }
 
 // ========== AI 元信息采用 ==========
@@ -509,7 +538,7 @@ function handleAdoptAiTags(aiTags: Array<{ name: string; isExisting: boolean; ta
   }
 }
 
-function handleAdoptAiCategory(cat: { name: string; isExisting: boolean; categoryId: number | null; parentName: string | null }) {
+async function handleAdoptAiCategory(cat: { name: string; isExisting: boolean; categoryId: number | null; parentName: string | null }) {
   if (cat.isExisting && cat.categoryId) {
     // 已有分类：查找是否是二级分类
     const found = categories.value.find(c => c.id === cat.categoryId)
@@ -524,25 +553,20 @@ function handleAdoptAiCategory(cat: { name: string; isExisting: boolean; categor
     if (parent) {
       newCategoryName.value = cat.name
       newCategoryParentId.value = parent.id
-      handleAddCategory()
+      await handleAddCategory()
     } else {
-      // 父分类也不存在，先创建父分类再创建子分类
+      // 父分类也不存在，一次创建父子分类
       newCategoryName.value = cat.parentName
+      newChildCategoryName.value = cat.name
       newCategoryParentId.value = undefined
-      handleAddCategory()
-      // 再创建子分类
-      const parentTemp = categories.value.find(c => c.name === `${cat.parentName}（新）`)
-      if (parentTemp) {
-        newCategoryName.value = cat.name
-        newCategoryParentId.value = parentTemp.id
-        handleAddCategory()
-      }
+      await handleAddCategory()
     }
   } else {
     // 新的一级分类
     newCategoryName.value = cat.name
+    newChildCategoryName.value = ''
     newCategoryParentId.value = undefined
-    handleAddCategory()
+    await handleAddCategory()
   }
 }
 
@@ -550,7 +574,11 @@ async function loadCategories() {
   try {
     const res = await categoryApi.listAll()
     categories.value = res.data
-  } catch (e) { console.warn('加载分类失败', e) }
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('加载分类失败', e)
+    }
+  }
 }
 
 // ========== 标签 ==========
@@ -569,7 +597,11 @@ async function loadTags() {
   try {
     const res = await tagApi.listAll()
     tags.value = res.data
-  } catch (e) { console.warn('加载标签失败', e) }
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('加载标签失败', e)
+    }
+  }
 }
 
 function filterTags(query: string) {
@@ -617,26 +649,19 @@ function triggerCoverUpload() {
   coverInputRef.value?.click()
 }
 
-function openCoverCropper() {
-  // 已有封面图时，打开裁剪器重新裁剪
-  // 将绝对 URL 转为相对路径，通过 vite proxy 同源访问，避免 canvas 跨域污染
-  const apiBase = useRuntimeConfig().public.apiBase as string
-  const origin = apiBase.replace(/\/api\/?$/, '')
-  const src = form.coverImage.startsWith(origin)
-    ? form.coverImage.slice(origin.length)
-    : form.coverImage
-  coverCropperSrc.value = src
-  showCoverCropper.value = true
-}
-
 async function handleCoverFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   // 读取为 base64 后打开裁剪器
   const reader = new FileReader()
   reader.onload = (ev) => {
-    coverCropperSrc.value = ev.target?.result as string
-    showCoverCropper.value = true
+    const src = ev.target?.result as string
+    showCoverCropper.value = false
+    coverCropperSrc.value = ''
+    nextTick(() => {
+      coverCropperSrc.value = src
+      showCoverCropper.value = true
+    })
   }
   reader.readAsDataURL(file)
   if (coverInputRef.value) coverInputRef.value.value = ''
@@ -880,32 +905,12 @@ function buildParams(status: string, scheduledTime?: string): PostCreateParams {
 
   let categoryId: number | undefined
   let subCategoryId: number | undefined
-  let newCatName: string | undefined
-  let newCatParentId: number | undefined
 
   if (categoryValue.value.length === 1) {
-    const id = categoryValue.value[0]
-    const pending = pendingCategories.value.find(p => p.tempId === id)
-    if (pending) {
-      // 新建的一级分类
-      newCatName = pending.name
-      newCatParentId = 0
-    } else {
-      categoryId = id
-    }
+    categoryId = categoryValue.value[0]
   } else if (categoryValue.value.length >= 2) {
-    const parentCatId = categoryValue.value[0]
-    const childCatId = categoryValue.value[1]
-    const pendingChild = pendingCategories.value.find(p => p.tempId === childCatId)
-    if (pendingChild) {
-      // 新建的二级分类，父分类是已有的
-      categoryId = parentCatId
-      newCatName = pendingChild.name
-      newCatParentId = parentCatId
-    } else {
-      categoryId = parentCatId
-      subCategoryId = childCatId
-    }
+    categoryId = categoryValue.value[0]
+    subCategoryId = categoryValue.value[1]
   }
 
   return {
@@ -914,7 +919,6 @@ function buildParams(status: string, scheduledTime?: string): PostCreateParams {
     slug: form.slug || undefined, categoryId, subCategoryId,
     tagIds: existingTagIds.length ? existingTagIds : undefined,
     newTagNames: newTagNames.length ? newTagNames : undefined,
-    newCategoryName: newCatName, newCategoryParentId: newCatParentId,
     status, scheduledTime,
     seoTitle: form.seoTitle || undefined, seoDescription: form.seoDescription || undefined,
     seoKeywords: form.seoKeywords || undefined,
@@ -1128,7 +1132,9 @@ async function loadDraftNavigation() {
     const res = await postApi.page({ pageNum: 1, pageSize: 1000, status: 'draft' })
     draftNavPosts.value = res.data.records
   } catch (e) {
-    console.warn('加载草稿导航失败', e)
+    if (import.meta.dev) {
+      console.warn('加载草稿导航失败', e)
+    }
     draftNavPosts.value = []
   } finally {
     draftNavLoading.value = false
@@ -1390,9 +1396,7 @@ onUnmounted(() => {
 }
 
 .ai-meta-top {
-  margin-bottom: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--el-border-color-extra-light);
+  margin-bottom: 12px;
 }
 
 .setting-group {

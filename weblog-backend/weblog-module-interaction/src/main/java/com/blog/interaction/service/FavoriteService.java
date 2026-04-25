@@ -99,7 +99,8 @@ public class FavoriteService {
     /**
      * 批量取消收藏（忽略未收藏项）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
+
     public void batchUnfavorite(Long userId, List<Long> postIds) {
         if (postIds == null || postIds.isEmpty()) {
             return;

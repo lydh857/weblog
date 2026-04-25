@@ -1,8 +1,6 @@
 // 注意：Token 现在通过 HttpOnly Cookie 管理，浏览器会自动在请求中发送
 // 不需要手动设置 Authorization 请求头
 
-const TOKEN_KEY = 'weblog_admin_token'
-
 function getBaseURL(): string {
   try {
     const config = useRuntimeConfig()

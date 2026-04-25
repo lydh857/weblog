@@ -113,7 +113,8 @@ public class CommentService {
     /**
      * 批量删除评论（只能删自己的）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
+
     public void batchDeleteComments(Long userId, List<Long> commentIds) {
         if (commentIds == null || commentIds.isEmpty()) {
             return;

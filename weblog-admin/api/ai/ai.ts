@@ -137,6 +137,9 @@ export interface AiConfigUpdateResult {
 
 // ========== API ==========
 
+// AI 同步接口超时（毫秒），需匹配后端 AiProperties.timeout
+const AI_TIMEOUT = 120_000
+
 export const aiApi = {
   // 写作助手（返回 SSE 流）
   writingContinue: (data: WritingRequest) =>
@@ -147,22 +150,24 @@ export const aiApi = {
     ssePost('/admin/ai/writing/rewrite', data),
   writingTranslate: (data: TranslateRequest) =>
     ssePost('/admin/ai/writing/translate', data),
+  writingDeduplicate: (data: WritingRequest) =>
+    ssePost('/admin/ai/writing/deduplicate', data),
   writingChat: (data: ChatRequest) =>
     ssePost('/admin/ai/writing/chat', data),
 
   // 元信息生成
-  generateAll: (data: MetaRequest) =>
-    http.post<unknown, { data: AiMetaResult }>('/admin/ai/meta/generate-all', data),
-  regenerateSummary: (data: MetaRequest) =>
-    http.post<unknown, { data: string }>('/admin/ai/meta/summary', data),
-  regenerateSeo: (data: MetaRequest) =>
-    http.post<unknown, { data: SeoResult }>('/admin/ai/meta/seo', data),
-  regenerateTags: (data: MetaRequest) =>
-    http.post<unknown, { data: TagSuggestion[] }>('/admin/ai/meta/tags', data),
-  regenerateCategories: (data: MetaRequest) =>
-    http.post<unknown, { data: CategorySuggestion[] }>('/admin/ai/meta/categories', data),
-  regenerateSlug: (data: SlugRequest) =>
-    http.post<unknown, { data: string }>('/admin/ai/meta/slug', data),
+  generateAll: (data: MetaRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: AiMetaResult }>('/admin/ai/meta/generate-all', data, { timeout: AI_TIMEOUT, signal }),
+  regenerateSummary: (data: MetaRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: string }>('/admin/ai/meta/summary', data, { timeout: AI_TIMEOUT, signal }),
+  regenerateSeo: (data: MetaRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: SeoResult }>('/admin/ai/meta/seo', data, { timeout: AI_TIMEOUT, signal }),
+  regenerateTags: (data: MetaRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: TagSuggestion[] }>('/admin/ai/meta/tags', data, { timeout: AI_TIMEOUT, signal }),
+  regenerateCategories: (data: MetaRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: CategorySuggestion[] }>('/admin/ai/meta/categories', data, { timeout: AI_TIMEOUT, signal }),
+  regenerateSlug: (data: SlugRequest, signal?: AbortSignal) =>
+    http.post<unknown, { data: string }>('/admin/ai/meta/slug', data, { timeout: AI_TIMEOUT, signal }),
 
   // 配置管理
   getConfig: () =>
@@ -170,7 +175,7 @@ export const aiApi = {
   updateConfig: (data: AiConfigUpdate) =>
     http.put<unknown, { data: AiConfigUpdateResult }>('/admin/ai/config', data),
   testConnection: () =>
-    http.post<unknown, { data: string }>('/admin/ai/config/test-connection'),
+    http.post<unknown, { data: string }>('/admin/ai/config/test-connection', {}, { timeout: AI_TIMEOUT }),
   getTokenUsage: (month?: string) =>
     http.get<unknown, { data: TokenUsage }>('/admin/ai/token-usage', { params: { month } }),
 
@@ -180,7 +185,7 @@ export const aiApi = {
   getPrompt: (key: string) =>
     http.get<unknown, { data: PromptTemplate }>(`/admin/ai/prompts/${key}`),
   updatePrompt: (key: string, data: PromptUpdate) =>
-    http.put(`/admin/ai/prompts/${key}`, data),
+    http.put(`/admin/ai/prompts/${key}`),
   resetPrompt: (key: string) =>
     http.post(`/admin/ai/prompts/${key}/reset`),
 }

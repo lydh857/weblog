@@ -2,6 +2,7 @@ package com.blog.api.portal;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.blog.common.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.content.entity.Advertisement;
@@ -37,6 +38,7 @@ import java.util.Set;
  * 用户端广告接口
  */
 @Tag(name = "用户端-广告", description = "广告查询、广告申请")
+@Slf4j
 @RestController
 @RequestMapping("/api/portal/advertisement")
 @RequiredArgsConstructor
@@ -316,8 +318,8 @@ public class AdvertisementController {
                     if (value > 0) {
                         result.add(value);
                     }
-                } catch (Exception ignored) {
-                    // 忽略非法ID
+                } catch (Exception e) {
+                    log.warn("广告位ID解析失败", e);
                 }
             }
             return result;
@@ -551,8 +553,8 @@ public class AdvertisementController {
             } catch (Exception e) {
                 systemConfigService.createIfAbsent(AD_REVIEW_REASONS_KEY, json, "广告审核拒绝原因映射(JSON)");
             }
-        } catch (Exception ignored) {
-            // 忽略持久化异常，避免影响主流程
+        } catch (Exception e) {
+            log.warn("审核原因持久化失败", e);
         }
     }
 
@@ -588,8 +590,8 @@ public class AdvertisementController {
             } catch (Exception ex) {
                 systemConfigService.createIfAbsent(AD_PRICE_RULES_KEY, json, "广告位时效价格规则(JSON)");
             }
-        } catch (Exception ignored) {
-            // 忽略持久化异常，避免影响主流程
+        } catch (Exception e) {
+            log.warn("价格规则持久化失败", e);
         }
     }
 

@@ -196,11 +196,11 @@ interface BubbleMessage extends ChatMessage {
   _actionParams?: Record<string, unknown>
 }
 
-type ToolbarAction = 'continue' | 'polish' | 'rewrite' | 'translate'
+type ToolbarAction = 'continue' | 'polish' | 'rewrite' | 'translate' | 'deduplicate'
 type WritingAction = ToolbarAction | 'chat'
 
 function isToolbarAction(action: string): action is ToolbarAction {
-  return action === 'continue' || action === 'polish' || action === 'rewrite' || action === 'translate'
+  return action === 'continue' || action === 'polish' || action === 'rewrite' || action === 'translate' || action === 'deduplicate'
 }
 
 // 快捷功能图标
@@ -208,11 +208,13 @@ const IconContinue = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 1
 const IconPolish = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' })])
 const IconRewrite = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M17 1l4 4-4 4' }), h('path', { d: 'M3 11V9a4 4 0 0 1 4-4h14' }), h('path', { d: 'M7 23l-4-4 4-4' }), h('path', { d: 'M21 13v2a4 4 0 0 1-4 4H3' })])
 const IconTranslate = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1' }), h('path', { d: 'M22 22l-5-10-5 10M14 18h6' })])
+const IconDeduplicate = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [h('path', { d: 'M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z' }), h('path', { d: 'M14 3v5h5' }), h('path', { d: 'M8 13h6M8 17h4' })])
 
 const quickActions: Array<{ key: ToolbarAction; label: string; icon: () => ReturnType<typeof h>; needSelection: boolean }> = [
   { key: 'continue', label: '续写', icon: IconContinue, needSelection: false },
   { key: 'polish', label: '润色', icon: IconPolish, needSelection: true },
   { key: 'rewrite', label: '改写', icon: IconRewrite, needSelection: true },
+  { key: 'deduplicate', label: '去重', icon: IconDeduplicate, needSelection: true },
   { key: 'translate', label: '翻译', icon: IconTranslate, needSelection: true },
 ]
 
@@ -623,6 +625,8 @@ function createWritingSse(action: WritingAction, params: Record<string, unknown>
       return aiApi.writingRewrite({ text: params.text as string })
     case 'translate':
       return aiApi.writingTranslate({ text: params.text as string, targetLang: params.targetLang as 'zh' | 'en' })
+    case 'deduplicate':
+      return aiApi.writingDeduplicate({ text: params.text as string })
     case 'chat':
       return aiApi.writingChat(params as { articleContext: string; history: ChatMessage[]; userMessage: string })
     default:
@@ -644,6 +648,7 @@ function executeWritingAction(action: string) {
     continue: '请续写以下内容',
     polish: '请润色以下文字',
     rewrite: '请改写以下文字',
+    deduplicate: '请对以下文字进行去重',
     translate: targetLang.value === 'en' ? '请将以下中文翻译为英文' : '请将以下英文翻译为中文',
   }
 

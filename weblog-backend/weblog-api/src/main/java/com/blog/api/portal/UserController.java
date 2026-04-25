@@ -5,6 +5,7 @@ import com.blog.api.security.UploadGuardService;
 import com.blog.api.security.DynamicRateLimitPolicyService;
 import com.blog.api.security.UploadValidationService;
 import com.blog.common.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import com.blog.common.result.Result;
 import com.blog.common.result.ResultCode;
 import com.blog.common.util.IpUtil;
@@ -34,6 +35,7 @@ import java.util.Map;
  * 用户端 - 个人中心接口
  */
 @Tag(name = "用户端-个人中心", description = "个人资料查询、更新、头像上传")
+@Slf4j
 @RestController
 @RequestMapping("/api/portal/user")
 public class UserController {
@@ -150,7 +152,9 @@ public class UserController {
             }
             try {
                 ossResourceService.delete(old.getId(), userId, false);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("密码校验失败", e);
+            }
         }
 
         // 记录待审核头像资源

@@ -92,7 +92,7 @@ public class CategoryService {
      * 创建分类
      * 清除所有分类缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"category:list", "category:topLevel", "category:children"}, allEntries = true)
     public Category create(String name, String slug, String description, Long parentId, Integer sortOrder) {
         name = XssUtil.cleanText(name);
@@ -113,7 +113,7 @@ public class CategoryService {
      * 更新分类
      * 清除所有分类缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"category:list", "category:topLevel", "category:children", "category:slug", "category:detail"}, allEntries = true)
     public Category update(Long id, String name, String slug, String description, Long parentId, Integer sortOrder) {
         Category cat = getById(id);
@@ -140,7 +140,7 @@ public class CategoryService {
      * 删除分类
      * 清除所有分类缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"category:list", "category:topLevel", "category:children", "category:slug", "category:detail"}, allEntries = true)
     public void delete(Long id) {
         getById(id);

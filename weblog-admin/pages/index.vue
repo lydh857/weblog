@@ -710,7 +710,9 @@ async function renderChart(config: ChartConfig) {
   try {
     echarts = await ensureEchartsReady()
   } catch (error) {
-    console.error('[Dashboard] ECharts 加载失败:', error)
+    if (import.meta.dev) {
+      console.error('[Dashboard] ECharts 加载失败:', error)
+    }
     return
   }
 
@@ -766,7 +768,9 @@ async function renderCategoryChart() {
   try {
     echarts = await ensureEchartsReady()
   } catch (error) {
-    console.error('[Dashboard] ECharts 加载失败:', error)
+    if (import.meta.dev) {
+      console.error('[Dashboard] ECharts 加载失败:', error)
+    }
     return
   }
 
@@ -862,14 +866,18 @@ async function safeRenderAllCharts() {
     try {
       await renderChart(config)
     } catch (error) {
-      console.error('[Dashboard] 趋势图渲染失败:', config.key, error)
+      if (import.meta.dev) {
+        console.error('[Dashboard] 趋势图渲染失败:', config.key, error)
+      }
     }
   }
 
   try {
     await renderCategoryChart()
   } catch (error) {
-    console.error('[Dashboard] 分类饼图渲染失败:', error)
+    if (import.meta.dev) {
+      console.error('[Dashboard] 分类饼图渲染失败:', error)
+    }
   }
 }
 
@@ -910,7 +918,9 @@ async function loadDashboardStats() {
       await safeRenderAllCharts()
     }
   } catch (error) {
-    console.error('批量查询失败，降级为分批次查询:', error)
+    if (import.meta.dev) {
+      console.error('批量查询失败，降级为分批次查询:', error)
+    }
     await loadDashboardStatsFallback()
   } finally {
     // 无论接口或图表渲染是否异常，都不要让主区域一直转圈

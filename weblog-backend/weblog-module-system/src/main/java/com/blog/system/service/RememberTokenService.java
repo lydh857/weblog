@@ -43,7 +43,7 @@ public class RememberTokenService {
      * @param ip 登录 IP
      * @return Remember Token
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public String generateToken(User user, String deviceInfo, String ip) {
         // 生成 UUID Token
         String rawToken = UUID.randomUUID().toString().replace("-", "");
@@ -73,7 +73,7 @@ public class RememberTokenService {
      * @param token Token
      * @return 验证成功返回用户信息，失败返回 null
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public User verifyToken(String token, String deviceInfo, String ip) {
         String tokenHash = hashToken(token);
         RememberToken rememberToken = rememberTokenMapper.selectByTokenHash(tokenHash);
@@ -143,7 +143,7 @@ public class RememberTokenService {
     /**
      * 使 Token 失效（用户登出时使用）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void invalidateToken(String token) {
         String tokenHash = hashToken(token);
         int affected = rememberTokenMapper.invalidateTokenByHash(tokenHash);
@@ -153,7 +153,7 @@ public class RememberTokenService {
     /**
      * 使用户的所有 Token 失效（修改密码时使用）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void invalidateAllUserTokens(Long userId) {
         rememberTokenMapper.invalidateAllUserTokens(userId);
         log.info("用户所有 Remember Token 已失效：userId={}", userId);
@@ -164,7 +164,7 @@ public class RememberTokenService {
      * 每天凌晨 3 点执行，删除所有已过期的 Remember Token 记录
      */
     @Scheduled(cron = "0 0 3 * * ?")
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int cleanupExpiredTokens() {
         int count = rememberTokenMapper.deleteExpired(LocalDateTime.now());
         log.info("清理过期 Remember Token：count={}", count);
@@ -177,7 +177,7 @@ public class RememberTokenService {
      * @param token Remember Token
      * @return 登录成功返回 LoginVO，失败返回 null
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public LoginVO autoLogin(String token, String deviceInfo, String ip) {
         User user = verifyToken(token, deviceInfo, ip);
         if (user == null) {

@@ -67,7 +67,7 @@ public class TagService {
      * 创建标签
      * 清除所有标签缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"tag:list", "tag:slug", "tag:detail"}, allEntries = true)
     public Tag create(String name, String slug) {
         name = XssUtil.cleanText(name);
@@ -85,7 +85,7 @@ public class TagService {
      * 更新标签
      * 清除所有标签缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"tag:list", "tag:slug", "tag:detail"}, allEntries = true)
     public Tag update(Long id, String name, String slug) {
         Tag tag = getById(id);
@@ -105,7 +105,7 @@ public class TagService {
      * 删除标签
      * 清除所有标签缓存
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = {"tag:list", "tag:slug", "tag:detail"}, allEntries = true)
     public void delete(Long id) {
         getById(id);

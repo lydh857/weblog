@@ -532,7 +532,11 @@ async function loadDrafts() {
       draftPagination.pageNum--
       loadDrafts()
     }
-  } catch (e) { console.warn('加载草稿失败', e) }
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('加载草稿失败', e)
+    }
+  }
   finally { draftLoading.value = false }
 }
 
@@ -616,7 +620,11 @@ async function loadScheduledPosts() {
       scheduledPagination.pageNum--
       loadScheduledPosts()
     }
-  } catch (e) { console.warn('加载定时任务失败', e) }
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('加载定时任务失败', e)
+    }
+  }
   finally { scheduledLoading.value = false }
 }
 
@@ -782,7 +790,11 @@ async function loadTrash() {
       trashPagination.pageNum--
       loadTrash()
     }
-  } catch (e) { console.warn('加载回收站失败', e) }
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('加载回收站失败', e)
+    }
+  }
   finally { trashLoading.value = false }
 }
 
@@ -853,7 +865,11 @@ onMounted(() => {
   Promise.all([categoryApi.listAll(), tagApi.listAll()]).then(([catRes, tagRes]) => {
     categories.value = catRes.data
     allTags.value = tagRes.data
-  }).catch((e) => { console.warn('加载分类/标签失败', e) })
+  }).catch((e) => {
+    if (import.meta.dev) {
+      console.warn('加载分类/标签失败', e)
+    }
+  })
 
   // 从编辑器返回时，自动打开之前的弹窗
   const from = route.query.from as string | undefined

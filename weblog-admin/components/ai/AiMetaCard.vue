@@ -13,7 +13,10 @@
       </div>
     </div>
     <div class="ai-meta-card-body">
-      <slot />
+      <div v-if="loadingText" class="ai-card-shimmer">
+        <span class="ai-card-shimmer-text">{{ loadingText }}</span>
+      </div>
+      <slot v-else />
     </div>
   </div>
 </template>
@@ -25,9 +28,11 @@ withDefaults(defineProps<{
   title: string
   loading?: boolean
   adoptText?: string
+  loadingText?: string
 }>(), {
   loading: false,
   adoptText: '采用',
+  loadingText: '',
 })
 
 defineEmits<{
@@ -100,5 +105,27 @@ defineEmits<{
 
 .ai-meta-card-body {
   padding: 8px 10px;
+}
+
+.ai-card-shimmer {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.ai-card-shimmer-text {
+  font-size: 13px;
+  overflow: hidden;
+  background: linear-gradient(90deg, var(--el-text-color-placeholder) 0%, var(--el-color-primary) 50%, var(--el-text-color-placeholder) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ai-card-sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-card-sweep {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 </style>

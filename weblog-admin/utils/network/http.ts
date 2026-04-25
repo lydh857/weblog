@@ -9,14 +9,25 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
 
 // 防止刷新死循环
 let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb)
+interface RefreshSubscriber {
+  onSuccess: () => void
+  onError: (error: Error & { code: number }) => void
 }
 
-function onTokenRefreshed(token: string) {
-  refreshSubscribers.forEach(cb => cb(token))
+let refreshSubscribers: RefreshSubscriber[] = []
+
+function subscribeTokenRefresh(onSuccess: () => void, onError: (error: Error & { code: number }) => void) {
+  refreshSubscribers.push({ onSuccess, onError })
+}
+
+function onTokenRefreshed() {
+  refreshSubscribers.forEach(sub => sub.onSuccess())
+  refreshSubscribers = []
+}
+
+function onTokenRefreshFailed(error: Error & { code: number }) {
+  refreshSubscribers.forEach(sub => sub.onError(error))
   refreshSubscribers = []
 }
 
@@ -83,10 +94,15 @@ function createHttp(): AxiosInstance {
       // 401 未授权：尝试使用 Refresh Token 刷新
       if (error.response?.status === 401 && import.meta.client && !originalRequest._retry) {
         if (isRefreshing) {
-          return new Promise((resolve) => {
-            subscribeTokenRefresh(() => {
-              resolve(instance(originalRequest))
-            })
+          return new Promise((resolve, reject) => {
+            subscribeTokenRefresh(
+              () => {
+                resolve(instance(originalRequest))
+              },
+              (err) => {
+                reject(err)
+              }
+            )
           })
         }
 
@@ -100,19 +116,26 @@ function createHttp(): AxiosInstance {
             { withCredentials: true }
           )
 
-          onTokenRefreshed('refreshed')
+          onTokenRefreshed()
           isRefreshing = false
 
           return instance(originalRequest)
         } catch (refreshError) {
           isRefreshing = false
           removeToken()
-          navigateTo('/login')
 
           const err = new Error('登录已过期，请重新登录') as Error & { code: number }
           err.code = 401
+          onTokenRefreshFailed(err)
+          navigateTo('/login')
+
           return Promise.reject(err)
         }
+      }
+
+      // 主动取消的请求，静默 reject，不弹错误提示
+      if (axios.isCancel(error)) {
+        return Promise.reject(error)
       }
 
       // 其他错误
@@ -127,7 +150,6 @@ function createHttp(): AxiosInstance {
       if (error.code === 'ECONNABORTED') {
         errorMessage = '请求超时，请稍后重试'
       } else if (!error.response) {
-        // 没有响应可能是网络问题或 CORS 被拦截
         errorMessage = '网络连接失败，请检查网络或刷新页面'
       } else if (error.response?.status === 429) {
         errorMessage = error.response?.data?.message || '访问受限，请稍后再试'
@@ -147,13 +169,3 @@ function createHttp(): AxiosInstance {
 }
 
 export const http = createHttp()
-
-export function setToken(_token: string) {
-}
-
-export function getToken(): string | null {
-  return null
-}
-
-export function removeToken() {
-}

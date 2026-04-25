@@ -20,7 +20,8 @@ export function handleAiError(error: unknown): boolean {
   const err = error as { code?: number; message?: string }
   const code = err?.code
   if (code && AI_ERROR_MAP[code]) {
-    ElMessage.warning(AI_ERROR_MAP[code])
+    const message = err?.message?.trim()
+    ElMessage.warning(message && message !== AI_ERROR_MAP[code] ? message : AI_ERROR_MAP[code])
     return true
   }
   // 非 AI 特定错误，显示通用提示

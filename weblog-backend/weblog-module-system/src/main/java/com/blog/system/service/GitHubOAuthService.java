@@ -93,7 +93,7 @@ public class GitHubOAuthService {
     /**
      * GitHub OAuth 回调处理
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public LoginResponse handleCallback(String code, String state, String clientIp) {
         ensureOAuthConfigured();
 

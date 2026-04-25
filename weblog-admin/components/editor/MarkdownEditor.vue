@@ -39,6 +39,9 @@
         <NormalToolbar title="快捷键" @onClick="showShortcuts = true">
           <svg class="md-editor-icon" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 12H4V7h16v10zM11 8h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zM5 8h2v2H5zm0 3h2v2H5zm9 3h2v2h-2zm0-3h2v2h-2zm0-3h2v2h-2zm3 3h2v2h-2zm0-3h2v2h-2zM8 14h8v2H8z"/></svg>
         </NormalToolbar>
+        <NormalToolbar title="分隔线" @onClick="insertHorizontalRule">
+          <svg class="md-editor-icon" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 11h16v2H4v-2Z"/></svg>
+        </NormalToolbar>
       </template>
       <template #defFooters>
         <div class="custom-status-bar">
@@ -106,6 +109,10 @@
           <button title="AI 翻译" class="ft-ai-btn" @mousedown.prevent="doAiAction('translate')">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1"/><path d="M22 22l-5-10-5 10M14 18h6"/></svg>
             翻译
+          </button>
+          <button title="AI 去重" class="ft-ai-btn" @mousedown.prevent="doAiAction('deduplicate')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 13h6M8 17h4"/></svg>
+            去重
           </button>
         </div>
       </Transition>
@@ -230,7 +237,7 @@ const toolbarItems: ToolbarNames[] = [
   '-',
   'revoke', 'next', 'save',
   '=',
-  0, 1, 2,
+  0, 1, 2, 3,
   'pageFullscreen', 'fullscreen', 'preview', 'previewOnly', 'catalog', 'github',
 ]
 
@@ -363,6 +370,10 @@ function doFormat(action: string) {
   showFloatingToolbar.value = false
 }
 
+function insertHorizontalRule() {
+  editorRef.value?.insert(() => ({ targetValue: '\n\n---\n\n', select: false, deviationStart: 0, deviationEnd: 0 }))
+}
+
 // ========== AI 写作助手 ==========
 const aiChatBubbleRef = ref<InstanceType<typeof import('../ai/AiChatBubble.vue')['default']>>()
 const currentSelectedText = ref('')
@@ -372,6 +383,20 @@ function doAiAction(action: string) {
   currentSelectedText.value = editorRef.value?.getSelectedText() || ''
   showFloatingToolbar.value = false
   aiChatBubbleRef.value?.openWithAction(action)
+}
+
+function syncFloatingToolbar(pos?: { x: number; y: number }) {
+  syncEditorCursor()
+  const sel = editorRef.value?.getSelectedText() || ''
+  if (sel.length > 0) {
+    currentSelectedText.value = sel
+    showFloatingToolbar.value = true
+    const fallback = pos || lastMousePos || { x: window.innerWidth / 2, y: 96 }
+    nextTick(() => positionToolbar(fallback))
+    return
+  }
+  currentSelectedText.value = ''
+  showFloatingToolbar.value = false
 }
 
 function handleAiInsert(text: string) {
@@ -525,26 +550,20 @@ onMounted(() => {
 
   let isMouseDown = false
   let editorCursorTimer: ReturnType<typeof setTimeout> | undefined
+  let editorHandlersBound = false
 
   function handleGlobalMouseUp(event: MouseEvent) {
-    if (!isMouseDown) return
     isMouseDown = false
     if (editorCursorTimer) { clearTimeout(editorCursorTimer); editorCursorTimer = undefined }
     lastMousePos = { x: event.clientX, y: event.clientY }
-    syncEditorCursor()
-    const sel = editorRef.value?.getSelectedText()
-    if (sel && sel.length > 0) {
-      currentSelectedText.value = sel
-      showFloatingToolbar.value = true
-      positionToolbar(lastMousePos)
-    } else {
-      currentSelectedText.value = ''
-    }
+    syncFloatingToolbar(lastMousePos)
   }
   document.addEventListener('mouseup', handleGlobalMouseUp)
   cleanups.push(() => document.removeEventListener('mouseup', handleGlobalMouseUp))
 
-  nextTick(() => {
+  const bindEditorHandlers = () => {
+    if (editorHandlersBound || !editorRef.value?.getEditorView()) return
+    editorHandlersBound = true
     editorRef.value?.domEventHandlers({
       mousedown: () => {
         isMouseDown = true
@@ -558,17 +577,23 @@ onMounted(() => {
         return false
       },
       keyup: (event: KeyboardEvent) => {
-        if (NAV_KEYS.has(event.key) || event.shiftKey) {
-          syncEditorCursor()
-          const sel = editorRef.value?.getSelectedText()
-          if (!sel || sel.length === 0) {
-            showFloatingToolbar.value = false
-            currentSelectedText.value = ''
-          }
+        const key = event.key.toLowerCase()
+        if (NAV_KEYS.has(event.key) || event.shiftKey || ((event.ctrlKey || event.metaKey) && key === 'a')) {
+          syncFloatingToolbar({ x: window.innerWidth / 2, y: 96 })
         }
         return false
       },
     })
+  }
+
+  nextTick(() => {
+    let attempts = 0
+    const bindTimer = setInterval(() => {
+      attempts += 1
+      bindEditorHandlers()
+      if (editorHandlersBound || attempts >= 20) clearInterval(bindTimer)
+    }, 150)
+    cleanups.push(() => clearInterval(bindTimer))
   })
 })
 
@@ -732,6 +757,17 @@ defineExpose({ refresh })
 #md-editor .md-editor-footer-item {
   display: flex;
   align-items: center;
+}
+
+#md-editor .md-editor-preview blockquote {
+  margin: 16px 0;
+  padding: 16px 24px;
+}
+#md-editor .md-editor-preview blockquote > :first-child {
+  margin-top: 0;
+}
+#md-editor .md-editor-preview blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 /* 快捷键弹窗 */

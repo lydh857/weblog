@@ -24,8 +24,19 @@ public class AiProperties {
   /** API Key */
   private String apiKey;
 
-  /** API Base URL */
+  /**
+   * API Base URL
+   * <p>Spring AI 会自动拼接 /v1/chat/completions，因此 baseUrl 不应包含 /v1 后缀。
+   * setter 自动去除末尾多余的 /v1，防止路径重复。
+   */
   private String baseUrl = "https://api.deepseek.com";
+
+  public void setBaseUrl(String baseUrl) {
+    if (baseUrl != null) {
+      baseUrl = baseUrl.replaceAll("/v1/?$", "");
+    }
+    this.baseUrl = baseUrl;
+  }
 
   /** 对话模型名称 */
   private String model = "deepseek-chat";
@@ -33,7 +44,7 @@ public class AiProperties {
   /** 单次最大 token 数 */
   private int maxTokens = 4096;
 
-  /** 超时时间（秒） */
+  /** 超时时间（秒），SseEmitter 超时 = timeout * 1000ms，由管理端 t_ai_config 表热更新 */
   private int timeout = 30;
 
   /** 月度 token 用量上限（0 表示不限制） */

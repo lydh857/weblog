@@ -3,9 +3,12 @@ name: P0 API Regression
 on:
   schedule:
     - cron: '0 3 * * 1'
-  pull_request:
-    branches:
-      - master
+  # PR 触发已移除：该工作流在 PR 事件中可访问 secrets（P0_REGRESSION_AUTH_TOKEN）
+  # 且执行来自 PR 分支的外部脚本（scripts/p0-api-regression.ps1 等），存在安全风险
+  # 如需在 PR 中验证 API 回归，请使用 workflow_dispatch 手动触发
+  # pull_request:
+  #   branches:
+  #     - master
   workflow_dispatch:
     inputs:
       authToken:

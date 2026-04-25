@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.event.EventListener;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -161,10 +162,18 @@ public class AiConfigService {
     }
 
     try {
+      int timeoutSeconds = aiProperties.getTimeout();
+      java.time.Duration timeoutDuration = java.time.Duration.ofSeconds(timeoutSeconds);
+
+      SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+      requestFactory.setConnectTimeout(timeoutDuration);
+      requestFactory.setReadTimeout(timeoutDuration);
+
       // 临时创建模型实例进行测试，不影响当前运行中的模型
       var openAiApi = org.springframework.ai.openai.api.OpenAiApi.builder()
         .apiKey(aiProperties.getApiKey())
         .baseUrl(aiProperties.getBaseUrl())
+        .restClientBuilder(org.springframework.web.client.RestClient.builder().requestFactory(requestFactory))
         .build();
 
       var chatOptions = org.springframework.ai.openai.OpenAiChatOptions.builder()
@@ -223,8 +232,7 @@ public class AiConfigService {
   private void applyToProperties(AiConfig config) {
     if (config.getEnabled() != null) aiProperties.setEnabled(config.getEnabled());
     if (config.getProvider() != null) aiProperties.setProvider(config.getProvider());
-    if (config.getApiKey() != null) aiProperties.setApiKey(config.getApiKey());
-    if (config.getBaseUrl() != null) aiProperties.setBaseUrl(config.getBaseUrl());
+    // API Key 和 Base URL 只从环境变量读取，避免数据库历史空值覆盖本地/生产敏感配置。
     if (config.getModel() != null) aiProperties.setModel(config.getModel());
     if (config.getMaxTokens() != null) aiProperties.setMaxTokens(config.getMaxTokens());
     if (config.getTimeout() != null) aiProperties.setTimeout(config.getTimeout());

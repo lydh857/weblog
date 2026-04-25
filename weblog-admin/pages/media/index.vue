@@ -393,7 +393,9 @@ async function loadUnreferencedCount() {
     const res = await mediaApi.getUnreferencedCount()
     unreferencedCount.value = res.data
   } catch (e: unknown) {
-    console.warn('获取未引用数量失败', e)
+    if (import.meta.dev) {
+      console.warn('获取未引用数量失败', e)
+    }
   }
 }
 

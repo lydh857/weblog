@@ -49,7 +49,7 @@ public class AuthService {
     /**
      * 用户注册
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void register(RegisterRequest req) {
         if (!ValidateUtil.isValidEmail(req.getEmail())) {
             throw new BusinessException(ResultCode.EMAIL_INVALID);
@@ -236,7 +236,7 @@ public class AuthService {
     /**
      * 注册（带验证码校验）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void registerWithCode(RegisterRequest req, String code) {
         if (!emailCodeService.verifyCode(req.getEmail(), "register", code)) {
             throw new BusinessException(ResultCode.VERIFY_CODE_INVALID);

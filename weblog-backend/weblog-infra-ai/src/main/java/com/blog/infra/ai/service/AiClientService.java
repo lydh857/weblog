@@ -14,10 +14,14 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -69,13 +73,22 @@ public class AiClientService {
    * @param baseUrl API Base URL
    * @param model   对话模型名称
    */
-  public void reconfigure(String apiKey, String baseUrl, String model) {
+public void reconfigure(String apiKey, String baseUrl, String model) {
     log.info("热重载 AI 模型: baseUrl={}, model={}", baseUrl, model);
+
+    int timeoutSeconds = getAiConfigService().getTimeout();
+    Duration timeoutDuration = Duration.ofSeconds(timeoutSeconds);
+
+    // 构建 RestClientFactory，设置连接和读取超时与 SseEmitter 超时一致
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(timeoutDuration);
+    requestFactory.setReadTimeout(timeoutDuration);
 
     // 构建 OpenAiApi
     OpenAiApi openAiApi = OpenAiApi.builder()
         .apiKey(apiKey)
         .baseUrl(baseUrl)
+        .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
         .build();
 
     // 构建 ChatModel
@@ -187,9 +200,9 @@ public class AiClientService {
             log.error("AI 流式调用失败: {}", error.getMessage());
             try {
               emitter.send(SseEmitter.event().data("[ERROR] AI 调用失败，请稍后重试"));
-            } catch (IOException ignored) {
-              // 发送错误事件失败，忽略
-            }
+              } catch (IOException e) {
+                log.warn("SSE 发送事件失败", e);
+              }
             emitter.completeWithError(error);
           },
           () -> {
@@ -221,8 +234,8 @@ public class AiClientService {
         log.error("AI 流式调用异常: {}", e.getMessage(), e);
         try {
           emitter.send(SseEmitter.event().data("[ERROR] AI 调用异常，请稍后重试"));
-        } catch (IOException ignored) {
-          // 发送错误事件失败，忽略
+        } catch (IOException ioe) {
+          log.warn("SSE 发送事件失败", ioe);
         }
         emitter.completeWithError(e);
       }
@@ -230,6 +243,11 @@ public class AiClientService {
 
     emitter.onTimeout(() -> {
       log.warn("SSE 超时");
+      try {
+        emitter.send(SseEmitter.event().data("[TIMEOUT] AI 响应超时，请缩短内容后重试"));
+      } catch (IOException e) {
+        log.warn("SSE 发送事件失败", e);
+      }
       emitter.complete();
     });
 

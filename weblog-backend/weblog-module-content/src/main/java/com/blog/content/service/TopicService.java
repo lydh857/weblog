@@ -85,7 +85,7 @@ public class TopicService {
     /**
      * 删除专题（逻辑删除，级联删除目录）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteTopic(Long id) {
         Topic topic = topicMapper.selectById(id);
         if (topic == null) {
@@ -132,7 +132,7 @@ public class TopicService {
     /**
      * 批量删除（级联删除目录）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         for (Long id : ids) {
             topicMapper.deleteById(id);
@@ -146,7 +146,7 @@ public class TopicService {
     /**
      * 批量设置置顶
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchSetTop(List<Long> ids, boolean isTop) {
         topicMapper.update(null, new LambdaUpdateWrapper<Topic>()
                 .in(Topic::getId, ids)
@@ -157,7 +157,7 @@ public class TopicService {
     /**
      * 批量设置发布状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchSetPublish(List<Long> ids, boolean isPublish) {
         topicMapper.update(null, new LambdaUpdateWrapper<Topic>()
                 .in(Topic::getId, ids)
@@ -178,7 +178,7 @@ public class TopicService {
     /**
      * 保存专题目录树（整体替换：先删旧数据，再批量插入新数据）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void saveCatalogs(Long topicId, List<CatalogNode> tree) {
         // 逻辑删除旧目录
         topicCatalogMapper.update(null, new LambdaUpdateWrapper<TopicCatalog>()
@@ -210,7 +210,7 @@ public class TopicService {
     /**
      * 批量恢复专题（同时恢复目录节点，取消发布状态）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchRestore(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -227,7 +227,7 @@ public class TopicService {
     /**
      * 批量永久删除专题（同时物理删除目录节点）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchPermanentDelete(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -244,7 +244,7 @@ public class TopicService {
     /**
      * 清空回收站
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int clearTrash() {
         List<Long> ids = topicMapper.selectDeletedIds();
         if (ids.isEmpty()) return 0;

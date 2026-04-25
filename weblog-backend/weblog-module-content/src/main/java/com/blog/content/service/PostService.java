@@ -72,7 +72,7 @@ public class PostService {
     /**
      * 创建文章
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PostVO create(PostCreateRequest req, Long authorId) {
         Post post = new Post();
         post.setTitle(XssUtil.cleanText(req.getTitle()));
@@ -108,6 +108,9 @@ public class PostService {
         post.setPreviewTheme(req.getPreviewTheme());
         post.setCodeTheme(req.getCodeTheme());
 
+        // 处理新分类后再插入文章，确保新分类 ID 能落库到文章记录
+        handleNewCategory(req, post);
+
         try {
             postMapper.insert(post);
         } catch (org.springframework.dao.DuplicateKeyException e) {
@@ -127,9 +130,6 @@ public class PostService {
         content.setId(post.getId());
         content.setContent(migratedContent);
         postContentMapper.insert(content);
-
-        // 处理新分类（发布时自动创建）
-        handleNewCategory(req, post);
 
         // 处理新标签（发布时自动创建）并合并到 tagIds
         List<Long> allTagIds = mergeNewTags(req);
@@ -151,7 +151,7 @@ public class PostService {
     /**
      * 更新文章
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PostVO update(Long id, PostCreateRequest req, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -236,7 +236,7 @@ public class PostService {
     /**
      * 自动保存文章（轻量级，只更新标题和内容）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void autoSave(Long id, PostAutoSaveRequest req, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -286,7 +286,7 @@ public class PostService {
     /**
      * 删除文章（软删除）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long operatorId, boolean isAdmin) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -456,7 +456,7 @@ public class PostService {
     /**
      * 切换文章置顶状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void toggleTop(Long id, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -473,7 +473,7 @@ public class PostService {
     /**
      * 切换文章启用/禁用状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void toggleDisabled(Long id, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -490,7 +490,7 @@ public class PostService {
     /**
      * 批量设置置顶状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchSetTop(List<Long> ids, boolean isTop, Long operatorId) {
         int count = 0;
         for (Long id : ids) {
@@ -509,7 +509,7 @@ public class PostService {
     /**
      * 批量设置禁用状态
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchSetDisabled(List<Long> ids, boolean isDisabled, Long operatorId) {
         int count = 0;
         for (Long id : ids) {
@@ -528,7 +528,7 @@ public class PostService {
     /**
      * 批量发布草稿
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchPublish(List<Long> ids, Long operatorId, boolean isAdmin) {
         int count = 0;
         for (Long id : ids) {
@@ -555,7 +555,7 @@ public class PostService {
     /**
      * 批量删除文章
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchDelete(List<Long> ids, Long operatorId, boolean isAdmin) {
         int count = 0;
         for (Long id : ids) {
@@ -577,7 +577,7 @@ public class PostService {
     /**
      * 批量撤销定时发布（回到草稿箱）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchCancelSchedule(List<Long> ids, Long operatorId, boolean isAdmin) {
         int count = 0;
         for (Long id : ids) {
@@ -599,7 +599,7 @@ public class PostService {
     /**
      * 批量定时发布（将草稿设为定时发布）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchSchedule(List<Long> ids, LocalDateTime baseTime, Integer intervalMinutes, Long operatorId) {
         if (baseTime == null || baseTime.isBefore(LocalDateTime.now())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "定时发布时间必须在未来");
@@ -628,7 +628,7 @@ public class PostService {
     /**
      * 更新文章SEO设置
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateSeo(Long id, PostSeoRequest req, Long operatorId) {
         Post post = postMapper.selectById(id);
         if (post == null) {
@@ -647,7 +647,7 @@ public class PostService {
     /**
      * 发布到期的定时文章
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int publishScheduledPosts() {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Post::getStatus, "scheduled")
@@ -1036,7 +1036,8 @@ public class PostService {
                     String normalizedHost = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
                     domains.add(normalizedHost);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn("文件迁移失败", e);
             }
         }
 
@@ -1057,7 +1058,8 @@ public class PostService {
                     }
                     try {
                         domains.add(IDN.toASCII(candidate, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT));
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        log.warn("临时目录清理失败", e);
                     }
                 });
 
@@ -1361,7 +1363,7 @@ public class PostService {
     /**
      * 批量恢复文章到草稿箱
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchRestore(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -1374,7 +1376,7 @@ public class PostService {
     /**
      * 批量永久删除文章
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchPermanentDelete(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -1392,7 +1394,7 @@ public class PostService {
     /**
      * 清空回收站
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int clearTrash() {
         List<Long> ids = postMapper.selectDeletedIds();
         if (ids.isEmpty()) return 0;

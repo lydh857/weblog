@@ -1,98 +1,91 @@
 <template>
   <div class="ai-meta-generator">
-    <!-- AI 一键生成按钮 -->
     <el-popover
       ref="popoverRef"
-      placement="bottom-end"
-      :width="268"
+      placement="left-start"
+      :width="300"
       :visible="popoverVisible"
       popper-class="ai-meta-popover"
     >
       <template #reference>
         <div class="ai-meta-trigger">
-          <el-button
-            :type="result ? 'default' : 'primary'"
-            :loading="generating"
-            :disabled="contentTooShort"
-            class="ai-meta-main-btn"
+          <button
+            class="ai-generate-btn"
+            :class="{ 'ai-generating': generating || singleLoading }"
+            :disabled="contentTooShort || (generating && !abortCtrl)"
             @click="handleButtonClick"
           >
-            <el-icon><MagicStick /></el-icon>
-            {{ buttonText }}
-          </el-button>
-          <el-dropdown trigger="hover" @command="handleCommand">
-            <el-button class="ai-meta-split-btn" :disabled="contentTooShort" :loading="anyBusy">
+            <el-icon v-if="!generating && !singleLoading"><MagicStick /></el-icon>
+            <span class="ai-btn-text">{{ buttonText }}</span>
+            <span v-if="generating || singleLoading" class="ai-btn-shimmer" />
+          </button>
+          <button
+            v-if="generating || singleLoading"
+            class="ai-stop-btn"
+            @click="handleStop"
+          >
+            <el-icon><CloseBold /></el-icon>
+          </button>
+          <el-dropdown v-else trigger="hover" @command="handleCommand">
+            <el-button class="ai-meta-split-btn" :disabled="contentTooShort">
               <el-icon><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="all">全部重新生成</el-dropdown-item>
                 <el-dropdown-item command="remaining">生成剩余内容</el-dropdown-item>
                 <el-dropdown-item command="summary">生成摘要</el-dropdown-item>
                 <el-dropdown-item command="seo">生成 SEO</el-dropdown-item>
                 <el-dropdown-item command="tags">生成标签</el-dropdown-item>
                 <el-dropdown-item command="categories">生成分类</el-dropdown-item>
                 <el-dropdown-item command="slug">生成 Slug</el-dropdown-item>
-                <el-dropdown-item command="all" divided>全部重新生成</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
       </template>
 
-      <!-- 弹窗内容 -->
       <div class="ai-meta-panel">
-        <!-- 生成中 -->
+        <!-- 全量生成中：整体加载动画 -->
         <div v-if="generating" class="ai-meta-loading">
-          <el-icon class="is-loading" :size="20"><Loading /></el-icon>
-          <span>正在分析文章内容...</span>
+          <span class="ai-meta-loading-text">正在分析文章内容...</span>
+          <span class="ai-meta-loading-bar" />
+          <el-button size="small" text type="danger" class="ai-stop-inline" @click="handleStop">停止生成</el-button>
         </div>
 
-        <!-- 生成失败 -->
-        <div v-else-if="errorMsg" class="ai-meta-error-inline">
+        <!-- 全量生成失败 -->
+        <div v-else-if="errorMsg && !result" class="ai-meta-error-inline">
           <span>{{ errorMsg }}</span>
           <el-button size="small" text type="primary" @click="handleGenerateAll">重试</el-button>
         </div>
 
-        <!-- 无结果提示 -->
-        <div v-else-if="!result" class="ai-meta-empty">
-          <span>点击按钮生成文章元信息</span>
-        </div>
-
-        <!-- 生成结果 -->
-        <div v-else class="ai-meta-results">
-          <!-- 全部重新生成 -->
-          <div class="ai-meta-regen-all">
-            <el-button size="small" text type="primary" :loading="generating" @click="handleGenerateAll">
-              <el-icon><RefreshRight /></el-icon>
-              全部重新生成
-            </el-button>
-          </div>
-
+        <!-- 结果区域：只显示已生成或正在生成的字段 -->
+        <div v-else-if="result || singleLoading" class="ai-meta-results">
           <!-- 摘要 -->
-          <AiMetaCard title="摘要" :loading="regenerating.summary" @adopt="$emit('adopt-summary', result.summary)" @regenerate="handleRegenerate('summary')">
-            <div class="ai-meta-text">{{ result.summary }}</div>
+          <AiMetaCard v-if="generated.has('summary') || regenerating.summary" title="摘要" :loading="regenerating.summary" loading-text="正在生成摘要..." @adopt="$emit('adopt-summary', result?.summary || '')" @regenerate="handleRegenerate('summary')">
+            <div v-if="result?.summary" class="ai-meta-text">{{ result.summary }}</div>
           </AiMetaCard>
 
           <!-- SEO 标题 -->
-          <AiMetaCard title="SEO 标题" :loading="regenerating.seo" @adopt="$emit('adopt-seo', { seoTitle: result.seoTitle })" @regenerate="handleRegenerate('seo')">
-            <div class="ai-meta-text">{{ result.seoTitle }}</div>
+          <AiMetaCard v-if="generated.has('seo') || regenerating.seo" title="SEO 标题" :loading="regenerating.seo" loading-text="正在生成 SEO..." @adopt="$emit('adopt-seo', { seoTitle: result?.seoTitle || '' })" @regenerate="handleRegenerate('seo')">
+            <div v-if="result?.seoTitle" class="ai-meta-text">{{ result.seoTitle }}</div>
           </AiMetaCard>
 
           <!-- SEO 描述 -->
-          <AiMetaCard title="SEO 描述" :loading="regenerating.seoDesc" @adopt="$emit('adopt-seo', { seoDescription: result.seoDescription })" @regenerate="handleRegenerateSeoField('seoDesc')">
-            <div class="ai-meta-text">{{ result.seoDescription }}</div>
+          <AiMetaCard v-if="generated.has('seoDesc') || regenerating.seoDesc" title="SEO 描述" :loading="regenerating.seoDesc" loading-text="正在生成 SEO 描述..." @adopt="$emit('adopt-seo', { seoDescription: result?.seoDescription || '' })" @regenerate="handleRegenerateSeoField('seoDesc')">
+            <div v-if="result?.seoDescription" class="ai-meta-text">{{ result.seoDescription }}</div>
           </AiMetaCard>
 
           <!-- SEO 关键词 -->
-          <AiMetaCard title="SEO 关键词" :loading="regenerating.seoKw" @adopt="$emit('adopt-seo', { seoKeywords: result.seoKeywords?.join(', ') })" @regenerate="handleRegenerateSeoField('seoKw')">
-            <div class="ai-kw-list">
+          <AiMetaCard v-if="generated.has('seoKw') || regenerating.seoKw" title="SEO 关键词" :loading="regenerating.seoKw" loading-text="正在生成 SEO 关键词..." @adopt="$emit('adopt-seo', { seoKeywords: result?.seoKeywords?.join(', ') || '' })" @regenerate="handleRegenerateSeoField('seoKw')">
+            <div v-if="result?.seoKeywords?.length" class="ai-kw-list">
               <el-tag v-for="kw in result.seoKeywords" :key="kw" size="small" class="ai-kw-tag">{{ kw }}</el-tag>
             </div>
           </AiMetaCard>
 
           <!-- 标签推荐 -->
-          <AiMetaCard title="标签推荐" :loading="regenerating.tags" adopt-text="采用选中" @adopt="handleAdoptTags" @regenerate="handleRegenerate('tags')">
-            <div class="ai-tag-list">
+          <AiMetaCard v-if="generated.has('tags') || regenerating.tags" title="标签推荐" :loading="regenerating.tags" loading-text="正在生成标签..." adopt-text="采用选中" @adopt="handleAdoptTags" @regenerate="handleRegenerate('tags')">
+            <div v-if="result?.tags?.length" class="ai-tag-list">
               <el-check-tag
                 v-for="tag in result.tags"
                 :key="tag.name"
@@ -111,8 +104,8 @@
           </AiMetaCard>
 
           <!-- 分类推荐 -->
-          <AiMetaCard title="分类推荐" :loading="regenerating.categories" @adopt="handleAdoptCategory" @regenerate="handleRegenerate('categories')">
-            <div class="ai-cat-list">
+          <AiMetaCard v-if="generated.has('categories') || regenerating.categories" title="分类推荐" :loading="regenerating.categories" loading-text="正在生成分类..." @adopt="handleAdoptCategory" @regenerate="handleRegenerate('categories')">
+            <div v-if="result?.categories?.length" class="ai-cat-list">
               <el-radio-group v-model="selectedCategory">
                 <el-radio
                   v-for="cat in result.categories"
@@ -131,14 +124,20 @@
           </AiMetaCard>
 
           <!-- Slug -->
-          <AiMetaCard title="Slug" :loading="regenerating.slug" @adopt="$emit('adopt-slug', result.slug)" @regenerate="handleRegenerate('slug')">
-            <code class="ai-slug-text">{{ result.slug }}</code>
+          <AiMetaCard v-if="generated.has('slug') || regenerating.slug" title="Slug" :loading="regenerating.slug" loading-text="正在生成 Slug..." @adopt="$emit('adopt-slug', result?.slug || '')" @regenerate="handleRegenerate('slug')">
+            <code v-if="result?.slug" class="ai-slug-text">{{ result.slug }}</code>
           </AiMetaCard>
 
-          <!-- 全部采用 -->
-          <div class="ai-meta-adopt-all">
+          <!-- 底部操作 -->
+          <div v-if="hasAnyResult" class="ai-meta-adopt-all">
             <el-button type="primary" size="small" @click="handleAdoptAll">全部采用</el-button>
+            <el-button size="small" @click="handleGenerateAll">全部重新生成</el-button>
           </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="ai-meta-empty">
+          <span>点击按钮生成文章元信息</span>
         </div>
       </div>
     </el-popover>
@@ -147,13 +146,28 @@
 </template>
 
 <script setup lang="ts">
-import { MagicStick, ArrowDown, Loading, RefreshRight } from '@element-plus/icons-vue'
+import { MagicStick, ArrowDown, CloseBold } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 import { aiApi, type AiMetaResult, type TagSuggestion, type CategorySuggestion } from '~/api/ai/ai'
 import { handleAiError } from '~/utils/ai/aiError'
+
+function isCancelled(e: unknown): boolean {
+  return axios.isCancel(e)
+}
 import AiMetaCard from './AiMetaCard.vue'
 
 const MAX_TAGS = 5
+
+const LOADING_TEXT: Record<string, string> = {
+  summary: '正在生成摘要...',
+  seo: '正在生成 SEO...',
+  seoDesc: '正在生成 SEO 描述...',
+  seoKw: '正在生成 SEO 关键词...',
+  tags: '正在生成标签...',
+  categories: '正在生成分类...',
+  slug: '正在生成 Slug...',
+}
 
 const props = defineProps<{
   title: string
@@ -182,6 +196,7 @@ const result = ref<AiMetaResult | null>(null)
 const errorMsg = ref('')
 const selectedTags = ref(new Set<string>())
 const selectedCategory = ref('')
+const generated = reactive(new Set<string>())
 const regenerating = reactive({
   summary: false,
   seo: false,
@@ -191,28 +206,118 @@ const regenerating = reactive({
   categories: false,
   slug: false,
 })
+const abortCtrl = ref<AbortController | null>(null)
 
 const contentTooShort = computed(() => props.content.length < 100)
-const anyBusy = computed(() => generating.value || Object.values(regenerating).some(Boolean))
+const singleLoading = computed(() => Object.values(regenerating).some(Boolean))
+const hasAnyResult = computed(() => generated.size > 0)
 
-// 按钮文字：根据是否已有结果动态显示
 const buttonText = computed(() => {
-  if (generating.value) return '生成中...'
-  return result.value ? 'AI 已生成' : 'AI 一键生成'
+  if (generating.value) return 'AI 生成中'
+  if (singleLoading.value) {
+    const activeType = (Object.entries(regenerating) as [string, boolean][]).find(([, v]) => v)?.[0]
+    return LOADING_TEXT[activeType] || '生成中...'
+  }
+  return result.value || generated.size > 0 ? '查看生成结果' : 'AI 一键生成'
 })
 
-// 按钮点击：切换弹窗，首次自动生成
 function handleButtonClick() {
-  popoverVisible.value = !popoverVisible.value
-  if (popoverVisible.value && !result.value && !generating.value) {
-    handleGenerateAll()
+  if (generating.value || singleLoading.value) return
+  if (result.value || generated.size > 0) {
+    popoverVisible.value = !popoverVisible.value
+    return
+  }
+  popoverVisible.value = true
+  handleGenerateAll()
+}
+
+function handleStop() {
+  if (abortCtrl.value) {
+    abortCtrl.value.abort()
+    abortCtrl.value = null
+  }
+  generating.value = false
+  for (const key of Object.keys(regenerating) as (keyof typeof regenerating)[]) {
+    regenerating[key] = false
   }
 }
 
-async function ensureResult() {
-  if (!result.value && !generating.value) {
-    await handleGenerateAll()
+function markAllGenerated() {
+  generated.add('summary')
+  generated.add('seo')
+  generated.add('seoDesc')
+  generated.add('seoKw')
+  generated.add('tags')
+  generated.add('categories')
+  generated.add('slug')
+}
+
+function createAbortController() {
+  if (abortCtrl.value) {
+    abortCtrl.value.abort()
   }
+  abortCtrl.value = new AbortController()
+  return abortCtrl.value.signal
+}
+
+async function handleGenerateAll() {
+  if (contentTooShort.value || generating.value) return
+  generating.value = true
+  errorMsg.value = ''
+  result.value = null
+  const signal = createAbortController()
+  try {
+    const res = await aiApi.generateAll({ title: props.title, content: props.content }, signal)
+    result.value = res.data
+    markAllGenerated()
+    const slots = MAX_TAGS - (props.currentTagCount ?? 0)
+    const tagNames = (res.data.tags || []).slice(0, Math.max(0, slots)).map(t => t.name)
+    selectedTags.value = new Set(tagNames)
+    const firstCategory = res.data.categories?.[0]
+    if (firstCategory) {
+      selectedCategory.value = getCatKey(firstCategory)
+    }
+    popoverVisible.value = true
+  } catch (e: unknown) {
+    if (isCancelled(e)) return
+    const err = e as { message?: string }
+    errorMsg.value = err?.message || 'AI 生成失败，请稍后重试'
+    handleAiError(e)
+  } finally {
+    generating.value = false
+    abortCtrl.value = null
+  }
+}
+
+function getCatKey(cat: CategorySuggestion): string {
+  return cat.parentName ? `${cat.parentName}/${cat.name}` : cat.name
+}
+
+async function handleCommand(command: string) {
+  if (generating.value) return
+  popoverVisible.value = true
+  if (command === 'all') {
+    await handleGenerateAll()
+    return
+  }
+  if (command === 'remaining') {
+    await handleGenerateRemaining()
+    return
+  }
+  handleStopSingle()
+  await handleRegenerate(command as keyof typeof regenerating)
+}
+
+function handleStopSingle() {
+  if (abortCtrl.value) {
+    abortCtrl.value.abort()
+    abortCtrl.value = null
+  }
+  for (const key of Object.keys(regenerating) as (keyof typeof regenerating)[]) {
+    regenerating[key] = false
+  }
+  generated.clear()
+  result.value = null
 }
 
 async function handleGenerateRemaining() {
@@ -220,182 +325,115 @@ async function handleGenerateRemaining() {
     await handleGenerateAll()
     return
   }
-
-  if (!props.currentSummary?.trim()) {
+  if (!result.value.summary && !props.currentSummary?.trim()) {
     await handleRegenerate('summary')
   }
-  if (!props.currentSeoTitle?.trim() || !props.currentSeoDescription?.trim() || !props.currentSeoKeywords?.trim()) {
+  if ((!result.value.seoTitle || !result.value.seoDescription) && (!props.currentSeoTitle?.trim() || !props.currentSeoDescription?.trim())) {
     await handleRegenerate('seo')
   }
-  if ((props.currentTagCount ?? 0) < MAX_TAGS) {
+  if ((result.value.tags?.length ?? 0) === 0 && (props.currentTagCount ?? 0) < MAX_TAGS) {
     await handleRegenerate('tags')
   }
-  if (!props.hasCategory) {
+  if ((result.value.categories?.length ?? 0) === 0 && !props.hasCategory) {
     await handleRegenerate('categories')
   }
-  if (!props.currentSlug?.trim()) {
+  if (!result.value.slug && !props.currentSlug?.trim()) {
     await handleRegenerate('slug')
   }
-
-  popoverVisible.value = true
 }
 
-async function handleCommand(command: string) {
-  popoverVisible.value = true
-  switch (command) {
-    case 'remaining':
-      await handleGenerateRemaining()
-      break
-    case 'summary':
-      await ensureResult()
-      await handleRegenerate('summary')
-      break
-    case 'seo':
-      await ensureResult()
-      await handleRegenerate('seo')
-      break
-    case 'tags':
-      await ensureResult()
-      await handleRegenerate('tags')
-      break
-    case 'categories':
-      await ensureResult()
-      await handleRegenerate('categories')
-      break
-    case 'slug':
-      await ensureResult()
-      await handleRegenerate('slug')
-      break
-    case 'all':
-      await handleGenerateAll()
-      break
-  }
-}
-
-// 点击外部关闭弹窗
-function handleClickOutside(e: MouseEvent) {
-  if (!popoverVisible.value) return
-  const popoverEl = popoverRef.value?.popperRef?.contentRef
-  const referenceEl = popoverRef.value?.triggerRef
-  if (popoverEl?.contains(e.target as Node) || referenceEl?.contains(e.target as Node)) return
-  popoverVisible.value = false
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside, true)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside, true)
-})
-
-async function handleGenerateAll() {
-  generating.value = true
-  errorMsg.value = ''
-  result.value = null
-  try {
-    const res = await aiApi.generateAll({ title: props.title, content: props.content })
-    result.value = res.data
-    // 默认选中标签（限制不超过可用名额）
-    const slots = MAX_TAGS - (props.currentTagCount ?? 0)
-    const tagNames = (res.data.tags || []).slice(0, Math.max(0, slots)).map(t => t.name)
-    selectedTags.value = new Set(tagNames)
-    // 默认选第一个分类
-    const firstCategory = res.data.categories?.[0]
-    if (firstCategory) {
-      selectedCategory.value = getCatKey(firstCategory)
+function ensureResult() {
+  if (!result.value) {
+    result.value = {
+      summary: '',
+      seoTitle: '',
+      seoDescription: '',
+      seoKeywords: [],
+      tags: [],
+      categories: [],
+      slug: '',
     }
-  } catch (e) {
-    const err = e as { message?: string }
-    errorMsg.value = err?.message || 'AI 生成失败，请稍后重试'
-    handleAiError(e)
-  } finally {
-    generating.value = false
-    // 生成完成后自动弹出弹窗
-    popoverVisible.value = true
   }
 }
 
-// 分类唯一键：parentName/name
-function getCatKey(cat: CategorySuggestion): string {
-  return cat.parentName ? `${cat.parentName}/${cat.name}` : cat.name
-}
-
-async function handleRegenerate(type: string) {
+async function handleRegenerate(type: keyof typeof regenerating) {
+  ensureResult()
+  regenerating[type] = true
+  generated.add(type)
+  if (type === 'seo') {
+    generated.add('seoDesc')
+    generated.add('seoKw')
+  }
+  popoverVisible.value = true
+  const signal = createAbortController()
   const data = { title: props.title, content: props.content }
   try {
     switch (type) {
       case 'summary': {
-        regenerating.summary = true
-        const sumRes = await aiApi.regenerateSummary(data)
-        if (result.value) result.value.summary = sumRes.data
+        const sumRes = await aiApi.regenerateSummary(data, signal)
+        result.value!.summary = sumRes.data
         break
       }
       case 'seo': {
-        regenerating.seo = true
-        const seoRes = await aiApi.regenerateSeo(data)
-        if (result.value) {
-          result.value.seoTitle = seoRes.data.seoTitle
-          result.value.seoDescription = seoRes.data.seoDescription
-          result.value.seoKeywords = seoRes.data.seoKeywords
-        }
+        const seoRes = await aiApi.regenerateSeo(data, signal)
+        result.value!.seoTitle = seoRes.data.seoTitle
+        result.value!.seoDescription = seoRes.data.seoDescription
+        result.value!.seoKeywords = seoRes.data.seoKeywords
         break
       }
       case 'tags': {
-        regenerating.tags = true
-        const tagRes = await aiApi.regenerateTags(data)
-        if (result.value) {
-          result.value.tags = tagRes.data
-          const slots = MAX_TAGS - (props.currentTagCount ?? 0)
-          const tagNames = tagRes.data.slice(0, Math.max(0, slots)).map(t => t.name)
-          selectedTags.value = new Set(tagNames)
-        }
+        const tagRes = await aiApi.regenerateTags(data, signal)
+        result.value!.tags = tagRes.data
+        const slots = MAX_TAGS - (props.currentTagCount ?? 0)
+        const tagNames = tagRes.data.slice(0, Math.max(0, slots)).map(t => t.name)
+        selectedTags.value = new Set(tagNames)
         break
       }
       case 'categories': {
-        regenerating.categories = true
-        const catRes = await aiApi.regenerateCategories(data)
-        if (result.value) {
-          result.value.categories = catRes.data
-          const firstCategory = catRes.data[0]
-          if (firstCategory) selectedCategory.value = getCatKey(firstCategory)
-        }
+        const catRes = await aiApi.regenerateCategories(data, signal)
+        result.value!.categories = catRes.data
+        const firstCategory = catRes.data[0]
+        if (firstCategory) selectedCategory.value = getCatKey(firstCategory)
         break
       }
       case 'slug': {
-        regenerating.slug = true
-        const slugRes = await aiApi.regenerateSlug({ title: props.title })
-        if (result.value) result.value.slug = slugRes.data
+        const slugRes = await aiApi.regenerateSlug({ title: props.title }, signal)
+        result.value!.slug = slugRes.data
         break
       }
     }
-  } catch (e) {
+  } catch (e: unknown) {
+    if (isCancelled(e)) return
     handleAiError(e)
   } finally {
-    regenerating[type as keyof typeof regenerating] = false
+    regenerating[type] = false
+    abortCtrl.value = null
   }
 }
 
-// 单独重新生成 SEO 描述或关键词
 async function handleRegenerateSeoField(field: 'seoDesc' | 'seoKw') {
-  if (!result.value) return
+  ensureResult()
+  generated.add(field)
+  popoverVisible.value = true
+  const signal = createAbortController()
   const data = { title: props.title, content: props.content }
   regenerating[field] = true
   try {
-    const seoRes = await aiApi.regenerateSeo(data)
+    const seoRes = await aiApi.regenerateSeo(data, signal)
     if (field === 'seoDesc') {
-      result.value.seoDescription = seoRes.data.seoDescription
+      result.value!.seoDescription = seoRes.data.seoDescription
     } else {
-      result.value.seoKeywords = seoRes.data.seoKeywords
+      result.value!.seoKeywords = seoRes.data.seoKeywords
     }
-  } catch (e) {
+  } catch (e: unknown) {
+    if (isCancelled(e)) return
     handleAiError(e)
   } finally {
     regenerating[field] = false
+    abortCtrl.value = null
   }
 }
 
-// 可用的AI标签选中名额 = 总限制 - 编辑器已选标签数
 const availableTagSlots = computed(() => MAX_TAGS - (props.currentTagCount ?? 0))
 
 function toggleTag(name: string) {
@@ -437,24 +475,44 @@ function handleAdoptAll() {
   popoverVisible.value = false
 }
 
-// ========== 持久化支持 ==========
+function handleClickOutside(e: MouseEvent) {
+  if (!popoverVisible.value) return
+  const popoverEl = popoverRef.value?.popperRef?.contentRef
+  const referenceEl = popoverRef.value?.triggerRef
+  if (popoverEl?.contains(e.target as Node) || referenceEl?.contains(e.target as Node)) return
+  popoverVisible.value = false
+}
 
-/** 获取当前 AI 生成结果快照（供 create.vue 保存到 localStorage） */
-function getSnapshot(): { result: AiMetaResult | null; selectedTags: string[]; selectedCategory: string } {
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside, true)
+  if (abortCtrl.value) {
+    abortCtrl.value.abort()
+  }
+})
+
+function getSnapshot(): { result: AiMetaResult | null; selectedTags: string[]; selectedCategory: string; generatedFields: string[] } {
   return {
     result: result.value,
     selectedTags: Array.from(selectedTags.value),
     selectedCategory: selectedCategory.value,
+    generatedFields: Array.from(generated),
   }
 }
 
-/** 从快照恢复 AI 生成结果（页面刷新后恢复） */
-function restoreSnapshot(snapshot: { result: AiMetaResult | null; selectedTags: string[]; selectedCategory: string }) {
+function restoreSnapshot(snapshot: { result: AiMetaResult | null; selectedTags: string[]; selectedCategory: string; generatedFields: string[] }) {
   if (!snapshot) return
   if (snapshot.result) {
     result.value = snapshot.result
     selectedTags.value = new Set(snapshot.selectedTags || [])
     selectedCategory.value = snapshot.selectedCategory || ''
+    generated.clear()
+    for (const f of (snapshot.generatedFields || [])) {
+      generated.add(f)
+    }
   }
 }
 
@@ -465,7 +523,7 @@ defineExpose({ getSnapshot, restoreSnapshot })
 .ai-meta-generator {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .ai-meta-trigger {
@@ -473,21 +531,96 @@ defineExpose({ getSnapshot, restoreSnapshot })
   align-items: stretch;
 }
 
-.ai-meta-main-btn {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+.ai-generate-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 15px;
+  border: 1px solid var(--el-color-primary);
+  border-radius: 4px;
+  background: var(--el-color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.ai-generate-btn:hover:not(:disabled) {
+  background: var(--el-color-primary-light-3);
+  border-color: var(--el-color-primary-light-3);
+}
+
+.ai-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-generate-btn:not(:disabled):not(.ai-generating) {
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+.ai-generating .ai-btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.ai-btn-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: ai-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.ai-generating {
+  background: var(--el-color-primary-light-5) !important;
+  border-color: var(--el-color-primary-light-3) !important;
+}
+
+.ai-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--el-color-danger-light-5);
+  border-radius: 4px;
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.ai-stop-btn:hover {
+  background: var(--el-color-danger-light-7);
+  border-color: var(--el-color-danger-light-3);
 }
 
 .ai-meta-split-btn {
   padding: 0 10px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
   margin-left: -1px;
-}
-
-.ai-arrow-icon {
-  margin-left: 4px;
-  transition: transform 0.2s;
 }
 
 .ai-meta-tip {
@@ -502,12 +635,58 @@ defineExpose({ getSnapshot, restoreSnapshot })
 
 .ai-meta-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 16px 0;
-  justify-content: center;
-  color: var(--el-text-color-secondary);
+  padding: 16px 0 8px;
+}
+
+.ai-meta-loading-text {
   font-size: 13px;
+  color: var(--el-text-color-secondary);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, var(--el-text-color-secondary) 0%, var(--el-color-primary) 50%, var(--el-text-color-secondary) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ai-text-sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-text-sweep {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.ai-meta-loading-bar {
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--el-border-color-lighter);
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-meta-loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: var(--el-color-primary);
+  border-radius: 2px;
+  animation: ai-bar-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-bar-slide {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+.ai-stop-inline {
+  margin-top: 0;
 }
 
 .ai-meta-error-inline {
@@ -524,12 +703,6 @@ defineExpose({ getSnapshot, restoreSnapshot })
   text-align: center;
   font-size: 13px;
   color: var(--el-text-color-placeholder);
-}
-
-.ai-meta-regen-all {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 4px;
 }
 
 .ai-meta-results {
@@ -626,6 +799,7 @@ defineExpose({ getSnapshot, restoreSnapshot })
 .ai-meta-adopt-all {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding-top: 4px;
   border-top: 1px solid var(--el-border-color-extra-light);
 }

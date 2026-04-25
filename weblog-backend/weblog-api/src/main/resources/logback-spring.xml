@@ -4,7 +4,7 @@
     <springProperty scope="context" name="LOG_PATH" source="logging.file.name" defaultValue="/var/log/weblog"/>
 
     <!-- ===== 日志脱敏转换器 ===== -->
-    <conversionRule conversionWord="mask" converterClass="ch.qos.logback.classic.pattern.MessageConverter"/>
+    <conversionRule conversionWord="mask" class="ch.qos.logback.classic.pattern.MessageConverter"/>
 
     <!-- ===== 控制台输出（开发环境） ===== -->
     <springProfile name="dev">

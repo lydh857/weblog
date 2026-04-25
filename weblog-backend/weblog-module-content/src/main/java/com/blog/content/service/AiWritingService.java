@@ -70,6 +70,16 @@ public class AiWritingService {
   }
 
   /**
+   * 去重
+   */
+  @AiFeature("writing")
+  public SseEmitter deduplicate(String text) {
+    RenderedPrompt prompt = promptTemplate.render("writing_deduplicate",
+      Map.of("text", text));
+    return aiClient.stream(FEATURE, prompt.systemPrompt(), prompt.userPrompt());
+  }
+
+  /**
    * 自由对话（携带文章上下文和对话历史，使用 Spring AI Message 对象）
    */
   @AiFeature("writing")

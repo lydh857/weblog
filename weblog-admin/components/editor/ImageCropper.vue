@@ -315,7 +315,12 @@ function handleFileSelect(e: Event) {
   localBlobUrl = URL.createObjectURL(file)
   imgSrc.value = localBlobUrl
   nextTick(() => {
-    if (cropper) cropper.replace(imgSrc.value)
+    scaleX = 1
+    scaleY = 1
+    if (cropper) {
+      cropper.replace(imgSrc.value, false)
+      schedulePreview()
+    }
     else initCropper()
   })
   if (fileInputRef.value) fileInputRef.value.value = ''

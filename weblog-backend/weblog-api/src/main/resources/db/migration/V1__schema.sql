@@ -1,7 +1,10 @@
 -- ============================================
--- 文件用途：数据库结构初始化脚本（由 database/weblog.sql 自动同步生成）
--- 使用方式：新环境初始化时执行本文件创建全部表结构
--- 数据来源：database/weblog.sql（当前系统完整快照）
+-- 文件用途：数据库结构初始脚本（Flyway 基线迁移 V1，反映项目初始表结构）
+-- 使用方式：Flyway 自动执行，后续 V3~V8 迁移脚本做增量变更
+-- 注意：本文件是历史基线结构，与当前 database/weblog.sql 可能不同
+--       如 t_ai_chat_log/t_ai_comment_review 在 V8 中被删除
+--       t_ai_config.feature_comment_review 在 V8 中被移除
+--       当前快照（database/weblog.sql）反映所有迁移执行后的最终状态
 -- ============================================
 
 USE weblog;

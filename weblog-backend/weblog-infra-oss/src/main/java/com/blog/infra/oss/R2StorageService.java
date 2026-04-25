@@ -116,7 +116,8 @@ public class R2StorageService {
             if (path.startsWith("/" + r2Properties.getBucketName() + "/")) {
                 return path.substring(r2Properties.getBucketName().length() + 2);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("URI 解析失败: {}", url, e);
         }
         return null;
     }

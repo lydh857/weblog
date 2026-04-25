@@ -820,7 +820,7 @@ public class AdvertisementService {
     /**
      * 批量恢复广告（状态设为 expired）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchRestore(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -832,7 +832,7 @@ public class AdvertisementService {
     /**
      * 批量永久删除广告
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchPermanentDelete(List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
@@ -844,7 +844,7 @@ public class AdvertisementService {
     /**
      * 清空回收站
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int clearTrash() {
         List<Long> ids = advertisementMapper.selectDeletedIds();
         if (ids.isEmpty()) return 0;

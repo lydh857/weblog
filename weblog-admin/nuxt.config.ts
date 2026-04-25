@@ -85,6 +85,7 @@ export default defineNuxtConfig({
         '/api': {
           target: 'http://localhost:9091',
           changeOrigin: true,
+          timeout: 120_000,
         },
         // 代理本地上传文件，解决开发环境跨域（裁剪组件 canvas 需要同源图片）
         '/uploads': {

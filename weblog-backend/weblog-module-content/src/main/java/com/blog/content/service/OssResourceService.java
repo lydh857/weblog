@@ -57,7 +57,7 @@ public class OssResourceService {
     /**
      * 删除资源（同步删除 OSS 文件 + 数据库记录）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long operatorId, boolean isAdmin) {
         OssResource resource = ossResourceMapper.selectById(id);
         if (resource == null) {
