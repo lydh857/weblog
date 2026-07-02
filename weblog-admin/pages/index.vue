@@ -1,0 +1,1857 @@
+<template>
+  <div class="dashboard-page">
+    <!-- 统计卡片 -->
+    <div v-loading="loading" class="stat-cards">
+      <div v-for="card in cardConfigs" :key="card.key" class="stat-card" :class="`stat-card--${card.key}`">
+        <div class="card-header">
+          <div class="card-icon" :style="{ background: card.color }">
+            <el-icon :size="20" color="#fff"><component :is="card.icon" /></el-icon>
+          </div>
+          <span class="card-title">{{ card.title }}</span>
+        </div>
+        <div class="card-body">
+          <div class="total-row">
+            <div class="total-value">{{ formatNumber(card.data.total) }}</div>
+            <div class="total-label">{{ card.totalLabel }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-value">{{ formatNumber(card.data.today) }}</span>
+              <span class="detail-label">{{ card.labels.today }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-value">{{ formatNumber(card.data.yesterday) }}</span>
+              <span class="detail-label">{{ card.labels.yesterday }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-value">{{ formatNumber(card.data.week) }}</span>
+              <span class="detail-label">{{ card.labels.week }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-value">{{ formatNumber(card.data.month) }}</span>
+              <span class="detail-label">{{ card.labels.month }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 趋势图表 -->
+    <div v-loading="chartsLoading" class="chart-row">
+      <div v-for="chart in trendChartModels" :key="chart.config.key" class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">{{ chart.title }}</span>
+          <div class="view-toggle period-switch" role="group" aria-label="视图切换">
+            <button
+              type="button"
+              class="toggle-btn"
+              :class="{ active: chart.config.period === 'week' }"
+              aria-label="周视图"
+              :aria-pressed="chart.config.period === 'week'"
+              @click="handlePeriodChange(chart.config, 'week')"
+            >
+              <span>周视图</span>
+            </button>
+            <button
+              type="button"
+              class="toggle-btn"
+              :class="{ active: chart.config.period === 'month' }"
+              aria-label="月视图"
+              :aria-pressed="chart.config.period === 'month'"
+              @click="handlePeriodChange(chart.config, 'month')"
+            >
+              <span>月视图</span>
+            </button>
+          </div>
+        </div>
+        <div class="chart-container native-trend-chart">
+          <svg
+            v-if="chart.hasPoints"
+            class="trend-svg"
+            viewBox="0 0 320 180"
+            role="img"
+            :aria-label="chart.subtitle"
+          >
+            <line
+              v-for="line in chart.gridLines"
+              :key="line.y"
+              class="trend-grid-line"
+              :x1="chart.plot.left"
+              :x2="chart.plot.right"
+              :y1="line.y"
+              :y2="line.y"
+            />
+            <text
+              v-for="line in chart.gridLines"
+              :key="`label-${line.y}`"
+              class="trend-axis-label"
+              x="6"
+              :y="line.y + 4"
+            >{{ formatNumber(line.value) }}</text>
+            <template v-if="chart.chartType === 'bar'">
+              <rect
+                v-for="bar in chart.bars"
+                :key="bar.label"
+                class="trend-bar"
+                :x="bar.x"
+                :y="bar.y"
+                :width="bar.width"
+                :height="bar.height"
+                :rx="4"
+                :fill="chart.color"
+              >
+                <title>{{ bar.label }}：{{ formatNumber(bar.value) }}</title>
+              </rect>
+            </template>
+            <template v-else>
+              <polygon class="trend-area" :points="chart.areaPoints" :fill="`${chart.color}24`" />
+              <polyline class="trend-line" :points="chart.linePoints" :stroke="chart.color" />
+              <circle
+                v-for="point in chart.points"
+                :key="point.label"
+                class="trend-point"
+                :cx="point.x"
+                :cy="point.y"
+                r="3"
+                :fill="chart.color"
+              >
+                <title>{{ point.label }}：{{ formatNumber(point.value) }}</title>
+              </circle>
+            </template>
+            <text
+              v-for="label in chart.xAxisLabels"
+              :key="label.label"
+              class="trend-x-label"
+              :x="label.x"
+              y="174"
+            >{{ label.label }}</text>
+          </svg>
+          <el-empty v-else description="暂无趋势数据" :image-size="64" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部区域 -->
+    <div class="bottom-section">
+      <!-- 左侧：代办事项 + AI -->
+        <div class="bottom-left">
+          <div v-loading="pendingLoading" class="info-card todo-card">
+            <div class="info-card-title todo-title-row">
+              <span>代办事项</span>
+              <span class="todo-title-total">总计 {{ formatNumber(todoTotal) }}</span>
+            </div>
+
+            <div class="todo-summary">
+              <div class="todo-summary-item">
+                <span class="todo-summary-label">待处理总数</span>
+                <span class="todo-summary-value">{{ formatNumber(todoTotal) }}</span>
+              </div>
+              <div class="todo-summary-item">
+                <span class="todo-summary-label">涉及类型</span>
+                <span class="todo-summary-value">{{ todoActiveTypes }} 项</span>
+              </div>
+            </div>
+
+            <div class="todo-grid">
+              <button
+                v-for="item in todoItems"
+                :key="item.key"
+                type="button"
+                class="todo-task"
+                :class="[`todo-task--${item.tone}`, { 'is-empty': item.count === 0, 'is-active': item.count > 0 }]"
+                @click="handleQuickNavigate(item.path, item.query)"
+              >
+                <div class="todo-task-head">
+                  <div class="todo-task-main">
+                    <span class="todo-task-dot" />
+                    <span class="todo-task-label">{{ item.label }}</span>
+                  </div>
+                  <span class="todo-task-count">{{ formatNumber(item.count) }}</span>
+                </div>
+                <span class="todo-task-action">{{ item.count > 0 ? '进入处理' : '查看列表' }}</span>
+              </button>
+            </div>
+        </div>
+        <!-- AI 用量统计 -->
+        <div v-if="aiTokenUsage" v-loading="aiLoading" class="info-card ai-card">
+          <template v-if="!aiLoading">
+            <div class="info-card-title">AI 当月用量</div>
+            <div class="ai-usage-summary">
+              <div class="ai-usage-item">
+                <span class="ai-usage-value">{{ formatNumber(aiTokenUsage.totalInput) }}</span>
+                <span class="ai-usage-label">输入 Token</span>
+              </div>
+              <div class="ai-usage-item">
+                <span class="ai-usage-value">{{ formatNumber(aiTokenUsage.totalOutput) }}</span>
+                <span class="ai-usage-label">输出 Token</span>
+              </div>
+              <div class="ai-usage-item">
+                <span class="ai-usage-value ai-total">{{ formatNumber(aiTokenUsage.totalInput + aiTokenUsage.totalOutput) }}</span>
+                <span class="ai-usage-label">合计</span>
+              </div>
+            </div>
+
+            <div class="ai-usage-meta">
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">本月请求</span>
+                <span class="ai-meta-value">{{ formatNumber(aiTokenUsage.totalRequests) }}</span>
+              </div>
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">今日 Token</span>
+                <span class="ai-meta-value">{{ formatNumber(aiTokenUsage.todayTokens) }}</span>
+              </div>
+              <div class="ai-meta-item">
+                <span class="ai-meta-label">上限占用</span>
+                <span class="ai-meta-value">{{ aiTokenUsage.monthlyLimit > 0 ? `${aiTokenUsage.limitUsagePercent.toFixed(1)}%` : '无限制' }}</span>
+              </div>
+            </div>
+
+            <div v-if="aiTokenUsage.monthlyLimit > 0" class="ai-limit-progress">
+              <el-progress
+                :percentage="Math.min(100, Number(aiTokenUsage.limitUsagePercent.toFixed(1)))"
+                :status="getAiUsageStatus(aiTokenUsage.limitUsagePercent)"
+                :stroke-width="8"
+              />
+              <div class="ai-limit-text">
+                已使用 {{ formatNumber(aiTokenUsage.totalTokens) }} / {{ formatNumber(aiTokenUsage.monthlyLimit) }} Token
+              </div>
+            </div>
+
+            <div v-if="aiRecentTrend.length" class="ai-trend">
+              <div v-for="item in aiRecentTrend" :key="item.date" class="ai-trend-item">
+                <div class="ai-trend-bar-wrap">
+                  <div
+                    class="ai-trend-bar"
+                    :style="{ height: `${Math.max(8, Math.round((getAiTrendTotal(item) / aiTrendMax) * 46))}px` }"
+                    :title="`${item.date}：${formatNumber(getAiTrendTotal(item))}`"
+                  />
+                </div>
+                <span class="ai-trend-label">{{ item.date.slice(5) }}</span>
+              </div>
+            </div>
+
+            <div v-if="aiFeatureBreakdownList.length" class="ai-usage-breakdown">
+              <div v-for="featureUsage in aiFeatureBreakdownList" :key="featureUsage.feature" class="ai-breakdown-item">
+                <span class="ai-breakdown-label">{{ aiFeatureNameMap[featureUsage.feature] || featureUsage.feature }}</span>
+                <span class="ai-breakdown-value">{{ formatNumber(featureUsage.totalTokens) }}</span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 中间：分类分布饼图 -->
+      <div class="bottom-center">
+        <div v-loading="categoryLoading" class="info-card category-card">
+          <div class="info-card-title">分类文章分布</div>
+          <div class="category-chart-container">
+            <div v-if="categoryChartModel.total > 0" class="native-category-chart">
+              <div class="category-donut" :style="{ background: categoryChartModel.gradient }">
+                <div class="category-donut-inner">
+                  <span class="category-donut-value">{{ formatNumber(categoryChartModel.total) }}</span>
+                  <span class="category-donut-label">篇文章</span>
+                </div>
+              </div>
+              <div class="category-legend">
+                <div v-for="item in categoryChartModel.items" :key="item.name" class="category-legend-item">
+                  <span class="category-legend-color" :style="{ background: item.color }" />
+                  <span class="category-legend-name" :title="item.name">{{ item.name }}</span>
+                  <span class="category-legend-value">{{ item.percent }}%</span>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="暂无分类数据" :image-size="72" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：热门文章 -->
+      <div v-loading="hotPostsLoading" class="info-card hot-posts-card">
+          <div class="info-card-title">热门文章 Top 10</div>
+          <div class="hot-posts-list">
+            <div v-for="post in hotPosts" :key="post.postId" class="hot-post-item" :class="{ 'top-item': post.rank <= 3 }">
+              <span class="hot-rank" :class="[`rank-${post.rank <= 3 ? post.rank : 'normal'}`]">{{ post.rank }}</span>
+              <div class="hot-content">
+                <span class="hot-title" :title="post.title">{{ post.title }}</span>
+                <div class="hot-meta">
+                  <span class="hot-category">{{ post.categoryName }}<template v-if="post.subCategoryName"> / {{ post.subCategoryName }}</template></span>
+                  <el-tooltip v-if="post.tagNames" :content="post.tagNames" placement="top" :show-after="300">
+                    <span class="hot-tag-badge">标签</span>
+                  </el-tooltip>
+                  <span class="hot-stat"><el-icon :size="12"><View /></el-icon> {{ formatNumber(post.viewCount) }}</span>
+                  <span class="hot-stat">赞 {{ formatNumber(post.likeCount) }}</span>
+                  <span class="hot-stat">藏 {{ formatNumber(post.collectCount) }}</span>
+                  <span class="hot-stat"><el-icon :size="12"><ChatDotSquare /></el-icon> {{ post.commentCount }}</span>
+                </div>
+              </div>
+              <span class="hot-score">{{ post.score }}<small>分</small></span>
+            </div>
+          </div>
+      </div>
+    </div>
+
+    <div v-loading="recentCommentsLoading" class="info-card recent-comments-card">
+        <div class="info-card-title recent-comments-title-row">
+          <span>最近评论</span>
+          <el-button text type="primary" @click="handleQuickNavigate('/comment')">查看全部</el-button>
+        </div>
+        <div v-if="recentComments.length" class="recent-comments-list">
+          <button
+            v-for="comment in recentComments"
+            :key="comment.id"
+            type="button"
+            class="recent-comment-item"
+            @click="handleQuickNavigate('/comment')"
+          >
+            <div class="recent-comment-head">
+              <span class="recent-comment-author">{{ comment.nickname || '匿名用户' }}</span>
+              <span class="recent-comment-time">{{ formatDateTimeShort(comment.createTime) }}</span>
+            </div>
+            <div class="recent-comment-content">{{ comment.content }}</div>
+            <div class="recent-comment-meta">
+              <span class="recent-comment-post">文章：{{ comment.postTitle || '未知文章' }}</span>
+              <span class="recent-comment-status" :class="`is-${comment.status}`">{{ formatCommentStatus(comment.status) }}</span>
+            </div>
+          </button>
+        </div>
+        <el-empty v-else description="暂无最新评论" :image-size="72" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, onMounted, onUnmounted, computed, nextTick, type Component } from 'vue'
+import { Document, View, User, ChatDotSquare, PriceTag } from '@element-plus/icons-vue'
+import {
+  getArticleStatistics,
+  getPvStatistics,
+  getUserStatistics,
+  getHotPosts,
+  getPending,
+  getCategoryDistribution,
+  getCommentStats,
+  getAiTokenUsage,
+  getBatchDashboard,
+  type StatisticsVO,
+  type HotPostVO,
+  type PendingVO,
+  type CategoryDistVO,
+  type CommentStatsVO,
+  type AiTokenUsageVO
+} from '~/api/system/dashboard'
+import { tagApi, type TagVO } from '~/api/content/tag'
+import { commentApi, type CommentVO } from '~/api/content/comment'
+
+// 数据格式化
+function formatNumber(n: number): string {
+  if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return String(n)
+}
+
+// 数据加载状态
+const loading = ref(true)
+const chartsLoading = ref(true)
+const pendingLoading = ref(true)
+const categoryLoading = ref(true)
+const hotPostsLoading = ref(true)
+const aiLoading = ref(true)
+const recentCommentsLoading = ref(true)
+
+// 统计数据
+const emptyStats: StatisticsVO = {
+  total: 0, today: 0, yesterday: 0, week: 0, month: 0,
+  monthLabels: [], monthData: [], weekLabels: [], weekData: []
+}
+const articleStats = ref<StatisticsVO>({ ...emptyStats })
+const pvStats = ref<StatisticsVO>({ ...emptyStats })
+const userStats = ref<StatisticsVO>({ ...emptyStats })
+const tagStats = ref<StatisticsVO>({ ...emptyStats })
+const hotPosts = ref<HotPostVO[]>([])
+const pending = ref<PendingVO>({
+  draftPosts: 0,
+  pendingComments: 0,
+  pendingAds: 0,
+  pendingProfileReviews: 0,
+  pendingFriendLinks: 0,
+})
+const categoryDist = ref<CategoryDistVO[]>([])
+const commentStats = ref<CommentStatsVO>({ total: 0, pending: 0, approved: 0, todayNew: 0 })
+const aiTokenUsage = ref<AiTokenUsageVO | null>(null)
+const recentComments = ref<CommentVO[]>([])
+
+function normalizePending(data?: Partial<PendingVO> | null): PendingVO {
+  return {
+    draftPosts: data?.draftPosts ?? 0,
+    pendingComments: data?.pendingComments ?? 0,
+    pendingAds: data?.pendingAds ?? 0,
+    pendingProfileReviews: data?.pendingProfileReviews ?? 0,
+    pendingFriendLinks: data?.pendingFriendLinks ?? 0,
+  }
+}
+
+function normalizeAiUsage(data: Partial<AiTokenUsageVO> | null | undefined): AiTokenUsageVO {
+  const totalInput = data?.totalInput ?? 0
+  const totalOutput = data?.totalOutput ?? 0
+  const totalTokens = data?.totalTokens ?? (totalInput + totalOutput)
+  const todayInput = data?.todayInput ?? 0
+  const todayOutput = data?.todayOutput ?? 0
+
+  return {
+    month: data?.month || '',
+    totalInput,
+    totalOutput,
+    totalTokens,
+    totalRequests: data?.totalRequests ?? 0,
+    todayInput,
+    todayOutput,
+    todayTokens: data?.todayTokens ?? (todayInput + todayOutput),
+    todayRequests: data?.todayRequests ?? 0,
+    monthlyLimit: data?.monthlyLimit ?? 0,
+    limitUsagePercent: data?.limitUsagePercent ?? 0,
+    dailyTrend: data?.dailyTrend ?? [],
+    featureBreakdown: data?.featureBreakdown ?? {},
+  }
+}
+
+function countDatesInRange(items: string[], start: Date, end: Date): number {
+  const startMs = start.getTime()
+  const endMs = end.getTime()
+  return items.reduce((count, value) => {
+    const current = new Date(value).getTime()
+    return current >= startMs && current < endMs ? count + 1 : count
+  }, 0)
+}
+
+function buildTagStatistics(tags: TagVO[]): StatisticsVO {
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrowStart = new Date(todayStart.getTime() + 86400000)
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+  const weekStart = new Date(todayStart)
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const createTimes = tags.map(tag => tag.createTime).filter(Boolean)
+
+  return {
+    ...emptyStats,
+    total: tags.length,
+    today: countDatesInRange(createTimes, todayStart, tomorrowStart),
+    yesterday: countDatesInRange(createTimes, yesterdayStart, todayStart),
+    week: countDatesInRange(createTimes, weekStart, tomorrowStart),
+    month: countDatesInRange(createTimes, monthStart, tomorrowStart),
+  }
+}
+
+function formatDateTimeShort(value: string): string {
+  return value ? value.replace('T', ' ').slice(0, 16) : ''
+}
+
+function formatCommentStatus(status: string): string {
+  return {
+    pending: '待审核',
+    approved: '已通过',
+    rejected: '已拒绝',
+    spam: '垃圾评论',
+  }[status] || status
+}
+
+const aiFeatureNameMap: Record<string, string> = {
+  writing: '写作助手',
+  meta: '元信息生成',
+  review: '评论审核',
+  chat: 'AI 问答',
+}
+
+const aiFeatureBreakdownList = computed(() => {
+  if (!aiTokenUsage.value) {
+    return [] as Array<{
+      feature: string
+      inputTokens: number
+      outputTokens: number
+      totalTokens: number
+    }>
+  }
+
+  return Object.entries(aiTokenUsage.value.featureBreakdown || {})
+    .map(([feature, usage]) => {
+      const inputTokens = usage.inputTokens || 0
+      const outputTokens = usage.outputTokens || 0
+      return {
+        feature,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+      }
+    })
+    .sort((left, right) => right.totalTokens - left.totalTokens)
+})
+
+const aiRecentTrend = computed(() => {
+  if (!aiTokenUsage.value?.dailyTrend?.length) {
+    return [] as AiTokenUsageVO['dailyTrend']
+  }
+  return aiTokenUsage.value.dailyTrend.slice(-7)
+})
+
+const aiTrendMax = computed(() => {
+  if (!aiRecentTrend.value.length) {
+    return 1
+  }
+  return Math.max(...aiRecentTrend.value.map(item => getAiTrendTotal(item)), 1)
+})
+
+// 卡片配置
+interface DashboardCardConfig {
+  key: string
+  title: string
+  icon: Component
+  color: string
+  totalLabel: string
+  data: Pick<StatisticsVO, 'total' | 'today' | 'yesterday' | 'week' | 'month'>
+  labels: {
+    today: string
+    yesterday: string
+    week: string
+    month: string
+  }
+}
+
+interface TodoTask {
+  key: string
+  label: string
+  count: number
+  path: string
+  query?: Record<string, string | undefined>
+  tone: 'primary' | 'warning' | 'success' | 'info'
+}
+
+const todoItems = computed<TodoTask[]>(() => [
+  {
+    key: 'profile-review',
+    label: '个人信息审核',
+    count: pending.value.pendingProfileReviews,
+    path: '/user',
+    query: { tab: 'reviews' },
+    tone: 'primary',
+  },
+  {
+    key: 'advertisement-review',
+    label: '广告审核',
+    count: pending.value.pendingAds,
+    path: '/advertisement',
+    query: { status: 'pending', tab: 'list' },
+    tone: 'warning',
+  },
+  {
+    key: 'friend-link-review',
+    label: '友链审核',
+    count: pending.value.pendingFriendLinks,
+    path: '/friend-link',
+    query: { status: 'pending' },
+    tone: 'success',
+  },
+  {
+    key: 'comment-review',
+    label: '评论待审',
+    count: pending.value.pendingComments,
+    path: '/comment',
+    tone: 'info',
+  },
+])
+
+const todoTotal = computed(() => {
+  return todoItems.value.reduce((sum, item) => sum + item.count, 0)
+})
+
+const todoActiveTypes = computed(() => {
+  return todoItems.value.filter(item => item.count > 0).length
+})
+
+const commentCardStats = computed<Pick<StatisticsVO, 'total' | 'today' | 'yesterday' | 'week' | 'month'>>(() => {
+  const total = commentStats.value.total || 0
+  const todayNew = commentStats.value.todayNew || 0
+  const pendingCount = commentStats.value.pending || 0
+  const approvedCount = commentStats.value.approved || 0
+
+  return {
+    total,
+    today: todayNew,
+    yesterday: pendingCount,
+    week: approvedCount,
+    month: total,
+  }
+})
+
+const cardConfigs = computed<DashboardCardConfig[]>(() => [
+  {
+    key: 'article',
+    title: '文章统计',
+    icon: Document,
+    color: '#5b8def',
+    totalLabel: '总文章数',
+    data: articleStats.value,
+    labels: { today: '今日发布', yesterday: '昨日发布', week: '本周发布', month: '本月发布' },
+  },
+  {
+    key: 'pv',
+    title: '访问量统计',
+    icon: View,
+    color: '#67c23a',
+    totalLabel: '总访问量',
+    data: pvStats.value,
+    labels: { today: '今日访问', yesterday: '昨日访问', week: '本周访问', month: '本月访问' },
+  },
+  {
+    key: 'user',
+    title: '用户统计',
+    icon: User,
+    color: '#e6a23c',
+    totalLabel: '总用户数',
+    data: userStats.value,
+    labels: { today: '今日注册', yesterday: '昨日注册', week: '本周注册', month: '本月注册' },
+  },
+  {
+    key: 'comment',
+    title: '评论统计',
+    icon: ChatDotSquare,
+    color: '#f56c6c',
+    totalLabel: '总评论数',
+    data: commentCardStats.value,
+    labels: { today: '今日新增', yesterday: '待审核', week: '已通过', month: '总评论' },
+  },
+  {
+    key: 'tag',
+    title: '标签统计',
+    icon: PriceTag,
+    color: '#8b5cf6',
+    totalLabel: '总标签数',
+    data: tagStats.value,
+    labels: { today: '今日新增', yesterday: '昨日新增', week: '本周新增', month: '本月新增' },
+  },
+])
+
+// 图表配置
+interface ChartConfig {
+  key: string
+  period: 'week' | 'month'
+  chartType: 'bar' | 'line'
+  color: string
+  getData: () => StatisticsVO  // 改为函数，每次获取最新数据
+  getTitle: (p: string) => string
+  getSubtitle: (p: string) => string
+}
+
+interface TrendPoint {
+  label: string
+  value: number
+  x: number
+  y: number
+}
+
+interface TrendBar extends TrendPoint {
+  width: number
+  height: number
+}
+
+interface TrendGridLine {
+  y: number
+  value: number
+}
+
+interface TrendAxisLabel {
+  label: string
+  x: number
+}
+
+interface TrendChartModel {
+  config: ChartConfig
+  title: string
+  subtitle: string
+  chartType: ChartConfig['chartType']
+  color: string
+  hasPoints: boolean
+  points: TrendPoint[]
+  bars: TrendBar[]
+  gridLines: TrendGridLine[]
+  xAxisLabels: TrendAxisLabel[]
+  linePoints: string
+  areaPoints: string
+  plot: {
+    left: number
+    right: number
+  }
+}
+
+interface CategoryChartItem {
+  name: string
+  count: number
+  color: string
+  percent: string
+}
+
+interface CategoryChartModel {
+  total: number
+  gradient: string
+  items: CategoryChartItem[]
+}
+
+const chartConfigs = reactive<ChartConfig[]>([
+  {
+    key: 'article', period: 'week', chartType: 'bar', color: '#5b8def',
+    getData: () => articleStats.value,
+    getTitle: (p: string) => p === 'week' ? '周度文章统计' : '月度文章统计',
+    getSubtitle: (p: string) => p === 'week' ? '最近 7 天发布趋势' : '最近 30 天发布趋势'
+  },
+  {
+    key: 'pv', period: 'week', chartType: 'line', color: '#67c23a',
+    getData: () => pvStats.value,
+    getTitle: (p: string) => p === 'week' ? '周度访问统计' : '月度访问统计',
+    getSubtitle: (p: string) => p === 'week' ? '最近 7 天访问趋势' : '最近 30 天访问趋势'
+  },
+  {
+    key: 'user', period: 'week', chartType: 'line', color: '#e6a23c',
+    getData: () => userStats.value,
+    getTitle: (p: string) => p === 'week' ? '周度用户统计' : '月度用户统计',
+    getSubtitle: (p: string) => p === 'week' ? '最近 7 天注册趋势' : '最近 30 天注册趋势'
+  }
+])
+
+function handleQuickNavigate(path: string, query?: Record<string, string | undefined>) {
+  if (query) {
+    navigateTo({ path, query })
+    return
+  }
+  navigateTo(path)
+}
+
+function getAiTrendTotal(item: AiTokenUsageVO['dailyTrend'][number]) {
+  return (item?.inputTokens || 0) + (item?.outputTokens || 0)
+}
+
+function getAiUsageStatus(percent: number): '' | 'success' | 'warning' | 'exception' {
+  if (percent >= 90) {
+    return 'exception'
+  }
+  if (percent >= 70) {
+    return 'warning'
+  }
+  return 'success'
+}
+
+function handlePeriodChange(chart: ChartConfig, period: 'week' | 'month') {
+  if (chart.period === period) return
+  chart.period = period
+}
+
+const trendChartSize = {
+  width: 320,
+  height: 180,
+  top: 16,
+  right: 14,
+  bottom: 32,
+  left: 38,
+}
+
+const categoryColors = ['#5b8def', '#67c23a', '#e6a23c', '#f56c6c', '#8b5cf6', '#14b8a6', '#f97316', '#64748b']
+
+function buildTrendChartModel(config: ChartConfig): TrendChartModel {
+  const statsData = config.getData()
+  const labels = config.period === 'week' ? statsData.weekLabels : statsData.monthLabels
+  const values = config.period === 'week' ? statsData.weekData : statsData.monthData
+  const count = Math.min(labels.length, values.length)
+  const visibleLabels = labels.slice(0, count)
+  const visibleValues = values.slice(0, count).map(value => Math.max(0, value || 0))
+  const plotWidth = trendChartSize.width - trendChartSize.left - trendChartSize.right
+  const plotHeight = trendChartSize.height - trendChartSize.top - trendChartSize.bottom
+  const plotBottom = trendChartSize.height - trendChartSize.bottom
+  const maxValue = Math.max(...visibleValues, 1)
+  const divisor = Math.max(count - 1, 1)
+  const points = visibleValues.map((value, index) => {
+    const x = count === 1
+      ? trendChartSize.left + plotWidth / 2
+      : trendChartSize.left + (index / divisor) * plotWidth
+    const y = plotBottom - (value / maxValue) * plotHeight
+    return { label: visibleLabels[index], value, x, y }
+  })
+  const barWidth = Math.min(28, Math.max(10, plotWidth / Math.max(count, 1) * 0.55))
+  const bars = points.map(point => ({
+    ...point,
+    x: point.x - barWidth / 2,
+    width: barWidth,
+    height: Math.max(0, plotBottom - point.y),
+  }))
+  const gridLines = [0, 1, 2, 3].map(index => ({
+    y: trendChartSize.top + (index / 3) * plotHeight,
+    value: Math.round(maxValue * (1 - index / 3)),
+  }))
+  const axisStep = Math.max(1, Math.ceil(count / 5))
+  const xAxisLabels = points
+    .filter((_, index) => index % axisStep === 0 || index === points.length - 1)
+    .map(point => ({ label: point.label.slice(5) || point.label, x: point.x }))
+  const linePoints = points.map(point => `${point.x},${point.y}`).join(' ')
+  const areaPoints = points.length
+    ? `${trendChartSize.left},${plotBottom} ${linePoints} ${points[points.length - 1].x},${plotBottom}`
+    : ''
+
+  return {
+    config,
+    title: config.getTitle(config.period),
+    subtitle: config.getSubtitle(config.period),
+    chartType: config.chartType,
+    color: config.color,
+    hasPoints: points.length > 0,
+    points,
+    bars,
+    gridLines,
+    xAxisLabels,
+    linePoints,
+    areaPoints,
+    plot: {
+      left: trendChartSize.left,
+      right: trendChartSize.width - trendChartSize.right,
+    },
+  }
+}
+
+const trendChartModels = computed(() => chartConfigs.map(config => buildTrendChartModel(config)))
+
+const categoryChartModel = computed<CategoryChartModel>(() => {
+  const items = categoryDist.value
+    .filter(item => item.count > 0)
+    .map((item, index) => ({
+      name: item.name,
+      count: item.count,
+      color: categoryColors[index % categoryColors.length],
+    }))
+  const total = items.reduce((sum, item) => sum + item.count, 0)
+
+  if (total <= 0) {
+    return { total: 0, gradient: '', items: [] }
+  }
+
+  let currentPercent = 0
+  const gradientParts = items.map((item) => {
+    const percent = item.count / total * 100
+    const start = currentPercent
+    currentPercent += percent
+    return `${item.color} ${start.toFixed(2)}% ${currentPercent.toFixed(2)}%`
+  })
+
+  return {
+    total,
+    gradient: `conic-gradient(${gradientParts.join(', ')})`,
+    items: items.map(item => ({
+      ...item,
+      percent: (item.count / total * 100).toFixed(1),
+    })),
+  }
+})
+
+let loadingGuardTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearStaleLoadingMasks() {
+  if (typeof document === 'undefined') return
+  const root = document.querySelector('.dashboard-page') as HTMLElement | null
+  if (!root) return
+
+  const masks = root.querySelectorAll('.el-loading-mask')
+  masks.forEach((mask) => {
+    const parent = mask.parentElement as HTMLElement | null
+    mask.remove()
+    parent?.classList.remove('el-loading-parent--relative')
+    parent?.classList.remove('el-loading-parent--hidden')
+  })
+}
+
+function setCoreLoadingState(value: boolean) {
+  if (loadingGuardTimer) {
+    clearTimeout(loadingGuardTimer)
+    loadingGuardTimer = null
+  }
+
+  loading.value = value
+  chartsLoading.value = value
+  pendingLoading.value = value
+  categoryLoading.value = value
+  hotPostsLoading.value = value
+
+  if (!value) {
+    nextTick(() => clearStaleLoadingMasks())
+    return
+  }
+
+  // 兜底：避免路由切换异常导致 loading 遗留
+  loadingGuardTimer = setTimeout(() => {
+    loading.value = false
+    chartsLoading.value = false
+    pendingLoading.value = false
+    categoryLoading.value = false
+    hotPostsLoading.value = false
+    loadingGuardTimer = null
+    nextTick(() => clearStaleLoadingMasks())
+  }, 3000)
+}
+
+// 加载数据 - 使用批量查询优化
+async function loadDashboardStats() {
+  setCoreLoadingState(true)
+
+  try {
+    // 尝试使用批量查询（一次请求获取所有数据）
+    const batchResult = await getBatchDashboard()
+    const data = batchResult.data
+
+    if (data.articleStats) articleStats.value = data.articleStats
+    if (data.pvStats) pvStats.value = data.pvStats
+    if (data.userStats) userStats.value = data.userStats
+    if (data.hotPosts) hotPosts.value = data.hotPosts
+    if (data.pending) pending.value = normalizePending(data.pending)
+    if (Array.isArray(data.categoryDist)) categoryDist.value = data.categoryDist
+    if (data.commentStats) commentStats.value = data.commentStats
+
+    const [tagsResult, recentCommentsResult] = await Promise.allSettled([
+      tagApi.listAll(),
+      commentApi.list({ pageNum: 1, pageSize: 6 })
+    ])
+    if (tagsResult.status === 'fulfilled') {
+      tagStats.value = buildTagStatistics(tagsResult.value.data)
+    }
+    if (recentCommentsResult.status === 'fulfilled') {
+      recentComments.value = recentCommentsResult.value.data.records || []
+    }
+
+    await nextTick()
+    await nextTick()
+  } catch (error) {
+    if (import.meta.dev) {
+      console.error('批量查询失败，降级为分批次查询:', error)
+    }
+    await loadDashboardStatsFallback()
+  } finally {
+    // 无论接口或图表渲染是否异常，都不要让主区域一直转圈
+    setCoreLoadingState(false)
+    recentCommentsLoading.value = false
+  }
+
+  // AI 用量独立加载（可选，失败不影响主面板）
+  aiLoading.value = true
+  try {
+    const ai = await getAiTokenUsage()
+    aiTokenUsage.value = normalizeAiUsage(ai.data)
+  } catch {
+    aiTokenUsage.value = null
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+// 降级方案：分批次加载
+async function loadDashboardStatsFallback() {
+  // 第一批：核心统计卡片
+  const coreStats = await Promise.allSettled([
+    getArticleStatistics(),
+    getPvStatistics(),
+    getUserStatistics()
+  ])
+  if (coreStats[0].status === 'fulfilled') articleStats.value = coreStats[0].value.data
+  if (coreStats[1].status === 'fulfilled') pvStats.value = coreStats[1].value.data
+  if (coreStats[2].status === 'fulfilled') userStats.value = coreStats[2].value.data
+
+  // 第二批：代办统计和评论统计
+  const [pendingResult, commentResult] = await Promise.allSettled([
+    getPending(),
+    getCommentStats()
+  ])
+  if (pendingResult.status === 'fulfilled') pending.value = normalizePending(pendingResult.value.data)
+  if (commentResult.status === 'fulfilled') commentStats.value = commentResult.value.data
+
+  // 第三批：分类分布和热门文章
+  const [categoryResult, hotPostsResult] = await Promise.allSettled([
+    getCategoryDistribution(),
+    getHotPosts()
+  ])
+  if (categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value.data)) {
+    categoryDist.value = categoryResult.value.data
+  }
+  if (hotPostsResult.status === 'fulfilled') hotPosts.value = hotPostsResult.value.data
+
+  const [tagResult, recentCommentsResult] = await Promise.allSettled([
+    tagApi.listAll(),
+    commentApi.list({ pageNum: 1, pageSize: 6 })
+  ])
+  if (tagResult.status === 'fulfilled') {
+    tagStats.value = buildTagStatistics(tagResult.value.data)
+  }
+  if (recentCommentsResult.status === 'fulfilled') {
+    recentComments.value = recentCommentsResult.value.data.records || []
+  }
+
+  await nextTick()
+  await nextTick()
+}
+
+onMounted(async () => {
+  await nextTick()
+  await loadDashboardStats()
+})
+
+onUnmounted(() => {
+  if (loadingGuardTimer) {
+    clearTimeout(loadingGuardTimer)
+    loadingGuardTimer = null
+  }
+})
+</script>
+
+<style scoped>
+.dashboard-page {
+  padding: 16px;
+  background: var(--admin-content-bg);
+}
+
+/* 统计卡片 */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  min-width: 0;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
+  padding: 18px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.card-body .total-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.total-value {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.total-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.detail-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+.detail-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.detail-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* 趋势图表 */
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  min-width: 0;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.period-switch {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--admin-panel-bg-soft);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+  }
+
+  &.active {
+    background: var(--admin-panel-hover);
+    color: var(--admin-aside-text-active);
+    box-shadow: none;
+  }
+}
+.chart-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  min-width: 0;
+}
+.chart-container {
+  width: 100%;
+  height: 240px;
+}
+
+.native-trend-chart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.trend-grid-line {
+  stroke: var(--admin-panel-border);
+  stroke-width: 1;
+}
+
+.trend-axis-label,
+.trend-x-label {
+  fill: var(--el-text-color-secondary);
+  font-size: 10px;
+}
+
+.trend-x-label {
+  text-anchor: middle;
+}
+
+.trend-bar {
+  opacity: 0.88;
+}
+
+.trend-line {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend-area {
+  opacity: 0.75;
+}
+
+.trend-point {
+  stroke: var(--admin-panel-bg);
+  stroke-width: 2;
+}
+
+/* 底部区域 */
+.bottom-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1.18fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.info-card {
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  height: 100%;
+  box-sizing: border-box;
+}
+.info-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  margin-bottom: 14px;
+}
+.bottom-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 代办事项 */
+.todo-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.todo-title-total {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  background: var(--admin-panel-bg-soft);
+}
+
+.todo-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.todo-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--admin-panel-bg-soft);
+}
+
+.todo-summary-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.todo-summary-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.todo-task {
+  border: none;
+  border-radius: 8px;
+  background: var(--admin-panel-bg-soft);
+  min-height: 72px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.todo-task:hover {
+  background: var(--admin-panel-hover);
+}
+
+.todo-task:focus-visible {
+  outline: 2px solid var(--el-color-primary-light-5);
+  outline-offset: 1px;
+}
+
+.todo-task.is-empty {
+  opacity: 0.72;
+}
+
+.todo-task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.todo-task-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.todo-task-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--el-text-color-placeholder);
+}
+
+.todo-task--primary .todo-task-dot {
+  background: var(--el-color-primary);
+}
+
+.todo-task--warning .todo-task-dot {
+  background: var(--el-color-warning);
+}
+
+.todo-task--success .todo-task-dot {
+  background: var(--el-color-success);
+}
+
+.todo-task--info .todo-task-dot {
+  background: var(--el-color-info);
+}
+
+.todo-task-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.todo-task-count {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.todo-task.is-active .todo-task-count {
+  color: var(--el-text-color-primary);
+}
+
+.todo-task--primary.is-active .todo-task-count {
+  color: var(--el-color-primary);
+}
+
+.todo-task--warning.is-active .todo-task-count {
+  color: var(--el-color-warning);
+}
+
+.todo-task--success.is-active .todo-task-count {
+  color: var(--el-color-success);
+}
+
+.todo-task--info.is-active .todo-task-count {
+  color: var(--el-color-info);
+}
+
+.todo-task-action {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.todo-task.is-active .todo-task-action {
+  color: var(--el-text-color-regular);
+}
+
+/* 分类饼图 */
+.category-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.category-chart-container {
+  flex: 1;
+  min-height: 320px;
+}
+
+.native-category-chart {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.category-donut {
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px var(--admin-panel-border);
+}
+
+.category-donut-inner {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-panel-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.category-donut-value {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
+.category-donut-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.category-legend {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.category-legend-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.category-legend-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-legend-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-legend-value {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+/* 热门文章 */
+.hot-posts-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.hot-posts-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hot-post-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.hot-post-item:hover {
+  background: var(--admin-panel-hover);
+}
+.hot-post-item.top-item {
+  background: var(--admin-panel-bg-soft);
+}
+.hot-rank {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.hot-rank.rank-1 {
+  color: #fff;
+  background: var(--el-color-primary);
+}
+.hot-rank.rank-2 {
+  color: var(--el-text-color-primary);
+  background: var(--admin-panel-hover);
+}
+.hot-rank.rank-3 {
+  color: var(--el-text-color-primary);
+  background: var(--admin-panel-bg-soft);
+}
+.hot-rank.rank-normal {
+  color: var(--el-text-color-secondary);
+  background: var(--admin-panel-bg-soft);
+}
+.hot-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hot-title {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.hot-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hot-category {
+  font-size: 11px;
+  color: var(--admin-aside-text-active);
+  background: var(--admin-panel-bg-soft);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.hot-stat {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+.hot-tag-badge {
+  font-size: 10px;
+  color: var(--admin-aside-text-active);
+  background: var(--admin-panel-bg-soft);
+  padding: 0 5px;
+  border-radius: 3px;
+  cursor: default;
+  line-height: 18px;
+}
+.hot-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--admin-aside-text-active);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.hot-score small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
+  margin-left: 1px;
+}
+
+.recent-comments-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-comments-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recent-comments-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.recent-comment-item {
+  border: 1px solid var(--admin-panel-border);
+  border-radius: 10px;
+  background: var(--admin-panel-bg-soft);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.recent-comment-item:hover {
+  background: var(--admin-panel-hover);
+}
+
+.recent-comment-head,
+.recent-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recent-comment-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.recent-comment-time,
+.recent-comment-post {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.recent-comment-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  min-height: 42px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recent-comment-post {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-comment-status {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--admin-panel-bg);
+  color: var(--el-text-color-secondary);
+}
+
+.recent-comment-status.is-pending {
+  color: var(--el-color-warning);
+}
+
+.recent-comment-status.is-approved {
+  color: var(--el-color-success);
+}
+
+.recent-comment-status.is-rejected,
+.recent-comment-status.is-spam {
+  color: var(--el-color-danger);
+}
+
+/* AI 用量统计 */
+.ai-usage-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ai-usage-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ai-usage-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.ai-usage-value.ai-total {
+  color: var(--el-color-primary);
+}
+.ai-usage-label {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-usage-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ai-meta-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--admin-panel-bg-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-meta-label {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.ai-limit-progress {
+  margin-bottom: 10px;
+}
+
+.ai-limit-text {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-trend {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: end;
+}
+
+.ai-trend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-trend-bar-wrap {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ai-trend-bar {
+  width: 74%;
+  min-height: 8px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--el-color-primary);
+  opacity: 0.78;
+}
+
+.ai-trend-label {
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+}
+
+.ai-usage-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-panel-border);
+}
+.ai-breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ai-breakdown-label {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+}
+.ai-breakdown-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+@media (max-width: 1600px) {
+  .stat-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .bottom-section {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hot-posts-card {
+    grid-column: 1 / -1;
+  }
+
+  .recent-comments-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1280px) {
+  .stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recent-comments-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-page {
+    padding: 12px;
+  }
+
+  .stat-cards,
+  .chart-row,
+  .bottom-section {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-usage-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .todo-summary,
+  .todo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

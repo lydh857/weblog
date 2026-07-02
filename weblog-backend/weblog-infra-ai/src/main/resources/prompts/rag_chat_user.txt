@@ -1,0 +1,4 @@
+参考文章：
+{{articleContexts}}
+
+用户问题：{{question}}

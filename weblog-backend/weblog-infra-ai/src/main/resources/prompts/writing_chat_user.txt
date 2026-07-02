@@ -1,0 +1,4 @@
+文章上下文：
+{{articleContext}}
+
+用户问题：{{userMessage}}

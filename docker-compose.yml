@@ -1,0 +1,42 @@
+services:
+  blog-mysql:
+    image: mysql:8.0.36
+    container_name: blog-mysql
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme-root}
+      MYSQL_DATABASE: weblog
+    volumes:
+      - ./docker-data/mysql8:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=256M
+      --max-connections=50
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --slow-query-log=1
+      --log_output=FILE
+      --slow-query-log-file=/var/lib/mysql/slow.log
+      --long-query-time=1
+
+  blog-redis:
+    image: redis:7.2
+    container_name: blog-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - ./docker-data/redis7:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-changeme-redis}
+      --rename-command FLUSHDB ""
+      --rename-command FLUSHALL ""
+      --rename-command DEBUG ""
+      --rename-command CONFIG ""
+      --rename-command KEYS ""

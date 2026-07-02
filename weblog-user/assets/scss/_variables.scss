@@ -1,0 +1,39 @@
+// 颜色
+$color-primary: #3b82f6;
+$color-primary-dark: #2563eb;
+$color-text: #1e293b;
+$color-text-muted: #64748b;
+$color-bg: #ffffff;
+$color-bg-page: #f5f7fa;
+$color-bg-secondary: #f8fafc;
+$color-border: #e2e8f0;
+
+// 暗黑模式
+$color-dark-text: #d6dbe4;
+$color-dark-text-muted: #9aa5b5;
+$color-dark-bg: #101215;
+$color-dark-bg-secondary: #171b20;
+$color-dark-bg-elevated: #1d232a;
+$color-dark-border: #2a313a;
+
+// 字体
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-family-mono: 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+
+// 间距
+$spacing-xs: 0.25rem;
+$spacing-sm: 0.5rem;
+$spacing-md: 1rem;
+$spacing-lg: 1.5rem;
+$spacing-xl: 2rem;
+
+// 圆角
+$radius-sm: 0.25rem;
+$radius-md: 0.5rem;
+$radius-lg: 0.75rem;
+
+// 断点
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;

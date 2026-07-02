@@ -1,0 +1,1124 @@
+<template>
+  <section v-if="hasData" class="home-ranking">
+    <!-- 区块标题 -->
+    <div class="section-header">
+      <div class="section-title-group">
+        <NuxtLink to="/ranking" class="section-title-link">
+          <h2 class="section-title">文章排行</h2>
+          <Icon name="heroicons:arrow-right-16-solid" size="16" class="section-arrow" />
+        </NuxtLink>
+        <p class="section-desc">多维度发现优质内容</p>
+      </div>
+    </div>
+
+    <!-- 双行布局：上=今日飙升+最高热度 | 下=本周热榜+月度精选 -->
+    <div class="ranking-grid">
+      <!-- 左栏：今日飙升（大榜，第1名大封面） -->
+      <div class="ranking-card ranking-card--tall ranking-card--daily">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=1" class="card-title-link">
+            {{ dailyBoardTitle }}
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">{{ dailyBoardSubtitle }}</span>
+        </div>
+        <div v-if="dailyBoard.loading">
+          <div class="hero-card hero-card--skeleton" aria-hidden="true">
+            <div class="hero-cover sk-hero sk-shimmer">
+              <span class="sk-hero-badge sk-shimmer" />
+              <div class="sk-hero-bottom">
+                <div class="sk-hero-title sk-shimmer" />
+                <div class="sk-hero-meta">
+                  <span class="sk-hero-meta-item sk-shimmer" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in tallSkeletonRowCount" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-cover sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
+          </div>
+        </div>
+        <template v-else-if="dailyBoard.items.length">
+          <!-- 第1名封面 -->
+          <NuxtLink v-if="dailyTopItem" :to="`/post/${dailyTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
+            <div class="hero-cover">
+              <img
+                v-if="dailyTopItem.cover_image && !isImageBroken('daily-top', dailyTopItem.post_id)"
+                :src="dailyTopItem.cover_image"
+                :alt="dailyTopItem.title"
+                loading="lazy"
+                @error="handleImageError('daily-top', dailyTopItem.post_id, $event)"
+              >
+              <div v-else class="hero-placeholder"><Icon name="heroicons:bolt-20-solid" size="28" /></div>
+              <div class="hero-overlay">
+                <span class="hero-badge">1</span>
+                <div class="hero-bottom">
+                  <div class="hero-info">
+                    <span class="hero-title">{{ dailyTopItem.title }}</span>
+                    <div class="hero-meta">
+                      <span v-if="dailyTopItem.category_name" class="hero-cat">{{ dailyTopItem.category_name }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(dailyTopItem.view_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(dailyTopItem.like_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(dailyTopItem.collect_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(dailyTopItem.comment_count) }}</span>
+                    </div>
+                  </div>
+                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(dailyTopItem.score) }}</span>
+                </div>
+              </div>
+            </div>
+          </NuxtLink>
+          <!-- 2~N名 -->
+          <div class="card-list">
+            <NuxtLink
+              v-for="(item, idx) in dailyDisplayItems.slice(1)"
+              :key="item.post_id"
+              :to="`/post/${item.slug}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rank-row rank-row--with-cover"
+              :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
+            >
+              <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+              <div class="rank-cover">
+                <img
+                  v-if="item.cover_image && !isImageBroken('daily-item', item.post_id)"
+                  :src="item.cover_image"
+                  :alt="item.title"
+                  loading="lazy"
+                  @error="handleImageError('daily-item', item.post_id, $event)"
+                >
+                <div v-else class="rank-cover-placeholder"/>
+              </div>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
+        <div v-else class="card-empty">暂无数据</div>
+      </div>
+
+      <!-- 中栏：本周热榜 + 月度精选 -->
+      <div class="ranking-card ranking-card--week">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=2" class="card-title-link">
+            本周热榜
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">本周热度排行</span>
+        </div>
+        <div v-if="weekBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+          <div v-for="i in 10" :key="i" class="rank-row rank-row--skeleton">
+            <span class="sk-num sk-shimmer" />
+            <span class="sk-text sk-shimmer" />
+            <span class="sk-heat sk-shimmer" />
+          </div>
+        </div>
+        <template v-else-if="weekBoard.items.length">
+          <template v-if="isMobileView">
+            <NuxtLink v-if="weekTopItem" :to="`/post/${weekTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
+              <div class="hero-cover">
+                <img
+                  v-if="weekTopItem.cover_image && !isImageBroken('week-top', weekTopItem.post_id)"
+                  :src="weekTopItem.cover_image"
+                  :alt="weekTopItem.title"
+                  loading="lazy"
+                  @error="handleImageError('week-top', weekTopItem.post_id, $event)"
+                >
+                <div v-else class="hero-placeholder"><Icon name="heroicons:fire-20-solid" size="28" /></div>
+                <div class="hero-overlay">
+                  <span class="hero-badge">1</span>
+                  <div class="hero-bottom">
+                    <div class="hero-info">
+                      <span class="hero-title">{{ weekTopItem.title }}</span>
+                      <div class="hero-meta">
+                        <span v-if="weekTopItem.category_name" class="hero-cat">{{ weekTopItem.category_name }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(weekTopItem.view_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(weekTopItem.like_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(weekTopItem.collect_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(weekTopItem.comment_count) }}</span>
+                      </div>
+                    </div>
+                    <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(weekTopItem.score) }}</span>
+                  </div>
+                </div>
+              </div>
+            </NuxtLink>
+            <div class="card-list">
+              <NuxtLink v-for="(item, idx) in weekBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row rank-row--with-cover">
+                <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+                <div class="rank-cover">
+                  <img
+                    v-if="item.cover_image && !isImageBroken('week-item', item.post_id)"
+                    :src="item.cover_image"
+                    :alt="item.title"
+                    loading="lazy"
+                    @error="handleImageError('week-item', item.post_id, $event)"
+                  >
+                  <div v-else class="rank-cover-placeholder"/>
+                </div>
+                <span class="rank-title">{{ item.title }}</span>
+                <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+              </NuxtLink>
+            </div>
+          </template>
+          <div v-else class="card-list">
+            <NuxtLink v-for="(item, idx) in weekBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row">
+              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
+        <div v-else class="card-empty">暂无数据</div>
+      </div>
+
+      <!-- 月度精选 -->
+      <div class="ranking-card ranking-card--month">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=3" class="card-title-link">
+            月度精选
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">本月口碑佳作</span>
+        </div>
+        <div v-if="monthBoard.loading" class="card-list card-list--skeleton" aria-hidden="true">
+          <div v-for="i in 10" :key="i" class="rank-row rank-row--skeleton">
+            <span class="sk-num sk-shimmer" />
+            <span class="sk-text sk-shimmer" />
+            <span class="sk-heat sk-shimmer" />
+          </div>
+        </div>
+        <template v-else-if="monthBoard.items.length">
+          <template v-if="isMobileView">
+            <NuxtLink v-if="monthTopItem" :to="`/post/${monthTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
+              <div class="hero-cover">
+                <img
+                  v-if="monthTopItem.cover_image && !isImageBroken('month-top', monthTopItem.post_id)"
+                  :src="monthTopItem.cover_image"
+                  :alt="monthTopItem.title"
+                  loading="lazy"
+                  @error="handleImageError('month-top', monthTopItem.post_id, $event)"
+                >
+                <div v-else class="hero-placeholder"><Icon name="heroicons:sparkles-20-solid" size="28" /></div>
+                <div class="hero-overlay">
+                  <span class="hero-badge">1</span>
+                  <div class="hero-bottom">
+                    <div class="hero-info">
+                      <span class="hero-title">{{ monthTopItem.title }}</span>
+                      <div class="hero-meta">
+                        <span v-if="monthTopItem.category_name" class="hero-cat">{{ monthTopItem.category_name }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(monthTopItem.view_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(monthTopItem.like_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(monthTopItem.collect_count) }}</span>
+                        <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(monthTopItem.comment_count) }}</span>
+                      </div>
+                    </div>
+                    <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(monthTopItem.score) }}</span>
+                  </div>
+                </div>
+              </div>
+            </NuxtLink>
+            <div class="card-list">
+              <NuxtLink v-for="(item, idx) in monthBoard.items.slice(1)" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row rank-row--with-cover">
+                <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+                <div class="rank-cover">
+                  <img
+                    v-if="item.cover_image && !isImageBroken('month-item', item.post_id)"
+                    :src="item.cover_image"
+                    :alt="item.title"
+                    loading="lazy"
+                    @error="handleImageError('month-item', item.post_id, $event)"
+                  >
+                  <div v-else class="rank-cover-placeholder"/>
+                </div>
+                <span class="rank-title">{{ item.title }}</span>
+                <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+              </NuxtLink>
+            </div>
+          </template>
+          <div v-else class="card-list">
+            <NuxtLink v-for="(item, idx) in monthBoard.items" :key="item.post_id" :to="`/post/${item.slug}`" target="_blank" rel="noopener noreferrer" class="rank-row">
+              <span class="rank-num" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 1) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
+        <div v-else class="card-empty">暂无数据</div>
+      </div>
+
+      <!-- 右栏：最高热度（大榜，第1名大封面） -->
+      <div class="ranking-card ranking-card--tall ranking-card--total">
+        <div class="card-head">
+          <NuxtLink to="/ranking?tab=4" class="card-title-link">
+            最高热度
+            <Icon name="heroicons:chevron-right-16-solid" size="13" class="arrow" />
+          </NuxtLink>
+          <span class="card-subtitle">综合热度排行</span>
+        </div>
+        <div v-if="totalBoard.loading">
+          <div class="hero-card hero-card--skeleton" aria-hidden="true">
+            <div class="hero-cover sk-hero sk-shimmer">
+              <span class="sk-hero-badge sk-shimmer" />
+              <div class="sk-hero-bottom">
+                <div class="sk-hero-title sk-shimmer" />
+                <div class="sk-hero-meta">
+                  <span class="sk-hero-meta-item sk-shimmer" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                  <span class="sk-hero-meta-item sk-shimmer short" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-list card-list--skeleton" aria-hidden="true">
+            <div v-for="i in tallSkeletonRowCount" :key="i" class="rank-row rank-row--skeleton rank-row--with-cover">
+              <span class="sk-num sk-shimmer" />
+              <span class="sk-cover sk-shimmer" />
+              <span class="sk-text sk-shimmer" />
+              <span class="sk-heat sk-shimmer" />
+            </div>
+          </div>
+        </div>
+        <template v-else-if="totalBoard.items.length">
+          <!-- 第1名封面 -->
+          <NuxtLink v-if="totalTopItem" :to="`/post/${totalTopItem.slug}`" target="_blank" rel="noopener noreferrer" class="hero-card">
+            <div class="hero-cover">
+              <img
+                v-if="totalTopItem.cover_image && !isImageBroken('total-top', totalTopItem.post_id)"
+                :src="totalTopItem.cover_image"
+                :alt="totalTopItem.title"
+                loading="lazy"
+                @error="handleImageError('total-top', totalTopItem.post_id, $event)"
+              >
+              <div v-else class="hero-placeholder"><Icon name="heroicons:trophy-20-solid" size="28" /></div>
+              <div class="hero-overlay">
+                <span class="hero-badge">1</span>
+                <div class="hero-bottom">
+                  <div class="hero-info">
+                    <span class="hero-title">{{ totalTopItem.title }}</span>
+                    <div class="hero-meta">
+                      <span v-if="totalTopItem.category_name" class="hero-cat">{{ totalTopItem.category_name }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:eye-16-solid" size="11" /> {{ formatScore(totalTopItem.view_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:heart-16-solid" size="11" /> {{ formatScore(totalTopItem.like_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:bookmark-16-solid" size="11" /> {{ formatScore(totalTopItem.collect_count) }}</span>
+                      <span class="hero-stat"><Icon name="heroicons:chat-bubble-left-16-solid" size="11" /> {{ formatScore(totalTopItem.comment_count) }}</span>
+                    </div>
+                  </div>
+                  <span class="hero-heat" :style="{ color: getHeatColor(1) }"><Icon name="heroicons:fire-16-solid" size="16" /> {{ formatScore(totalTopItem.score) }}</span>
+                </div>
+              </div>
+            </div>
+          </NuxtLink>
+          <!-- 2~N名 -->
+          <div class="card-list">
+            <NuxtLink
+              v-for="(item, idx) in totalDisplayItems.slice(1)"
+              :key="item.post_id"
+              :to="`/post/${item.slug}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rank-row rank-row--with-cover"
+              :class="idx < 2 ? 'rank-row--podium' : 'rank-row--regular'"
+            >
+              <span class="rank-num" :class="[`rank-${idx + 2}`]">{{ idx + 2 }}</span>
+              <div class="rank-cover">
+                <img
+                  v-if="item.cover_image && !isImageBroken('total-item', item.post_id)"
+                  :src="item.cover_image"
+                  :alt="item.title"
+                  loading="lazy"
+                  @error="handleImageError('total-item', item.post_id, $event)"
+                >
+                <div v-else class="rank-cover-placeholder"/>
+              </div>
+              <span class="rank-title">{{ item.title }}</span>
+              <span class="rank-heat" :style="{ color: getHeatColor(idx + 2) }"><Icon name="heroicons:fire-16-solid" size="11" /> {{ formatScore(item.score) }}</span>
+            </NuxtLink>
+          </div>
+        </template>
+        <div v-else class="card-empty">暂无数据</div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import type { RankingItem, RankingMeta } from '~/api/content/ranking'
+import { fetchCachedSmartRanking } from '~/composables/cache/useNonCriticalApiCache'
+
+interface Board {
+  items: RankingItem[]
+  loading: boolean
+  meta: RankingMeta | null
+}
+
+const totalBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const weekBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const dailyBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const monthBoard = reactive<Board>({ items: [], loading: true, meta: null })
+const STANDARD_BOARD_LIMIT = 10
+const TALL_BOARD_LIMIT = 18
+
+const hasData = computed(() =>
+  totalBoard.loading || weekBoard.loading || dailyBoard.loading || monthBoard.loading
+  || totalBoard.items.length > 0 || weekBoard.items.length > 0
+  || dailyBoard.items.length > 0 || monthBoard.items.length > 0
+)
+
+function formatScore(score: number): string {
+  if (score >= 10000) return `${(score / 10000).toFixed(1)}w`
+  if (score >= 1000) return `${(score / 1000).toFixed(1)}k`
+  return String(score)
+}
+
+/** 根据排名返回热度颜色，排名越高颜色越深 */
+function getHeatColor(rank: number): string {
+  if (rank <= 1) return '#ef4444'
+  if (rank <= 2) return '#f56565'
+  if (rank <= 3) return '#f87171'
+  if (rank <= 5) return '#fb923c'
+  if (rank <= 7) return '#fdba74'
+  return '#d4d4d4'
+}
+
+function getLocalDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function resolveDailyBoardTitle(meta: RankingMeta | null): string {
+  if (!meta || !meta.fallbackUsed) {
+    return '今日飙升'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '最新发布'
+  }
+
+  if (meta.servedRankType === 1) {
+    const servedDate = meta.servedStatDate
+    if (!servedDate) {
+      return '近期飙升'
+    }
+    const yesterday = getLocalDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000))
+    return servedDate === yesterday ? '昨日飙升' : '近期飙升'
+  }
+
+  if (meta.servedRankType === 2) {
+    return '本周热榜'
+  }
+
+  if (meta.servedRankType === 4) {
+    return '最高热度'
+  }
+
+  return '今日飙升'
+}
+
+function resolveDailyBoardSubtitle(meta: RankingMeta | null): string {
+  if (!meta || !meta.fallbackUsed) {
+    return '今日热度飙升'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+    return '今日数据不足，展示最新发布'
+  }
+
+  if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+    return '暂无可展示内容'
+  }
+
+  if (meta.servedRankType === 1 && meta.servedStatDate) {
+    return `数据日期 ${meta.servedStatDate}`
+  }
+
+  if (meta.servedRankType === 2) {
+    return '今日数据不足，展示本周热度'
+  }
+
+  if (meta.servedRankType === 4) {
+    return '今日数据不足，展示综合热度'
+  }
+
+  return '暂无今日数据，已智能回退'
+}
+
+const dailyBoardTitle = computed(() => resolveDailyBoardTitle(dailyBoard.meta))
+const dailyBoardSubtitle = computed(() => resolveDailyBoardSubtitle(dailyBoard.meta))
+const dailyDisplayItems = computed(() =>
+  isMobileView.value ? dailyBoard.items.slice(0, STANDARD_BOARD_LIMIT) : dailyBoard.items,
+)
+const totalDisplayItems = computed(() =>
+  isMobileView.value ? totalBoard.items.slice(0, STANDARD_BOARD_LIMIT) : totalBoard.items,
+)
+const tallSkeletonRowCount = computed(() => (isMobileView.value ? STANDARD_BOARD_LIMIT - 1 : TALL_BOARD_LIMIT - 1))
+const dailyTopItem = computed(() => dailyDisplayItems.value[0] ?? null)
+const weekTopItem = computed(() => weekBoard.items[0] ?? null)
+const monthTopItem = computed(() => monthBoard.items[0] ?? null)
+const totalTopItem = computed(() => totalDisplayItems.value[0] ?? null)
+const imageErrorMap = ref<Record<string, boolean>>({})
+const isMobileView = ref(false)
+
+function updateViewportState() {
+  if (!import.meta.client) {
+    return
+  }
+  isMobileView.value = window.innerWidth <= 768
+}
+
+function buildImageKey(scope: string, postId: number): string {
+  return `${scope}-${postId}`
+}
+
+function isImageBroken(scope: string, postId: number): boolean {
+  return Boolean(imageErrorMap.value[buildImageKey(scope, postId)])
+}
+
+function handleImageError(scope: string, postId: number, event: Event) {
+  imageErrorMap.value = {
+    ...imageErrorMap.value,
+    [buildImageKey(scope, postId)]: true,
+  }
+
+  const target = event.target as HTMLImageElement | null
+  if (target) {
+    target.style.display = 'none'
+  }
+}
+
+async function loadBoard(board: Board, rankType: number, limit: number) {
+  try {
+    // 首页榜单属于非关键数据，复用短期缓存并合并并发请求。
+    const res = await fetchCachedSmartRanking({ rankType, limit }, { ttlMs: 45_000 })
+    board.items = res.items
+    board.meta = res.meta
+  } catch {
+    board.items = []
+    board.meta = null
+  } finally {
+    board.loading = false
+  }
+}
+
+onMounted(() => {
+  updateViewportState()
+  window.addEventListener('resize', updateViewportState, { passive: true })
+  Promise.all([
+    loadBoard(totalBoard, 4, TALL_BOARD_LIMIT),
+    loadBoard(weekBoard, 2, STANDARD_BOARD_LIMIT),
+    loadBoard(dailyBoard, 1, TALL_BOARD_LIMIT),
+    loadBoard(monthBoard, 3, STANDARD_BOARD_LIMIT),
+  ])
+})
+
+onUnmounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+  window.removeEventListener('resize', updateViewportState)
+})
+</script>
+
+<style lang="scss" scoped>
+.home-ranking {
+  margin-top: $spacing-xl;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-lg;
+}
+
+.section-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-title-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-decoration: none;
+  color: inherit;
+
+  .section-arrow {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.2s;
+    color: $color-primary;
+  }
+
+  &:hover {
+    .section-title { color: $color-primary; }
+    .section-arrow { opacity: 1; transform: translateX(0); }
+  }
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: $color-text;
+  transition: color 0.2s;
+  .dark & { color: $color-dark-text; }
+}
+
+.section-desc {
+  font-size: 0.8rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
+}
+
+/* 首页排行榜网格 */
+.ranking-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr) minmax(0, 1fr);
+  grid-template-areas:
+    'daily week total'
+    'daily month total';
+  gap: $spacing-md;
+  align-items: stretch;
+}
+
+.ranking-card--daily {
+  grid-area: daily;
+}
+
+.ranking-card--week {
+  grid-area: week;
+}
+
+.ranking-card--month {
+  grid-area: month;
+}
+
+.ranking-card--total {
+  grid-area: total;
+}
+
+.ranking-card--week,
+.ranking-card--month {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--week > .card-list,
+.ranking-card--month > .card-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--week > .card-list > .rank-row,
+.ranking-card--month > .card-list > .rank-row {
+  flex: 1;
+  min-height: 28px;
+  height: auto;
+}
+
+/* 卡片 */
+.ranking-card {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  .dark & { background: $color-dark-bg-secondary; border-color: $color-dark-border; }
+}
+
+/* 左右大榜撑满高度 */
+.ranking-card--tall {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--tall .card-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-card--tall .card-list > .rank-row {
+  flex: 1;
+  min-height: 40px;
+  height: auto;
+}
+
+/* 今日飙升/最高热度：2~3名单独尺寸，4~10名与本周热榜间距对齐 */
+.ranking-card--daily .card-list > .rank-row,
+.ranking-card--total .card-list > .rank-row {
+  flex: 0 0 auto;
+}
+
+.card-head {
+  padding: $spacing-sm $spacing-sm 0;
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-xs;
+}
+
+.card-title-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: $color-text;
+  text-decoration: none;
+  transition: color 0.2s;
+  .arrow { opacity: 0; transform: translateX(-4px); transition: all 0.2s; }
+  &:hover { color: $color-primary; .arrow { opacity: 1; transform: translateX(0); } }
+  .dark & { color: $color-dark-text; &:hover { color: $color-primary; } }
+}
+
+.card-subtitle {
+  font-size: 0.65rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
+}
+
+/* 第1名封面（信息叠加在封面上） */
+.hero-card {
+  display: block;
+  margin: $spacing-xs $spacing-sm 0;
+  border-radius: $radius-md;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  &:hover {
+    .hero-cover img { transform: scale(1.05); }
+    .hero-overlay::after { opacity: 1; }
+  }
+}
+
+.hero-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
+  background: $color-bg-secondary;
+  .dark & { background: $color-dark-bg-elevated; }
+  img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease; }
+}
+
+.hero-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: $spacing-sm;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  /* 让内容在 ::after 之上 */
+  > * { position: relative; z-index: 1; }
+}
+
+.hero-badge {
+  position: absolute;
+  top: 6px; left: 6px;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-size: 0.8rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+}
+
+.hero-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $spacing-sm;
+}
+
+.hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.hero-title {
+  font-size: 0.85rem; font-weight: 600;
+  color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hero-cat {
+  padding: 0.05rem 0.4rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+.hero-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.hero-heat {
+  display: flex; align-items: center; gap: 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 列表 */
+.card-list {
+  padding: 0 $spacing-xs $spacing-xs;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem $spacing-xs;
+  box-sizing: border-box;
+  height: 30px;
+  border-radius: $radius-sm;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  &:hover {
+    background: $color-bg-secondary;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    .rank-title { color: $color-primary; }
+  }
+  .dark &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+}
+
+.rank-num {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  color: $color-text-muted;
+  background: $color-bg-secondary;
+  &.rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+  &.rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
+  &.rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+  .dark & { background: rgba(255, 255, 255, 0.08); color: $color-dark-text-muted; }
+}
+
+.rank-cover {
+  flex-shrink: 0;
+  width: 44px; height: 30px;
+  border-radius: 4px;
+  overflow: hidden;
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.rank-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(148, 163, 184, 0.2);
+
+  .dark & {
+    background: rgba(100, 116, 139, 0.3);
+  }
+}
+
+.rank-row--with-cover {
+  height: 40px;
+}
+
+.ranking-card--daily .rank-row--podium,
+.ranking-card--total .rank-row--podium {
+  height: 42px;
+}
+
+.ranking-card--daily .rank-row--podium .rank-cover,
+.ranking-card--total .rank-row--podium .rank-cover {
+  width: 46px;
+  height: 32px;
+}
+
+.ranking-card--daily .rank-row--podium .rank-title,
+.ranking-card--total .rank-row--podium .rank-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ranking-card--daily .rank-row--regular,
+.ranking-card--total .rank-row--regular {
+  height: 30px;
+  padding-top: 0.28rem;
+  padding-bottom: 0.28rem;
+}
+
+.ranking-card--daily .rank-row--regular .rank-cover,
+.ranking-card--total .rank-row--regular .rank-cover {
+  width: 36px;
+  height: 24px;
+}
+
+.ranking-card--daily .rank-row--regular .rank-title,
+.ranking-card--total .rank-row--regular .rank-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.rank-title {
+  font-size: 0.8rem; font-weight: 500;
+  color: $color-text;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+  transition: color 0.2s;
+  .dark & { color: $color-dark-text; }
+}
+
+.rank-heat {
+  display: flex; align-items: center; gap: 0.15rem;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* 骨架屏 */
+.hero-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.card-list--skeleton {
+  pointer-events: none;
+}
+
+.rank-row--skeleton {
+  cursor: default;
+  height: 30px;
+
+  &:hover {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.rank-row--skeleton.rank-row--with-cover {
+  height: 40px;
+}
+
+.ranking-card--tall .card-list--skeleton {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ranking-card--tall .card-list--skeleton > .rank-row--skeleton.rank-row--with-cover {
+  flex: 1;
+  min-height: 40px;
+  height: auto;
+}
+
+.sk-hero {
+  position: relative;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.sk-hero-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.sk-hero-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: transparent;
+}
+
+.sk-hero-title {
+  width: 78%;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.sk-hero-meta {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.sk-hero-meta-item {
+  width: 62px;
+  height: 9px;
+  border-radius: 999px;
+
+  &.short {
+    width: 46px;
+  }
+}
+
+.sk-num {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.sk-cover {
+  display: block;
+  width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.sk-text {
+  display: block;
+  flex: 1;
+  height: 14px;
+  border-radius: $radius-sm;
+  min-width: 0;
+}
+
+.sk-heat {
+  display: block;
+  width: 46px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.sk-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.72) 50%, transparent 80%);
+    transform: translate3d(-140%, 0, 0);
+    animation: sk-shimmer-move 1.4s linear infinite;
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .dark & {
+    background: rgba(71, 85, 105, 0.3);
+
+    &::after {
+      background: linear-gradient(110deg, transparent 20%, rgba(148, 163, 184, 0.32) 50%, transparent 80%);
+    }
+  }
+}
+
+.sk-hero.sk-shimmer {
+  background: rgba(15, 23, 42, 0.22);
+
+  .dark & {
+    background: rgba(30, 41, 59, 0.54);
+  }
+}
+
+@keyframes sk-shimmer-move {
+  0% { transform: translate3d(-140%, 0, 0); }
+  100% { transform: translate3d(140%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-shimmer::after {
+    animation: none;
+  }
+}
+
+.card-empty {
+  padding: $spacing-md;
+  text-align: center;
+  font-size: 0.8rem;
+  color: $color-text-muted;
+  .dark & { color: $color-dark-text-muted; }
+}
+
+/* 响应式 */
+@media (max-width: $breakpoint-lg) {
+  .ranking-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.94fr) minmax(0, 1fr);
+    gap: $spacing-sm;
+  }
+}
+
+@media (max-width: $breakpoint-md) {
+  .section-desc { display: none; }
+  .ranking-grid {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(16rem, calc(100% - 3rem));
+    grid-template-columns: none;
+    grid-template-areas: none;
+    gap: $spacing-sm;
+    overflow-x: auto;
+    padding: 0 0.5rem 2px 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .ranking-card--daily,
+  .ranking-card--week,
+  .ranking-card--month,
+  .ranking-card--total {
+    grid-area: auto;
+  }
+}
+</style>

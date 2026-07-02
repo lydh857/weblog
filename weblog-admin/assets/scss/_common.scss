@@ -1,0 +1,454 @@
+@use 'variables' as *;
+
+// ===== 公共页面头部 =====
+.page-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  padding: 0 20px;
+  min-height: 62px;
+  background: var(--el-bg-color);
+  border-radius: $radius-base;
+  border: 1px solid var(--el-border-color-light);
+  flex-wrap: wrap;
+  transition: background-color $transition-base, border-color $transition-base;
+
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    margin: 0;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .selection-count {
+      font-size: 13px;
+      color: var(--el-color-primary);
+      font-weight: 500;
+    }
+  }
+}
+
+// ===== 公共卡片样式 =====
+.info-card {
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: $radius-base;
+  padding: 16px;
+  transition: background-color $transition-base, border-color $transition-base;
+}
+
+// ===== 扁平化表格 =====
+.el-table {
+  --el-table-border-color: transparent;
+  border-radius: $radius-base;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  transition: border-color $transition-base;
+
+  // 覆盖 .el-table--fit 默认清除的底部和右侧边框
+  &.el-table--fit {
+    border-right: 1px solid var(--el-border-color-light);
+    border-bottom: 1px solid var(--el-border-color-light);
+  }
+
+  .el-table__inner-wrapper::before { display: none; }
+
+  th.el-table__cell {
+    background: var(--el-bg-color) !important;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.2px;
+    color: var(--el-text-color-secondary);
+    border-bottom: 1px solid var(--el-border-color-extra-light) !important;
+    padding: 10px 0;
+    transition: background-color $transition-base;
+  }
+
+  td.el-table__cell {
+    font-size: 13px;
+    border-bottom: none !important;
+    padding: 10px 0;
+    transition: background-color $transition-fast;
+  }
+
+  .el-table__body tr.el-table__row--striped td.el-table__cell {
+    background: var(--el-fill-color-extra-light) !important;
+  }
+
+  .el-table__body tr:hover > td.el-table__cell {
+    background-color: var(--admin-primary-soft) !important;
+  }
+
+  // 表格内操作按钮
+  .el-button + .el-button { margin-left: 0; }
+
+  .el-button.is-text {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background-color $transition-fast, color $transition-fast;
+
+    &:hover { background-color: var(--el-color-primary-light-9) !important; }
+    &.el-button--danger:hover { background-color: var(--el-color-danger-light-9) !important; }
+    &.el-button--success:hover { background-color: var(--el-color-success-light-9) !important; }
+    &.el-button--warning:hover { background-color: var(--el-color-warning-light-9) !important; }
+  }
+}
+
+// ===== 扁平化标签 =====
+.el-tag {
+  border: none;
+  font-size: 11px;
+  padding: 0 8px;
+  height: 20px;
+  line-height: 20px;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+// ===== 扁平化输入框/选择器 =====
+.el-input__wrapper,
+.el-select .el-input__wrapper {
+  box-shadow: none !important;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  transition: border-color $transition-fast;
+
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+  }
+
+  &.is-focus {
+    border-color: var(--el-color-primary);
+  }
+}
+
+// ===== 扁平化按钮 =====
+.el-button {
+  border-radius: 8px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  box-shadow: none !important;
+  transition: background-color $transition-fast, color $transition-fast, border-color $transition-fast;
+
+  &.is-plain {
+    background: var(--el-bg-color);
+    border-color: var(--el-border-color-light);
+  }
+
+  &:not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--danger):not(.el-button--warning) {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-regular);
+
+    &:hover {
+      background: var(--el-fill-color);
+      color: var(--el-color-primary);
+    }
+  }
+
+  &.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+    background: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    color: #fff;
+
+    &:hover {
+      background: var(--el-color-primary-dark-2);
+      border-color: var(--el-color-primary-dark-2);
+    }
+  }
+
+  &.el-button--primary.is-plain {
+    background: var(--admin-primary-soft);
+    border-color: var(--el-color-primary-light-5);
+    color: var(--el-color-primary);
+
+    &:hover {
+      background: var(--admin-primary-soft-hover);
+      border-color: var(--el-color-primary);
+      color: var(--el-color-primary);
+    }
+  }
+}
+
+// ===== 扁平化分页 =====
+.el-pagination {
+  --el-pagination-bg-color: transparent;
+  --el-pagination-hover-color: var(--el-color-primary);
+  gap: 6px;
+
+  .el-pager li {
+    border-radius: 8px;
+    font-weight: 500;
+    min-width: 32px;
+    height: 32px;
+    line-height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--el-text-color-regular);
+    transition: all $transition-fast;
+
+    &:hover:not(.is-active) {
+      background: var(--admin-primary-soft);
+      color: var(--el-color-primary);
+    }
+
+    &.is-active {
+      background: var(--el-color-primary);
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  .btn-prev, .btn-next {
+    border-radius: 8px;
+    border: none;
+    min-width: 32px;
+    height: 32px;
+    background: transparent;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled) {
+      background: var(--admin-primary-soft);
+      color: var(--el-color-primary);
+    }
+  }
+
+  .el-select .el-input__wrapper {
+    box-shadow: none !important;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 8px;
+    height: 32px;
+    transition: border-color $transition-fast;
+    &:hover { border-color: var(--el-color-primary-light-5); }
+    &.is-focus { border-color: var(--el-color-primary); }
+  }
+
+  .el-pagination__total {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+// ===== 扁平化对话框 =====
+.el-dialog {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: none;
+  border: 1px solid var(--el-border-color-light);
+
+  .el-dialog__header {
+    border-bottom: 1px solid var(--el-border-color-light);
+    padding: 16px 20px;
+    margin: 0;
+  }
+
+  .el-dialog__body {
+    padding: 20px;
+  }
+
+  .el-dialog__footer {
+    border-top: 1px solid var(--el-border-color-light);
+    padding: 12px 20px;
+  }
+}
+
+// ===== 公共分页容器 =====
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+// ===== 文本溢出 =====
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ===== 禁用行样式 =====
+.row-disabled {
+  opacity: 0.55;
+}
+
+// ===== 扁平化通用组件 =====
+.el-card {
+  border-radius: $radius-base;
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: none !important;
+  background: var(--el-bg-color);
+}
+
+.el-dropdown-menu,
+.el-popover,
+.el-select-dropdown,
+.el-picker-panel,
+.el-message-box {
+  border-radius: $radius-base;
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: none !important;
+  background: var(--el-bg-color-overlay);
+}
+
+.el-popper.el-select__popper {
+  border-radius: $radius-base !important;
+  border: 1px solid var(--el-border-color-light) !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+
+  .el-popper__arrow {
+    display: none;
+  }
+
+  .el-select-dropdown {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .el-select-dropdown__list {
+    padding: 0 !important;
+  }
+
+  .el-select-dropdown__item {
+    height: 32px !important;
+    line-height: 32px !important;
+    border-radius: $radius-small !important;
+    margin: 0 !important;
+    color: var(--el-text-color-regular) !important;
+    transition: background-color $transition-fast, color $transition-fast;
+
+    &.hover,
+    &:hover {
+      background: var(--admin-primary-soft) !important;
+      color: var(--el-color-primary) !important;
+    }
+
+    &.is-selected {
+      color: var(--el-color-primary) !important;
+      font-weight: 600 !important;
+      background: var(--admin-primary-soft) !important;
+    }
+  }
+}
+
+.el-dropdown__popper.el-popper {
+  border-radius: $radius-base !important;
+  border: 1px solid var(--el-border-color-light) !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+
+  .el-popper__arrow {
+    display: none;
+  }
+
+  .el-dropdown-menu {
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .el-dropdown-menu__item {
+    line-height: 32px !important;
+    min-height: 32px !important;
+    border-radius: $radius-small !important;
+    color: var(--el-text-color-regular) !important;
+    transition: background-color $transition-fast, color $transition-fast;
+
+    &:hover,
+    &:focus {
+      background: var(--admin-primary-soft) !important;
+      color: var(--el-color-primary) !important;
+    }
+
+    &.is-disabled {
+      color: var(--el-text-color-disabled) !important;
+    }
+  }
+
+  .el-dropdown-menu__item--divided {
+    margin-top: 4px !important;
+    border-top: 1px solid var(--el-border-color-extra-light) !important;
+
+    &::before {
+      display: none;
+    }
+  }
+}
+
+.el-message {
+  border-radius: $radius-base;
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: none !important;
+}
+
+.el-tabs__nav-wrap::after {
+  height: 1px;
+  background-color: var(--el-border-color-light);
+}
+
+.el-tabs__item {
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+
+  &.is-active {
+    color: var(--el-color-primary);
+  }
+}
+
+// ===== 紧凑标签页（业务页统一） =====
+.compact-tabs {
+  .el-tabs__header {
+    margin-bottom: 10px;
+  }
+
+  .el-tabs__nav {
+    gap: 2px;
+  }
+
+  .el-tabs__item {
+    height: 34px;
+    line-height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+}
+
+.compact-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  border-radius: 8px;
+  font-size: 11px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+
+  &--warning {
+    background: var(--el-color-warning);
+    color: #fff;
+  }
+}
