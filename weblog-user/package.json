@@ -30,7 +30,7 @@
     "@nuxt/eslint": "^1.15.2",
     "@nuxt/icon": "^2.2.1",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "eslint": "^10.1.0",
+    "eslint": "^10.6.0",
     "sharp": "^0.34.5",
     "typescript": "^5.9.3"
   },
