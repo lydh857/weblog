@@ -43,7 +43,7 @@
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
         <hutool.version>5.8.43</hutool.version>
         <jsoup.version>1.19.1</jsoup.version>
-        <lucene.version>9.10.0</lucene.version>
+        <lucene.version>10.5.0</lucene.version>
         <ik-analyzer.version>9.0.0</ik-analyzer.version>
         <bucket4j.version>8.7.0</bucket4j.version>
         <aliyun-oss.version>3.18.5</aliyun-oss.version>
