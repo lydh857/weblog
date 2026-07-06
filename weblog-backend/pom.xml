@@ -52,7 +52,7 @@
         <mysql.version>8.4.0</mysql.version>
         <logback.version>1.5.25</logback.version>
         <logstash-logback.version>7.4</logstash-logback.version>
-        <jackson.version>2.18.8</jackson.version>
+        <jackson.version>2.22.0</jackson.version>
         <tomcat.version>10.1.54</tomcat.version>
         <netty.version>4.1.135.Final</netty.version>
         <protobuf.version>3.25.5</protobuf.version>
