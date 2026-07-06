@@ -50,7 +50,7 @@
         <aws-sdk-v2.version>2.30.23</aws-sdk-v2.version>
         <knife4j.version>4.4.0</knife4j.version>
         <mysql.version>8.4.0</mysql.version>
-        <logback.version>1.5.25</logback.version>
+        <logback.version>1.5.37</logback.version>
         <logstash-logback.version>7.4</logstash-logback.version>
         <jackson.version>2.18.8</jackson.version>
         <tomcat.version>10.1.54</tomcat.version>
