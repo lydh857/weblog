@@ -10,7 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tanstack/vue-query": "^5.59.0",
+    "@tanstack/vue-query": "^5.101.2",
     "axios": "^1.16.0",
     "naive-ui": "^2.40.1",
     "pinia": "^2.2.4",
