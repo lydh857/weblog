@@ -40,7 +40,7 @@
 
         <!-- 依赖版本管理 -->
         <sa-token.version>1.45.0</sa-token.version>
-        <mybatis-plus.version>3.5.15</mybatis-plus.version>
+        <mybatis-plus.version>3.5.16</mybatis-plus.version>
         <hutool.version>5.8.43</hutool.version>
         <jsoup.version>1.19.1</jsoup.version>
         <lucene.version>9.10.0</lucene.version>
