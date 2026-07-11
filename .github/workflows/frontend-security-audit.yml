@@ -1,0 +1,69 @@
+name: Frontend Security Audit
+
+on:
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  frontend-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - weblog-user
+          - weblog-admin
+
+    env:
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@10 --activate
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: pnpm install --frozen-lockfile --registry=https://registry.npmjs.org
+
+      - name: Audit production dependencies
+        working-directory: ${{ matrix.project }}
+        # 定时巡检和手动触发作为体检通报，不阻断流水线；PR 作为门禁阻断高危漏洞
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        run: |
+          echo "### 🛡️ 安全审计报告: ${{ matrix.project }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **触发事件**: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **执行分支**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "正在以高危门禁级别 (high) 执行 PR 安全审计..."
+            pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
+          else
+            echo "正在执行定期安全巡检..."
+            set +e
+            AUDIT_OUTPUT=$(pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org 2>&1)
+            AUDIT_EXIT=$?
+            set -e
+
+            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+            echo "$AUDIT_OUTPUT" | tail -n 35 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+            if [ $AUDIT_EXIT -ne 0 ]; then
+              echo "⚠️ **提示**：检测到潜在生产依赖安全通告，详情请参考上方摘要，可评估通过 Dependabot 或定期升级推进。" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **通过**：未检出中危及以上生产安全漏洞。" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi

@@ -1,0 +1,713 @@
+<template>
+  <!-- 空数据时隐藏整个区块 -->
+  <section
+    v-if="!loaded || slides.length > 0"
+    ref="heroCarouselRef"
+    class="hero-carousel"
+    @mouseenter="pauseAutoPlay"
+    @mouseleave="resumeAutoPlay"
+    @touchstart="handleTouchStart"
+    @touchend="handleTouchEnd"
+  >
+    <!-- 加载占位：仅用于锁定高度，避免刷新时页面跳动 -->
+    <div v-if="!loaded" class="carousel-placeholder" aria-hidden="true"/>
+
+    <template v-else>
+      <!-- 轮播幻灯片 -->
+      <div class="carousel-slides">
+        <div
+          v-for="(slide, index) in slides"
+          :key="slide.id"
+          class="carousel-slide"
+          :class="{
+            active: hasHeroEntered && index === currentIndex,
+            leaving: hasHeroEntered && index === prevIndex
+          }"
+        >
+          <img
+            v-if="shouldRenderSlideImage(index)"
+            :src="slide.imageUrl"
+            :alt="getSlideAlt(slide, index)"
+            class="slide-bg"
+            :class="{ 'slide-bg--loaded': loadedImages.has(index) }"
+            :loading="index === 0 ? 'eager' : 'lazy'"
+            :fetchpriority="index === 0 ? 'high' : 'auto'"
+            decoding="async"
+            @load="handleImageLoad(index)"
+            @error="handleImageError(index)"
+          >
+          <div v-else class="slide-bg slide-bg--placeholder" />
+          <!-- 渐变遮罩 -->
+          <div class="slide-overlay" />
+        </div>
+      </div>
+
+      <button
+        v-if="currentSlide && hasSlideAction(currentSlide)"
+        class="carousel-hit-area"
+        :aria-label="getSlideActionLabel(currentSlide)"
+        @click="handleSlideClick(currentSlide)"
+      />
+
+      <!-- 文字叠加层（点击整个轮播跳转） -->
+      <div v-if="currentSlide?.title || currentSlide?.description" :key="currentIndex" class="carousel-content">
+        <h1 v-if="currentSlide?.title" class="carousel-title">{{ currentSlide.title }}</h1>
+        <p v-if="currentSlide?.description" class="carousel-desc">
+          {{ currentSlide.description }}
+        </p>
+      </div>
+
+      <!-- 左右切换箭头（多张时显示） -->
+      <template v-if="slides.length > 1">
+        <button class="carousel-arrow carousel-arrow--left touch-target" aria-label="上一张" @click="goToPrev">
+          <Icon name="heroicons:chevron-left-20-solid" size="28" />
+        </button>
+        <button class="carousel-arrow carousel-arrow--right touch-target" aria-label="下一张" @click="goToNext">
+          <Icon name="heroicons:chevron-right-20-solid" size="28" />
+        </button>
+      </template>
+
+      <!-- 指示器圆点（带进度条） -->
+      <div v-if="slides.length > 1" class="carousel-indicators">
+        <button
+          v-for="(_, index) in slides"
+          :key="index"
+          class="indicator-dot"
+          :class="{ active: index === currentIndex }"
+          :aria-label="`切换到第 ${index + 1} 张`"
+          @click="goTo(index)"
+        >
+          <span
+            v-if="index === currentIndex"
+            :key="progressKey"
+            class="indicator-progress"
+            :style="{ animationPlayState: isPaused ? 'paused' : 'running' }"
+          />
+        </button>
+      </div>
+    </template>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { carouselApi, type CarouselVO } from '~/api/content/carousel'
+import { normalizeSafeHref } from '~/utils/security/urlSafety'
+
+// ===== 状态 =====
+const slides = ref<CarouselVO[]>([])
+const loaded = ref(false)
+const heroCarouselRef = ref<HTMLElement | null>(null)
+const currentIndex = ref(0)
+const prevIndex = ref(-1)
+const autoPlayTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const touchStartX = ref(0)
+const isPaused = ref(false)
+const progressKey = ref(0) // 用于重置进度条动画
+const slideStartTime = ref(0) // 当前幻灯片开始时间
+const elapsed = ref(0) // 暂停时已经过的毫秒数
+const loadedImages = reactive(new Set<number>())
+const preloadedSlideIndices = reactive(new Set<number>())
+const hasHeroEntered = ref(false)
+const STARTUP_DONE_EVENT = 'weblog:startup-done'
+const isStartupDone = ref(false)
+const SLIDE_DURATION = 5000
+const SLIDE_TRANSITION_MS = 850
+
+function hasStartupDone() {
+  if (!import.meta.client) {
+    return false
+  }
+
+  const runtimeWindow = window as Window & { __weblogStartupDone?: boolean }
+  return Boolean(runtimeWindow.__weblogStartupDone)
+}
+
+// ===== 计算属性 =====
+const currentSlide = computed(() => slides.value[currentIndex.value] ?? null)
+
+function hasSlideAction(slide: CarouselVO) {
+  return Boolean(slide.type === 'article' ? (slide.slug || slide.linkUrl) : slide.linkUrl)
+}
+
+function getSlideAlt(slide: CarouselVO, index: number) {
+  return slide.title || `轮播图 ${index + 1}`
+}
+
+function getSlideActionLabel(slide: CarouselVO) {
+  return `打开：${slide.title || '轮播图'}`
+}
+
+// ===== 数据加载 =====
+async function loadCarousel() {
+  try {
+    const res = await carouselApi.listPortal()
+    slides.value = res.data
+    preloadedSlideIndices.clear()
+    if (slides.value.length > 0) {
+      preloadSlideNeighbors(0)
+    }
+  } catch {
+    slides.value = []
+    preloadedSlideIndices.clear()
+  } finally {
+    loaded.value = true
+  }
+}
+
+function normalizeSlideIndex(index: number) {
+  if (slides.value.length === 0) return 0
+  return (index + slides.value.length) % slides.value.length
+}
+
+function preloadSlideNeighbors(index: number) {
+  if (slides.value.length === 0) return
+  const current = normalizeSlideIndex(index)
+  const next = normalizeSlideIndex(index + 1)
+  preloadedSlideIndices.add(current)
+  preloadedSlideIndices.add(next)
+}
+
+function shouldRenderSlideImage(index: number) {
+  return preloadedSlideIndices.has(index)
+}
+
+// ===== 轮播控制 =====
+function goTo(index: number) {
+  if (index === currentIndex.value) return
+  preloadSlideNeighbors(index)
+  prevIndex.value = currentIndex.value
+  currentIndex.value = index
+  progressKey.value++ // 重置进度条动画
+  // 清除上一次离场动画标记
+  setTimeout(() => { prevIndex.value = -1 }, SLIDE_TRANSITION_MS)
+  // 手动切换后重启自动轮播计时
+  if (!isPaused.value) startAutoPlay()
+}
+
+function goToNext() {
+  if (slides.value.length <= 1) return
+  const next = (currentIndex.value + 1) % slides.value.length
+  goTo(next)
+}
+
+function goToPrev() {
+  if (slides.value.length <= 1) return
+  const prev = (currentIndex.value - 1 + slides.value.length) % slides.value.length
+  goTo(prev)
+}
+
+// ===== 自动轮播 =====
+function startAutoPlay() {
+  stopAutoPlay()
+  if (slides.value.length <= 1) return
+  slideStartTime.value = Date.now()
+  elapsed.value = 0
+  scheduleNext(SLIDE_DURATION)
+}
+
+function scheduleNext(delay: number) {
+  stopAutoPlay()
+  autoPlayTimer.value = setTimeout(() => {
+    goToNext()
+  }, delay)
+}
+
+function stopAutoPlay() {
+  if (autoPlayTimer.value) {
+    clearTimeout(autoPlayTimer.value)
+    autoPlayTimer.value = null
+  }
+}
+
+function pauseAutoPlay() {
+  isPaused.value = true
+  // 记录已经过的时间
+  elapsed.value += Date.now() - slideStartTime.value
+  stopAutoPlay()
+}
+
+function resumeAutoPlay() {
+  isPaused.value = false
+  if (slides.value.length <= 1) return
+  const remaining = SLIDE_DURATION - elapsed.value
+  slideStartTime.value = Date.now()
+  if (remaining > 0) {
+    scheduleNext(remaining)
+  } else {
+    goToNext()
+  }
+}
+
+// ===== 触摸手势 =====
+function handleTouchStart(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) touchStartX.value = touch.clientX
+}
+
+function handleTouchEnd(e: TouchEvent) {
+  const touch = e.changedTouches[0]
+  if (!touch) return
+  const diff = touchStartX.value - touch.clientX
+  const threshold = 50
+  if (Math.abs(diff) < threshold) return
+  if (diff > 0) goToNext()
+  else goToPrev()
+}
+
+// ===== 点击跳转 =====
+function handleSlideClick(slide: CarouselVO) {
+  const safeLink = normalizeSafeHref(slide.linkUrl)
+
+  if (slide.type === 'article') {
+    if (slide.slug) {
+      window.open(`/post/${slide.slug}`, '_blank', 'noopener,noreferrer')
+    } else if (safeLink) {
+      window.open(safeLink, '_blank', 'noopener,noreferrer')
+    }
+  } else if (slide.type === 'image' && safeLink) {
+    window.open(safeLink, '_blank', 'noopener,noreferrer')
+  }
+}
+
+function triggerHeroEnter() {
+  if (hasHeroEntered.value || !import.meta.client) return
+  if (!isStartupDone.value) return
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      hasHeroEntered.value = true
+    })
+  })
+}
+
+function isCurrentSlideImageReady() {
+  const imageNodes = heroCarouselRef.value?.querySelectorAll<HTMLImageElement>('.slide-bg')
+  const currentImage = imageNodes?.[currentIndex.value]
+  return Boolean(currentImage?.complete && currentImage.naturalWidth > 0)
+}
+
+function handleImageLoad(index: number) {
+  loadedImages.add(index)
+
+  if (index === currentIndex.value) {
+    triggerHeroEnter()
+  }
+}
+
+function handleImageError(index: number) {
+  if (index === currentIndex.value) {
+    triggerHeroEnter()
+  }
+}
+
+// ===== 生命周期 =====
+onMounted(() => {
+  isStartupDone.value = hasStartupDone()
+  if (!isStartupDone.value) {
+    window.addEventListener(STARTUP_DONE_EVENT, handleStartupDone)
+  }
+
+  loadCarousel().then(() => {
+    nextTick(() => {
+      if (isCurrentSlideImageReady()) {
+        loadedImages.add(currentIndex.value)
+        triggerHeroEnter()
+      }
+    })
+
+    if (slides.value.length > 1) {
+      startAutoPlay()
+    }
+  })
+})
+
+onUnmounted(() => {
+  window.removeEventListener(STARTUP_DONE_EVENT, handleStartupDone)
+  stopAutoPlay()
+})
+
+function handleStartupDone() {
+  isStartupDone.value = true
+  if (isCurrentSlideImageReady()) {
+    triggerHeroEnter()
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+/* ===== 轮播容器 ===== */
+.hero-carousel {
+  --carousel-placeholder-bg: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(15, 23, 42, 0.98) 100%
+  );
+  --carousel-placeholder-bg-dark:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+    linear-gradient(180deg, #171b20, #101215);
+
+  position: relative;
+  width: 100%;
+  height: clamp(480px, 80vh, 720px);
+  overflow: hidden;
+  background: var(--carousel-placeholder-bg);
+  margin-top: calc(var(--layout-navbar-height, 60px) * -1); // 覆盖到 fixed 导航栏下方
+
+  .dark & {
+    --carousel-placeholder-bg: var(--carousel-placeholder-bg-dark);
+  }
+}
+
+.carousel-placeholder {
+  position: absolute;
+  inset: 0;
+  background: var(--carousel-placeholder-bg);
+}
+
+/* ===== 幻灯片 ===== */
+.carousel-slides {
+  position: absolute;
+  inset: 0;
+}
+
+.carousel-slide {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--carousel-placeholder-bg);
+  opacity: 0;
+  transition: opacity 850ms cubic-bezier(0.33, 1, 0.68, 1);
+  pointer-events: none;
+  will-change: opacity;
+
+  &.active {
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+  }
+
+  &.leaving {
+    opacity: 0;
+    z-index: 0;
+    transition: opacity 520ms ease-out;
+  }
+}
+
+.slide-bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.08);
+  transform-origin: center;
+  transition:
+    opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 1.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+
+  &--loaded {
+    opacity: 1;
+  }
+
+  &--placeholder {
+    opacity: 1;
+    transform: none;
+    background: var(--carousel-placeholder-bg);
+  }
+}
+
+.carousel-slide.active .slide-bg {
+  transform: scale(1.01);
+}
+
+.carousel-slide.leaving .slide-bg {
+  transform: scale(1.03);
+}
+
+/* 渐变遮罩 */
+.slide-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.3) 40%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+
+  .dark & {
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.85) 0%,
+      rgba(0, 0, 0, 0.5) 40%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+  }
+}
+
+/* ===== 文字叠加层 ===== */
+.carousel-content {
+  position: absolute;
+  z-index: 3;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: 90%;
+  max-width: 700px;
+  color: #fff;
+  pointer-events: none;
+}
+
+.carousel-hit-area {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.carousel-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: $spacing-sm;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  /* 入场动画：从下方淡入 */
+  animation: fadeInUp 600ms ease both;
+}
+
+.carousel-desc {
+  font-size: 1rem;
+  line-height: 1.6;
+  opacity: 0.9;
+  margin-bottom: $spacing-sm;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* 入场动画：延迟 150ms */
+  animation: fadeInUp 600ms ease 150ms both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== 左右切换箭头 ===== */
+.carousel-arrow {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s, background 0.2s;
+  backdrop-filter: blur(4px);
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .hero-carousel:hover & {
+    opacity: 1;
+  }
+
+  &--left {
+    left: 24px;
+  }
+
+  &--right {
+    right: 24px;
+  }
+}
+
+/* ===== 指示器圆点 ===== */
+.carousel-indicators {
+  position: absolute;
+  z-index: 4;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.indicator-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: background 0.3s, width 0.3s;
+
+  &.active {
+    width: 36px;
+    min-width: 36px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  &:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.7);
+  }
+}
+
+/* 进度条填充 */
+.indicator-progress {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  background: #fff;
+  transform-origin: left center;
+  animation: indicatorFill 5s linear forwards;
+}
+
+@keyframes indicatorFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ===== 响应式 ===== */
+
+/* 平板端 */
+@media (max-width: $breakpoint-lg) {
+  .hero-carousel {
+    height: clamp(380px, 65vh, 580px);
+  }
+
+  .carousel-title {
+    font-size: 1.75rem;
+  }
+
+  .carousel-desc {
+    font-size: 0.9rem;
+  }
+}
+
+/* 移动端 */
+@media (max-width: $breakpoint-md) {
+  .hero-carousel {
+    height: clamp(280px, 50vh, 440px);
+  }
+
+  .carousel-title {
+    font-size: 1.5rem;
+  }
+
+  .carousel-desc {
+    font-size: 0.85rem;
+    -webkit-line-clamp: 1;
+  }
+
+  .carousel-content {
+    bottom: 25%;
+  }
+
+  .carousel-arrow {
+    display: none;
+  }
+
+  .carousel-indicators {
+    bottom: 36px;
+    gap: 0.35rem;
+  }
+
+  .slide-overlay {
+    inset: 0 0 -1px;
+  }
+
+  .indicator-dot {
+    width: 7px;
+    height: 7px;
+    min-width: 7px;
+    min-height: 7px;
+    border-radius: 4px;
+
+    &.active {
+      width: 24px;
+      min-width: 24px;
+    }
+  }
+}
+
+/* 超小屏 */
+@media (max-width: 480px) {
+  .carousel-indicators {
+    bottom: 28px;
+    gap: 0.28rem;
+  }
+
+  .indicator-dot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    min-height: 6px;
+
+    &.active {
+      width: 20px;
+      min-width: 20px;
+    }
+  }
+
+  .carousel-title {
+    font-size: 1.25rem;
+  }
+
+  .carousel-desc {
+    display: none;
+  }
+
+  .carousel-content {
+    bottom: 30%;
+  }
+}
+
+/* ===== 减少动画偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .carousel-slide {
+    transition: opacity 200ms ease;
+  }
+
+  .slide-bg {
+    transition: opacity 200ms ease;
+    transform: none !important;
+  }
+
+  .carousel-title,
+  .carousel-desc {
+    animation: none;
+  }
+
+  .indicator-progress {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+</style>

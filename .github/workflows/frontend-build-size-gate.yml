@@ -1,0 +1,51 @@
+name: Frontend Build Size Gate
+
+on:
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  build-size-gate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: weblog-admin
+            maxChunkKb: 300
+          - project: weblog-user
+            maxChunkKb: 300
+
+    env:
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@10 --activate
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: pnpm install --frozen-lockfile --registry=https://registry.npmjs.org
+
+      - name: Build project
+        working-directory: ${{ matrix.project }}
+        run: pnpm build 2>&1 | tee build.log
+
+      - name: Check admin warning thresholds
+        if: matrix.project == 'weblog-admin'
+        run: node scripts/check-build-warnings.mjs --log "${{ matrix.project }}/build.log" --max-circular 7 --forbid-empty true
+
+      - name: Check largest chunk threshold
+        run: node scripts/check-max-chunk.mjs --dir "${{ matrix.project }}/.output/public/_nuxt" --max-kb "${{ matrix.maxChunkKb }}" --label "${{ matrix.project }}"
