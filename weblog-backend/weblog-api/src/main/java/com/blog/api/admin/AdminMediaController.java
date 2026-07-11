@@ -1,0 +1,367 @@
+package com.blog.api.admin;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.api.security.DynamicRateLimitPolicyService;
+import com.blog.common.exception.BusinessException;
+import com.blog.common.result.Result;
+import com.blog.common.result.ResultCode;
+import com.blog.common.util.IpUtil;
+import com.blog.common.util.PageParamUtil;
+import com.blog.content.dto.MediaStatsVO;
+import com.blog.content.dto.MediaVO;
+import com.blog.content.entity.OssResource;
+import com.blog.content.service.MediaReferenceService;
+import com.blog.content.service.OssResourceService;
+import com.blog.infra.oss.StorageFacade;
+import com.blog.infra.security.audit.AuditLog;
+import com.blog.infra.security.ratelimit.RateLimit;
+import com.blog.system.mapper.UserMapper;
+import com.blog.system.mapper.UserProfileReviewMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 管理端媒体资源管理接口
+ */
+@Tag(name = "管理端-媒体管理", description = "OSS 资源列表、删除")
+@RestController
+@RequestMapping("/api/admin/media")
+public class AdminMediaController {
+
+  private static final String LEGACY_LOCAL_UPLOAD_PREFIX = "http://localhost:9091/uploads";
+  private static final String ADMIN_MEDIA_DELETE_RATE_LIMIT_KEY = "admin_media_delete_rate_limit";
+  private static final String ADMIN_MEDIA_CLEANUP_RATE_LIMIT_KEY = "admin_media_cleanup_rate_limit";
+
+  @Autowired(required = false)
+  private OssResourceService ossResourceService;
+
+  @Autowired(required = false)
+  private MediaReferenceService mediaReferenceService;
+
+  @Autowired
+  private StorageFacade storageFacade;
+
+  @Autowired(required = false)
+  private UserMapper userMapper;
+
+  @Autowired(required = false)
+  private UserProfileReviewMapper userProfileReviewMapper;
+
+  @Autowired
+  private DynamicRateLimitPolicyService dynamicRateLimitPolicyService;
+
+  @Value("${blog.upload.base-url:http://localhost:9091/uploads}")
+  private String uploadBaseUrl;
+
+  private void checkOssEnabled() {
+    if (ossResourceService == null || !storageFacade.isStorageEnabled()) {
+      throw new BusinessException(ResultCode.FAIL, "媒体存储服务未启用");
+    }
+  }
+
+  /**
+   * 分页查询媒体资源
+   * 支持按 usageType 和 referenceStatus 筛选
+   * referenceStatus 取值: referenced / unreferenced / null(全部)
+   */
+  @Operation(summary = "分页查询媒体资源")
+  @GetMapping
+  public Result<IPage<MediaVO>> list(
+      @RequestParam(defaultValue = "1") int pageNum,
+      @RequestParam(defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String usageType,
+      @RequestParam(required = false) String referenceStatus) {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    PageParamUtil.PageParams pageParams = PageParamUtil.normalize(pageNum, pageSize);
+    Long userId = StpUtil.getLoginIdAsLong();
+    boolean isAdmin = StpUtil.hasRole("admin");
+    Long uploaderId = isAdmin ? null : userId;
+
+    // 获取引用 URL 集合和引用详情
+    Set<String> referencedUrls = new java.util.HashSet<>(mediaReferenceService != null
+        ? mediaReferenceService.getReferencedUrls()
+        : Set.of());
+    Map<String, List<MediaVO.ReferenceDetail>> detailMap = new java.util.HashMap<>(mediaReferenceService != null
+        ? mediaReferenceService.getReferenceDetailsMap()
+        : Map.of());
+
+    appendAvatarReferences(referencedUrls, detailMap);
+
+    Set<String> referencedKeys = mediaReferenceService != null
+        ? mediaReferenceService.buildReferenceKeys(referencedUrls)
+        : Set.of();
+    Map<String, List<MediaVO.ReferenceDetail>> detailMapByKey = mediaReferenceService != null
+        ? mediaReferenceService.buildReferenceDetailsByKey(detailMap)
+        : Map.of();
+
+    IPage<OssResource> page;
+    if (referenceStatus != null && !referenceStatus.isEmpty()) {
+      page = pageByNormalizedReferenceStatus(pageParams.pageNum(), pageParams.pageSize(), uploaderId, usageType, referenceStatus, referencedKeys);
+    } else {
+      // 无引用状态筛选：正常分页查询
+      page = ossResourceService.page(pageParams.pageNum(), pageParams.pageSize(), uploaderId, usageType);
+    }
+
+    IPage<MediaVO> voPage = page.convert(r -> toMediaVO(r, referencedKeys, detailMapByKey));
+    return Result.success(voPage);
+  }
+
+  @Operation(summary = "删除媒体资源（同步删除 OSS 文件）")
+  @DeleteMapping("/{id}")
+  @RateLimit(key = "admin-media-delete", capacity = 120, seconds = 60)
+  @AuditLog(module = "媒体管理", operation = "DELETE", description = "删除媒体资源")
+  public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    dynamicRateLimitPolicyService.enforcePerIp(
+        "admin-media-delete",
+        ADMIN_MEDIA_DELETE_RATE_LIMIT_KEY,
+        30,
+        1,
+        120,
+        60,
+        IpUtil.getClientIp(request),
+        "删除媒体资源过于频繁，请稍后再试"
+    );
+    Long userId = StpUtil.getLoginIdAsLong();
+    boolean isAdmin = StpUtil.hasRole("admin");
+    ossResourceService.delete(id, userId, isAdmin);
+    return Result.success();
+  }
+
+  @Operation(summary = "获取媒体资源详情")
+  @GetMapping("/{id}")
+  public Result<OssResource> detail(@PathVariable Long id) {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    OssResource resource = ossResourceService.getById(id);
+    if (resource != null && resource.getUrl() != null) {
+      resource.setUrl(normalizeLegacyUploadUrl(resource.getUrl()));
+    }
+    return Result.success(resource);
+  }
+
+  @Operation(summary = "获取未引用资源数量")
+  @GetMapping("/unreferenced-count")
+  public Result<Long> unreferencedCount() {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    if (mediaReferenceService == null) {
+      return Result.success(0L);
+    }
+    return Result.success(mediaReferenceService.countUnreferenced(getAvatarReferenceUrls()));
+  }
+
+  @Operation(summary = "立即刷新媒体引用检测缓存")
+  @PostMapping("/refresh-references")
+  @RateLimit(key = "admin-media-refresh-references", capacity = 30, seconds = 60)
+  public Result<Long> refreshReferences() {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    if (mediaReferenceService == null) {
+      return Result.success(0L);
+    }
+    mediaReferenceService.evictCache();
+    return Result.success(mediaReferenceService.countUnreferenced(getAvatarReferenceUrls()));
+  }
+
+  @Operation(summary = "获取媒体资源统计")
+  @GetMapping("/stats")
+  public Result<MediaStatsVO> stats() {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    Long userId = StpUtil.getLoginIdAsLong();
+    boolean isAdmin = StpUtil.hasRole("admin");
+    Long uploaderId = isAdmin ? null : userId;
+    return Result.success(ossResourceService.getStats(uploaderId));
+  }
+
+  @Operation(summary = "清理所有未引用资源（仅管理员）")
+  @PostMapping("/cleanup-unreferenced")
+  @RateLimit(key = "admin-media-cleanup", capacity = 120, seconds = 60)
+  @AuditLog(module = "媒体管理", operation = "CLEANUP", description = "清理未引用媒体资源")
+  public Result<Integer> cleanupUnreferenced(HttpServletRequest request) {
+    checkOssEnabled();
+    StpUtil.checkLogin();
+    StpUtil.checkRole("admin");
+    dynamicRateLimitPolicyService.enforcePerIp(
+        "admin-media-cleanup",
+        ADMIN_MEDIA_CLEANUP_RATE_LIMIT_KEY,
+        5,
+        1,
+        120,
+        60,
+        IpUtil.getClientIp(request),
+        "清理未引用资源过于频繁，请稍后再试"
+    );
+    if (mediaReferenceService == null) {
+      return Result.success(0);
+    }
+    Long operatorId = StpUtil.getLoginIdAsLong();
+    int count = mediaReferenceService.cleanupUnreferenced(operatorId, getAvatarReferenceUrls());
+    return Result.success(count);
+  }
+
+  private IPage<OssResource> pageByNormalizedReferenceStatus(int pageNum, int pageSize, Long uploaderId,
+                                                             String usageType, String referenceStatus,
+                                                             Set<String> referencedKeys) {
+    List<OssResource> resources = ossResourceService.list(uploaderId, usageType);
+    List<OssResource> filtered = resources.stream()
+        .filter(resource -> {
+          boolean referenced = resource.getUrl() != null
+              && mediaReferenceService != null
+              && referencedKeys.contains(mediaReferenceService.toReferenceKey(resource.getUrl()));
+          return "referenced".equals(referenceStatus) ? referenced : !referenced;
+        })
+        .toList();
+
+    int fromIndex = Math.min((pageNum - 1) * pageSize, filtered.size());
+    int toIndex = Math.min(fromIndex + pageSize, filtered.size());
+    Page<OssResource> page = new Page<>(pageNum, pageSize, filtered.size());
+    page.setRecords(filtered.subList(fromIndex, toIndex));
+    return page;
+  }
+
+  /** OssResource 转 MediaVO，设置 referenced 字段和引用详情 */
+  private MediaVO toMediaVO(OssResource resource, Set<String> referencedKeys,
+                            Map<String, List<MediaVO.ReferenceDetail>> detailMapByKey) {
+    String normalizedUrl = normalizeLegacyUploadUrl(resource.getUrl());
+    String referenceKey = mediaReferenceService != null ? mediaReferenceService.toReferenceKey(resource.getUrl()) : null;
+    MediaVO vo = new MediaVO();
+    vo.setId(resource.getId());
+    vo.setFileName(resource.getFileName());
+    vo.setFilePath(resource.getFilePath());
+    vo.setFileSize(resource.getFileSize());
+    vo.setFileType(resource.getFileType());
+    vo.setMimeType(resource.getMimeType());
+    vo.setUrl(normalizedUrl);
+    vo.setUploaderId(resource.getUploaderId());
+    vo.setUsageType(resource.getUsageType());
+    vo.setCreateTime(resource.getCreateTime());
+
+    // 生成缩略图 URL：OSS 模式使用图片处理参数，本地模式用原始 URL
+    if (storageFacade.supportsImageProcessing() && normalizedUrl != null) {
+      String objectKey = storageFacade.extractObjectKey(normalizedUrl);
+      if (objectKey != null) {
+        vo.setThumbnailUrl(storageFacade.getThumbnailUrl(objectKey));
+      } else {
+        vo.setThumbnailUrl(normalizedUrl);
+      }
+    } else {
+      vo.setThumbnailUrl(normalizedUrl);
+    }
+
+    vo.setReferenced(referenceKey != null && referencedKeys.contains(referenceKey));
+    vo.setReferenceDetails(referenceKey != null ? detailMapByKey.getOrDefault(referenceKey, List.of()) : List.of());
+    return vo;
+  }
+
+  private Set<String> getAvatarReferenceUrls() {
+    Set<String> avatarUrls = new java.util.HashSet<>();
+    collectAvatarReferenceUrls(avatarUrls);
+    return avatarUrls;
+  }
+
+  private void appendAvatarReferences(Set<String> referencedUrls, Map<String, List<MediaVO.ReferenceDetail>> detailMap) {
+    collectAvatarReferenceUrls(referencedUrls);
+
+    if (userMapper != null) {
+      List<Map<String, Object>> avatarRows = userMapper.selectActiveAvatarSummaries();
+      if (avatarRows != null) {
+        for (Map<String, Object> row : avatarRows) {
+          String avatarUrl = (String) row.get("avatar");
+          if (avatarUrl == null || avatarUrl.isBlank()) continue;
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(toLong(row.get("id")));
+          detail.setPostTitle(formatUserReferenceTitle(row, "已使用头像"));
+          detail.setRefType("user_avatar");
+          detailMap.computeIfAbsent(avatarUrl, k -> new java.util.ArrayList<>()).add(detail);
+        }
+      }
+    }
+
+    if (userProfileReviewMapper != null) {
+      List<Map<String, Object>> pendingAvatarRows = userProfileReviewMapper.selectPendingAvatarSummaries();
+      if (pendingAvatarRows != null) {
+        for (Map<String, Object> row : pendingAvatarRows) {
+          String avatarUrl = (String) row.get("pending_avatar");
+          if (avatarUrl == null || avatarUrl.isBlank()) continue;
+          MediaVO.ReferenceDetail detail = new MediaVO.ReferenceDetail();
+          detail.setPostId(toLong(row.get("user_id")));
+          detail.setPostTitle(formatUserReferenceTitle(row, "待审核头像"));
+          detail.setRefType("user_avatar_pending");
+          detailMap.computeIfAbsent(avatarUrl, k -> new java.util.ArrayList<>()).add(detail);
+        }
+      }
+    }
+  }
+
+  private void collectAvatarReferenceUrls(Set<String> referencedUrls) {
+    if (userMapper != null) {
+      List<String> avatarUrls = userMapper.selectActiveAvatarUrls();
+      if (avatarUrls != null) {
+        for (String avatarUrl : avatarUrls) {
+          if (avatarUrl != null && !avatarUrl.isBlank()) referencedUrls.add(avatarUrl);
+        }
+      }
+    }
+
+    if (userProfileReviewMapper != null) {
+      List<String> pendingAvatarUrls = userProfileReviewMapper.selectPendingAvatarUrls();
+      if (pendingAvatarUrls != null) {
+        for (String avatarUrl : pendingAvatarUrls) {
+          if (avatarUrl != null && !avatarUrl.isBlank()) referencedUrls.add(avatarUrl);
+        }
+      }
+    }
+  }
+
+  private Long toLong(Object value) {
+    return value instanceof Number number ? number.longValue() : 0L;
+  }
+
+  private String formatUserReferenceTitle(Map<String, Object> row, String suffix) {
+    String nickname = row.get("nickname") instanceof String value ? value : "";
+    String email = row.get("email") instanceof String value ? value : "";
+    String name = !nickname.isBlank() ? nickname : email;
+    if (name.isBlank()) {
+      name = "用户ID " + toLong(row.getOrDefault("id", row.get("user_id")));
+    }
+    return name + "，" + suffix;
+  }
+
+  private String normalizeLegacyUploadUrl(String rawValue) {
+    if (rawValue == null || rawValue.isBlank()) {
+      return rawValue;
+    }
+    if (!rawValue.contains(LEGACY_LOCAL_UPLOAD_PREFIX)) {
+      return rawValue;
+    }
+    String normalizedBase = normalizeUploadBaseUrl(uploadBaseUrl);
+    return rawValue.replace(LEGACY_LOCAL_UPLOAD_PREFIX, normalizedBase);
+  }
+
+  private String normalizeUploadBaseUrl(String rawBaseUrl) {
+    if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+      return LEGACY_LOCAL_UPLOAD_PREFIX;
+    }
+    String normalized = rawBaseUrl.trim();
+    if (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized;
+  }
+
+}

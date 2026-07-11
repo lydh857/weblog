@@ -1,0 +1,37 @@
+{
+  "description": "文件用途：验证码攻防复测人工补充模板，与回归脚本输出 JSON 一起归档。",
+  "title": "captcha-attack-recheck-template",
+  "scope": {
+    "environment": "",
+    "backendRef": "",
+    "timeWindow": ""
+  },
+  "attackInputs": {
+    "tooling": "",
+    "solverStrategy": "",
+    "requestRate": "",
+    "concurrency": 0,
+    "ipRotationPolicy": "",
+    "sessionRotationPolicy": "",
+    "deviceRotationPolicy": ""
+  },
+  "metrics": {
+    "totalAttempts": 0,
+    "successfulBypassAttempts": 0,
+    "successRate": 0,
+    "firstSessionBlockAttempt": 0,
+    "firstIpBlockAttempt": 0,
+    "averageLatencyMs": 0
+  },
+  "evidence": {
+    "summaryJsonPath": "docs/captcha-attack-regression-result.json",
+    "reportTextPath": "docs/captcha-attack-regression-report.txt",
+    "workflowRunUrl": "",
+    "artifactName": "captcha-attack-regression-summary"
+  },
+  "conclusion": {
+    "meetsTargetThreshold": false,
+    "remainingRisk": "",
+    "nextHardeningActions": []
+  }
+}

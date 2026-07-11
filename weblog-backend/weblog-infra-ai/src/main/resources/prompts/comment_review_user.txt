@@ -1,0 +1,6 @@
+文章标题：{{postTitle}}
+
+评论内容：
+{{commentContent}}
+
+请审核该评论（严格按 JSON 格式输出）：

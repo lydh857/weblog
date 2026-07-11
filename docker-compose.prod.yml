@@ -1,0 +1,244 @@
+services:
+  # ===== MySQL =====
+  mysql:
+    image: mysql:8.0.36
+    container_name: weblog-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: weblog
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=256M
+      --max-connections=60
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --slow-query-log=1
+      --log_output=FILE
+      --slow-query-log-file=/var/lib/mysql/slow.log
+      --long-query-time=2
+      --performance-schema=ON
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.8"
+    networks:
+      backend:
+        ipv4_address: 172.31.0.10
+      frontend:
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ===== Redis =====
+  redis:
+    image: redis:7.2-alpine
+    container_name: weblog-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.3"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"${REDIS_PASSWORD}\" redis-cli ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===== Backend API =====
+  weblog-api:
+    image: ${DOCKER_IMAGE_API}
+    container_name: weblog-api
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:9091:9091"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - CAPTCHA_SECRET_KEY=${CAPTCHA_SECRET_KEY}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-local}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - HSTS_ENABLED=${HSTS_ENABLED:-true}
+      - REFERER_ENABLED=${REFERER_ENABLED:-true}
+      - OAUTH_ALLOWED_CALLBACKS=${OAUTH_ALLOWED_CALLBACKS:-yourdomain.com}
+      - BLOG_SECURITY_OUTBOUND_LINK_ALLOWED_DOMAINS=${BLOG_SECURITY_OUTBOUND_LINK_ALLOWED_DOMAINS:-}
+      - UPLOAD_BASE_URL=${UPLOAD_BASE_URL:-https://example.com/uploads}
+      - OSS_ENDPOINT=${OSS_ENDPOINT:-}
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID:-}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET:-}
+      - OSS_BUCKET_NAME=${OSS_BUCKET_NAME:-}
+      - OSS_CDN_DOMAIN=${OSS_CDN_DOMAIN:-}
+      - OSS_SIGN_URL_EXPIRE_SECONDS=${OSS_SIGN_URL_EXPIRE_SECONDS:-300}
+      - OSS_CONTENT_MODERATION_ENABLED=${OSS_CONTENT_MODERATION_ENABLED:-false}
+      - R2_ENDPOINT=${R2_ENDPOINT:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_ACCESS_KEY_SECRET=${R2_ACCESS_KEY_SECRET:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-}
+      - R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL:-}
+      - R2_REGION=${R2_REGION:-auto}
+      - R2_SIGN_URL_EXPIRE_SECONDS=${R2_SIGN_URL_EXPIRE_SECONDS:-300}
+      - UPLOAD_GUARD_ENABLED=${UPLOAD_GUARD_ENABLED:-true}
+      - UPLOAD_GUARD_GLOBAL_DAILY_BYTES=${UPLOAD_GUARD_GLOBAL_DAILY_BYTES:-32212254720}
+      - UPLOAD_GUARD_GLOBAL_MONTHLY_BYTES=${UPLOAD_GUARD_GLOBAL_MONTHLY_BYTES:-536870912000}
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-172.30.0.10}
+      - IMPORT_TOKEN=${IMPORT_TOKEN}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_BASE_URL=${AI_BASE_URL:-https://api.openai.com}
+      - AI_MODEL=${AI_MODEL:-gpt-4o-mini}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - MAIL_SMTP_HOST=${MAIL_SMTP_HOST:-}
+      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_SSL_ENABLED=${MAIL_SSL_ENABLED:-}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-}
+      - MAIL_CODE_EXPIRE_MINUTES=${MAIL_CODE_EXPIRE_MINUTES:-}
+      - MAIL_FALLBACK_ENABLED=${MAIL_FALLBACK_ENABLED:-}
+      - MAIL_FALLBACK_SMTP_HOST=${MAIL_FALLBACK_SMTP_HOST:-}
+      - MAIL_FALLBACK_SMTP_PORT=${MAIL_FALLBACK_SMTP_PORT:-}
+      - MAIL_FALLBACK_USERNAME=${MAIL_FALLBACK_USERNAME:-}
+      - MAIL_FALLBACK_PASSWORD=${MAIL_FALLBACK_PASSWORD:-}
+      - MAIL_FALLBACK_SSL_ENABLED=${MAIL_FALLBACK_SSL_ENABLED:-}
+      - MAIL_FALLBACK_FROM_ADDRESS=${MAIL_FALLBACK_FROM_ADDRESS:-}
+      - TZ=Asia/Shanghai
+      - SPRING_FLYWAY_VALIDATE_ON_MIGRATE=false
+    volumes:
+      - lucene-data:/data/lucene
+      - app-logs:/var/log/weblog
+      - ./uploads:/app/uploads
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.8"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9091/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 240s
+
+  # ===== User Frontend (SSR) =====
+  weblog-user:
+    image: ${DOCKER_IMAGE_USER}
+    container_name: weblog-user
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # API_BASE_URL 仅填写协议+域名(+端口)，不包含 /api
+      - NUXT_PUBLIC_API_BASE=${API_BASE_URL:-http://weblog-api:9091}/api
+      # SSR 服务端请求优先走内网地址，避免被外层 WAF/Challenge 误拦截
+      - NUXT_API_INTERNAL_BASE=${API_INTERNAL_BASE_URL:-http://weblog-api:9091}
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.4"
+    depends_on:
+      weblog-api:
+        condition: service_healthy
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===== Nginx Reverse Proxy =====
+  nginx:
+    image: nginx:alpine
+    container_name: weblog-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./admin-static:/usr/share/nginx/html/admin:ro
+      - ./uploads:/usr/share/nginx/uploads:ro
+      - nginx-logs:/var/log/nginx
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: "0.3"
+    depends_on:
+      - weblog-api
+      - weblog-user
+    networks:
+      frontend:
+        ipv4_address: 172.30.0.10
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
+  lucene-data:
+    driver: local
+  app-logs:
+    driver: local
+  nginx-logs:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

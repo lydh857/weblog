@@ -1,0 +1,14 @@
+import { http } from '~/utils/network/http'
+
+export interface SiteConfigVO {
+  siteName: string
+  siteDescription: string
+  siteFooterNotice: string
+  siteFooterCopyright: string
+  siteDisclaimerContent: string
+}
+
+export const siteConfigApi = {
+  /** 获取用户端站点配置 */
+  getPublic: () => http.get<unknown, { data: SiteConfigVO }>('/portal/site-config'),
+}

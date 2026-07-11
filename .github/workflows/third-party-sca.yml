@@ -1,0 +1,39 @@
+name: Third-Party SCA
+
+on:
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: '0 4 * * 2'
+  workflow_dispatch:
+
+jobs:
+  trivy-sca:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and install backend to local cache
+        run: mvn -f weblog-backend/pom.xml install -DskipTests -B
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Run Trivy library scan (informational)
+        run: trivy fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --ignore-unfixed .

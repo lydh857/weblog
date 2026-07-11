@@ -1,0 +1,138 @@
+# ============================================
+# 项目根目录 .gitignore
+# ============================================
+
+# 本地代理/实验工作区（不提交）
+.claude/
+.history/
+.opencode/
+.qoder/
+.joycode/
+.codex/
+openspec/
+
+# AI 代理配置文件（包含内部开发流程，不公开）
+AGENTS.md
+CLAUDE.md
+
+# 内部开发文档（不公开）
+docs/development-experience-guide.md
+docs/full-stack-development-guide.md
+docs/safe-production-release-guide.md
+docs/security-performance-optimization-todo.md
+weblog-admin/docs/
+weblog-backend/SECURITY_RATE_LIMIT_MATRIX.md
+weblog-backend/scripts/
+docs/security/
+
+# Docker 数据卷（包含数据库数据，不提交）
+docker-data/
+
+# 数据库：只提交事实源快照和初始化 SQL
+database/*
+!database/weblog.sql
+!database/assets/
+!database/assets/**
+!database/sql/
+!database/sql/init/
+!database/sql/init/*.sql
+
+# 文档默认可提交；仅忽略本地回归报告产物
+docs/**/*-report.txt
+docs/**/*-result.json
+docs/**/reports/
+
+!weblog-backend/weblog-infra-security/src/main/resources/sensitive/sensi_words.txt
+
+# docker-compose.prod.yml 由 GitHub Actions 上传到服务器，保留在仓库中
+# 环境变量文件
+.env
+.env.local
+.env.prod
+*.env
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 配置
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Node.js（前端项目会用到）
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Nuxt 构建产物
+.nuxt/
+.output/
+
+# 构建产物
+dist/
+build/
+target/
+out/
+weblog-backend/**/cp.txt
+
+# Lucene 运行时索引（本地生成，不提交）
+weblog-backend/lucene-index/
+weblog-backend/**/lucene-index/
+
+# 本地上传目录（运行时生成，不提交）
+weblog-backend/uploads/
+data/
+
+# 爬虫工作区运行产物（本地缓存/数据库/虚拟环境，不提交）
+crawler-worker/data/
+crawler-worker/.env
+crawler-worker/.venv/
+crawler-worker/.pytest_cache/
+crawler-worker/.mypy_cache/
+crawler-worker/.ruff_cache/
+crawler-worker/__pycache__/
+crawler-worker/**/*.egg-info/
+crawler-worker/**/*.pyc
+crawler-worker/**/*.pyo
+crawler-worker/start-worker-dev.cmd
+
+# 爬虫桌面端本地构建产物
+crawler-desktop/dist/
+crawler-desktop/.nuxt/
+crawler-desktop/.output/
+crawler-desktop/node_modules/
+crawler-desktop/src-tauri/target/
+crawler-desktop/start-tauri-dev.cmd
+
+# 本地启动脚本
+start-crawler-workbench.cmd
+
+# 编译产物（脚本临时编译）
+scripts/*.class
+
+# 备份文件
+*.bak
+*.backup
+
+# 敏感文件和证书
+*.pem
+*.key
+*.crt
+*.pfx
