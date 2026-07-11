@@ -1,0 +1,10 @@
+文章标题：{{title}}
+
+文章内容：
+{{content}}
+
+已有标签列表：{{existingTags}}
+
+已有分类列表：{{existingCategories}}
+
+请生成全部元信息（严格按 JSON 格式输出）：

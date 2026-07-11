@@ -1,0 +1,660 @@
+<template>
+  <div class="config-page">
+    <div class="page-header">
+      <h2>系统配置</h2>
+      <div class="header-actions">
+        <el-button type="primary" plain @click="navigateTo('/rate-limit')">
+          前往风控策略
+        </el-button>
+        <el-button type="warning" plain :loading="restoringDefaults" @click="handleRestoreDefaults">
+          恢复默认值
+        </el-button>
+      </div>
+    </div>
+
+    <div v-loading="loading" class="config-grid">
+      <!-- 站点信息 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span class="card-title">站点信息</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="站点名称">
+            <el-input v-model="form.site_name" placeholder="请输入站点名称" />
+          </el-form-item>
+          <el-form-item label="站点描述">
+            <el-input v-model="form.site_description" type="textarea" :rows="2" placeholder="请输入站点描述" />
+          </el-form-item>
+          <el-form-item label="页脚说明文案">
+            <el-input v-model="form.site_footer_notice" type="textarea" :rows="2" placeholder="示例：本站内容仅供学习与交流，商业使用请联系原作者授权。" />
+          </el-form-item>
+          <el-form-item label="页脚版权文案">
+            <el-input v-model="form.site_footer_copyright" placeholder="示例：© 2026 Your Blog. All rights reserved." />
+          </el-form-item>
+          <el-form-item label="免责声明文案">
+            <el-input
+              v-model="form.site_disclaimer_content"
+              type="textarea"
+              :rows="5"
+              placeholder="每行一条免责声明"
+            />
+            <span class="form-tip">支持多行展示，用户端文章页将按行渲染。</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 安全设置 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span class="card-title">安全设置</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="登录日志保留天数">
+            <el-input-number v-model.number="form.login_log_retention_days" :min="7" :max="3650" />
+            <span class="form-tip">建议 30~365 天，超期日志可在日志中心手动清理</span>
+          </el-form-item>
+          <el-form-item label="审计日志保留天数">
+            <el-input-number v-model.number="form.audit_log_retention_days" :min="7" :max="3650" />
+            <span class="form-tip">建议不低于登录日志，避免审计追溯信息缺失</span>
+          </el-form-item>
+          <el-form-item label="邮箱后缀白名单">
+            <el-input
+              v-model="form.allowed_email_domains"
+              type="textarea"
+              :rows="3"
+              placeholder="qq.com,foxmail.com,163.com"
+            />
+            <span class="form-tip">逗号分隔，仅允许这些邮箱后缀注册、绑定或换绑邮箱</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 采集集成 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/></svg>
+            <span class="card-title">采集集成</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="开启采集入库">
+            <div class="switch-row">
+              <el-switch v-model="form.crawler_ingest_enabled" active-value="true" inactive-value="false" />
+              <span class="form-tip">开启后允许本地 crawler-worker 调用 /api/admin/crawler/v1 接口</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="集成令牌">
+            <el-input
+              v-model="form.crawler_integration_token"
+              type="password"
+              show-password
+              placeholder="请输入本地采集端集成令牌"
+            />
+            <span class="form-tip">请使用高强度随机令牌，并同步到 crawler-worker .env</span>
+          </el-form-item>
+          <el-form-item label="草稿归属用户ID">
+            <el-input-number v-model.number="form.crawler_draft_owner_user_id" :min="1" :max="999999999" />
+            <span class="form-tip">采集推送生成的草稿将归属该用户</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 阅读设置 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span class="card-title">阅读设置</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="每日阅读限制">
+            <el-input-number v-model.number="form.daily_read_limit" :min="0" :max="100" />
+            <span class="form-tip">未登录用户，0 表示不限制</span>
+          </el-form-item>
+          <el-form-item label="排行榜间隔（分钟）">
+            <el-input-number v-model.number="form.ranking_update_interval" :min="5" :max="1440" />
+          </el-form-item>
+          <el-form-item label="排行榜">
+            <el-button type="primary" plain :loading="refreshingRanking" @click="handleRefreshRanking">
+              立即刷新排行榜
+            </el-button>
+            <span class="form-tip">手动触发排行榜重新计算</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+
+      <!-- 评论设置 -->
+      <el-card shadow="never" class="config-card">
+        <template #header>
+          <div class="card-header">
+            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="card-title">评论设置</span>
+          </div>
+        </template>
+        <el-form label-width="140px" label-position="right">
+          <el-form-item label="评论审核">
+            <div class="switch-row">
+              <el-switch v-model="form.comment_audit_enabled" active-value="true" inactive-value="false" />
+              <span class="form-tip">开启后新评论需管理员审核通过才会显示</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="评论最大长度">
+            <el-input-number v-model.number="form.comment_max_length" :min="50" :max="5000" />
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+    </div>
+
+    <!-- 悬浮保存按钮 -->
+    <el-button class="fab-save" type="primary" :loading="saving" @click="handleSave">保存</el-button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { systemConfigApi, type SystemConfigVO } from '~/api/system/system-config'
+
+const loading = ref(false)
+const saving = ref(false)
+const refreshingRanking = ref(false)
+const restoringDefaults = ref(false)
+const allowedEmailDomainsDefault = 'qq.com,foxmail.com,163.com,126.com,yeah.net,gmail.com,outlook.com,hotmail.com,icloud.com,sina.com,aliyun.com'
+const emailDomainPattern = /^(?=.{1,253}$)(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i
+
+const systemDefaults: Record<string, string | number> = {
+  site_name: 'Weblog',
+  site_description: '记录经验、分享洞察、连接有价值的内容。',
+  site_footer_notice: '本站内容仅供学习与交流，商业使用请联系原作者授权。',
+  site_footer_copyright: '© 2026 Weblog. All rights reserved.',
+  site_disclaimer_content: '1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。\n2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。\n3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。',
+  login_log_retention_days: 180,
+  audit_log_retention_days: 180,
+  allowed_email_domains: allowedEmailDomainsDefault,
+  daily_read_limit: 3,
+  ranking_update_interval: 60,
+  comment_audit_enabled: 'true',
+  comment_max_length: 1000,
+  crawler_ingest_enabled: 'false',
+  crawler_integration_token: '',
+  crawler_draft_owner_user_id: 1,
+}
+
+// 数值类型的配置 key
+const numberKeys = new Set([
+  'daily_read_limit', 'login_max_attempts', 'login_lock_minutes',
+  'login_rate_limit', 'register_rate_limit', 'admin_login_rate_limit',
+  'upload_max_size_mb', 'comment_max_length', 'comment_rate_limit', 'ranking_update_interval',
+  'send_code_rate_limit', 'check_email_rate_limit', 'forgot_password_rate_limit', 'captcha_generate_rate_limit', 'captcha_verify_rate_limit',
+  'upload_rate_limit', 'ad_apply_rate_limit', 'friend_link_apply_rate_limit',
+  'friend_link_update_rate_limit', 'access_read_rate_limit', 'access_unlock_rate_limit',
+  'interaction_like_toggle_rate_limit', 'interaction_like_state_rate_limit',
+  'interaction_favorite_toggle_rate_limit', 'interaction_favorite_state_rate_limit', 'interaction_favorite_batch_rate_limit',
+  'comment_delete_rate_limit', 'comment_batch_delete_rate_limit',
+  'comment_like_toggle_rate_limit', 'comment_like_state_rate_limit',
+  'ai_writing_rate_limit', 'ai_chat_rate_limit', 'ai_meta_rate_limit',
+  'admin_revoke_token_rate_limit', 'admin_revoke_all_tokens_rate_limit',
+  'system_config_batch_update_rate_limit', 'ranking_refresh_rate_limit',
+  'admin_post_delete_rate_limit', 'admin_post_permanent_delete_rate_limit',
+  'admin_topic_delete_rate_limit', 'admin_topic_permanent_delete_rate_limit',
+  'admin_media_delete_rate_limit', 'admin_media_cleanup_rate_limit',
+  'admin_user_status_update_rate_limit', 'admin_user_reset_password_rate_limit',
+  'admin_ad_status_update_rate_limit', 'admin_ad_delete_rate_limit',
+  'admin_ad_permanent_delete_rate_limit', 'admin_ad_apply_switch_rate_limit',
+  'admin_ad_price_rules_rate_limit', 'admin_ad_pit_update_rate_limit',
+  'admin_friend_link_status_update_rate_limit', 'admin_friend_link_delete_rate_limit',
+  'admin_announcement_status_update_rate_limit', 'admin_announcement_delete_rate_limit',
+  'user_bind_email_rate_limit', 'user_change_email_rate_limit',
+  'user_set_password_rate_limit', 'user_reset_password_rate_limit',
+  'rate_limit_auto_block_threshold', 'rate_limit_auto_block_window_minutes', 'rate_limit_auto_block_minutes',
+   'mail_smtp_port', 'mail_code_expire_minutes', 'mail_code_cooldown_seconds',
+   'login_log_retention_days', 'audit_log_retention_days',
+   'crawler_draft_owner_user_id',
+])
+
+// 开关类型的配置 key（值为 "true"/"false"）
+const switchKeys = new Set([
+  'mail_ssl_enabled', 'comment_audit_enabled', 'rate_limit_auto_block_enabled',
+  'crawler_ingest_enabled',
+])
+
+const form = reactive<Record<string, string | number>>({})
+
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await systemConfigApi.list()
+    const list: SystemConfigVO[] = res.data
+    for (const item of list) {
+      if (numberKeys.has(item.configKey)) {
+        form[item.configKey] = Number(item.configValue) || 0
+      } else {
+        form[item.configKey] = item.configValue || ''
+      }
+    }
+    // 评论审核开关默认开启（如果后端还没有这个配置项）
+    if (form.comment_audit_enabled === undefined || form.comment_audit_enabled === '') {
+      form.comment_audit_enabled = 'true'
+    }
+    if (form.site_footer_notice === undefined || form.site_footer_notice === '') {
+      form.site_footer_notice = '本站内容仅供学习与交流，商业使用请联系原作者授权。'
+    }
+    if (form.site_footer_copyright === undefined || form.site_footer_copyright === '') {
+      form.site_footer_copyright = '© 2026 Weblog. All rights reserved.'
+    }
+    if (form.site_disclaimer_content === undefined || form.site_disclaimer_content === '') {
+      form.site_disclaimer_content = '1. 本站所有资源文章出自互联网收集整理，本站不参与制作，如果侵犯了您的合法权益，请联系本站我们会及时删除。\n2. 本站发布资源来源于互联网，可能存在水印或者引流等信息，请用户擦亮眼睛自行鉴别，做一个有主见和判断力的用户。\n3. 本站资源仅供研究、学习交流之用，若使用商业用途，请购买正版授权，否则产生的一切后果将由下载用户自行承担。'
+    }
+    if (form.login_log_retention_days === undefined) {
+      form.login_log_retention_days = 180
+    }
+    if (form.audit_log_retention_days === undefined) {
+      form.audit_log_retention_days = 180
+    }
+    if (form.allowed_email_domains === undefined || form.allowed_email_domains === '') {
+      form.allowed_email_domains = allowedEmailDomainsDefault
+    }
+    if (form.send_code_rate_limit === undefined) {
+      form.send_code_rate_limit = 3
+    }
+    if (form.check_email_rate_limit === undefined) {
+      form.check_email_rate_limit = 10
+    }
+    if (form.register_rate_limit === undefined) {
+      form.register_rate_limit = 5
+    }
+    if (form.admin_login_rate_limit === undefined) {
+      form.admin_login_rate_limit = 5
+    }
+    if (form.forgot_password_rate_limit === undefined) {
+      form.forgot_password_rate_limit = 5
+    }
+    if (form.captcha_generate_rate_limit === undefined) {
+      form.captcha_generate_rate_limit = 10
+    }
+    if (form.captcha_verify_rate_limit === undefined) {
+      form.captcha_verify_rate_limit = 20
+    }
+    if (form.upload_rate_limit === undefined) {
+      form.upload_rate_limit = 20
+    }
+    if (form.ad_apply_rate_limit === undefined) {
+      form.ad_apply_rate_limit = 5
+    }
+    if (form.friend_link_apply_rate_limit === undefined) {
+      form.friend_link_apply_rate_limit = 5
+    }
+    if (form.friend_link_update_rate_limit === undefined) {
+      form.friend_link_update_rate_limit = 10
+    }
+    if (form.access_read_rate_limit === undefined) {
+      form.access_read_rate_limit = 120
+    }
+    if (form.access_unlock_rate_limit === undefined) {
+      form.access_unlock_rate_limit = 5
+    }
+    if (form.interaction_like_toggle_rate_limit === undefined) {
+      form.interaction_like_toggle_rate_limit = 60
+    }
+    if (form.interaction_like_state_rate_limit === undefined) {
+      form.interaction_like_state_rate_limit = 90
+    }
+    if (form.interaction_favorite_toggle_rate_limit === undefined) {
+      form.interaction_favorite_toggle_rate_limit = 60
+    }
+    if (form.interaction_favorite_state_rate_limit === undefined) {
+      form.interaction_favorite_state_rate_limit = 90
+    }
+    if (form.interaction_favorite_batch_rate_limit === undefined) {
+      form.interaction_favorite_batch_rate_limit = 20
+    }
+    if (form.comment_delete_rate_limit === undefined) {
+      form.comment_delete_rate_limit = 30
+    }
+    if (form.comment_batch_delete_rate_limit === undefined) {
+      form.comment_batch_delete_rate_limit = 10
+    }
+    if (form.comment_like_toggle_rate_limit === undefined) {
+      form.comment_like_toggle_rate_limit = 60
+    }
+    if (form.comment_like_state_rate_limit === undefined) {
+      form.comment_like_state_rate_limit = 90
+    }
+    if (form.ai_writing_rate_limit === undefined) {
+      form.ai_writing_rate_limit = 20
+    }
+    if (form.ai_chat_rate_limit === undefined) {
+      form.ai_chat_rate_limit = 30
+    }
+    if (form.ai_meta_rate_limit === undefined) {
+      form.ai_meta_rate_limit = 20
+    }
+    if (form.admin_revoke_token_rate_limit === undefined) {
+      form.admin_revoke_token_rate_limit = 20
+    }
+    if (form.admin_revoke_all_tokens_rate_limit === undefined) {
+      form.admin_revoke_all_tokens_rate_limit = 5
+    }
+    if (form.system_config_batch_update_rate_limit === undefined) {
+      form.system_config_batch_update_rate_limit = 20
+    }
+    if (form.ranking_refresh_rate_limit === undefined) {
+      form.ranking_refresh_rate_limit = 5
+    }
+    if (form.admin_post_delete_rate_limit === undefined) {
+      form.admin_post_delete_rate_limit = 20
+    }
+    if (form.admin_post_permanent_delete_rate_limit === undefined) {
+      form.admin_post_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_topic_delete_rate_limit === undefined) {
+      form.admin_topic_delete_rate_limit = 20
+    }
+    if (form.admin_topic_permanent_delete_rate_limit === undefined) {
+      form.admin_topic_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_media_delete_rate_limit === undefined) {
+      form.admin_media_delete_rate_limit = 30
+    }
+    if (form.admin_media_cleanup_rate_limit === undefined) {
+      form.admin_media_cleanup_rate_limit = 5
+    }
+    if (form.admin_user_status_update_rate_limit === undefined) {
+      form.admin_user_status_update_rate_limit = 20
+    }
+    if (form.admin_user_reset_password_rate_limit === undefined) {
+      form.admin_user_reset_password_rate_limit = 10
+    }
+    if (form.admin_ad_status_update_rate_limit === undefined) {
+      form.admin_ad_status_update_rate_limit = 30
+    }
+    if (form.admin_ad_delete_rate_limit === undefined) {
+      form.admin_ad_delete_rate_limit = 20
+    }
+    if (form.admin_ad_permanent_delete_rate_limit === undefined) {
+      form.admin_ad_permanent_delete_rate_limit = 10
+    }
+    if (form.admin_ad_apply_switch_rate_limit === undefined) {
+      form.admin_ad_apply_switch_rate_limit = 20
+    }
+    if (form.admin_ad_price_rules_rate_limit === undefined) {
+      form.admin_ad_price_rules_rate_limit = 10
+    }
+    if (form.admin_ad_pit_update_rate_limit === undefined) {
+      form.admin_ad_pit_update_rate_limit = 20
+    }
+    if (form.admin_friend_link_status_update_rate_limit === undefined) {
+      form.admin_friend_link_status_update_rate_limit = 30
+    }
+    if (form.admin_friend_link_delete_rate_limit === undefined) {
+      form.admin_friend_link_delete_rate_limit = 20
+    }
+    if (form.admin_announcement_status_update_rate_limit === undefined) {
+      form.admin_announcement_status_update_rate_limit = 30
+    }
+    if (form.admin_announcement_delete_rate_limit === undefined) {
+      form.admin_announcement_delete_rate_limit = 20
+    }
+    if (form.user_bind_email_rate_limit === undefined) {
+      form.user_bind_email_rate_limit = 8
+    }
+    if (form.user_change_email_rate_limit === undefined) {
+      form.user_change_email_rate_limit = 8
+    }
+    if (form.user_set_password_rate_limit === undefined) {
+      form.user_set_password_rate_limit = 8
+    }
+    if (form.user_reset_password_rate_limit === undefined) {
+      form.user_reset_password_rate_limit = 8
+    }
+    if (form.rate_limit_auto_block_enabled === undefined || form.rate_limit_auto_block_enabled === '') {
+      form.rate_limit_auto_block_enabled = 'false'
+    }
+    if (form.rate_limit_auto_block_threshold === undefined) {
+      form.rate_limit_auto_block_threshold = 20
+    }
+    if (form.rate_limit_auto_block_window_minutes === undefined) {
+      form.rate_limit_auto_block_window_minutes = 10
+    }
+    if (form.rate_limit_auto_block_minutes === undefined) {
+      form.rate_limit_auto_block_minutes = 60
+    }
+    if (form.rate_limit_auto_block_key_prefixes === undefined || form.rate_limit_auto_block_key_prefixes === '') {
+      form.rate_limit_auto_block_key_prefixes = 'register,sendCode,checkEmail,forgotPassword,captchaGenerate,captchaVerify,comment-create,comment-delete,comment-batch-delete,comment-like-toggle,comment-like-state,portal-upload-image,ad-apply,friend-link-apply,friend-link-update,access-read,access-unlock,interaction-like-toggle,interaction-like-state,interaction-favorite-toggle,interaction-favorite-state,interaction-favorite-batch,user-bind-email,user-change-email,user-set-password,user-reset-password,ai-chat,ai-writing,ai-meta,admin-login,admin-post-delete,admin-post-permanent-delete,admin-topic-delete,admin-topic-permanent-delete,admin-media-delete,admin-media-cleanup,admin-user-status-update,admin-user-reset-password,admin-ad-status-update,admin-ad-delete,admin-ad-permanent-delete,admin-ad-apply-switch,admin-ad-price-rules,admin-ad-pit-update,admin-friend-link-status-update,admin-friend-link-delete,admin-announcement-status-update,admin-announcement-delete'
+    }
+    if (form.crawler_ingest_enabled === undefined || form.crawler_ingest_enabled === '') {
+      form.crawler_ingest_enabled = 'false'
+    }
+    if (form.crawler_integration_token === undefined) {
+      form.crawler_integration_token = ''
+    }
+    if (form.crawler_draft_owner_user_id === undefined) {
+      form.crawler_draft_owner_user_id = 1
+    }
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '加载配置失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleSave() {
+  saving.value = true
+  try {
+    if (!normalizeAllowedEmailDomains()) {
+      return
+    }
+    const configs: Record<string, string> = {}
+    for (const [key, val] of Object.entries(form)) {
+      configs[key] = String(val)
+    }
+    await systemConfigApi.batchUpdate(configs)
+    ElMessage.success('配置保存成功')
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+function normalizeAllowedEmailDomains() {
+  const raw = String(form.allowed_email_domains || '')
+  const domains = Array.from(new Set(raw.split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean)))
+  if (domains.length === 0) {
+    ElMessage.error('邮箱后缀白名单不能为空')
+    return false
+  }
+  const invalidDomains = domains.filter(item => !emailDomainPattern.test(item))
+  if (invalidDomains.length > 0) {
+    ElMessage.error(`邮箱后缀格式不正确：${invalidDomains.join(',')}`)
+    return false
+  }
+  form.allowed_email_domains = domains.join(',')
+  return true
+}
+
+async function handleRefreshRanking() {
+  refreshingRanking.value = true
+  try {
+    await systemConfigApi.refreshRanking()
+    ElMessage.success('排行榜刷新成功')
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '刷新排行榜失败')
+  } finally {
+    refreshingRanking.value = false
+  }
+}
+
+async function handleRestoreDefaults() {
+  try {
+    await ElMessageBox.confirm(
+      '将把当前页面可配置项恢复为默认值并立即保存，是否继续？',
+      '恢复系统默认值',
+      {
+        type: 'warning',
+        confirmButtonText: '恢复并保存',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  restoringDefaults.value = true
+  try {
+    const payload: Record<string, string> = {}
+    for (const [key, value] of Object.entries(systemDefaults)) {
+      payload[key] = String(value)
+      form[key] = value
+    }
+    await systemConfigApi.batchUpdate(payload)
+    ElMessage.success('系统配置已恢复默认值并保存成功')
+  } catch (e: unknown) {
+    ElMessage.error((e as Error).message || '恢复系统默认值失败')
+  } finally {
+    restoringDefaults.value = false
+  }
+}
+
+onMounted(loadData)
+</script>
+
+<style scoped lang="scss">
+.config-page {
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 0 20px;
+    height: 62px;
+    background: var(--el-bg-color);
+    border-radius: 10px;
+    border: 1px solid var(--el-border-color-lighter);
+    flex-wrap: wrap;
+    gap: 12px;
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+      margin: 0;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// ========== 两列网格 ==========
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.config-card--wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1200px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ========== 卡片头部 ==========
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--el-color-primary);
+  flex-shrink: 0;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+// ========== 表单 ==========
+.config-card {
+  .rate-limit-alert {
+    margin-bottom: 14px;
+  }
+  .el-form-item {
+    margin-bottom: 18px;
+    &:last-child { margin-bottom: 0; }
+  }
+}
+.form-tip {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+}
+
+// ========== Card ==========
+:deep(.el-card) {
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  .el-card__header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--el-border-color-extra-light);
+  }
+  .el-card__body {
+    padding: 20px;
+  }
+}
+
+// ========== Switch ==========
+:deep(.el-switch) {
+  --el-switch-on-color: var(--el-color-primary);
+  --el-switch-off-color: var(--el-fill-color-darker);
+  height: 20px;
+}
+:deep(.el-switch .el-switch__core) {
+  height: 20px;
+  min-width: 36px;
+  border-radius: 10px;
+  border: none;
+}
+:deep(.el-switch .el-switch__core .el-switch__action) {
+  width: 16px;
+  height: 16px;
+}
+
+// ========== 悬浮保存按钮 ==========
+.fab-save {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(91, 141, 239, 0.4);
+  &:hover {
+    box-shadow: 0 6px 16px rgba(91, 141, 239, 0.5);
+    transform: translateY(-1px);
+  }
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+</style>

@@ -1,0 +1,603 @@
+<template>
+  <NuxtLink
+    :to="`/post/${post.slug}`"
+    class="article-card"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <!-- 置顶角标 -->
+    <div v-if="post.isTop" class="top-ribbon">
+      <span class="ribbon-text">置顶</span>
+    </div>
+
+    <!-- 封面图 -->
+    <div class="card-cover">
+      <img
+        v-if="post.coverImage && !imageError"
+        :src="post.coverImage"
+        :alt="post.title"
+        loading="lazy"
+        class="cover-image"
+        :class="{ 'cover-image--loaded': imageLoaded }"
+        @load="handleImageLoad"
+        @error="handleImageError"
+      >
+      <div v-else class="cover-placeholder">
+        <span class="placeholder-char">{{ titleFirstChar }}</span>
+      </div>
+    </div>
+
+    <!-- 内容区 -->
+    <div class="card-content">
+      <!-- 分类标签 -->
+      <div v-if="showCategory && post.categoryName" class="card-categories">
+        <span class="category-tag primary">{{ post.categoryName }}</span>
+        <span v-if="post.subCategoryName" class="category-tag secondary">{{ post.subCategoryName }}</span>
+      </div>
+
+      <!-- 标题 -->
+      <h2 class="card-title">{{ post.title }}</h2>
+
+      <!-- 摘要 -->
+      <p v-if="post.summary" class="card-summary">{{ post.summary }}</p>
+
+      <!-- 底部元信息 -->
+      <div class="card-meta">
+        <div class="meta-left">
+          <span class="meta-item">
+            <Icon name="heroicons:clock-16-solid" size="14" />
+            {{ formatRelativeTime(post.createTime) }}
+          </span>
+          <span class="meta-item">
+            <Icon name="heroicons:eye-16-solid" size="14" />
+            {{ formatCount(post.viewCount) }}
+          </span>
+          <span v-if="post.likeCount" class="meta-item">
+            <Icon name="heroicons:heart-16-solid" size="14" />
+            {{ formatCount(post.likeCount) }}
+          </span>
+          <span v-if="post.collectCount" class="meta-item">
+            <Icon name="heroicons:bookmark-16-solid" size="14" />
+            {{ formatCount(post.collectCount) }}
+          </span>
+          <span v-if="post.commentCount" class="meta-item">
+            <Icon name="heroicons:chat-bubble-left-16-solid" size="14" />
+            {{ formatCount(post.commentCount) }}
+          </span>
+        </div>
+        <div v-if="showAuthor && post.authorNickname" class="meta-author">
+          <img
+            v-if="post.authorAvatar"
+            :src="post.authorAvatar"
+            :alt="post.authorNickname"
+            class="author-avatar"
+          >
+          <div v-else class="author-avatar-placeholder">
+            {{ post.authorNickname.charAt(0) }}
+          </div>
+          <span class="author-name">{{ post.authorNickname }}</span>
+        </div>
+      </div>
+    </div>
+  </NuxtLink>
+</template>
+
+<script setup lang="ts">
+import type { PostVO } from '~/api/content/post'
+import { formatRelativeTime, formatCount } from '~/utils/content/format'
+
+interface Props {
+  post: PostVO
+  showCategory?: boolean
+  showAuthor?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  showCategory: true,
+  showAuthor: true,
+})
+
+/** 标题首字，用于占位图显示 */
+const titleFirstChar = computed(() => {
+  const title = props.post.title || ''
+  return title.charAt(0) || '?'
+})
+
+/** 图片加载失败时的回退处理 */
+const imageError = ref(false)
+const imageLoaded = ref(false)
+
+watch(() => props.post.coverImage, () => {
+  imageError.value = false
+  imageLoaded.value = false
+})
+
+function handleImageLoad() {
+  imageLoaded.value = true
+}
+
+function handleImageError(e: Event) {
+  imageError.value = true
+  imageLoaded.value = false
+  const target = e.target as HTMLImageElement
+  // 隐藏加载失败的图片，显示占位
+  target.style.display = 'none'
+  const placeholder = target.parentElement?.querySelector('.cover-placeholder') as HTMLElement
+  if (placeholder) placeholder.style.display = 'flex'
+}
+
+</script>
+
+<style lang="scss" scoped>
+/* 文章卡片：左封面图右内容水平布局 */
+.article-card {
+  display: flex;
+  position: relative;
+  height: calc(240px * 9 / 16);
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: visible;
+  background: $color-bg;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+
+    .card-title {
+      color: $color-primary;
+    }
+  }
+
+  .dark & {
+    background: $color-dark-bg-secondary;
+    border-color: $color-dark-border;
+
+    &:hover {
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+    }
+  }
+}
+
+/* 置顶角标 - 与参考案例一致的实现 */
+.top-ribbon {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 200px;
+  height: 140px;
+  overflow: hidden;
+  z-index: 10;
+
+  /* 折叠三角 - 顶部方向（丝带右端与卡片边缘之间） */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 45px;
+    top: 0;
+    width: 9px;
+    height: 3px;
+    border-radius: 2px 5px 0 0;
+    background-color: #000;
+  }
+
+  /* 折叠三角 - 左侧方向（丝带左端与卡片边缘之间） */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 45px;
+    width: 3px;
+    height: 9px;
+    border-radius: 2px 2px 2px 9px;
+    background-color: #000;
+  }
+
+  .ribbon-text {
+    display: inline-block;
+    position: absolute;
+    top: 11px;
+    left: -22px;
+    width: 80px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    transform: rotate(-45deg);
+    background-color: #222;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    z-index: 11;
+    box-shadow:
+      0 0 0 1px #222,
+      0 3px 3px -2px rgba(0, 0, 0, 0.9);
+    padding-bottom: 1px;
+  }
+}
+
+/* 封面图区域 - 16:9 比例决定卡片高度 */
+.card-cover {
+  flex-shrink: 0;
+  width: 240px;
+  overflow: hidden;
+  background: $color-bg-secondary;
+  border-radius: $radius-lg 0 0 $radius-lg;
+
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
+
+  .cover-image {
+    width: 240px;
+    height: calc(240px * 9 / 16);
+    display: block;
+    object-fit: cover;
+    opacity: 0;
+    filter: blur(2px);
+    transition: opacity 0.28s ease, filter 0.28s ease;
+  }
+
+  .cover-image--loaded {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* 无封面图渐变占位 */
+.cover-placeholder {
+  width: 240px;
+  height: calc(240px * 9 / 16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.92));
+
+  .dark & {
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%),
+      radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%),
+      linear-gradient(180deg, #171b20, #101215);
+  }
+}
+
+.placeholder-char {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+/* 内容区 - 高度跟随封面 */
+.card-content {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0 $radius-lg $radius-lg 0;
+}
+
+/* 分类标签 */
+.card-categories {
+  display: flex;
+  gap: $spacing-xs;
+  margin-bottom: 0.25rem;
+}
+
+.category-tag {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1.5;
+
+  &.primary {
+    background: #eff6ff;
+    color: #1d4ed8;
+
+    .dark & {
+      background: #1e3a5f;
+      color: #93c5fd;
+    }
+  }
+
+  &.secondary {
+    background: #f0fdf4;
+    color: #15803d;
+
+    .dark & {
+      background: #14532d;
+      color: #86efac;
+    }
+  }
+}
+
+/* 标题 - 单行截断 */
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: $color-text;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s ease;
+
+  .dark & {
+    color: $color-dark-text;
+  }
+}
+
+/* 摘要 - 两行截断 */
+.card-summary {
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: auto;
+
+  .dark & {
+    color: #94a3b8;
+  }
+}
+
+/* 底部元信息 */
+.card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  margin-top: auto;
+  padding-top: 0.375rem;
+
+  .dark & {
+  }
+}
+
+.meta-left {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  color: $color-text-muted;
+
+  .dark & {
+    color: #64748b;
+  }
+}
+
+/* 作者信息 - 右对齐 */
+.meta-author {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex-shrink: 0;
+}
+
+.author-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.author-avatar-placeholder {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: $color-primary;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.author-name {
+  font-size: 0.75rem;
+  color: $color-text-muted;
+  white-space: nowrap;
+
+  .dark & {
+    color: #94a3b8;
+  }
+}
+
+/* ===== 响应式 ===== */
+
+@media (min-width: calc(#{$breakpoint-md} + 1px)) and (max-width: 1180px) {
+  .article-card {
+    height: calc(200px * 9 / 16);
+  }
+
+  .card-cover {
+    width: 200px;
+
+    .cover-image {
+      width: 200px;
+      height: calc(200px * 9 / 16);
+    }
+  }
+
+  .cover-placeholder {
+    width: 200px;
+    height: calc(200px * 9 / 16);
+  }
+
+  .card-content {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .card-categories {
+    margin-bottom: 0.2rem;
+  }
+
+  .category-tag {
+    font-size: 0.62rem;
+  }
+
+  .card-title {
+    font-size: 0.86rem;
+    margin-bottom: 0.18rem;
+  }
+
+  .card-summary {
+    font-size: 0.74rem;
+  }
+
+  .card-meta {
+    gap: 0.32rem;
+    padding-top: 0.32rem;
+  }
+
+  .meta-left {
+    gap: 0.5rem;
+  }
+
+  .meta-item {
+    font-size: 0.66rem;
+  }
+
+  .author-name {
+    font-size: 0.7rem;
+  }
+}
+
+/* 移动端：封面图缩小 */
+@media (max-width: $breakpoint-md) {
+  .article-card {
+    height: calc(180px * 9 / 16);
+  }
+
+  .card-cover {
+    width: 180px;
+
+    .cover-image {
+      width: 180px;
+      height: calc(180px * 9 / 16);
+    }
+  }
+
+  .cover-placeholder {
+    width: 180px;
+    height: calc(180px * 9 / 16);
+  }
+
+  .card-content {
+    padding: 0.375rem 0.5rem;
+  }
+
+  .card-title {
+    font-size: 0.85rem;
+  }
+
+  .card-summary {
+    font-size: 0.75rem;
+  }
+
+  .top-ribbon {
+    top: 0;
+    left: 0;
+    width: 96px;
+    height: 96px;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+
+    .ribbon-text {
+      top: 9px;
+      left: -22px;
+      font-size: 8px;
+      width: 82px;
+      height: 17px;
+      line-height: 17px;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
+      padding-bottom: 0;
+      backface-visibility: hidden;
+    }
+  }
+}
+
+/* 超小屏：垂直布局（图上文下） */
+@media (max-width: 480px) {
+  .article-card {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .card-cover {
+    width: 100%;
+    border-radius: $radius-lg $radius-lg 0 0;
+
+    .cover-image {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+  }
+
+  .cover-placeholder {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .card-content {
+    padding: $spacing-md;
+    border-radius: 0 0 $radius-lg $radius-lg;
+  }
+
+  .card-title {
+    font-size: 0.9rem;
+  }
+
+  .card-summary {
+    font-size: 0.78rem;
+  }
+
+  .meta-left {
+    gap: 0.5rem;
+  }
+
+  .top-ribbon {
+    width: 90px;
+    height: 90px;
+
+    .ribbon-text {
+      top: 9px;
+      left: -22px;
+      width: 80px;
+      height: 18px;
+      line-height: 18px;
+      font-size: 9px;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+    }
+  }
+}
+</style>

@@ -1,0 +1,125 @@
+version: 2
+updates:
+  # === 后端 Maven ===
+  - package-ecosystem: "maven"
+    directory: "/weblog-backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "java"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework:*"
+        update-types:
+          - "minor"
+          - "patch"
+      mybatis-plus:
+        patterns:
+          - "com.baomidou:*"
+      jackson:
+        patterns:
+          - "com.fasterxml.jackson*:*"
+      netty:
+        patterns:
+          - "io.netty:*"
+
+  # === 用户端 Nuxt SSR ===
+  - package-ecosystem: "npm"
+    directory: "/weblog-user"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      nuxt:
+        patterns:
+          - "nuxt"
+          - "nuxt-*"
+          - "@nuxt/*"
+          - "@vueuse/*"
+        update-types:
+          - "minor"
+          - "patch"
+      vue:
+        patterns:
+          - "vue"
+          - "vue-*"
+          - "@vue/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # === 管理端 Nuxt SPA ===
+  - package-ecosystem: "npm"
+    directory: "/weblog-admin"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      nuxt:
+        patterns:
+          - "nuxt"
+          - "nuxt-*"
+          - "@nuxt/*"
+          - "@vueuse/*"
+        update-types:
+          - "minor"
+          - "patch"
+      vue:
+        patterns:
+          - "vue"
+          - "vue-*"
+          - "@vue/*"
+        update-types:
+          - "minor"
+          - "patch"
+      element-plus:
+        patterns:
+          - "element-plus"
+          - "@element-plus/*"
+
+  # === 爬虫桌面端 Tauri ===
+  - package-ecosystem: "npm"
+    directory: "/crawler-desktop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "crawler"
+    groups:
+      tauri:
+        patterns:
+          - "@tauri-apps/*"
+        update-types:
+          - "minor"
+          - "patch"
+      vue:
+        patterns:
+          - "vue"
+          - "vue-*"
+          - "@vue/*"
+        update-types:
+          - "minor"
+          - "patch"

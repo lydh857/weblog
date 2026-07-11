@@ -1,0 +1,42 @@
+// ===== 主色（统一蓝） =====
+$color-primary: #5b8def;
+$color-primary-hover: #4a7de0;
+
+// ===== 亮色模式（扁平浅蓝灰） =====
+$color-text-light: #1f2d3d;
+$color-text-muted-light: #6f829b;
+$color-bg-light: #f2f6fc;
+$color-bg-secondary-light: #ffffff;
+$color-bg-tertiary-light: #edf3fc;
+$color-border-light: #dbe4f1;
+$color-border-strong-light: #cad7e8;
+$color-aside-bg-light: #ffffff;
+$color-aside-text-light: #4b5f7a;
+$color-header-bg-light: #ffffff;
+
+// ===== 暗色模式（柔和黑，不刺眼） =====
+$color-text-dark: #e2e8f0;
+$color-text-muted-dark: #9aa8ba;
+$color-bg-dark: #111418;
+$color-bg-secondary-dark: #171c22;
+$color-bg-tertiary-dark: #1f252d;
+$color-border-dark: #2b333d;
+$color-border-strong-dark: #36404c;
+$color-aside-bg-dark: #151a20;
+$color-aside-text-dark: #b1bccb;
+$color-header-bg-dark: #171c22;
+
+// ===== 语义色 =====
+$color-success: #4eb37d;
+$color-warning: #d9a24a;
+$color-danger: #de6b77;
+$color-info: #7f93ad;
+
+// ===== 字体 =====
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+// ===== 圆角与过渡 =====
+$radius-base: 8px;
+$radius-small: 6px;
+$transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fast: 0.15s ease;
