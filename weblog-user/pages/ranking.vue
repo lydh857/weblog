@@ -1,0 +1,804 @@
+<template>
+  <div class="ranking-page">
+    <header class="page-header">
+      <div class="page-title-row">
+        <h1 class="page-title">
+          <Icon name="heroicons:trophy-20-solid" size="22" />
+          排行榜
+        </h1>
+        <p class="page-desc">每小时更新一次，按热度综合排序</p>
+      </div>
+    </header>
+
+    <section
+      class="ranking-panel"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @touchcancel="handleTouchCancel"
+    >
+      <div ref="tabsRef" class="tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          :ref="(el) => setTabButtonRef(tab.value, el)"
+          class="tab-btn"
+          :class="{ active: rankType === tab.value }"
+          @click="switchTab(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <div v-if="fallbackNotice" class="state state--hint">
+        <Icon name="heroicons:information-circle-16-solid" size="16" />
+        <span>{{ fallbackNotice }}</span>
+      </div>
+
+      <div v-if="!loading && !items.length" class="state state--empty">
+        <Icon name="heroicons:chart-bar-square-20-solid" size="28" />
+        <span>暂无排行数据</span>
+      </div>
+
+      <div v-else-if="items.length" :key="animKey" class="list ranking-items">
+        <NuxtLink
+          v-for="(item, idx) in items"
+          :key="`${item.post_id}-${idx}`"
+          :to="`/post/${item.slug}`"
+          class="item animate-item"
+          :style="getItemAnimationStyle(idx)"
+        >
+          <span class="rank" :class="[`rank-${idx + 1}`]">{{ idx + 1 }}</span>
+          <div class="content">
+            <h3>{{ item.title }}</h3>
+            <p class="meta-line">
+              <span class="meta-item"><Icon name="heroicons:eye-16-solid" size="12" /> {{ item.view_count }}</span>
+              <span class="meta-item"><Icon name="heroicons:heart-16-solid" size="12" /> {{ item.like_count }}</span>
+              <span class="meta-item"><Icon name="heroicons:bookmark-16-solid" size="12" /> {{ item.collect_count }}</span>
+              <span class="meta-item"><Icon name="heroicons:chat-bubble-left-16-solid" size="12" /> {{ item.comment_count }}</span>
+            </p>
+          </div>
+          <span class="score" :style="{ color: getHeatColor(idx + 1) }">
+            <Icon name="heroicons:fire-16-solid" size="13" />
+            {{ formatScore(item.score) }}
+          </span>
+        </NuxtLink>
+      </div>
+
+      <div v-if="items.length" class="footer">
+        <button class="more-btn" :disabled="loading || loadingMore || !hasMore" @click="loadMore">
+          <Icon
+            :name="loadingMore ? 'heroicons:arrow-path-20-solid' : (hasMore ? 'heroicons:arrow-down-circle-20-solid' : 'heroicons:check-circle-20-solid')"
+            size="16"
+            class="more-btn-icon"
+            :class="{ spin: loadingMore }"
+          />
+          {{ loadingMore ? '加载中...' : (hasMore ? '加载更多' : '已加载全部') }}
+        </button>
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
+import { rankingApi, type RankingItem, type RankingMeta } from '~/api/content/ranking'
+
+useHead({ title: '排行榜 - Weblog' })
+
+const tabs = [
+  { label: '今日飙升', value: 1 },
+  { label: '本周热榜', value: 2 },
+  { label: '月度精选', value: 3 },
+  { label: '总热度榜', value: 4 },
+]
+
+const rankType = ref(1)
+const tabsRef = ref<HTMLElement | null>(null)
+const tabButtonRefs = new Map<number, HTMLElement>()
+const limit = 20
+const offset = ref(0)
+const hasMore = ref(true)
+const loading = ref(false)
+const loadingMore = ref(false)
+const items = ref<RankingItem[]>([])
+const animKey = ref(0)
+const animationStartIndex = ref(0)
+const rankingMeta = ref<RankingMeta | null>(null)
+const rankingSource = ref<'ranking' | 'recent'>('ranking')
+let touchTracking = false
+let touchStartX = 0
+let touchStartY = 0
+let touchDeltaX = 0
+let touchDeltaY = 0
+const SWIPE_TRIGGER_X = 32
+
+const fallbackNotice = computed(() => {
+  const meta = rankingMeta.value
+  if (!meta?.fallbackUsed) {
+    return ''
+  }
+
+  if (rankType.value === 1) {
+    if (meta.fallbackReason === 'daily_empty_fallback_recent_posts') {
+      return '今日飙升暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'daily_empty_no_recent_posts') {
+      return '今日飙升与最新发布均暂无数据'
+    }
+    if (meta.servedRankType === 1 && meta.servedStatDate) {
+      return `今日飙升暂无数据，已展示 ${meta.servedStatDate} 的飙升榜`
+    }
+    if (meta.servedRankType === 2) {
+      return '今日飙升暂无数据，已自动回退到本周热榜'
+    }
+    if (meta.servedRankType === 4) {
+      return '今日飙升暂无数据，已自动回退到总热度榜'
+    }
+    return '今日飙升暂无数据，已自动回退到可用榜单'
+  }
+
+  if (rankType.value === 2) {
+    if (meta.fallbackReason === 'rank_empty_fallback_total') {
+      return '本周热榜暂无数据，已展示总热度榜'
+    }
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '本周热榜暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '本周热榜和最新发布均暂无数据'
+    }
+  }
+
+  if (rankType.value === 3) {
+    if (meta.fallbackReason === 'rank_empty_fallback_total') {
+      return '月度精选暂无数据，已展示总热度榜'
+    }
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '月度精选暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '月度精选和最新发布均暂无数据'
+    }
+  }
+
+  if (rankType.value === 4) {
+    if (meta.fallbackReason === 'rank_empty_fallback_recent_posts') {
+      return '总热度榜暂无数据，已展示最新发布'
+    }
+    if (meta.fallbackReason === 'rank_empty_no_recent_posts') {
+      return '总热度榜和最新发布均暂无数据'
+    }
+  }
+
+  return '当前榜单暂无数据，已自动回退到可用内容'
+})
+
+function formatScore(score: number): string {
+  if (score >= 10000) return `${(score / 10000).toFixed(1)}w`
+  if (score >= 1000) return `${(score / 1000).toFixed(1)}k`
+  return String(score)
+}
+
+function getHeatColor(rank: number): string {
+  if (rank <= 1) return '#ef4444'
+  if (rank <= 2) return '#f56565'
+  if (rank <= 3) return '#f87171'
+  if (rank <= 5) return '#fb923c'
+  if (rank <= 8) return '#fdba74'
+  return '#94a3b8'
+}
+
+function getItemAnimationStyle(idx: number): Record<string, string> {
+  const delayIndex = Math.max(0, idx - animationStartIndex.value)
+  return {
+    animationDelay: `${Math.min(delayIndex, 6) * 0.05}s`,
+  }
+}
+
+function setTabButtonRef(tabValue: number, el: Element | ComponentPublicInstance | null) {
+  if (el instanceof HTMLElement) {
+    tabButtonRefs.set(tabValue, el)
+    return
+  }
+  tabButtonRefs.delete(tabValue)
+}
+
+function scrollActiveTabIntoView(userTriggered = false) {
+  if (!import.meta.client) {
+    return
+  }
+
+  const tabsEl = tabsRef.value
+  const activeBtn = tabButtonRefs.get(rankType.value)
+  if (!tabsEl || !activeBtn) {
+    return
+  }
+
+  const isMobile = window.innerWidth <= 768
+  if (!isMobile && !userTriggered) {
+    return
+  }
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  activeBtn.scrollIntoView({
+    inline: 'center',
+    block: 'nearest',
+    behavior: userTriggered && !prefersReducedMotion ? 'smooth' : 'auto',
+  })
+}
+
+async function fetchRanking(append = false) {
+  const nextAnimationStartIndex = append ? items.value.length : 0
+  if (append) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+  }
+  try {
+    const res = await rankingApi.getSmartWithRecentFallback({ rankType: rankType.value, limit, offset: offset.value })
+    const data = res.items || []
+    rankingMeta.value = res.meta || null
+    rankingSource.value = res.source
+
+    if (res.source === 'recent') {
+      if (!append) {
+        animationStartIndex.value = 0
+        items.value = data
+        animKey.value += 1
+      }
+      hasMore.value = false
+      return
+    }
+
+    animationStartIndex.value = nextAnimationStartIndex
+    items.value = append ? [...items.value, ...data] : data
+    hasMore.value = data.length === limit
+    if (!append) {
+      animKey.value += 1
+    }
+  } catch {
+    if (!append) items.value = []
+    rankingMeta.value = null
+    rankingSource.value = 'ranking'
+    hasMore.value = false
+  } finally {
+    if (append) {
+      loadingMore.value = false
+    } else {
+      loading.value = false
+    }
+  }
+}
+
+async function switchTab(value: number) {
+  if (rankType.value === value) return
+  rankType.value = value
+  await nextTick()
+  scrollActiveTabIntoView(true)
+  rankingMeta.value = null
+  rankingSource.value = 'ranking'
+  offset.value = 0
+  hasMore.value = true
+  await fetchRanking(false)
+}
+
+function switchTabByOffset(offsetValue: number) {
+  const currentIndex = tabs.findIndex(tab => tab.value === rankType.value)
+  if (currentIndex === -1) {
+    return
+  }
+
+  const nextIndex = currentIndex + offsetValue
+  if (nextIndex < 0 || nextIndex >= tabs.length) {
+    return
+  }
+
+  const targetTab = tabs[nextIndex]
+  if (!targetTab) {
+    return
+  }
+
+  void switchTab(targetTab.value)
+}
+
+function resetTouchState() {
+  touchTracking = false
+  touchStartX = 0
+  touchStartY = 0
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchStart(event: TouchEvent) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.tabs')) {
+    resetTouchState()
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchTracking = true
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  touchDeltaX = 0
+  touchDeltaY = 0
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!touchTracking) {
+    return
+  }
+
+  const touch = event.touches[0]
+  if (!touch) {
+    return
+  }
+
+  touchDeltaX = touch.clientX - touchStartX
+  touchDeltaY = touch.clientY - touchStartY
+}
+
+function handleTouchEnd() {
+  if (!touchTracking) {
+    return
+  }
+
+  const absX = Math.abs(touchDeltaX)
+  const absY = Math.abs(touchDeltaY)
+  const isHorizontalSwipe = absX >= SWIPE_TRIGGER_X && absX > absY * 1.15
+
+  if (isHorizontalSwipe) {
+    if (touchDeltaX < 0) {
+      switchTabByOffset(1)
+    } else {
+      switchTabByOffset(-1)
+    }
+  }
+
+  resetTouchState()
+}
+
+function handleTouchCancel() {
+  if (!touchTracking) {
+    return
+  }
+
+  resetTouchState()
+}
+
+async function loadMore() {
+  if (rankingSource.value === 'recent') return
+  if (!hasMore.value || loading.value || loadingMore.value) return
+  offset.value += limit
+  await fetchRanking(true)
+}
+
+onMounted(() => {
+  fetchRanking(false)
+  nextTick(() => {
+    scrollActiveTabIntoView(false)
+  })
+})
+</script>
+
+<style scoped lang="scss">
+.ranking-page {
+  max-width: var(--layout-max-width);
+  margin: 0 auto;
+  padding: var(--layout-page-padding-y) var(--layout-page-padding-x);
+}
+
+.page-header {
+  margin-bottom: var(--layout-page-header-margin-bottom);
+}
+
+.page-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.62rem;
+  min-width: 0;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-page-title-gap);
+  margin: 0;
+  font-size: var(--layout-page-title-size);
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2rem;
+  color: $color-text;
+  .dark & { color: $color-dark-text; }
+}
+
+.page-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: $color-text-muted;
+  white-space: nowrap;
+  .dark & { color: $color-dark-text-muted; }
+}
+
+.ranking-panel {
+  border: 1px solid $color-border;
+  border-radius: 16px;
+  background: $color-bg;
+  padding: 0.9rem;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg-secondary;
+    box-shadow: none;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.tab-btn {
+  border: 1px solid $color-border;
+  background: $color-bg;
+  color: $color-text-muted;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover { border-color: $color-primary; color: $color-primary; }
+  }
+
+  &.active {
+    border-color: $color-primary;
+    color: #fff;
+    background: $color-primary;
+    box-shadow: 0 6px 14px rgba(59, 130, 246, 0.28);
+  }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg;
+    color: $color-dark-text-muted;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        border-color: rgba(147, 197, 253, 0.56);
+        color: $color-dark-text;
+        background: rgba(148, 163, 184, 0.12);
+      }
+    }
+
+    &.active {
+      border-color: rgba(147, 197, 253, 0.54);
+      color: #f8fbff;
+      background: rgba(59, 130, 246, 0.38);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.42);
+    }
+  }
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: $color-text-muted;
+  border-radius: 12px;
+}
+
+.state--hint {
+  justify-content: flex-start;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.05);
+  font-size: 0.82rem;
+
+  .dark & {
+    color: var(--status-info);
+    border-color: var(--status-info-soft-border);
+    background: var(--status-info-soft-bg);
+  }
+}
+
+.state--empty {
+  min-height: 250px;
+  justify-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+
+  .dark & {
+    color: $color-dark-text-muted;
+    border-color: rgba(148, 163, 184, 0.38);
+    background: rgba(15, 23, 42, 0.24);
+  }
+}
+
+.list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ranking-items {
+  animation: ranking-fade-in 0.2s ease-in-out;
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.animate-item {
+  opacity: 0;
+  transform: translateX(-5px);
+  animation: ranking-slide-in 0.3s ease-out forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes ranking-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ranking-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.item {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  border: 1px solid $color-border;
+  border-radius: 12px;
+  padding: 0.9rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+  &:hover {
+    border-color: $color-primary;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.1);
+  }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: rgba(16, 18, 21, 0.78);
+
+    &:hover {
+      border-color: rgba(147, 197, 253, 0.52);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.44);
+    }
+  }
+}
+
+.rank {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: $color-text-muted;
+  background: rgba(148, 163, 184, 0.14);
+  &.rank-1 { color: #fff; background: linear-gradient(135deg, #f59e0b, #d97706); }
+  &.rank-2 { color: #fff; background: linear-gradient(135deg, #94a3b8, #64748b); }
+  &.rank-3 { color: #fff; background: linear-gradient(135deg, #d97706, #b45309); }
+
+  .dark &:not(.rank-1):not(.rank-2):not(.rank-3) {
+    color: $color-dark-text-muted;
+    background: rgba(148, 163, 184, 0.18);
+  }
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.35;
+    color: $color-text;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+    .dark & {
+      color: $color-dark-text;
+    }
+  }
+  p {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: $color-text-muted;
+
+    .dark & {
+      color: $color-dark-text-muted;
+    }
+  }
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.65rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  line-height: 1;
+}
+
+.score {
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.footer {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border: 1px solid $color-border;
+  border-radius: 999px;
+  background: $color-bg;
+  color: $color-text-muted;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+
+  .more-btn-icon {
+    transition: transform 0.5s ease;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.8), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.8s ease;
+  }
+
+  &:hover:not(:disabled) {
+    color: $color-primary;
+    border-color: $color-primary;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+
+    &::before {
+      transform: translateX(100%);
+    }
+
+    .more-btn-icon {
+      transform: rotate(180deg);
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .dark & {
+    border-color: $color-dark-border;
+    background: $color-dark-bg-secondary;
+    color: #94a3b8;
+    box-shadow: 0 2px 10px rgba(2, 6, 23, 0.32);
+
+    &::before {
+      background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.2), transparent);
+    }
+
+    &:hover:not(:disabled) {
+      border-color: rgba(148, 163, 184, 0.52);
+      color: $color-dark-text;
+      background: rgba(23, 27, 32, 0.95);
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.4);
+
+      &::before {
+        transform: translateX(100%);
+      }
+    }
+
+    &:active:not(:disabled) {
+      box-shadow: 0 2px 8px rgba(2, 6, 23, 0.45);
+    }
+  }
+}
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: $breakpoint-md) {
+  .page-title-row {
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.22rem 0.5rem;
+  }
+
+  .page-desc {
+    white-space: normal;
+  }
+
+  .ranking-panel {
+    padding: 0.7rem;
+    border-radius: 14px;
+  }
+
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    padding-bottom: 2px;
+    margin-bottom: 0.85rem;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .item {
+    align-items: flex-start;
+  }
+
+  .score {
+    margin-top: 0.12rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ranking-items,
+  .animate-item,
+  .spin {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+</style>

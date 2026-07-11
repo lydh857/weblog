@@ -1,0 +1,269 @@
+@use 'variables' as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: $font-family-base;
+  font-size: 16px;
+  line-height: 1.6;
+  color: $color-text;
+  background-color: $color-bg;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--global-scrollbar-thumb) var(--global-scrollbar-track);
+
+  @media (min-width: $breakpoint-md) {
+    font-size: 17px;
+  }
+  @media (min-width: $breakpoint-lg) {
+    font-size: 18px;
+  }
+
+  &.dark {
+    color: $color-dark-text;
+    background-color: $color-dark-bg;
+    scrollbar-color: var(--global-scrollbar-thumb) var(--global-scrollbar-track);
+  }
+}
+
+body {
+  background: $color-bg-page;
+  color: $color-text;
+  transition: background-color 0.28s ease, color 0.28s ease;
+}
+
+html.startup-theme-lock body {
+  transition: none;
+}
+
+html[data-theme-switching='1'],
+html[data-theme-switching='1'] *,
+html[data-theme-switching='1'] *::before,
+html[data-theme-switching='1'] *::after {
+  transition-property: background, background-color, color, border-color, box-shadow, fill, stroke, outline-color, text-decoration-color;
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-switching='1'],
+  html[data-theme-switching='1'] *,
+  html[data-theme-switching='1'] *::before,
+  html[data-theme-switching='1'] *::after,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+  }
+}
+
+html.dark body {
+  background: $color-dark-bg;
+  color: $color-dark-text;
+}
+
+:root {
+  --layout-max-width: 1400px;
+  --layout-page-padding-y: 2rem;
+  --layout-page-padding-x: 1.5rem;
+  --layout-page-header-margin-bottom: 1.5rem;
+  --layout-page-title-size: 1.6rem;
+  --layout-page-title-gap: 0.45rem;
+  --layout-page-desc-margin-top: 0.4rem;
+  --z-navbar: 100;
+  --z-startup: 90000;
+  --z-toast: 80000;
+  --z-read-limit: 55000;
+  --z-modal: 60000;
+  --z-captcha: 65000;
+  --z-confirm: 70000;
+  --theme-dark-bg: #101215;
+  --theme-dark-surface: #171b20;
+  --theme-dark-elevated: #1d232a;
+  --theme-dark-border: #2a313a;
+  --startup-mask-bg: radial-gradient(120% 120% at 0% 0%, rgba(37, 99, 235, 0.09), transparent 46%), radial-gradient(120% 120% at 100% 100%, rgba(14, 165, 233, 0.11), transparent 52%), linear-gradient(180deg, #ffffff, #f8fafc);
+  --startup-loader-text-color: #4e6ea8;
+  --startup-loader-shadow: drop-shadow(0 8px 20px rgba(32, 61, 120, 0.2));
+  --status-info: #3b82f6;
+  --status-info-soft-bg: #eff6ff;
+  --status-info-soft-border: #93c5fd;
+  --status-success: #16a34a;
+  --status-success-soft-bg: #f0fdf4;
+  --status-success-soft-border: #86efac;
+  --status-warning: #b45309;
+  --status-warning-soft-bg: #fef3c7;
+  --status-warning-soft-border: #facc15;
+  --status-danger: #dc2626;
+  --status-danger-soft-bg: #fef2f2;
+  --status-danger-soft-border: #fca5a5;
+  --global-scrollbar-track: #f5f5f5;
+  --global-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --global-scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+  --checkbox-accent: #3b82f6;
+}
+
+html.dark {
+  --startup-mask-bg: radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.13), transparent 45%), radial-gradient(120% 120% at 100% 100%, rgba(56, 189, 248, 0.1), transparent 52%), linear-gradient(180deg, #171b20, #101215);
+  --startup-loader-text-color: #d7e4fb;
+  --startup-loader-shadow: drop-shadow(0 10px 24px rgba(2, 6, 23, 0.6));
+  --status-info: #93c5fd;
+  --status-info-soft-bg: rgba(59, 130, 246, 0.16);
+  --status-info-soft-border: rgba(147, 197, 253, 0.34);
+  --status-success: #86efac;
+  --status-success-soft-bg: rgba(34, 197, 94, 0.14);
+  --status-success-soft-border: rgba(134, 239, 172, 0.56);
+  --status-warning: #fbbf24;
+  --status-warning-soft-bg: rgba(251, 191, 36, 0.22);
+  --status-warning-soft-border: rgba(251, 191, 36, 0.62);
+  --status-danger: #fb7185;
+  --status-danger-soft-bg: rgba(244, 63, 94, 0.22);
+  --status-danger-soft-border: rgba(251, 113, 133, 0.62);
+  --global-scrollbar-track: #101215;
+  --global-scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --global-scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+  --checkbox-accent: #93c5fd;
+}
+
+@media (max-width: $breakpoint-md) {
+  :root {
+    --layout-page-padding-y: 1.5rem;
+    --layout-page-padding-x: 1rem;
+  }
+}
+
+a {
+  color: $color-primary;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 触摸优化：所有按钮和可点击元素最小 44×44px */
+@media (pointer: coarse) {
+  .touch-target,
+  [data-touch-target="true"],
+  .chip,
+  .page-btn,
+  .icon-btn,
+  .nav-link,
+  .mobile-link,
+  .filter-chip,
+  .category-card,
+  .tag-chip {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ===== 局部自绘滚动条（由 v-custom-scrollbar 指令挂载） ===== */
+.v-custom-scrollbar-host {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.v-custom-scrollbar-host::-webkit-scrollbar,
+.v-custom-scrollbar-host::-webkit-scrollbar-button,
+.v-custom-scrollbar-host::-webkit-scrollbar-track,
+.v-custom-scrollbar-host::-webkit-scrollbar-thumb,
+.v-custom-scrollbar-host::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.v-custom-scrollbar-rail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  opacity: 0.72;
+  user-select: none;
+  transition: width 0.2s ease, opacity 0.2s ease;
+  z-index: 2;
+}
+
+.v-custom-scrollbar-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 12px;
+  height: 100%;
+}
+
+.v-custom-scrollbar-thumb {
+  width: 100%;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.4);
+  transition: background-color 0.2s ease;
+}
+
+.v-custom-scrollbar-rail:hover,
+.v-custom-scrollbar-rail.is-dragging {
+  width: 8px;
+  opacity: 1;
+}
+
+.v-custom-scrollbar-rail:hover .v-custom-scrollbar-thumb,
+.v-custom-scrollbar-rail.is-dragging .v-custom-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.v-custom-scrollbar-rail.is-dark .v-custom-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.v-custom-scrollbar-rail.is-dark:hover .v-custom-scrollbar-thumb,
+.v-custom-scrollbar-rail.is-dark.is-dragging .v-custom-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.58);
+}
+
+@media (pointer: coarse), (max-width: 1024px) {
+  .v-custom-scrollbar-rail {
+    display: none !important;
+  }
+}
+
+/* 视口滚动条策略：桌面端使用自绘，移动端保留原生 */
+@media (pointer: fine) and (min-width: 1025px) {
+  html,
+  body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+}
+
+/* 隐藏滚动条的工具类 */
+.scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
