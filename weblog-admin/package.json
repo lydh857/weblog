@@ -20,7 +20,7 @@
     "dayjs": "1.11.19",
     "dompurify": "^3.4.11",
     "echarts": "^6.1.0",
-    "element-plus": "^2.9.0",
+    "element-plus": "^2.14.3",
     "lodash-unified": "^1.0.3",
     "md-editor-v3": "^6.3.1",
     "nuxt": "^4.4.7",
