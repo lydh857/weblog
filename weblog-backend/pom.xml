@@ -55,7 +55,7 @@
         <jackson.version>2.18.8</jackson.version>
         <tomcat.version>10.1.54</tomcat.version>
         <netty.version>4.1.135.Final</netty.version>
-        <protobuf.version>3.25.5</protobuf.version>
+        <protobuf.version>4.35.1</protobuf.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <spring-ai.version>1.0.0</spring-ai.version>
         <lombok.version>1.18.36</lombok.version>
