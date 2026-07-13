@@ -42,7 +42,7 @@
         <sa-token.version>1.45.0</sa-token.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
         <hutool.version>5.8.43</hutool.version>
-        <jsoup.version>1.19.1</jsoup.version>
+        <jsoup.version>1.22.2</jsoup.version>
         <lucene.version>9.10.0</lucene.version>
         <ik-analyzer.version>9.0.0</ik-analyzer.version>
         <bucket4j.version>8.7.0</bucket4j.version>
