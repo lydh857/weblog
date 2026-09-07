@@ -39,7 +39,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- 依赖版本管理 -->
-        <sa-token.version>1.45.0</sa-token.version>
+        <sa-token.version>1.46.0</sa-token.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
         <hutool.version>5.8.43</hutool.version>
         <jsoup.version>1.19.1</jsoup.version>
