@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - 'weblog-admin/**'
+      - 'weblog-user/**'
+      - '.github/workflows/frontend-security-audit.yml'
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:

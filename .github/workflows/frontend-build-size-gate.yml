@@ -4,6 +4,11 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - 'weblog-admin/**'
+      - 'weblog-user/**'
+      - 'scripts/**'
+      - '.github/workflows/frontend-build-size-gate.yml'
   schedule:
     - cron: '0 3 * * 1'
   workflow_dispatch:
