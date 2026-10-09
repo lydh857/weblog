@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - 'weblog-backend/**'
+      - '.github/workflows/third-party-sca.yml'
   schedule:
     - cron: '0 4 * * 2'
   workflow_dispatch:
